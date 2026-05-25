@@ -190,7 +190,7 @@ function GaleriaEventoPreview({ data, evento, isEditor }) {
 
 /* TICKETS */
 function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
-  const tickets = (evento.tipos_ticket || []).filter(t => t.activo);
+  const tickets = (evento.ticket_types || evento.tipos_ticket || []).filter(t => t.activo);
   if (tickets.length === 0) {
     if (!isEditor) return null;
     return (
