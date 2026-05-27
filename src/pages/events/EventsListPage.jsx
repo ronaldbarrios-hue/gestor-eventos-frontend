@@ -23,7 +23,7 @@ const ESTADOS = [
 ];
 
 export default function EventsListPage() {
-  const { hasPermiso }         = useAuth();
+  const { hasPermiso }          = useAuth();
   const { success, error: err } = useToast();
   const [eventos,  setEventos]  = useState([]);
   const [total,    setTotal]    = useState(0);
@@ -51,10 +51,17 @@ export default function EventsListPage() {
 
   useEffect(() => { fetchEventos(); }, [fetchEventos]);
 
+  /* Refrescar cuando Gestbot crea/edita un evento */
+  useEffect(() => {
+    const handler = () => fetchEventos();
+    window.addEventListener('gestek:refrescar-eventos', handler);
+    return () => window.removeEventListener('gestek:refrescar-eventos', handler);
+  }, [fetchEventos]);
+
   const handleFilter = (key, val) => setFilters(f => ({ ...f, [key]: val, page: 1 }));
 
   const handleDelete = async (id, nombre) => {
-    if (!(await confirmDialog({ message:(`¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`), danger:true }))) return;
+    if (!(await confirmDialog({ message: `¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`, danger: true }))) return;
     setDeleting(id);
     try {
       await eventosApi.delete(id);
@@ -123,8 +130,6 @@ export default function EventsListPage() {
             Limpiar
           </button>
         )}
-
-        {/* View toggle */}
         <div className="ml-auto flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
           <button
             onClick={() => setView('grid')}
@@ -249,7 +254,6 @@ export default function EventsListPage() {
               </tbody>
             </table>
           </div>
-
           {total > 20 && (
             <div className="card-footer flex items-center justify-between">
               <p className="text-xs text-text-2">Página {filters.page} · {total} resultados</p>
