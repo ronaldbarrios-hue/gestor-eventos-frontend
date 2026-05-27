@@ -4,12 +4,10 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { ConfirmHost } from './components/ui/Confirm.jsx';
 import GLoader from './components/ui/GLoader.jsx';
-
-import PublicLayout      from './components/layout/PublicLayout.jsx';
-import AppLayout         from './components/layout/AppLayout.jsx';
-
-import LandingHomePage   from './pages/public/LandingHomePage.jsx';
-import AuthPage          from './pages/AuthPage.jsx';
+import PublicLayout from './components/layout/PublicLayout.jsx';
+import AppLayout from './components/layout/AppLayout.jsx';
+import LandingHomePage from './pages/public/LandingHomePage.jsx';
+import AuthPage from './pages/AuthPage.jsx';
 
 const ComoFuncionaPage   = lazy(() => import('./pages/public/ComoFuncionaPage.jsx'));
 const ProductoPage       = lazy(() => import('./pages/public/ProductoPage.jsx'));
@@ -18,25 +16,25 @@ const EventoPublicoPage  = lazy(() => import('./pages/public/EventoPublicoPage.j
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
 const PlanesPage         = lazy(() => import('./pages/public/PlanesPage.jsx'));
 const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
-
-const RecuperarPage       = lazy(() => import('./pages/RecuperarPage.jsx'));
-const ResetPasswordPage   = lazy(() => import('./pages/ResetPasswordPage.jsx'));
-const ConfirmarPage       = lazy(() => import('./pages/ConfirmarPage.jsx'));
-const CompletarPerfilPage = lazy(() => import('./pages/CompletarPerfilPage.jsx'));
-const DashboardPage       = lazy(() => import('./pages/DashboardPage.jsx'));
-const EventsListPage      = lazy(() => import('./pages/events/EventsListPage.jsx'));
-const EventCreatePage     = lazy(() => import('./pages/events/EventCreatePage.jsx'));
-const EventDetailPage     = lazy(() => import('./pages/events/EventDetailPage.jsx'));
-const EventEditPage       = lazy(() => import('./pages/events/EventEditPage.jsx'));
-const UsersPage           = lazy(() => import('./pages/users/UsersPage.jsx'));
-const SettingsPage        = lazy(() => import('./pages/settings/SettingsPage.jsx'));
-const GestbotPage         = lazy(() => import('./pages/agente/GestbotPage.jsx'));
-const ChatHubPage         = lazy(() => import('./pages/chat/ChatHubPage.jsx'));
-const PagosPage           = lazy(() => import('./pages/settings/PagosPage.jsx'));
-const NotificacionesPage  = lazy(() => import('./pages/settings/NotificacionesPage.jsx'));
-const RecompensasPage     = lazy(() => import('./pages/settings/RecompensasPage.jsx'));
-const WhiteLabelPage      = lazy(() => import('./pages/settings/WhiteLabelPage.jsx'));
-const MiTrabajoPage       = lazy(() => import('./pages/equipo/MiTrabajoPage.jsx'));
+const RecuperarPage      = lazy(() => import('./pages/RecuperarPage.jsx'));
+const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage.jsx'));
+const ConfirmarPage      = lazy(() => import('./pages/ConfirmarPage.jsx'));
+const CompletarPerfilPage= lazy(() => import('./pages/CompletarPerfilPage.jsx'));
+const DashboardPage      = lazy(() => import('./pages/DashboardPage.jsx'));
+const EventsListPage     = lazy(() => import('./pages/events/EventsListPage.jsx'));
+const EventCreatePage    = lazy(() => import('./pages/events/EventCreatePage.jsx'));
+const EventDetailPage    = lazy(() => import('./pages/events/EventDetailPage.jsx'));
+const EventEditPage      = lazy(() => import('./pages/events/EventEditPage.jsx'));
+const UsersPage          = lazy(() => import('./pages/users/UsersPage.jsx'));
+const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage.jsx'));
+const GestbotPage        = lazy(() => import('./pages/agente/GestbotPage.jsx'));
+const ChatHubPage        = lazy(() => import('./pages/chat/ChatHubPage.jsx'));
+const PagosPage          = lazy(() => import('./pages/settings/PagosPage.jsx'));
+const NotificacionesPage = lazy(() => import('./pages/settings/NotificacionesPage.jsx'));
+const RecompensasPage    = lazy(() => import('./pages/settings/RecompensasPage.jsx'));
+const WhiteLabelPage     = lazy(() => import('./pages/settings/WhiteLabelPage.jsx'));
+const MiTrabajoPage      = lazy(() => import('./pages/equipo/MiTrabajoPage.jsx'));
+const MisBoletasPage     = lazy(() => import('./pages/settings/MisBoletasPage.jsx'));
 
 function AuthLoader() {
   return (
@@ -72,7 +70,6 @@ export default function App() {
         <AuthProvider>
           <Suspense fallback={<AuthLoader />}>
             <Routes>
-              {/* Sitio público */}
               <Route element={<PublicLayout />}>
                 <Route path="/"                  element={<LandingHomePage />} />
                 <Route path="/como-funciona"     element={<ComoFuncionaPage />} />
@@ -84,35 +81,32 @@ export default function App() {
                 <Route path="/faq"               element={<FAQPage />} />
               </Route>
 
-              {/* Auth */}
               <Route path="/login"    element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
               <Route path="/register" element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
               <Route path="/acceder"  element={<Navigate to="/login" replace />} />
               <Route path="/recuperar"        element={<RecuperarPage />} />
               <Route path="/restablecer"      element={<ResetPasswordPage />} />
               <Route path="/confirmar"        element={<ConfirmarPage />} />
-              <Route path="/completar-perfil" element={
-                <PrivateRoute allowIncomplete><CompletarPerfilPage /></PrivateRoute>
-              } />
+              <Route path="/completar-perfil" element={<PrivateRoute allowIncomplete><CompletarPerfilPage /></PrivateRoute>} />
 
-              {/* App protegida */}
               <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-                <Route path="/dashboard"              element={<DashboardPage />} />
-                <Route path="/eventos"                element={<EventsListPage />} />
-                <Route path="/eventos/nuevo"          element={<EventCreatePage />} />
-                <Route path="/eventos/:id"            element={<EventDetailPage />} />
-                <Route path="/eventos/:id/editar"     element={<EventEditPage />} />
-                <Route path="/app/explorar"           element={<ExplorarPage />} />
-                <Route path="/app/explorar/:slug"     element={<EventoPublicoPage />} />
-                <Route path="/gestbot"                element={<GestbotPage />} />
-                <Route path="/chat"                   element={<ChatHubPage />} />
-                <Route path="/pagos"                  element={<PagosPage />} />
-                <Route path="/notificaciones"         element={<NotificacionesPage />} />
-                <Route path="/recompensas"            element={<RecompensasPage />} />
-                <Route path="/white-label"            element={<WhiteLabelPage />} />
-                <Route path="/mi-trabajo"             element={<MiTrabajoPage />} />
-                <Route path="/usuarios"               element={<UsersPage />} />
-                <Route path="/configuracion"          element={<SettingsPage />} />
+                <Route path="/dashboard"          element={<DashboardPage />} />
+                <Route path="/eventos"            element={<EventsListPage />} />
+                <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
+                <Route path="/eventos/:id"        element={<EventDetailPage />} />
+                <Route path="/eventos/:id/editar" element={<EventEditPage />} />
+                <Route path="/app/explorar"       element={<ExplorarPage />} />
+                <Route path="/app/explorar/:slug" element={<EventoPublicoPage />} />
+                <Route path="/mis-boletas"        element={<MisBoletasPage />} />
+                <Route path="/gestbot"            element={<GestbotPage />} />
+                <Route path="/chat"               element={<ChatHubPage />} />
+                <Route path="/pagos"              element={<PagosPage />} />
+                <Route path="/notificaciones"     element={<NotificacionesPage />} />
+                <Route path="/recompensas"        element={<RecompensasPage />} />
+                <Route path="/white-label"        element={<WhiteLabelPage />} />
+                <Route path="/mi-trabajo"         element={<MiTrabajoPage />} />
+                <Route path="/usuarios"           element={<UsersPage />} />
+                <Route path="/configuracion"      element={<SettingsPage />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />
