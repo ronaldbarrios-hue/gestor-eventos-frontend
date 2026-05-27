@@ -7,32 +7,33 @@ const NAV_SECTIONS = [
   {
     label: 'Principal',
     items: [
-      { to: '/dashboard',  icon: HomeIcon,     label: 'Dashboard' },
-      { to: '/eventos',    icon: CalendarIcon, label: 'Eventos'   },
+      { to: '/dashboard',  icon: HomeIcon,      label: 'Dashboard'  },
+      { to: '/eventos',    icon: CalendarIcon,  label: 'Eventos'    },
+      { to: '/explorar',   icon: CompassIcon,   label: 'Explorar'   },
       { to: '/mi-trabajo', icon: BriefcaseIcon, label: 'Mi trabajo' },
     ],
   },
   {
     label: 'Asistente',
     items: [
-      { to: '/gestbot',   icon: RobotIcon, label: 'Gestbot', pro: true },
-      { to: '/chat',      icon: ChatIcon,  label: 'Chat'  },
+      { to: '/gestbot', icon: RobotIcon, label: 'Gestbot', pro: true },
+      { to: '/chat',    icon: ChatIcon,  label: 'Chat'               },
     ],
   },
   {
     label: 'Cuenta',
     items: [
-      { to: '/pagos',          icon: WalletIcon, label: 'Pagos' },
+      { to: '/pagos',          icon: WalletIcon, label: 'Pagos'          },
       { to: '/notificaciones', icon: BellIcon,   label: 'Notificaciones' },
-      { to: '/recompensas',    icon: GiftIcon,   label: 'Recompensas' },
-      { to: '/white-label',    icon: PaintIcon,  label: 'White-label' },
+      { to: '/recompensas',    icon: GiftIcon,   label: 'Recompensas'    },
+      { to: '/white-label',    icon: PaintIcon,  label: 'White-label'    },
     ],
   },
   {
     label: 'Admin',
     items: [
       { to: '/usuarios',      icon: UsersIcon,    label: 'Usuarios', permiso: 'usuarios:ver' },
-      { to: '/configuracion', icon: SettingsIcon, label: 'Ajustes' },
+      { to: '/configuracion', icon: SettingsIcon, label: 'Ajustes'                           },
     ],
   },
 ];
@@ -50,7 +51,6 @@ export default function Sidebar({ mobile = false, onClose }) {
     .join('')
     .toUpperCase() || 'U';
 
-  /* Plan real (lee /me/plan). */
   const { esPro } = usePlan();
 
   return (
@@ -58,8 +58,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       {/* Logo */}
       <div className="px-4 py-5 border-b border-border flex items-center justify-between gap-2">
         <NavLink to="/dashboard" className="flex items-center gap-3 group flex-1 min-w-0">
-          <div className="flex-shrink-0 transition-transform group-hover:scale-110
-                          animate-[float_5s_ease-in-out_infinite]">
+          <div className="flex-shrink-0 transition-transform group-hover:scale-110 animate-[float_5s_ease-in-out_infinite]">
             <GestekMark size={42} pro={esPro} />
           </div>
           <div className="min-w-0">
@@ -84,7 +83,9 @@ export default function Sidebar({ mobile = false, onClose }) {
         {mobile && (
           <button onClick={onClose} aria-label="Cerrar"
             className="w-9 h-9 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         )}
       </div>
@@ -130,7 +131,8 @@ export default function Sidebar({ mobile = false, onClose }) {
             <p className="text-xs text-text-3 truncate mt-0.5">{usuario?.email}</p>
           </div>
         </NavLink>
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[15px] font-medium text-danger/80 hover:text-danger hover:bg-danger/10 transition-all">
+        <button onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[15px] font-medium text-danger/80 hover:text-danger hover:bg-danger/10 transition-all">
           <LogoutIcon className="w-[18px] h-[18px] flex-shrink-0" />
           <span>Cerrar sesión</span>
         </button>
@@ -144,6 +146,9 @@ function HomeIcon({ className }) {
 }
 function CalendarIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+}
+function CompassIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 22a10 10 0 100-20 10 10 0 000 20z"/><path strokeLinecap="round" strokeLinejoin="round" d="M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"/></svg>;
 }
 function RobotIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v3m-5 3h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 01-2-2v-6a2 2 0 012-2zm2 5h.01M14 14h.01M9 17h6M4 12H3m18 0h-1" /><circle cx="12" cy="3" r="1" /></svg>;
