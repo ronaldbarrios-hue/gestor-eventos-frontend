@@ -23,10 +23,11 @@ const NAV_SECTIONS = [
   {
     label: 'Cuenta',
     items: [
-      { to: '/pagos',          icon: WalletIcon, label: 'Pagos'          },
-      { to: '/notificaciones', icon: BellIcon,   label: 'Notificaciones' },
-      { to: '/recompensas',    icon: GiftIcon,   label: 'Recompensas'    },
-      { to: '/white-label',    icon: PaintIcon,  label: 'White-label'    },
+      { to: '/mis-boletas',    icon: TicketIcon,  label: 'Mis boletas'    },
+      { to: '/pagos',          icon: WalletIcon,  label: 'Pagos'          },
+      { to: '/notificaciones', icon: BellIcon,    label: 'Notificaciones' },
+      { to: '/recompensas',    icon: GiftIcon,    label: 'Recompensas'    },
+      { to: '/white-label',    icon: PaintIcon,   label: 'White-label'    },
     ],
   },
   {
@@ -55,7 +56,6 @@ export default function Sidebar({ mobile = false, onClose }) {
 
   return (
     <aside className={`${mobile ? 'w-full' : 'w-[var(--sidebar-w)]'} h-full flex-shrink-0 bg-surface border-r border-border flex flex-col`}>
-      {/* Logo */}
       <div className="px-4 py-5 border-b border-border flex items-center justify-between gap-2">
         <NavLink to="/dashboard" className="flex items-center gap-3 group flex-1 min-w-0">
           <div className="flex-shrink-0 transition-transform group-hover:scale-110 animate-[float_5s_ease-in-out_infinite]">
@@ -74,9 +74,7 @@ export default function Sidebar({ mobile = false, onClose }) {
                 Pro
               </span>
             ) : (
-              <p className="text-[11px] leading-none mt-0.5 font-semibold uppercase tracking-widest text-text-3">
-                Free
-              </p>
+              <p className="text-[11px] leading-none mt-0.5 font-semibold uppercase tracking-widest text-text-3">Free</p>
             )}
           </div>
         </NavLink>
@@ -90,7 +88,6 @@ export default function Sidebar({ mobile = false, onClose }) {
         )}
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
         {NAV_SECTIONS.map(section => (
           <div key={section.label}>
@@ -98,18 +95,11 @@ export default function Sidebar({ mobile = false, onClose }) {
             {section.items.map(({ to, icon: Icon, label, permiso, pro }) => {
               if (permiso && !hasPermiso(permiso)) return null;
               return (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-                >
+                <NavLink key={to} to={to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   <Icon className="w-[18px] h-[18px] flex-shrink-0" />
                   <span className="flex-1">{label}</span>
                   {pro && !esPro && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-accent-light
-                                     bg-accent/15 border border-accent/30 rounded px-1.5 py-0.5">
-                      Pro
-                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-accent-light bg-accent/15 border border-accent/30 rounded px-1.5 py-0.5">Pro</span>
                   )}
                 </NavLink>
               );
@@ -118,7 +108,6 @@ export default function Sidebar({ mobile = false, onClose }) {
         ))}
       </nav>
 
-      {/* User footer */}
       <div className="px-2 pb-3 pt-2 border-t border-border space-y-1">
         <NavLink to="/configuracion" className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-2 transition-colors">
           <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-primary flex items-center justify-center">
@@ -155,6 +144,9 @@ function RobotIcon({ className }) {
 }
 function ChatIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>;
+}
+function TicketIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;
 }
 function WalletIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h.01M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>;
