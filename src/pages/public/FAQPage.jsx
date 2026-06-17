@@ -1,6 +1,6 @@
 import { useState } from 'react';
 const FAQS = [
-  { q: '¿Qué incluye el plan gratis?', a: 'Todo lo esencial para operar eventos: creación, página pública, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B.' },
+  { q: '¿Qué incluye el plan gratis?', a: 'Todo lo esencial para operar eventos: creación, página pública, asistentes ilimitados, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B.' },
   { q: '¿Qué agrega el plan Pro?', a: 'Comodidades y branding: agente IA que arma tus eventos según contexto, personalización de colores y tipografía, white-label (tu logo en vez de GESTEK), analytics avanzados y soporte prioritario.' },
   { q: '¿Cómo funciona la pasarela BRE-B?', a: 'Tú pegas tu llave o subes tu código QR de BRE-B en tu cuenta de organizador. Los pagos van directo a ti — GESTEK no toca ese dinero ni cobra comisión en el plan gratis.' },
   { q: '¿Necesito tarjeta de crédito para registrarme?', a: 'No. El plan gratis no requiere tarjeta. Solo registras correo y contraseña.' },
