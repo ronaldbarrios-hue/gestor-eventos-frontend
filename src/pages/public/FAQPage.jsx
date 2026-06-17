@@ -1,7 +1,6 @@
 import { useState } from 'react';
-
 const FAQS = [
-  { q: '¿Qué incluye el plan gratis?', a: 'Todo lo esencial para operar eventos: creación, página pública, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B. Sin límite artificial en lo principal.' },
+  { q: '¿Qué incluye el plan gratis?', a: 'Todo lo esencial para operar eventos: creación, página pública, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B.' },
   { q: '¿Qué agrega el plan Pro?', a: 'Comodidades y branding: agente IA que arma tus eventos según contexto, personalización de colores y tipografía, white-label (tu logo en vez de GESTEK), analytics avanzados y soporte prioritario.' },
   { q: '¿Cómo funciona la pasarela BRE-B?', a: 'Tú pegas tu llave o subes tu código QR de BRE-B en tu cuenta de organizador. Los pagos van directo a ti — GESTEK no toca ese dinero ni cobra comisión en el plan gratis.' },
   { q: '¿Necesito tarjeta de crédito para registrarme?', a: 'No. El plan gratis no requiere tarjeta. Solo registras correo y contraseña.' },
@@ -10,7 +9,6 @@ const FAQS = [
   { q: '¿Puedo migrar de gratis a Pro o cancelar?', a: 'Sí. Subes a Pro cuando lo necesites y cancelas cuando quieras. Si cancelas, tus eventos y datos no se pierden.' },
   { q: '¿GESTEK tiene API?', a: 'Sí, hay API REST completa con autenticación por API key y webhooks para inscripción, pago y check-in. Documentación con ejemplos disponible.' },
 ];
-
 export default function FAQPage() {
   const [open, setOpen] = useState(0);
   return (
@@ -22,7 +20,6 @@ export default function FAQPage() {
         </h1>
         <p className="text-base text-text-2">Si no encuentras tu respuesta, escríbenos.</p>
       </header>
-
       <div className="space-y-3">
         {FAQS.map((f, i) => {
           const isOpen = open === i;
