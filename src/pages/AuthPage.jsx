@@ -322,7 +322,7 @@ function RegisterText() {
         style={staggerStyle(4)}
       >
         {[
-          ['Eventos y asistentes', 'Sin caducidad'],
+          ['Asistentes ilimitados', 'Sin caducidad'],
           ['Pagos BRE-B', 'Sin comisión'],
           ['QR + Gamificación', 'Incluido'],
           ['Multi-usuario', 'Roles granulares'],
