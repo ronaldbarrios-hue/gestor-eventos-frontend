@@ -12,7 +12,7 @@ const PLANS = [
     cta: { label: 'Empezar gratis', to: '/register', primary: true },
     badge: null,
     features: [
-      'Eventos y asistentes',
+      'Asistentes ilimitados',
       'Página pública por evento (subpath gestek.io/tu-marca)',
       'QR de check-in y check-out',
       'Recordatorios por email (T-7d, T-1d, T-1h)',
@@ -52,7 +52,7 @@ const PLANS = [
 const COMPARE = [
   { section: 'Eventos', rows: [
     ['Eventos activos',                true,         true],
-    ['Asistentes por evento',          true,         true],
+    ['Asistentes por evento',          'Ilimitados', 'Ilimitados'],
     ['Página pública del evento',      true,         true],
     ['Modalidades (presencial/virtual/híbrido)', true, true],
     ['Wizard de creación 4 pasos',     true,         true],
@@ -130,7 +130,7 @@ const COMPARE = [
 ];
 
 const FAQ = [
-  { q: '¿Hay realmente todo lo principal en el plan gratis?', a: 'Sí. Gestión completa de eventos y asistentes, QR, recordatorios, gamificación, API + webhooks, pasarela BRE-B y página pública. No hay limitaciones encubiertas — el plan Pro es para comodidad y branding, no para desbloquear funcionalidad esencial.' },
+  { q: '¿Hay realmente todo lo principal en el plan gratis?', a: 'Sí. Asistentes ilimitados, QR, recordatorios, gamificación, API + webhooks, pasarela BRE-B y página pública. No hay limitaciones encubiertas — el plan Pro es para comodidad y branding, no para desbloquear funcionalidad esencial.' },
   { q: '¿Cobran comisión sobre las ventas?', a: 'No en el plan Free ni en Pro. El dinero va directo del asistente a tu cuenta vía BRE-B usando tu llave o QR. GESTEK no toca ese flujo ni se queda con un porcentaje.' },
   { q: '¿Puedo cambiar de plan en cualquier momento?', a: 'Sí. Subes a Pro cuando quieras desde el panel. Cancelas también cuando quieras y vuelves al plan Free sin perder eventos, asistentes, configuración ni datos.' },
   { q: '¿Cómo funciona la prueba gratis de Pro?', a: '14 días con todas las funciones Pro activas. Necesitas pasarela de pago configurada solo si decides continuar al día 15 — no te cobramos antes ni automáticamente sin avisarte.' },
