@@ -300,7 +300,7 @@ function FreeIntro() {
           El plan gratuito incluye lo esencial para operar tus eventos.
         </h2>
         <p className="text-base sm:text-lg text-text-2 leading-relaxed">
-          Eventos y asistentes ilimitados, QR de check-in, agenda con vista por día,
+          Gestión completa de eventos y asistentes, QR de check-in, agenda con vista por día,
           equipo con roles y chat, programa de fidelidad con puntos y ranking, pagos
           BRE-B sin comisión y página pública con tu marca. Sin costo.
         </p>
@@ -312,7 +312,7 @@ function FreeIntro() {
 function Pillars() {
   const [ref, visible] = useReveal();
   const items = [
-    { title: 'Gratis para empezar', desc: 'Eventos y asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad, chat y página pública. Lo esencial sin pagar.' },
+    { title: 'Gratis para empezar', desc: 'Gestión completa de eventos y asistentes, QR de check-in, agenda, equipo con roles, fidelidad, chat y página pública. Lo esencial sin pagar.' },
     { title: 'Pagos sin fricción', desc: 'Conecta tu llave o QR de BRE-B y vende boletas. El dinero va directo a tu cuenta — GESTEK no se queda con comisión.' },
     { title: 'Pro cuando escalas', desc: 'Gestbot (IA que opera el evento), API + Webhooks y auditoría. 14 días de prueba gratis, luego US$ 19.99/mes.' },
   ];
@@ -663,7 +663,7 @@ function PricingTeaser() {
             <p className="text-4xl font-bold font-display text-text-1 mb-6">$0</p>
             <ul className="space-y-2.5 text-sm text-text-1 mb-7">
               {[
-                'Eventos y asistentes ilimitados',
+                'Eventos y asistentes',
                 'QR de check-in / check-out',
                 'Agenda (Día/Semana/Mes), speakers y patrocinadores',
                 'Equipo con roles + chat + sugerencias',
@@ -717,7 +717,7 @@ function PricingTeaser() {
 /* ─────────── FAQ teaser ─────────── */
 function FAQTeaser() {
   const items = [
-    { q: '¿El plan gratis tiene límite de eventos o asistentes?', a: 'No. El plan gratis cubre eventos y asistentes ilimitados. Lo principal está incluido sin trampa.' },
+    { q: '¿Qué incluye el plan gratis?', a: 'Gestión completa de eventos y asistentes, QR de check-in, agenda, equipo con roles, fidelidad y página pública. Lo principal está incluido sin trampa.' },
     { q: '¿Cobran comisión por las ventas con BRE-B?', a: 'No en el plan gratis. El dinero va directo del asistente a tu cuenta vía BRE-B. GESTEK no toca ese flujo.' },
     { q: '¿Qué pasa si cancelo el plan Pro?', a: 'Vuelves al plan gratis sin perder eventos ni datos. Solo se desactivan las funciones Pro (IA, branding, etc).' },
   ];
