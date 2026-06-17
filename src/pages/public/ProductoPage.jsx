@@ -23,7 +23,7 @@ const GROUPS = {
         cat: 'Eventos',
         icon: 'calendar',
         items: [
-          'Eventos y asistentes',
+          'Asistentes ilimitados',
           'Wizard de creación de 4 pasos',
           'Presencial, virtual o híbrido',
           'Categorías, etiquetas, visibilidad pública o privada',
