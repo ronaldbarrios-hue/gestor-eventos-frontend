@@ -51,7 +51,6 @@ export default function EventsListPage() {
 
   useEffect(() => { fetchEventos(); }, [fetchEventos]);
 
-  /* Refrescar cuando Gestbot crea/edita un evento */
   useEffect(() => {
     const handler = () => fetchEventos();
     window.addEventListener('gestek:refrescar-eventos', handler);
@@ -187,10 +186,10 @@ export default function EventsListPage() {
             <EventCard
               key={ev.id}
               evento={ev}
-              onPublicar={hasPermiso('eventos:publicar') ? handlePublicar : null}
-              onDelete={hasPermiso('eventos:eliminar') ? handleDelete : null}
-              canEdit={hasPermiso('eventos:editar')}
-              canDelete={hasPermiso('eventos:eliminar')}
+              onPublicar={ev.soyOwner && hasPermiso('eventos:publicar') ? handlePublicar : null}
+              onDelete={ev.soyOwner && hasPermiso('eventos:eliminar') ? handleDelete : null}
+              canEdit={ev.soyOwner && hasPermiso('eventos:editar')}
+              canDelete={ev.soyOwner && hasPermiso('eventos:eliminar')}
               style={{ animationDelay: `${Math.min(i * 60, 400)}ms` }}
             />
           ))}
@@ -232,13 +231,15 @@ export default function EventsListPage() {
                     </td>
                     <td className="td text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Link to={`/eventos/${ev.id}`} className="btn btn-ghost btn-sm">Administrar</Link>
-                        {hasPermiso('eventos:publicar') && ev.estado === 'borrador' && (
+                        <Link to={`/eventos/${ev.id}`} className="btn btn-ghost btn-sm">
+                          {ev.soyOwner || ev.esMiembro ? 'Administrar' : 'Ver'}
+                        </Link>
+                        {ev.soyOwner && hasPermiso('eventos:publicar') && ev.estado === 'borrador' && (
                           <button onClick={() => handlePublicar(ev.id)} className="btn btn-ghost btn-sm text-success">
                             Publicar
                           </button>
                         )}
-                        {hasPermiso('eventos:eliminar') && (
+                        {ev.soyOwner && hasPermiso('eventos:eliminar') && (
                           <button
                             onClick={() => handleDelete(ev.id, ev.titulo)}
                             disabled={deleting === ev.id}
