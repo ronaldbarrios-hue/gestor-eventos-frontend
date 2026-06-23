@@ -17,7 +17,6 @@ export default function EventCard({ evento, onPublicar, onDelete, canEdit, canDe
       style={style}
       className="group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-surface/60 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-[0_20px_60px_-20px_rgba(59,130,246,0.4)] animate-[fadeUp_0.5s_cubic-bezier(0.16,1,0.3,1)_both]"
     >
-      {/* Glow border on hover */}
       <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/0 via-transparent to-accent/0 opacity-0 group-hover:from-primary/10 group-hover:to-accent/10 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
       {/* Cover */}
@@ -33,7 +32,6 @@ export default function EventCard({ evento, onPublicar, onDelete, canEdit, canDe
           <ModalidadBadge modalidad={evento.modalidad} />
         </div>
 
-        {/* Fecha como overlay grande estilo Apple */}
         {evento.fecha_inicio && (
           <div className="absolute bottom-3 right-3 bg-bg/80 backdrop-blur-md border border-border-2 rounded-xl px-3 py-1.5 text-right">
             <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold leading-none">
@@ -91,14 +89,14 @@ export default function EventCard({ evento, onPublicar, onDelete, canEdit, canDe
         {/* Actions */}
         <div className="flex items-center gap-2 pt-3 border-t border-border">
           <Link to={`/eventos/${evento.id}`} className="btn btn-secondary btn-sm flex-1 justify-center">
-            Administrar
+            {evento.soyOwner || evento.esMiembro ? 'Administrar' : 'Ver'}
           </Link>
-          {canEdit && evento.estado === 'borrador' && onPublicar && (
+          {evento.soyOwner && canEdit && evento.estado === 'borrador' && onPublicar && (
             <button onClick={() => onPublicar(evento.id)} className="btn btn-gradient btn-sm flex-1 justify-center">
               Publicar
             </button>
           )}
-          {canDelete && onDelete && (
+          {evento.soyOwner && canDelete && onDelete && (
             <button onClick={() => onDelete(evento.id, evento.titulo)} aria-label="Borrar"
               className="btn btn-ghost btn-sm text-danger/70 hover:text-danger px-2.5">
               <TrashIcon className="w-4 h-4" />
@@ -117,7 +115,6 @@ function PlaceholderCover({ nombre }) {
       className="relative w-full h-full flex items-center justify-center overflow-hidden"
       style={{ background: `linear-gradient(135deg, hsl(${hue},50%,18%), hsl(${(hue + 60) % 360},55%,22%))` }}
     >
-      {/* Patrón decorativo */}
       <div className="absolute inset-0 opacity-30"
         style={{ backgroundImage: `radial-gradient(circle at 20% 30%, hsla(${hue},80%,60%,0.4), transparent 50%), radial-gradient(circle at 80% 70%, hsla(${(hue + 80) % 360},70%,60%,0.3), transparent 50%)` }} />
       <span className="relative text-6xl font-bold font-display opacity-25 select-none text-white">
