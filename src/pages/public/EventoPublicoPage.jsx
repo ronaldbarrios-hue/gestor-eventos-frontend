@@ -8,10 +8,6 @@ import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/publi
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import { useT } from '../../lib/i18n.js';
 
-/* Página pública de un evento.
-   Renderiza los bloques de page_json.pages[N].blocks dinámicamente.
-   Navegación entre páginas con tabs al final. */
-
 export default function EventoPublicoPage() {
   const { slug } = useParams();
   const { t } = useT();
@@ -43,6 +39,7 @@ export default function EventoPublicoPage() {
     const p = Number(params.get('p') || 1);
     return Math.max(1, Math.min(pages.length, p));
   })();
+
   const activePage = pages[pageIdx - 1];
 
   if (loading) return (
@@ -66,7 +63,7 @@ export default function EventoPublicoPage() {
   return (
     <BrandingProvider organizador={evento.organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
-      {/* Barra superior: volver + marca del organizador */}
+      {/* Barra superior: volver + compartir + marca del organizador */}
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <Link to="/explorar"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
@@ -76,7 +73,10 @@ export default function EventoPublicoPage() {
           </svg>
           Explorar eventos
         </Link>
-        <BrandHeader organizador={evento.organizador} />
+        <div className="flex items-center gap-2">
+          <ShareButton />
+          <BrandHeader organizador={evento.organizador} />
+        </div>
       </div>
 
       {/* Bloques */}
@@ -149,12 +149,30 @@ export default function EventoPublicoPage() {
   );
 }
 
-/* ─────────── Modal lista de espera ─────────── */
+/* ─────────── Botón compartir ─────────── */
+function ShareButton() {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button onClick={copy}
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      {copied ? '¡Copiado!' : 'Compartir'}
+    </button>
+  );
+}
 
+/* ─────────── Modal lista de espera ─────────── */
 function WaitlistModal({ tipo, slug, onClose }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [working, setWorking] = useState(false);
-  const [done, setDone] = useState(null); // { posicion }
+  const [done, setDone] = useState(null);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
 
@@ -231,14 +249,12 @@ function WaitlistModal({ tipo, slug, onClose }) {
   );
 }
 
-/* ─────────── Modales de reserva (sin cambios) ─────────── */
-
+/* ─────────── Modales de reserva ─────────── */
 function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
-
   const hasEarly = tipo.early_bird_precio != null && tipo.early_bird_hasta && new Date(tipo.early_bird_hasta) > new Date();
   const precio = hasEarly ? Number(tipo.early_bird_precio) : Number(tipo.precio);
   const isFree = precio === 0;
@@ -357,24 +373,19 @@ function ConfirmacionModal({ ticket, onClose }) {
         <p className="text-sm text-text-2 mb-5 leading-relaxed max-w-sm mx-auto">
           Muestra este QR en la entrada del evento. También puedes mostrar el código.
         </p>
-
-        {/* QR */}
         <div className="bg-white rounded-2xl p-4 inline-block mb-4">
           <QRCodeSVG value={qrValue} size={180} level="M" includeMargin={false} />
         </div>
-
         <div className="rounded-2xl border border-border-2 bg-surface px-4 py-3 mb-4">
           <p className="text-[10px] uppercase tracking-widest text-text-3 font-semibold mb-1">Código alternativo</p>
           <p className="font-mono text-xl font-bold text-text-1 tabular-nums tracking-widest">{ticket.codigo}</p>
         </div>
-
         <p className="text-xs text-text-3 mb-5">
           Guarda este link para volver a verlo: <br/>
           <a href={`/mi-ticket/${ticket.codigo}`} className="text-primary-light hover:underline">
             {window.location.origin}/mi-ticket/{ticket.codigo}
           </a>
         </p>
-
         <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
           Listo
         </button>
