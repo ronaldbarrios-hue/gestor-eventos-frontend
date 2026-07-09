@@ -13,18 +13,19 @@ export default function PublicLayout() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [pathname]);
 
-  /* La página pública de un evento (marca blanca) trae su propio header y footer
-     con la marca del organizador — ocultamos la navbar/footer genéricos de GESTEK ahí. */
-  const esPaginaEvento = /^\/(app\/)?explorar\/[^/]+$/.test(pathname);
+  /* Las páginas públicas de exploración (listado y evento individual) no deben
+     mostrar la navbar/footer genéricos de GESTEK (Iniciar sesión/Registrarse) —
+     el usuario ya está navegando dentro de la experiencia pública de eventos. */
+  const esPaginaExplorar = /^\/(app\/)?explorar(\/[^/]+)?$/.test(pathname);
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text-1 overflow-x-hidden">
       <SideDecorations />
-      {!esPaginaEvento && <PublicNavbar />}
-      <main key={animKey} className={`flex-1 animate-[fadeIn_0.35s_ease_both] relative z-10 ${esPaginaEvento ? '' : 'pt-24'}`}>
+      {!esPaginaExplorar && <PublicNavbar />}
+      <main key={animKey} className={`flex-1 animate-[fadeIn_0.35s_ease_both] relative z-10 ${esPaginaExplorar ? '' : 'pt-24'}`}>
         <Outlet />
       </main>
-      {!esPaginaEvento && <PublicFooter />}
+      {!esPaginaExplorar && <PublicFooter />}
     </div>
   );
 }
