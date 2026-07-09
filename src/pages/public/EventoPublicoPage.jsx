@@ -249,9 +249,43 @@ function WaitlistModal({ tipo, slug, onClose }) {
   );
 }
 
+function CampoDinamico({ campo, value, onChange }) {
+  const req = campo.requerido;
+  if (campo.tipo === 'checkbox') {
+    return (
+      <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer py-1">
+        <input type="checkbox" checked={Boolean(value)} onChange={e => onChange(e.target.checked)}
+          className="w-4 h-4 mt-0.5 rounded accent-primary" />
+        <span>{campo.etiqueta}{req && <span className="text-danger-light"> *</span>}</span>
+      </label>
+    );
+  }
+  if (campo.tipo === 'seleccion') {
+    return (
+      <div className="field">
+        <label className="label">{campo.etiqueta}{req && ' *'}</label>
+        <select required={req} value={value || ''} onChange={e => onChange(e.target.value)}
+          className="input bg-surface-2 rounded-2xl py-3 text-base">
+          <option value="" disabled>Selecciona una opción</option>
+          {(campo.opciones || []).map(op => <option key={op} value={op}>{op}</option>)}
+        </select>
+      </div>
+    );
+  }
+  const tipoInput = campo.tipo === 'numero' ? 'number' : campo.tipo === 'fecha' ? 'date' : 'text';
+  return (
+    <div className="field">
+      <label className="label">{campo.etiqueta}{req && ' *'}</label>
+      <input required={req} type={tipoInput} value={value || ''} onChange={e => onChange(e.target.value)}
+        className="input rounded-2xl py-3 text-base" />
+    </div>
+  );
+}
+
 /* ─────────── Modales de reserva ─────────── */
 function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
+  const [respuestas, setRespuestas] = useState({});
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
@@ -259,24 +293,36 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   const precio = hasEarly ? Number(tipo.early_bird_precio) : Number(tipo.precio);
   const isFree = precio === 0;
   const tienePagoSimple = Boolean(evento?.pago_llave || evento?.pago_qr_url);
+  const camposForm = evento?.campos_formulario || [];
+
+  const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
 
   const submit = async (e) => {
     e.preventDefault();
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
+    for (const c of camposForm) {
+      if (c.requerido) {
+        const v = respuestas[c.id];
+        if (v === undefined || v === null || v === '' || v === false) {
+          setErr(`El campo "${c.etiqueta}" es obligatorio.`);
+          return;
+        }
+      }
+    }
     setWorking(true); setErr('');
     try {
       if (isFree || tienePagoSimple) {
         const res = await eventosApi.reservar(slug, {
           ticket_type_id: tipo.id,
           nombre: form.nombre, email: form.email, telefono: form.telefono,
-          captcha_token: captcha,
+          captcha_token: captcha, respuestas,
         });
         onSuccess({ ...res.ticket, requierePago: !isFree, tipo, pagoSimple: tienePagoSimple && !isFree });
       } else {
         const res = await pagosApi.comprar(slug, {
           ticket_type_id: tipo.id,
           nombre: form.nombre, email: form.email, telefono: form.telefono,
-          captcha_token: captcha,
+          captcha_token: captcha, respuestas,
         });
         const url = res.checkout?.init_point || res.checkout?.sandbox_init_point;
         if (!url) throw new Error('Mercado Pago no devolvió el link de pago.');
@@ -317,6 +363,10 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
           <input value={form.telefono} onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
             className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" />
         </div>
+
+        {camposForm.map(c => (
+          <CampoDinamico key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} />
+        ))}
         {!isFree && tienePagoSimple && (
           <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3 text-xs text-text-2 leading-relaxed space-y-2">
             <p className="font-semibold text-warning-light">Pago manual vía Mercado Pago</p>
