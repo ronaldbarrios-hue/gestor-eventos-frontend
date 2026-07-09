@@ -12,6 +12,7 @@ import ResumenTab        from './tabs/ResumenTab.jsx';
 import PaginaPublicaTab  from './tabs/PaginaPublicaTab.jsx';
 import EquipoTab         from './tabs/EquipoTab.jsx';
 import TicketsTab        from './tabs/TicketsTab.jsx';
+import FormularioTab     from './tabs/FormularioTab.jsx';
 import ClientesTab       from './tabs/ClientesTab.jsx';
 import CheckinTab        from './tabs/CheckinTab.jsx';
 import ChatTab           from './tabs/ChatTab.jsx';
@@ -40,6 +41,7 @@ const GRUPOS = [
   ] },
   { label: 'Facturación', items: [
     { id: 'tickets',   label: 'Boletas' },
+    { id: 'formulario', label: 'Formulario' },
     { id: 'pagos',     label: 'Pagos' },
     { id: 'analytics', label: 'Analytics' },
   ] },
@@ -58,6 +60,7 @@ const TAB_GRUPO = Object.fromEntries(
 const TAB_PERM = {
   resumen: null, publica: 'editar_pagina_publica',
   tickets: 'gestionar_tickets', pagos: 'ver_pagos', analytics: 'ver_analytics',
+  formulario: 'gestionar_tickets',
   checkin: 'checkin', gente: 'ver_clientes', waitlist: '__solo_owner__',
   equipo: ['gestionar_roles', 'invitar_staff', 'remover_miembros'],
   agenda: null, tareas: null, solicitudes: null, chat: null, ranking: null,
@@ -229,6 +232,7 @@ export default function EventDetailPage() {
         {tab === 'publica'   && <PaginaPublicaTab evento={evento} />}
         {tab === 'equipo'    && <EquipoTab evento={evento} />}
         {tab === 'tickets'   && <TicketsTab evento={evento} />}
+        {tab === 'formulario' && <FormularioTab evento={evento} />}
         {tab === 'gente'     && <ClientesTab evento={evento} />}
         {tab === 'checkin'   && <CheckinTab evento={evento} />}
         {tab === 'agenda'      && <AgendaTab evento={evento} />}
