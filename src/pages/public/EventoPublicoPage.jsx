@@ -19,6 +19,10 @@ export default function EventoPublicoPage() {
   const [reservaOk,   setReservaOk]   = useState(null);
   const [waitlistTipo, setWaitlistTipo] = useState(null);
 
+  /* Modo standalone: link "limpio" (sin navegación a GESTEK) para compartir
+     o incrustar el evento como pantalla independiente. */
+  const isStandalone = params.get('standalone') === '1';
+
   useEffect(() => {
     setLoading(true);
     eventosApi.publicoBySlug(slug)
@@ -68,16 +72,18 @@ export default function EventoPublicoPage() {
         <BrandHeader organizador={evento.organizador} size="lg" />
       </div>
 
-      {/* Barra secundaria: volver + compartir */}
+      {/* Barra secundaria: volver + compartir (oculta "Explorar eventos" en modo standalone) */}
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
-        <Link to="/explorar"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
-                     text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Explorar eventos
-        </Link>
+        {isStandalone ? <span /> : (
+          <Link to="/explorar"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
+                       text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Explorar eventos
+          </Link>
+        )}
         <ShareButton />
       </div>
 
@@ -117,11 +123,13 @@ export default function EventoPublicoPage() {
         })}
       </div>
 
-      {/* Volver a explorar */}
+      {/* Volver a explorar (oculto en modo standalone) */}
       <div className="mt-12 text-center">
-        <Link to="/explorar" className="text-xs text-text-3 hover:text-text-1 transition-colors">
-          ← Volver a explorar
-        </Link>
+        {!isStandalone && (
+          <Link to="/explorar" className="text-xs text-text-3 hover:text-text-1 transition-colors">
+            ← Volver a explorar
+          </Link>
+        )}
         <PoweredBy organizador={evento.organizador} />
       </div>
 
@@ -151,11 +159,13 @@ export default function EventoPublicoPage() {
   );
 }
 
-/* ─────────── Botón compartir ─────────── */
+/* ─────────── Botón compartir (genera link standalone, sin la app GESTEK) ─────────── */
 function ShareButton() {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const url = new URL(window.location.href);
+    url.searchParams.set('standalone', '1');
+    navigator.clipboard.writeText(url.toString());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
