@@ -63,7 +63,12 @@ export default function EventoPublicoPage() {
   return (
     <BrandingProvider organizador={evento.organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
-      {/* Barra superior: volver + compartir + marca del organizador */}
+      {/* Marca del organizador: grande y centrada */}
+      <div className="mb-8">
+        <BrandHeader organizador={evento.organizador} size="lg" />
+      </div>
+
+      {/* Barra secundaria: volver + compartir */}
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <Link to="/explorar"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
@@ -73,10 +78,7 @@ export default function EventoPublicoPage() {
           </svg>
           Explorar eventos
         </Link>
-        <div className="flex items-center gap-2">
-          <ShareButton />
-          <BrandHeader organizador={evento.organizador} />
-        </div>
+        <ShareButton />
       </div>
 
       {/* Page tabs — arriba, antes del contenido */}
