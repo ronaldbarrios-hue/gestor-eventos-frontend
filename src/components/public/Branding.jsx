@@ -77,7 +77,7 @@ function SocialLinks({ b }) {
   );
 }
 
-export function BrandHeader({ organizador }) {
+export function BrandHeader({ organizador, size = 'sm' }) {
   if (!organizador) return null;
   const b = organizador.branding || {};
   const logo       = organizador.empresa_logo_url;
@@ -85,6 +85,32 @@ export function BrandHeader({ organizador }) {
   const tagline    = b.tagline;
   if (!logo && !plataforma && !b.web && !b.instagram && !b.whatsapp) return null;
 
+  /* Variante grande y centrada — usada como header principal de la página de evento */
+  if (size === 'lg') {
+    return (
+      <div className="flex flex-col items-center text-center gap-3">
+        {logo
+          ? <img src={logo} alt={plataforma || ''}
+                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-lg shadow-black/20" />
+          : (
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg shadow-black/20"
+                 style={{ background: `linear-gradient(135deg, var(--brand-primary), var(--brand-accent))` }}>
+              {plataforma?.charAt(0)?.toUpperCase() || 'O'}
+            </div>
+          )}
+        {plataforma && (
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">{t('brand.presenta')}</p>
+            <p className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight mt-1">{plataforma}</p>
+            {tagline && <p className="text-sm text-text-2 mt-1.5 max-w-md">{tagline}</p>}
+          </div>
+        )}
+        <SocialLinks b={b} />
+      </div>
+    );
+  }
+
+  /* Variante compacta original — usada en barras secundarias */
   return (
     <div className="flex items-center gap-3 px-5 py-3 rounded-2xl border border-border
                     bg-surface/40 backdrop-blur-md w-fit">
