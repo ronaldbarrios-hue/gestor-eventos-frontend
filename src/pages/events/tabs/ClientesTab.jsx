@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { clientesApi } from '../../../api/clientes.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -163,8 +164,6 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
     if (!openMenu && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
       const menuWidth = 176; // w-44
-      /* Posicionamos con position:fixed (relativo al viewport) para que el menú
-         no quede recortado por el overflow-hidden del contenedor de la lista. */
       setMenuPos({
         top : r.bottom + 6,
         left: Math.min(r.right - menuWidth, window.innerWidth - menuWidth - 8),
@@ -218,7 +217,7 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
         >
           <DotsIcon className="w-4 h-4" />
         </button>
-        {openMenu && (
+        {openMenu && createPortal(
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(false)} />
             <div
@@ -236,7 +235,8 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
                 </button>
               ))}
             </div>
-          </>
+          </>,
+          document.body
         )}
       </div>
     </div>
