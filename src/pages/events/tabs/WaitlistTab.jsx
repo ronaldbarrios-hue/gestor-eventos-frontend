@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { waitlistApi } from '../../../api/waitlist.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -145,6 +146,8 @@ function StatBox({ label, value }) {
 function WaitlistRow({ entry, style, onCambiarEstado, onNotificar, onEliminar }) {
   const [openMenu, setOpenMenu] = useState(false);
   const [notifying, setNotifying] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
 
   const nombre   = entry.guest_nombre || entry.guest_email;
   const email    = entry.guest_email;
@@ -155,6 +158,18 @@ function WaitlistRow({ entry, style, onCambiarEstado, onNotificar, onEliminar })
     setNotifying(true);
     await onNotificar();
     setNotifying(false);
+  };
+
+  const toggleMenu = () => {
+    if (!openMenu && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const menuWidth = 192; // w-48
+      setMenuPos({
+        top : r.bottom + 6,
+        left: Math.min(r.right - menuWidth, window.innerWidth - menuWidth - 8),
+      });
+    }
+    setOpenMenu(v => !v);
   };
 
   return (
@@ -208,17 +223,21 @@ function WaitlistRow({ entry, style, onCambiarEstado, onNotificar, onEliminar })
 
         {/* Menú de acciones */}
         <button
-          onClick={() => setOpenMenu(v => !v)}
+          ref={btnRef}
+          onClick={toggleMenu}
           aria-label="Más acciones"
           className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <DotsIcon className="w-4 h-4" />
         </button>
 
-        {openMenu && (
+        {openMenu && createPortal(
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(false)} />
-            <div className="absolute right-0 top-9 z-20 w-48 rounded-2xl border border-border-2 bg-surface shadow-2xl py-1 animate-[scaleIn_0.15s_ease_both] origin-top-right">
+            <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(false)} />
+            <div
+              className="fixed z-50 w-48 rounded-2xl border border-border-2 bg-surface shadow-2xl py-1 animate-[scaleIn_0.15s_ease_both] origin-top-right"
+              style={{ top: menuPos.top, left: menuPos.left }}
+            >
               <p className="px-3 py-1.5 text-[10px] uppercase tracking-widest text-text-3 font-semibold border-b border-border mb-1">
                 Cambiar estado
               </p>
@@ -241,7 +260,8 @@ function WaitlistRow({ entry, style, onCambiarEstado, onNotificar, onEliminar })
                 </button>
               </div>
             </div>
-          </>
+          </>,
+          document.body
         )}
       </div>
     </div>
