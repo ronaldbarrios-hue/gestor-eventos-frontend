@@ -19,8 +19,6 @@ export default function EventoPublicoPage() {
   const [reservaOk,   setReservaOk]   = useState(null);
   const [waitlistTipo, setWaitlistTipo] = useState(null);
 
-  /* Modo standalone: link "limpio" (sin navegación a GESTEK) para compartir
-     o incrustar el evento como pantalla independiente. */
   const isStandalone = params.get('standalone') === '1';
 
   useEffect(() => {
@@ -64,16 +62,17 @@ export default function EventoPublicoPage() {
     </section>
   );
 
+  const hasCover = Boolean(evento.cover_url);
+  const organizador = evento.organizador;
+  const logoUrl = organizador?.empresa_logo_url;
+  const nombreOrg = organizador?.branding?.plataforma || organizador?.empresa || organizador?.nombre;
+
   return (
     <BrandingProvider organizador={evento.organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
-      {/* Marca del organizador: grande y centrada */}
-      <div className="mb-8">
-        <BrandHeader organizador={evento.organizador} size="lg" />
-      </div>
 
       {/* Barra secundaria: volver + compartir (oculta "Explorar eventos" en modo standalone) */}
-      <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         {isStandalone ? <span /> : (
           <Link to="/explorar"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
@@ -87,31 +86,83 @@ export default function EventoPublicoPage() {
         <ShareButton />
       </div>
 
-      {/* Page tabs — arriba, antes del contenido */}
-      {pages.length > 1 && (
-        <nav className="mb-8 flex items-center justify-center gap-1.5 flex-wrap">
-          {pages.map((p, i) => (
-            <button
-              key={p.id}
-              onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
-              className={`min-w-[40px] h-10 px-4 rounded-full text-sm font-medium transition-all
-                ${pageIdx === i + 1
-                  ? 'bg-text-1 text-bg'
-                  : 'border border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}
-              `}
-              aria-current={pageIdx === i + 1 ? 'page' : undefined}
-            >
-              <span className="hidden sm:inline mr-1.5">{i + 1}.</span>
-              {p.nombre}
-            </button>
-          ))}
-        </nav>
+      {hasCover ? (
+        <>
+          {/* Hero: portada a pantalla casi completa, con píldora flotante de logo + pestañas */}
+          <div className="relative rounded-3xl overflow-hidden border border-border mb-3">
+            <div className="aspect-[16/10] sm:aspect-[21/9] w-full bg-surface-2">
+              <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-bg/70 via-transparent to-transparent pointer-events-none" />
+
+            {/* Píldora flotante */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 max-w-[calc(100%-2rem)]">
+              <div className="flex items-center gap-1 bg-surface/80 backdrop-blur-md border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg overflow-x-auto no-scrollbar">
+                <div className="flex-shrink-0 pl-1 pr-1.5">
+                  {logoUrl
+                    ? <img src={logoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    : (
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                           style={{ background: `linear-gradient(135deg, var(--brand-primary), var(--brand-accent))` }}>
+                        {(nombreOrg || 'O').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                </div>
+                {pages.length > 1 && pages.map((p, i) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
+                    className={`flex-shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
+                      ${pageIdx === i + 1 ? 'bg-text-1 text-bg' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+                    aria-current={pageIdx === i + 1 ? 'page' : undefined}
+                  >
+                    <span className="hidden sm:inline mr-1">{i + 1}.</span>
+                    {p.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {nombreOrg && (
+            <p className="text-xs text-text-3 text-center mb-8">
+              Presentado por <span className="text-text-2 font-medium">{nombreOrg}</span>
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Fallback sin portada: logo grande centrado + pestañas como antes */}
+          <div className="mb-8">
+            <BrandHeader organizador={evento.organizador} size="lg" />
+          </div>
+          {pages.length > 1 && (
+            <nav className="mb-8 flex items-center justify-center gap-1.5 flex-wrap">
+              {pages.map((p, i) => (
+                <button
+                  key={p.id}
+                  onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
+                  className={`min-w-[40px] h-10 px-4 rounded-full text-sm font-medium transition-all
+                    ${pageIdx === i + 1
+                      ? 'bg-text-1 text-bg'
+                      : 'border border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}
+                  `}
+                  aria-current={pageIdx === i + 1 ? 'page' : undefined}
+                >
+                  <span className="hidden sm:inline mr-1.5">{i + 1}.</span>
+                  {p.nombre}
+                </button>
+              ))}
+            </nav>
+          )}
+        </>
       )}
 
-      {/* Bloques */}
+      {/* Bloques (se omite el bloque "portada" porque ya se muestra como hero arriba) */}
       <div className="space-y-8 max-w-3xl mx-auto" key={activePage?.id}>
         {(activePage?.blocks || []).map(block => {
           if (block.data?.oculto) return null;
+          if (hasCover && block.type === 'portada') return null;
           const B = BLOCKS[block.type];
           if (!B) return null;
           const Preview = B.Preview;
