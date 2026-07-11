@@ -14,7 +14,7 @@ export default function PublicLayout() {
   }, [pathname]);
 
   /* Listado de exploración (/explorar, sin slug): sin navbar genérica de GESTEK,
-     pero SÍ con un link discreto de vuelta al panel. */
+     pero SÍ con un link discreto de vuelta al dashboard del organizador. */
   const esListadoExplorar = /^\/(app\/)?explorar\/?$/.test(pathname);
 
   /* Página pública de un evento individual (/explorar/algun-evento): marca blanca
@@ -29,7 +29,7 @@ export default function PublicLayout() {
       {!esPaginaExplorar && <PublicNavbar />}
       {esListadoExplorar && (
         <div className="px-5 sm:px-8 pt-6">
-          <Link to="/"
+          <Link to="/dashboard"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
                        text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors w-fit">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
