@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { clientesApi } from '../../../api/clientes.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -152,10 +152,26 @@ function StatBox({ label, value, hint }) {
 
 function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
   const [openMenu, setOpenMenu] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
   const nombre = cliente.usuario?.nombre || cliente.guest_nombre || cliente.guest_email;
   const email  = cliente.usuario?.email || cliente.guest_email;
   const initials = (nombre || 'U').split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
   const fecha = new Date(cliente.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const toggleMenu = () => {
+    if (!openMenu && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const menuWidth = 176; // w-44
+      /* Posicionamos con position:fixed (relativo al viewport) para que el menú
+         no quede recortado por el overflow-hidden del contenedor de la lista. */
+      setMenuPos({
+        top : r.bottom + 6,
+        left: Math.min(r.right - menuWidth, window.innerWidth - menuWidth - 8),
+      });
+    }
+    setOpenMenu(v => !v);
+  };
 
   return (
     <div
@@ -195,7 +211,8 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
 
       <div className="relative">
         <button
-          onClick={() => setOpenMenu(v => !v)}
+          ref={btnRef}
+          onClick={toggleMenu}
           aria-label="Acciones"
           className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
         >
@@ -203,8 +220,11 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
         </button>
         {openMenu && (
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(false)} />
-            <div className="absolute right-0 top-9 z-20 w-44 rounded-2xl border border-border-2 bg-surface shadow-2xl py-1 animate-[scaleIn_0.15s_ease_both] origin-top-right">
+            <div className="fixed inset-0 z-40" onClick={() => setOpenMenu(false)} />
+            <div
+              className="fixed z-50 w-44 rounded-2xl border border-border-2 bg-surface shadow-2xl py-1 animate-[scaleIn_0.15s_ease_both] origin-top-right"
+              style={{ top: menuPos.top, left: menuPos.left }}
+            >
               {Object.entries(ESTADO_LABEL).map(([k, label]) => (
                 <button
                   key={k}
