@@ -113,79 +113,85 @@ export default function EventoPublicoPage() {
         <ShareButton />
       </div>
 
-      {hasCover ? (
-        <div className="mb-8">
-          {/* Píldora flotante: sticky, siempre visible mientras se hace scroll */}
+      {/* Contenedor único que envuelve TODO el contenido restante (imagen + bloques + footer):
+          la píldora es sticky dentro de este contenedor, así que se mantiene visible mientras
+          se hace scroll por toda la página, no solo mientras se ve la imagen de portada. */}
+      <div className="relative">
+        {hasCover && (
           <div className="sticky top-4 z-20 flex justify-center mb-[-1px]">
             <div className="max-w-[calc(100%-2rem)]">
               {tabsPill}
             </div>
           </div>
-
-          <div className="rounded-3xl overflow-hidden border border-border mb-3 -mt-[52px] pt-[52px]">
-            <div className="aspect-[16/10] sm:aspect-[21/9] w-full bg-surface-2">
-              <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
-            </div>
-          </div>
-
-          {nombreOrg && (
-            <p className="text-xs text-text-3 text-center">
-              Presentado por <span className="text-text-2 font-medium">{nombreOrg}</span>
-            </p>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Fallback sin portada: logo grande centrado + pestañas como antes */}
-          <div className="mb-8">
-            <BrandHeader organizador={evento.organizador} size="lg" />
-          </div>
-          {pages.length > 1 && (
-            <nav className="mb-8 flex items-center justify-center gap-1.5 flex-wrap">
-              {pages.map((p, i) => (
-                <button
-                  key={p.id}
-                  onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
-                  className={`min-w-[40px] h-10 px-4 rounded-full text-sm font-medium transition-all
-                    ${pageIdx === i + 1
-                      ? 'bg-text-1 text-bg'
-                      : 'border border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}
-                  `}
-                  aria-current={pageIdx === i + 1 ? 'page' : undefined}
-                >
-                  <span className="hidden sm:inline mr-1.5">{i + 1}.</span>
-                  {p.nombre}
-                </button>
-              ))}
-            </nav>
-          )}
-        </>
-      )}
-
-      {/* Bloques (se omite el bloque "portada" porque ya se muestra como hero arriba) */}
-      <div className="space-y-8 max-w-3xl mx-auto" key={activePage?.id}>
-        {(activePage?.blocks || []).map(block => {
-          if (block.data?.oculto) return null;
-          if (hasCover && block.type === 'portada') return null;
-          const B = BLOCKS[block.type];
-          if (!B) return null;
-          const Preview = B.Preview;
-          return (
-            <div key={block.id} className="animate-[fadeUp_0.4s_ease_both]">
-              <Preview data={block.data || {}} evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Volver a explorar (oculto en modo standalone) */}
-      <div className="mt-12 text-center">
-        {!isStandalone && (
-          <Link to="/explorar" className="text-xs text-text-3 hover:text-text-1 transition-colors">
-            ← Volver a explorar
-          </Link>
         )}
-        <PoweredBy organizador={evento.organizador} />
+
+        {hasCover ? (
+          <div className="mb-8">
+            <div className="rounded-3xl overflow-hidden border border-border mb-3 -mt-[52px] pt-[52px]">
+              <div className="aspect-[16/10] sm:aspect-[21/9] w-full bg-surface-2">
+                <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
+              </div>
+            </div>
+
+            {nombreOrg && (
+              <p className="text-xs text-text-3 text-center">
+                Presentado por <span className="text-text-2 font-medium">{nombreOrg}</span>
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Fallback sin portada: logo grande centrado + pestañas como antes */}
+            <div className="mb-8">
+              <BrandHeader organizador={evento.organizador} size="lg" />
+            </div>
+            {pages.length > 1 && (
+              <nav className="mb-8 flex items-center justify-center gap-1.5 flex-wrap">
+                {pages.map((p, i) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
+                    className={`min-w-[40px] h-10 px-4 rounded-full text-sm font-medium transition-all
+                      ${pageIdx === i + 1
+                        ? 'bg-text-1 text-bg'
+                        : 'border border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}
+                    `}
+                    aria-current={pageIdx === i + 1 ? 'page' : undefined}
+                  >
+                    <span className="hidden sm:inline mr-1.5">{i + 1}.</span>
+                    {p.nombre}
+                  </button>
+                ))}
+              </nav>
+            )}
+          </>
+        )}
+
+        {/* Bloques (se omite el bloque "portada" porque ya se muestra como hero arriba) */}
+        <div className="space-y-8 max-w-3xl mx-auto" key={activePage?.id}>
+          {(activePage?.blocks || []).map(block => {
+            if (block.data?.oculto) return null;
+            if (hasCover && block.type === 'portada') return null;
+            const B = BLOCKS[block.type];
+            if (!B) return null;
+            const Preview = B.Preview;
+            return (
+              <div key={block.id} className="animate-[fadeUp_0.4s_ease_both]">
+                <Preview data={block.data || {}} evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Volver a explorar (oculto en modo standalone) */}
+        <div className="mt-12 text-center">
+          {!isStandalone && (
+            <Link to="/explorar" className="text-xs text-text-3 hover:text-text-1 transition-colors">
+              ← Volver a explorar
+            </Link>
+          )}
+          <PoweredBy organizador={evento.organizador} />
+        </div>
       </div>
 
       {/* Modales */}
