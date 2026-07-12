@@ -67,6 +67,33 @@ export default function EventoPublicoPage() {
   const logoUrl = organizador?.empresa_logo_url;
   const nombreOrg = organizador?.branding?.plataforma || organizador?.empresa || organizador?.nombre;
 
+  const tabsPill = (pages.length > 1 || true) && (
+    <div className="flex items-center gap-1 bg-surface/80 backdrop-blur-md border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg overflow-x-auto no-scrollbar">
+      <div className="flex-shrink-0 pl-1 pr-1.5">
+        {logoUrl
+          ? <img src={logoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+          : (
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                 style={{ background: `linear-gradient(135deg, var(--brand-primary), var(--brand-accent))` }}>
+              {(nombreOrg || 'O').charAt(0).toUpperCase()}
+            </div>
+          )}
+      </div>
+      {pages.length > 1 && pages.map((p, i) => (
+        <button
+          key={p.id}
+          onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
+          className={`flex-shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
+            ${pageIdx === i + 1 ? 'bg-text-1 text-bg' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+          aria-current={pageIdx === i + 1 ? 'page' : undefined}
+        >
+          <span className="hidden sm:inline mr-1">{i + 1}.</span>
+          {p.nombre}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <BrandingProvider organizador={evento.organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
@@ -87,49 +114,27 @@ export default function EventoPublicoPage() {
       </div>
 
       {hasCover ? (
-        <>
-          {/* Hero: portada a pantalla casi completa, con píldora flotante de logo + pestañas */}
-          <div className="relative rounded-3xl overflow-hidden border border-border mb-3">
+        /* Contenedor "intro" (imagen + presentado por + título/info) — la píldora flota
+           dentro de este bloque más grande, así se mantiene visible mientras se hace scroll
+           por toda la introducción, no solo mientras se ve la imagen. Se mueve con la página
+           (no es fixed), simplemente desaparece cuando ya pasaste toda la intro. */
+        <div className="relative mb-8">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
+            {tabsPill}
+          </div>
+
+          <div className="rounded-3xl overflow-hidden border border-border mb-3">
             <div className="aspect-[16/10] sm:aspect-[21/9] w-full bg-surface-2">
               <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-bg/70 via-transparent to-transparent pointer-events-none" />
-
-            {/* Píldora flotante */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 max-w-[calc(100%-2rem)]">
-              <div className="flex items-center gap-1 bg-surface/80 backdrop-blur-md border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg overflow-x-auto no-scrollbar">
-                <div className="flex-shrink-0 pl-1 pr-1.5">
-                  {logoUrl
-                    ? <img src={logoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
-                    : (
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                           style={{ background: `linear-gradient(135deg, var(--brand-primary), var(--brand-accent))` }}>
-                        {(nombreOrg || 'O').charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                </div>
-                {pages.length > 1 && pages.map((p, i) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
-                    className={`flex-shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
-                      ${pageIdx === i + 1 ? 'bg-text-1 text-bg' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
-                    aria-current={pageIdx === i + 1 ? 'page' : undefined}
-                  >
-                    <span className="hidden sm:inline mr-1">{i + 1}.</span>
-                    {p.nombre}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
           {nombreOrg && (
-            <p className="text-xs text-text-3 text-center mb-8">
+            <p className="text-xs text-text-3 text-center">
               Presentado por <span className="text-text-2 font-medium">{nombreOrg}</span>
             </p>
           )}
-        </>
+        </div>
       ) : (
         <>
           {/* Fallback sin portada: logo grande centrado + pestañas como antes */}
