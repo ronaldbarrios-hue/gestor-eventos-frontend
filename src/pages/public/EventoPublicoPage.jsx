@@ -67,7 +67,7 @@ export default function EventoPublicoPage() {
   const logoUrl = organizador?.empresa_logo_url;
   const nombreOrg = organizador?.branding?.plataforma || organizador?.empresa || organizador?.nombre;
 
-  const tabsPill = (pages.length > 1 || true) && (
+  const tabsPill = (
     <div className="flex items-center gap-1 bg-surface/80 backdrop-blur-md border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg overflow-x-auto no-scrollbar">
       <div className="flex-shrink-0 pl-1 pr-1.5">
         {logoUrl
@@ -114,16 +114,15 @@ export default function EventoPublicoPage() {
       </div>
 
       {hasCover ? (
-        /* Contenedor "intro" (imagen + presentado por + título/info) — la píldora flota
-           dentro de este bloque más grande, así se mantiene visible mientras se hace scroll
-           por toda la introducción, no solo mientras se ve la imagen. Se mueve con la página
-           (no es fixed), simplemente desaparece cuando ya pasaste toda la intro. */
-        <div className="relative mb-8">
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]">
-            {tabsPill}
+        <div className="mb-8">
+          {/* Píldora flotante: sticky, siempre visible mientras se hace scroll */}
+          <div className="sticky top-4 z-20 flex justify-center mb-[-1px]">
+            <div className="max-w-[calc(100%-2rem)]">
+              {tabsPill}
+            </div>
           </div>
 
-          <div className="rounded-3xl overflow-hidden border border-border mb-3">
+          <div className="rounded-3xl overflow-hidden border border-border mb-3 -mt-[52px] pt-[52px]">
             <div className="aspect-[16/10] sm:aspect-[21/9] w-full bg-surface-2">
               <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
             </div>
