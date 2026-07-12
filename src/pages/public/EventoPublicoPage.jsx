@@ -127,14 +127,16 @@ export default function EventoPublicoPage() {
 
         {hasCover ? (
           <div className="mb-8">
-            <div className="rounded-3xl overflow-hidden border border-border mb-3 -mt-[52px] pt-[52px]">
+            {/* Imagen "full-bleed": se sale del ancho máximo de la página y llega
+                de borde a borde de la pantalla, sin los márgenes laterales normales. */}
+            <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen overflow-hidden border-y sm:border border-border sm:rounded-3xl -mt-[52px] pt-[52px]">
               <div className="aspect-[16/10] sm:aspect-[21/9] w-full bg-surface-2">
                 <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
               </div>
             </div>
 
             {nombreOrg && (
-              <p className="text-xs text-text-3 text-center">
+              <p className="text-xs text-text-3 text-center mt-3">
                 Presentado por <span className="text-text-2 font-medium">{nombreOrg}</span>
               </p>
             )}
