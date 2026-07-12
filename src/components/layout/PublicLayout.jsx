@@ -24,7 +24,7 @@ export default function PublicLayout() {
   const esPaginaExplorar = esListadoExplorar || esPaginaEvento;
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-text-1 overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-bg text-text-1 overflow-x-clip">
       <SideDecorations />
       {!esPaginaExplorar && <PublicNavbar />}
       {esListadoExplorar && (
