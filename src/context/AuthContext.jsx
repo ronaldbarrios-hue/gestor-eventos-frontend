@@ -25,6 +25,10 @@ function mapUser(user) {
     perfilCompleto: meta.perfil_completo === true,
     permisos : meta.permisos  || [],
     emailConfirmado: Boolean(user.email_confirmed_at),
+    /* Modo activo del dashboard: 'organizador' (crea/gestiona eventos) o
+       'asistente' (solo explora y compra boletas) — como Airbnb Huésped/Anfitrión.
+       No afecta permisos de seguridad, solo qué vista se muestra. */
+    modoActivo: meta.modo_activo || 'organizador',
     raw    : user,
   };
 }
@@ -202,6 +206,13 @@ export function AuthProvider({ children }) {
     return { ok: true };
   }, []);
 
+  /* Cambia el modo activo del dashboard (organizador/asistente) y lo persiste
+     en los metadatos del usuario, para que se recuerde entre sesiones. */
+  const cambiarModo = useCallback(async (modo) => {
+    if (modo !== 'organizador' && modo !== 'asistente') return { ok: false, error: 'Modo inválido.' };
+    return updateProfile({ modo_activo: modo });
+  }, [updateProfile]);
+
   const resendConfirmation = useCallback(async (email) => {
     const { error } = await supabase.auth.resend({
       type: 'signup',
@@ -234,7 +245,7 @@ export function AuthProvider({ children }) {
       token, session, usuario, loading,
       login, register, logout, signInWithGoogle,
       resetPassword, updatePassword, updateProfile, resendConfirmation,
-      hasPermiso, hasRol,
+      hasPermiso, hasRol, cambiarModo,
       invitacionInfo, invitacionLoading, consumirInvitacionInfo, checkInvitacionPendiente,
     }}>
       {children}
