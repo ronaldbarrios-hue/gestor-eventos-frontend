@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -121,10 +122,10 @@ function ManualInput({ onSubmit, disabled }) {
   );
 }
 
-/* ─────────── Cámara — pantalla completa ─────────── */
+/* ─────────── Cámara — pantalla completa vía portal ─────────── */
 
 /* Tamaño de la caja de escaneo: proporcional al lado más chico de la pantalla
-   (85%), con un máximo razonable — a pantalla completa se puede dar mucho
+   (80%), con un máximo razonable — a pantalla completa se puede dar mucho
    más espacio que dentro del layout normal de la app. */
 function calcularQrBox() {
   if (typeof window === 'undefined') return { width: 280, height: 280 };
@@ -204,9 +205,12 @@ function CameraScanner({ onScan, disabled, lastResult }) {
     </div>
   );
 
-  /* Modo pantalla completa: overlay fijo que tapa toda la interfaz de GESTEK. */
-  return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-[fadeIn_0.2s_ease_both]">
+  /* Modo pantalla completa: renderizado vía portal directo en document.body,
+     para escapar de cualquier ancestro con transform/animación que rompería
+     el position:fixed (el mismo problema que tuvimos con los menús de
+     Clientes y Lista de espera). */
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col animate-[fadeIn_0.2s_ease_both]">
       {/* Barra superior flotante */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-b from-black/70 to-transparent">
         <span className="text-sm text-white/90 font-medium">Escaneando... apunta al QR</span>
@@ -239,7 +243,8 @@ function CameraScanner({ onScan, disabled, lastResult }) {
           <ResultadoCard result={lastResult} compact />
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
