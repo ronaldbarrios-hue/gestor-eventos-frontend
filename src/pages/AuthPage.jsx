@@ -14,14 +14,18 @@ const DUR_IN  = 520;
 const staggerClass = 'animate-[fadeUp_0.55s_cubic-bezier(0.16,1,0.3,1)_both]';
 const staggerStyle = (i = 0) => ({ animationDelay: `${i * 70}ms` });
 
-/* Adónde navegar después de login/registro exitoso: si hay una invitación
-   pendiente reclamada, vamos directo a ese evento; si no, al dashboard. */
+/* Adónde navegar después de login/registro exitoso.
+   Prioridad: 1) a dónde intentaba ir antes de que lo mandaran a login
+   (ej. clic en invitación estando sin sesión), 2) evento recién vinculado
+   por invitación pendiente, 3) el fallback (dashboard). */
 function useDestinoPostAuth() {
   const { consumirInvitacionRedirect } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   return (fallback = '/dashboard') => {
+    const from = location.state?.from;
     const eventoId = consumirInvitacionRedirect();
-    navigate(eventoId ? `/eventos/${eventoId}` : fallback, { replace: true });
+    navigate(from || (eventoId ? `/eventos/${eventoId}` : fallback), { replace: true });
   };
 }
 
@@ -143,7 +147,6 @@ function LoginText() {
 function LoginForm() {
   const { login, signInWithGoogle } = useAuth();
   const { error: toastError } = useToast();
-  const navigate = useNavigate();
   const irDestinoPostAuth = useDestinoPostAuth();
 
   const [form, setForm] = useState({ email: '', password: '' });
@@ -331,7 +334,6 @@ function RegisterText() {
 function RegisterForm() {
   const { register, resendConfirmation, signInWithGoogle, checkInvitacionPendiente } = useAuth();
   const { success, error: toastError } = useToast();
-  const navigate = useNavigate();
   const irDestinoPostAuth = useDestinoPostAuth();
 
   const [step, setStep] = useState(1); // 1 | 2 | 'sent'
