@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -16,9 +16,10 @@ const stagger = (i = 0) => ({
 });
 
 export default function CompletarPerfilPage() {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, invitacionInfo, invitacionLoading, consumirInvitacionInfo } = useAuth();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [form, setForm] = useState({
     nombre       : usuario?.nombre        || '',
@@ -33,6 +34,11 @@ export default function CompletarPerfilPage() {
   });
   const [loading, setLoading] = useState(false);
   const [err,     setErr]     = useState('');
+
+  /* invitacionInfo viene del contexto (AuthContext), ya resuelto ANTES de que
+     esta pantalla se monte (se vincula automáticamente al iniciar sesión) —
+     así evitamos la condición de carrera de volver a consultar por email. */
+  const esInvitado = Boolean(invitacionInfo?.eventoId);
 
   const change = (k, v) => { setErr(''); setForm(f => ({ ...f, [k]: v })); };
 
@@ -80,7 +86,9 @@ export default function CompletarPerfilPage() {
       if (e2) throw new Error(e2.message);
 
       success('Bienvenido a GESTEK.');
-      navigate('/dashboard', { replace: true });
+      const from = location.state?.from;
+      const info = consumirInvitacionInfo();
+      navigate(from || (info?.eventoId ? `/eventos/${info.eventoId}` : '/dashboard'), { replace: true });
     } catch (e) {
       setErr(e.message);
       toastError(e.message);
@@ -126,6 +134,13 @@ export default function CompletarPerfilPage() {
         <p {...stagger(3)} className={`${stagger(3).className} text-base text-text-2 leading-relaxed mb-10`}>
           Conectaste con <span className="text-text-1 font-medium">{usuario?.email}</span>. Solo necesitamos unos datos más para preparar tu entorno de trabajo.
         </p>
+
+        {!invitacionLoading && esInvitado && (
+          <div {...stagger(3)} className={`${stagger(3).className} px-4 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-sm text-text-2 leading-relaxed mb-6`}>
+            <span className="text-text-1 font-medium">¡Te estaban esperando!</span> Fuiste invitado como <strong className="text-text-1">{invitacionInfo.rol}</strong>
+            {invitacionInfo.eventoTitulo ? <> a <strong className="text-text-1">{invitacionInfo.eventoTitulo}</strong></> : ''}. Al terminar, entrarás directo a ese evento.
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-7">
           {err && (
@@ -173,22 +188,24 @@ export default function CompletarPerfilPage() {
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="field">
-                <label className="label">Empresa</label>
-                <input
-                  value={form.empresa} onChange={e => change('empresa', e.target.value)}
-                  className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
-                />
+            {!esInvitado && (
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="field">
+                  <label className="label">Empresa</label>
+                  <input
+                    value={form.empresa} onChange={e => change('empresa', e.target.value)}
+                    className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
+                  />
+                </div>
+                <div className="field">
+                  <label className="label">Ocupación</label>
+                  <input
+                    value={form.ocupacion} onChange={e => change('ocupacion', e.target.value)}
+                    className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
+                  />
+                </div>
               </div>
-              <div className="field">
-                <label className="label">Ocupación</label>
-                <input
-                  value={form.ocupacion} onChange={e => change('ocupacion', e.target.value)}
-                  className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
-                />
-              </div>
-            </div>
+            )}
 
             <div className="field">
               <label className="label">Ciudad</label>
@@ -199,31 +216,33 @@ export default function CompletarPerfilPage() {
             </div>
           </div>
 
-          {/* SECCIÓN 3 — Sobre tus eventos */}
-          <div {...stagger(6)} className={`${stagger(6).className} rounded-3xl border border-border bg-surface/40 p-6 space-y-4`}>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Sobre tus eventos</p>
+          {/* SECCIÓN 3 — Sobre tus eventos (solo para organizadores, no invitados) */}
+          {!esInvitado && (
+            <div {...stagger(6)} className={`${stagger(6).className} rounded-3xl border border-border bg-surface/40 p-6 space-y-4`}>
+              <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Sobre tus eventos</p>
 
-            <div className="field">
-              <label className="label">Tamaño típico</label>
-              <select
-                value={form.participantes} onChange={e => change('participantes', e.target.value)}
-                className="input rounded-2xl py-3 text-base"
-              >
-                <option value="">Seleccionar...</option>
-                {PARTICIPANTES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
+              <div className="field">
+                <label className="label">Tamaño típico</label>
+                <select
+                  value={form.participantes} onChange={e => change('participantes', e.target.value)}
+                  className="input rounded-2xl py-3 text-base"
+                >
+                  <option value="">Seleccionar...</option>
+                  {PARTICIPANTES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
 
-            <div className="field">
-              <label className="label">Cuéntanos un poco más</label>
-              <textarea
-                rows={2}
-                value={form.contexto} onChange={e => change('contexto', e.target.value)}
-                className="input rounded-2xl py-3 text-base resize-none"
-                placeholder="Qué eventos organizas, frecuencia e industria. Sirve para personalizar tu experiencia."
-              />
+              <div className="field">
+                <label className="label">Cuéntanos un poco más</label>
+                <textarea
+                  rows={2}
+                  value={form.contexto} onChange={e => change('contexto', e.target.value)}
+                  className="input rounded-2xl py-3 text-base resize-none"
+                  placeholder="Qué eventos organizas, frecuencia e industria. Sirve para personalizar tu experiencia."
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Aceptar términos */}
           <label {...stagger(7)} className={`${stagger(7).className} flex items-start gap-3 cursor-pointer`}>
