@@ -46,11 +46,16 @@ function AuthLoader() {
 
 function PrivateRoute({ children, allowIncomplete = false }) {
   const { token, loading, usuario } = useAuth();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   if (loading) return <AuthLoader />;
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) {
+    /* Guardamos a dónde intentaba ir (ej. /eventos/:id de una invitación)
+       para que el login/registro pueda regresarlo ahí en vez de al dashboard. */
+    return <Navigate to="/login" replace state={{ from: pathname }} />;
+  }
   if (!allowIncomplete && usuario && !usuario.perfilCompleto && pathname !== '/completar-perfil') {
-    return <Navigate to="/completar-perfil" replace />;
+    return <Navigate to="/completar-perfil" replace state={{ from: pathname }} />;
   }
   return children;
 }
