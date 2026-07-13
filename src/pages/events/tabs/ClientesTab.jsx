@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { clientesApi } from '../../../api/clientes.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -28,6 +30,7 @@ export default function ClientesTab({ evento }) {
   const [q, setQ]             = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
   const [importOpen, setImportOpen] = useState(false);
+  const [detalleCliente, setDetalleCliente] = useState(null);
   const { success, error: toastErr } = useToast();
 
   const reload = async () => {
@@ -67,6 +70,13 @@ export default function ClientesTab({ evento }) {
           <p className="text-sm text-text-2 mt-1">Personas que han reservado o comprado boletas para este evento.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => exportarPDF(clientes, evento)}
+            disabled={clientes.length === 0}
+            className="btn-secondary btn-sm"
+            title="Descarga un PDF con la lista de asistentes, listo para imprimir">
+            <PdfIcon className="w-3.5 h-3.5" /> Exportar PDF
+          </button>
           <button
             onClick={() => exportarCSV(clientes, evento)}
             disabled={clientes.length === 0}
@@ -120,6 +130,7 @@ export default function ClientesTab({ evento }) {
               cliente={c}
               currency={evento.currency}
               onCambiarEstado={(e) => cambiarEstado(c.id, e)}
+              onVerDetalle={() => setDetalleCliente(c)}
               style={{ animationDelay: `${i * 25}ms` }}
             />
           ))}
@@ -137,6 +148,14 @@ export default function ClientesTab({ evento }) {
           }}
         />
       )}
+
+      {detalleCliente && (
+        <DetalleModal
+          cliente={detalleCliente}
+          currency={evento.currency}
+          onClose={() => setDetalleCliente(null)}
+        />
+      )}
     </div>
   );
 }
@@ -151,7 +170,7 @@ function StatBox({ label, value, hint }) {
   );
 }
 
-function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
+function ClienteRow({ cliente, currency, onCambiarEstado, onVerDetalle, style }) {
   const [openMenu, setOpenMenu] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef(null);
@@ -177,16 +196,20 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
       className="flex items-center gap-3 px-5 py-3.5 border-b border-border last:border-0 hover:bg-surface-2/30 transition-colors animate-[fadeUp_0.3s_ease_both] group"
       style={style}
     >
-      <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+      <button
+        onClick={onVerDetalle}
+        className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 hover:opacity-80 transition-opacity"
+        title="Ver información completa"
+      >
         {cliente.usuario?.avatar_url
           ? <img src={cliente.usuario.avatar_url} alt="" className="w-full h-full object-cover" />
           : initials}
-      </div>
+      </button>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-text-1 truncate">{nombre}</p>
+      <button onClick={onVerDetalle} className="flex-1 min-w-0 text-left">
+        <p className="text-sm font-medium text-text-1 truncate hover:text-primary-light transition-colors">{nombre}</p>
         <p className="text-xs text-text-3 truncate">{email}</p>
-      </div>
+      </button>
 
       <div className="hidden md:block text-right">
         <p className="text-xs font-medium text-text-1">{cliente.tipo?.nombre || '—'}</p>
@@ -207,6 +230,15 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
       <span className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-full border ${ESTADO_CLS[cliente.estado] || ESTADO_CLS.emitido}`}>
         {ESTADO_LABEL[cliente.estado] || cliente.estado}
       </span>
+
+      <button
+        onClick={onVerDetalle}
+        aria-label="Ver detalle"
+        title="Ver información completa"
+        className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <EyeIcon className="w-4 h-4" />
+      </button>
 
       <div className="relative">
         <button
@@ -239,6 +271,100 @@ function ClienteRow({ cliente, currency, onCambiarEstado, style }) {
           document.body
         )}
       </div>
+    </div>
+  );
+}
+
+/* ─────────── Detalle de un asistente (incluye formulario que diligenció) ─────────── */
+function DetalleModal({ cliente, currency, onClose }) {
+  const nombre = cliente.usuario?.nombre || cliente.guest_nombre || cliente.guest_email;
+  const email  = cliente.usuario?.email || cliente.guest_email;
+  const initials = (nombre || 'U').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+  /* respuestas puede venir como objeto { "¿Pregunta?": "respuesta" } o como
+     array de { pregunta, respuesta } — soportamos ambos formatos. */
+  const respuestas = cliente.respuestas;
+  let preguntas = [];
+  if (Array.isArray(respuestas)) {
+    preguntas = respuestas.map(r => [r.pregunta || r.label || 'Pregunta', r.respuesta ?? r.value]);
+  } else if (respuestas && typeof respuestas === 'object') {
+    preguntas = Object.entries(respuestas);
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/70 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[88vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 bg-surface px-5 py-4 border-b border-border flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+            {cliente.usuario?.avatar_url
+              ? <img src={cliente.usuario.avatar_url} alt="" className="w-full h-full object-cover" />
+              : initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Detalle del asistente</p>
+            <h2 className="text-lg font-bold font-display tracking-tight text-text-1 truncate">{nombre}</h2>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-2.5">
+            <DetalleRow label="Email" value={email} />
+            <DetalleRow label="Código" value={cliente.codigo} mono />
+            <DetalleRow label="Tipo de boleta" value={cliente.tipo?.nombre || '—'} />
+            <DetalleRow label="Estado" value={ESTADO_LABEL[cliente.estado] || cliente.estado} />
+            <DetalleRow
+              label="Precio pagado"
+              value={cliente.precio_pagado != null
+                ? (Number(cliente.precio_pagado) === 0 ? 'Gratis' : `$${Number(cliente.precio_pagado).toLocaleString('es-CO')} ${currency || ''}`)
+                : 'Pendiente'}
+            />
+            <DetalleRow label="Reservado el" value={new Date(cliente.created_at).toLocaleString('es-CO')} />
+            {cliente.checked_in_at && (
+              <DetalleRow label="Ingresó el" value={new Date(cliente.checked_in_at).toLocaleString('es-CO')} />
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">Formulario que diligenció</p>
+            {preguntas.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-surface/40 px-4 py-6 text-center">
+                <p className="text-sm text-text-3">Este evento no tiene preguntas personalizadas, o la persona no respondió ninguna.</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
+                {preguntas.map(([pregunta, respuesta], i) => (
+                  <div key={i} className="px-4 py-3">
+                    <p className="text-xs text-text-3 mb-0.5">{pregunta}</p>
+                    <p className="text-sm text-text-1 leading-relaxed">
+                      {Array.isArray(respuesta) ? respuesta.join(', ') : (respuesta || respuesta === 0 ? String(respuesta) : '—')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function DetalleRow({ label, value, mono }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-text-3">{label}</span>
+      <span className={`text-sm text-text-1 text-right truncate ${mono ? 'font-mono' : ''}`}>{value}</span>
     </div>
   );
 }
@@ -525,12 +651,58 @@ function exportarCSV(clientes, evento) {
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
 }
 
+/* PDF de asistentes — tabla simple pensada para imprimir y llevar a la
+   entrada del evento (nombre, email, tipo, código, estado). El detalle
+   completo (incluyendo respuestas del formulario) vive en pantalla,
+   dentro del modal de cada asistente — el PDF se mantiene liviano. */
+function exportarPDF(clientes, evento) {
+  if (!clientes?.length) return;
+
+  const doc = new jsPDF({ orientation: 'landscape' });
+
+  doc.setFontSize(15);
+  doc.text(evento?.titulo || 'Lista de asistentes', 14, 16);
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text(`Generado el ${new Date().toLocaleDateString('es-CO')} · ${clientes.length} registro${clientes.length === 1 ? '' : 's'}`, 14, 22);
+  doc.setTextColor(0);
+
+  const rows = clientes.map(c => [
+    c.usuario?.nombre || c.guest_nombre || '—',
+    c.usuario?.email || c.guest_email || '—',
+    c.tipo?.nombre || '—',
+    c.codigo,
+    ESTADO_LABEL[c.estado] || c.estado,
+  ]);
+
+  autoTable(doc, {
+    startY: 28,
+    head: [['Nombre', 'Email', 'Tipo de boleta', 'Código', 'Estado']],
+    body: rows,
+    styles: { fontSize: 8.5, cellPadding: 3 },
+    headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+  });
+
+  const slug = (evento?.slug || 'evento').replace(/[^a-z0-9-]/gi, '-');
+  const fecha = new Date().toISOString().slice(0, 10);
+  doc.save(`asistentes-${slug}-${fecha}.pdf`);
+}
+
 function DownloadIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 11l5 5m0 0l5-5m-5 5V4" /></svg>;
 }
 
 function UploadIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" /></svg>;
+}
+
+function PdfIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
+}
+
+function EyeIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 }
 
 function SearchIcon({ className }) {
