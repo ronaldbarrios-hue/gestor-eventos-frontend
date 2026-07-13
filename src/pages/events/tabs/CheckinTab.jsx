@@ -122,6 +122,16 @@ function ManualInput({ onSubmit, disabled }) {
 
 /* ─────────── Cámara ─────────── */
 
+/* Tamaño de la caja de escaneo: proporcional al ancho de pantalla (70%),
+   pero con un mínimo y un máximo razonables para que sea grande y fácil
+   de apuntar tanto en celular como en pantallas grandes. */
+function calcularQrBox() {
+  if (typeof window === 'undefined') return { width: 280, height: 280 };
+  const lado = Math.round(Math.min(window.innerWidth * 0.7, 340));
+  const tamano = Math.max(220, lado);
+  return { width: tamano, height: tamano };
+}
+
 function CameraScanner({ onScan, disabled }) {
   const containerId = 'qr-reader';
   const scannerRef = useRef(null);
@@ -145,7 +155,7 @@ function CameraScanner({ onScan, disabled }) {
 
     scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      { fps: 10, qrbox: calcularQrBox() },
       (decoded) => {
         /* Dedupe: ignorar el mismo código dentro de 3 segundos */
         const now = Date.now();
