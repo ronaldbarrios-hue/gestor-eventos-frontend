@@ -86,6 +86,12 @@ export default function TopBar({ onMenu }) {
 
   const showBack = !ROOT_PATHS.has(pathname);
 
+  /* El badge de arriba debe reflejar el MODO activo del dashboard
+     (organizador/asistente, elegido por el usuario y guardado), no el
+     "rol" interno de permisos (que siempre es 'organizador' salvo casos
+     especiales de seguridad). */
+  const modoActivo = usuario?.modoActivo || 'organizador';
+
   return (
     <header className="h-14 flex-shrink-0 bg-surface border-b border-border flex items-center gap-3 px-4 sm:px-6 relative z-10">
       {/* Hamburger mobile */}
@@ -171,8 +177,8 @@ export default function TopBar({ onMenu }) {
           )}
         </div>
 
-        {/* Role badge */}
-        <RolBadge rol={usuario?.rol} />
+        {/* Badge del modo activo (Organizador/Asistente) */}
+        <RolBadge rol={modoActivo} />
       </div>
     </header>
   );
