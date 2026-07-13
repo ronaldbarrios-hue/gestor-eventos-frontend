@@ -6,7 +6,7 @@ import { solicitudesApi } from '../api/solicitudes.js';
 import { EstadoBadge, ModalidadBadge } from '../components/ui/Badge.jsx';
 
 export default function DashboardPage() {
-  const { usuario, invitacionRedirectId, consumirInvitacionRedirect } = useAuth();
+  const { usuario, invitacionInfo, consumirInvitacionInfo } = useAuth();
   const navigate = useNavigate();
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,12 +18,12 @@ export default function DashboardPage() {
      la ruta original) y hay una invitación recién vinculada, saltamos directo
      al evento correspondiente en vez de mostrar el dashboard genérico. */
   useEffect(() => {
-    if (invitacionRedirectId) {
-      const eventoId = consumirInvitacionRedirect();
-      if (eventoId) navigate(`/eventos/${eventoId}`, { replace: true });
+    if (invitacionInfo?.eventoId) {
+      const info = consumirInvitacionInfo();
+      if (info?.eventoId) navigate(`/eventos/${info.eventoId}`, { replace: true });
     }
     /* eslint-disable-next-line */
-  }, [invitacionRedirectId]);
+  }, [invitacionInfo]);
 
   useEffect(() => {
     solicitudesApi.misSolicitudes()
