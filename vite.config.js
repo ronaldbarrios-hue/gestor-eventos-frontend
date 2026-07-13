@@ -1,8 +1,29 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      /* injectManifest generaría un SW manual; con "generateSW" (default)
+         vite-plugin-pwa arma el service worker automáticamente basado en
+         los assets del build — es la opción recomendada para empezar. */
+      registerType: 'autoUpdate',
+      /* No tocamos tu manifest.webmanifest existente — le decimos al plugin
+         que use el que ya tienes en /public en vez de generar uno nuevo. */
+      manifest: false,
+      includeAssets: ['icon-192.svg', 'icon-512.svg', 'icon-maskable.svg'],
+      workbox: {
+        /* Cachea los archivos estáticos del build para que la app cargue
+           rápido en visitas repetidas y funcione algo mejor con mala señal. */
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        /* No cachees las respuestas de la API — siempre deben ser frescas
+           (tickets, check-ins, etc. no se pueden servir desde caché vieja). */
+        navigateFallbackDenylist: [/^\/api/, /^\/eventos/, /^\/me/],
+      },
+    }),
+  ],
   server: {
     port: 5173,
     /* Sin proxy. Las llamadas al backend usan axios contra VITE_API_URL
