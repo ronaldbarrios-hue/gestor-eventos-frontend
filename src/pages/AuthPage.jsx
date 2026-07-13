@@ -19,13 +19,13 @@ const staggerStyle = (i = 0) => ({ animationDelay: `${i * 70}ms` });
    (ej. clic en invitación estando sin sesión), 2) evento recién vinculado
    por invitación pendiente, 3) el fallback (dashboard). */
 function useDestinoPostAuth() {
-  const { consumirInvitacionRedirect } = useAuth();
+  const { consumirInvitacionInfo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   return (fallback = '/dashboard') => {
     const from = location.state?.from;
-    const eventoId = consumirInvitacionRedirect();
-    navigate(from || (eventoId ? `/eventos/${eventoId}` : fallback), { replace: true });
+    const info = consumirInvitacionInfo();
+    navigate(from || (info?.eventoId ? `/eventos/${info.eventoId}` : fallback), { replace: true });
   };
 }
 
