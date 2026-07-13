@@ -1,29 +1,87 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { eventosApi } from '../api/eventos.js';
 import { solicitudesApi } from '../api/solicitudes.js';
 import { EstadoBadge, ModalidadBadge } from '../components/ui/Badge.jsx';
 
 export default function DashboardPage() {
-  const { usuario, invitacionInfo, consumirInvitacionInfo } = useAuth();
-  const navigate = useNavigate();
+  const { usuario } = useAuth();
+  const modoActivo = usuario?.modoActivo || 'organizador';
+
+  if (modoActivo === 'asistente') return <DashboardAsistente />;
+  return <DashboardOrganizador />;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Modo Asistente — vista simple para alguien que solo explora
+   eventos y compra/gestiona sus boletas. */
+function DashboardAsistente() {
+  const { usuario } = useAuth();
+  const hora   = new Date().getHours();
+  const saludo = hora < 12 ? 'Buenos días' : hora < 18 ? 'Buenas tardes' : 'Buenas noches';
+  const nombre = usuario?.nombre?.split(' ')[0] || 'Usuario';
+
+  return (
+    <div className="space-y-8 animate-[fadeUp_0.4s_ease_both] max-w-3xl">
+      <header>
+        <p className="text-text-2 text-base mb-1.5">{saludo},</p>
+        <h1 className="text-4xl sm:text-5xl font-bold font-display text-text-1 tracking-tight leading-[1.05]">{nombre}.</h1>
+        <p className="text-base text-text-2 mt-3 max-w-md leading-relaxed">
+          Descubre eventos y gestiona tus boletas desde aquí.
+        </p>
+      </header>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Link
+          to="/app/explorar"
+          className="group rounded-3xl border border-border bg-surface/40 p-6 hover:border-border-2 hover:bg-surface/60 transition-all"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
+            <CompassIcon className="w-6 h-6 text-primary-light" />
+          </div>
+          <h2 className="text-lg font-bold font-display text-text-1 mb-1 group-hover:text-primary-light transition-colors">Explorar eventos</h2>
+          <p className="text-sm text-text-2 leading-relaxed">Descubre qué se está organizando ahora mismo y reserva tu cupo.</p>
+        </Link>
+
+        <Link
+          to="/mis-boletas"
+          className="group rounded-3xl border border-border bg-surface/40 p-6 hover:border-border-2 hover:bg-surface/60 transition-all"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-4">
+            <TicketIcon className="w-6 h-6 text-accent-light" />
+          </div>
+          <h2 className="text-lg font-bold font-display text-text-1 mb-1 group-hover:text-accent-light transition-colors">Mis boletas</h2>
+          <p className="text-sm text-text-2 leading-relaxed">Revisa tus entradas confirmadas, con su QR de acceso.</p>
+        </Link>
+      </div>
+
+      <div className="rounded-3xl border border-border bg-surface/40 px-6 py-5">
+        <p className="text-sm text-text-2 leading-relaxed">
+          ¿Vas a organizar tu propio evento? Puedes cambiar a modo{' '}
+          <span className="text-text-1 font-medium">Organizador</span> desde el menú lateral cuando quieras.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CompassIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}><path strokeLinecap="round" strokeLinejoin="round" d="M12 22a10 10 0 100-20 10 10 0 000 20z"/><path strokeLinecap="round" strokeLinejoin="round" d="M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"/></svg>;
+}
+function TicketIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Modo Organizador — el dashboard original, sin cambios. */
+function DashboardOrganizador() {
+  const { usuario } = useAuth();
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats,   setStats]   = useState({ total: 0, publicados: 0, borradores: 0, asistentes: 0 });
   const [sugerencias, setSugerencias] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
-
-  /* Si llegamos aquí (típicamente tras login con Google, que no puede recordar
-     la ruta original) y hay una invitación recién vinculada, saltamos directo
-     al evento correspondiente en vez de mostrar el dashboard genérico. */
-  useEffect(() => {
-    if (invitacionInfo?.eventoId) {
-      const info = consumirInvitacionInfo();
-      if (info?.eventoId) navigate(`/eventos/${info.eventoId}`, { replace: true });
-    }
-    /* eslint-disable-next-line */
-  }, [invitacionInfo]);
 
   useEffect(() => {
     solicitudesApi.misSolicitudes()
