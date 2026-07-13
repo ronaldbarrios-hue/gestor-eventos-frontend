@@ -33,6 +33,10 @@ export default function CheckinTab({ evento }) {
     }
   }, [evento.id, working]);
 
+  /* onScan estable (misma identidad siempre): CameraScanner la guarda en un ref
+     internamente, así que no importa si esta función cambia — no reinicia la cámara. */
+  const onScanQr = useCallback((qr) => handleCheckin({ qr_token: qr }), [handleCheckin]);
+
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between flex-wrap gap-3">
@@ -54,7 +58,7 @@ export default function CheckinTab({ evento }) {
         {/* Scanner / input */}
         <div className="space-y-4">
           {mode === 'camara'
-            ? <CameraScanner onScan={(qr) => handleCheckin({ qr_token: qr })} disabled={working} />
+            ? <CameraScanner onScan={onScanQr} disabled={working} />
             : <ManualInput onSubmit={(codigo) => handleCheckin({ codigo })} disabled={working} />
           }
 
@@ -125,10 +129,20 @@ function CameraScanner({ onScan, disabled }) {
   const [err, setErr] = useState('');
   const lastScanRef = useRef({ value: '', at: 0 });
 
+  /* Guardamos la última versión de onScan en un ref. Así el efecto de abajo
+     puede llamar siempre a la función más reciente SIN tener que declararla
+     como dependencia — evita que la cámara se reinicie (y se duplique
+     visualmente mientras la vieja instancia todavía se está cerrando) cada
+     vez que el componente padre se re-renderiza. */
+  const onScanRef = useRef(onScan);
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
+
   useEffect(() => {
     if (!active) return;
+    let cancelado = false;
     const scanner = new Html5Qrcode(containerId);
     scannerRef.current = scanner;
+
     scanner.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 250, height: 250 } },
@@ -137,15 +151,22 @@ function CameraScanner({ onScan, disabled }) {
         const now = Date.now();
         if (lastScanRef.current.value === decoded && now - lastScanRef.current.at < 3000) return;
         lastScanRef.current = { value: decoded, at: now };
-        onScan(decoded);
+        onScanRef.current(decoded);
       },
       () => { /* errores de scan silenciosos */ }
-    ).catch(e => setErr(e.message || 'No se pudo iniciar la cámara.'));
+    ).catch(e => {
+      if (!cancelado) setErr(e.message || 'No se pudo iniciar la cámara.');
+    });
 
     return () => {
-      try { scanner.stop().then(() => scanner.clear()).catch(() => {}); } catch {}
+      cancelado = true;
+      try {
+        scanner.stop().then(() => scanner.clear()).catch(() => {
+          try { scanner.clear(); } catch {}
+        });
+      } catch {}
     };
-  }, [active, onScan]);
+  }, [active]);
 
   if (err) return (
     <div className="rounded-3xl border border-danger/30 bg-danger/5 p-6 text-center">
