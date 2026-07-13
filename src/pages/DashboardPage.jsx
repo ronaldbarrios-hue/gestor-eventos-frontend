@@ -1,17 +1,29 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { eventosApi } from '../api/eventos.js';
 import { solicitudesApi } from '../api/solicitudes.js';
 import { EstadoBadge, ModalidadBadge } from '../components/ui/Badge.jsx';
 
 export default function DashboardPage() {
-  const { usuario } = useAuth();
+  const { usuario, invitacionRedirectId, consumirInvitacionRedirect } = useAuth();
+  const navigate = useNavigate();
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats,   setStats]   = useState({ total: 0, publicados: 0, borradores: 0, asistentes: 0 });
   const [sugerencias, setSugerencias] = useState([]);
   const [solicitudes, setSolicitudes] = useState([]);
+
+  /* Si llegamos aquí (típicamente tras login con Google, que no puede recordar
+     la ruta original) y hay una invitación recién vinculada, saltamos directo
+     al evento correspondiente en vez de mostrar el dashboard genérico. */
+  useEffect(() => {
+    if (invitacionRedirectId) {
+      const eventoId = consumirInvitacionRedirect();
+      if (eventoId) navigate(`/eventos/${eventoId}`, { replace: true });
+    }
+    /* eslint-disable-next-line */
+  }, [invitacionRedirectId]);
 
   useEffect(() => {
     solicitudesApi.misSolicitudes()
