@@ -337,14 +337,19 @@ function RegisterForm() {
   const { success, error: toastError } = useToast();
   const irDestinoPostAuth = useDestinoPostAuth();
 
-  const [step, setStep] = useState(1); // 1 | 2 | 'sent'
+  const [step, setStep] = useState(0); // 0 (propósito) | 1 | 2 | 'sent'
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [err, setErr] = useState('');
 
+  /* Propósito elegido en el paso 0: 'organizador' (crear/gestionar eventos)
+     o 'asistente' (solo explorar y comprar boletas). */
+  const [proposito, setProposito] = useState(null);
+
   /* Info de invitación pendiente detectada por email (staff invitado a un
-     equipo). Cuando aplica, se relajan las preguntas de "organizador". */
+     equipo). Cuando aplica, se relajan las preguntas de "organizador"
+     igual que cuando el propósito elegido es "asistente". */
   const [invitacion, setInvitacion] = useState(null);
   const [checkingInvite, setCheckingInvite] = useState(false);
 
@@ -355,6 +360,10 @@ function RegisterForm() {
     fotoFile: null, ocupacion: '', empresa: '', ciudad: '', aceptar: false,
   });
 
+  /* Se ocultan las preguntas específicas de organizador si el propósito
+     elegido es "asistente" O si detectamos que viene de una invitación. */
+  const esFlujoLigero = proposito === 'asistente' || Boolean(invitacion?.invitado);
+
   const handleGoogle = async () => {
     setGoogleLoading(true);
     const res = await signInWithGoogle();
@@ -363,6 +372,12 @@ function RegisterForm() {
 
   const onChange1 = e => { setErr(''); setPaso1(f => ({ ...f, [e.target.name]: e.target.value })); };
   const onChange2 = e => { setErr(''); setPaso2(f => ({ ...f, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })); };
+
+  const elegirProposito = (p) => {
+    setProposito(p);
+    setStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   /* Al salir del campo email, chequeamos si hay una invitación pendiente */
   const onBlurEmail = async () => {
@@ -376,7 +391,7 @@ function RegisterForm() {
   const submitPaso1 = e => {
     e.preventDefault();
     if (paso1.password.length < 8) { setErr('La contraseña debe tener al menos 8 caracteres.'); return; }
-    if (!invitacion?.invitado && !paso1.participantes) { setErr('Selecciona el tamaño típico de tus eventos.'); return; }
+    if (!esFlujoLigero && !paso1.participantes) { setErr('Selecciona el tamaño típico de tus eventos.'); return; }
     setStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -391,6 +406,7 @@ function RegisterForm() {
       email: paso1.email,
       password: paso1.password,
       rol: 'organizador',
+      modo_activo: proposito === 'asistente' ? 'asistente' : 'organizador',
       telefono: paso1.telefono,
       participantes: paso1.participantes,
       contexto: paso1.contexto,
@@ -437,7 +453,7 @@ function RegisterForm() {
         <span className="text-xl font-bold font-display tracking-tight">GESTEK</span>
       </Link>
 
-      {step !== 'sent' && (
+      {step !== 'sent' && step !== 0 && (
         <div className={`${staggerClass} flex items-center gap-2 mb-7`} style={staggerStyle(0)}>
           {[1, 2].map(n => (
             <div key={n} className="flex items-center gap-2 flex-1 min-w-0">
@@ -450,6 +466,67 @@ function RegisterForm() {
               {n === 1 && <span className={`flex-1 h-px transition-colors duration-500 ${step >= 2 ? 'bg-text-1' : 'bg-border'}`} />}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* PASO 0 — Propósito, estilo Airbnb Huésped/Anfitrión */}
+      {step === 0 && (
+        <div key="step0" className="animate-[fadeUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]">
+          <h1 className={`${staggerClass} text-3xl sm:text-4xl font-bold font-display tracking-tight mb-2`} style={staggerStyle(0)}>
+            ¿Qué te trae a GESTEK?
+          </h1>
+          <p className={`${staggerClass} text-base text-text-2 mb-6`} style={staggerStyle(1)}>
+            ¿Ya tienes cuenta?{' '}
+            <Link to="/login" className="text-primary-light hover:text-primary font-semibold transition-colors">Iniciar sesión</Link>
+          </p>
+
+          <div className={`${staggerClass} space-y-3`} style={staggerStyle(2)}>
+            <button
+              type="button"
+              onClick={() => elegirProposito('organizador')}
+              className="w-full text-left p-5 rounded-3xl border-2 border-border hover:border-primary/50 hover:bg-surface-2/40 transition-all group flex items-center gap-4"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                <CalendarProposeIcon className="w-6 h-6 text-primary-light" />
+              </div>
+              <div className="flex-1">
+                <p className="text-base font-bold text-text-1 group-hover:text-primary-light transition-colors">Quiero organizar eventos</p>
+                <p className="text-sm text-text-2 mt-0.5">Crea, gestiona y vende boletas para tus propios eventos.</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => elegirProposito('asistente')}
+              className="w-full text-left p-5 rounded-3xl border-2 border-border hover:border-accent/50 hover:bg-surface-2/40 transition-all group flex items-center gap-4"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
+                <TicketProposeIcon className="w-6 h-6 text-accent-light" />
+              </div>
+              <div className="flex-1">
+                <p className="text-base font-bold text-text-1 group-hover:text-accent-light transition-colors">Solo quiero ir a eventos</p>
+                <p className="text-sm text-text-2 mt-0.5">Explora eventos y compra o reserva tus boletas.</p>
+              </div>
+            </button>
+          </div>
+
+          <div className={`${staggerClass} flex items-center gap-3 my-6`} style={staggerStyle(3)}>
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-[11px] uppercase tracking-widest text-text-3 whitespace-nowrap">o con Google</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={googleLoading}
+            className={`${staggerClass} w-full py-3.5 rounded-2xl border border-border-2 bg-surface hover:bg-surface-2 text-text-1 font-medium text-sm flex items-center justify-center gap-3 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 min-h-[44px]`}
+            style={staggerStyle(4)}
+          >
+            <GoogleIcon className="w-5 h-5 shrink-0" />
+            {googleLoading ? 'Conectando…' : 'Registrarme con Google'}
+          </button>
+          <p className="text-xs text-text-3 mt-2 text-center">Con Google entras directo en modo Organizador; puedes cambiar a Asistente después desde el menú.</p>
         </div>
       )}
 
@@ -488,6 +565,14 @@ function RegisterForm() {
 
       {step === 1 && (
         <div key="step1" className="animate-[fadeUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]">
+          <button
+            type="button"
+            onClick={() => { setStep(0); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className="text-xs text-text-3 hover:text-text-1 transition-colors mb-3 inline-flex items-center gap-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Cambiar propósito
+          </button>
           <h1
             className={`${staggerClass} text-3xl sm:text-4xl font-bold font-display tracking-tight mb-2`}
             style={staggerStyle(1)}
@@ -498,23 +583,6 @@ function RegisterForm() {
             ¿Ya tienes cuenta?{' '}
             <Link to="/login" className="text-primary-light hover:text-primary font-semibold transition-colors">Iniciar sesión</Link>
           </p>
-
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={googleLoading || loading}
-            className={`${staggerClass} w-full mb-5 py-3.5 rounded-2xl border border-border-2 bg-surface hover:bg-surface-2 text-text-1 font-medium text-sm flex items-center justify-center gap-3 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 min-h-[44px]`}
-            style={staggerStyle(3)}
-          >
-            <GoogleIcon className="w-5 h-5 shrink-0" />
-            {googleLoading ? 'Conectando…' : 'Registrarme con Google'}
-          </button>
-
-          <div className={`${staggerClass} flex items-center gap-3 mb-5`} style={staggerStyle(4)}>
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-[11px] uppercase tracking-widest text-text-3 whitespace-nowrap">o con email</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
 
           <form onSubmit={submitPaso1} className={`${staggerClass} space-y-4`} style={staggerStyle(5)}>
             {err && <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
@@ -527,7 +595,7 @@ function RegisterForm() {
                   required autoFocus style={{ fontSize: '16px' }} />
               </div>
               <div className="field">
-                <label className="label">Email empresarial</label>
+                <label className="label">{esFlujoLigero ? 'Email' : 'Email empresarial'}</label>
                 <input type="email" name="email" value={paso1.email} onChange={onChange1}
                   onBlur={onBlurEmail}
                   className="input rounded-2xl py-3 text-base" placeholder="juan@empresa.com"
@@ -557,7 +625,7 @@ function RegisterForm() {
               </div>
             </div>
 
-            {!invitacion?.invitado && (
+            {!esFlujoLigero && (
               <>
                 <div className="field">
                   <label className="label">Número esperado de participantes</label>
@@ -618,12 +686,14 @@ function RegisterForm() {
       {step === 2 && (
         <div key="step2" className="animate-[fadeUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]">
           <h1 className="text-3xl sm:text-4xl font-bold font-display tracking-tight mb-2">
-            {invitacion?.invitado ? 'Casi listo' : 'Perfil del organizador'}
+            {esFlujoLigero ? 'Casi listo' : 'Perfil del organizador'}
           </h1>
           <p className="text-base text-text-2 mb-6">
             {invitacion?.invitado
               ? 'Estos datos solo se usan dentro del equipo al que te uniste.'
-              : 'Estos datos aparecen en tu página pública y en los correos a tus asistentes.'}
+              : esFlujoLigero
+                ? 'Solo un par de datos más para terminar.'
+                : 'Estos datos aparecen en tu página pública y en los correos a tus asistentes.'}
           </p>
 
           <form onSubmit={submitFinal} className="space-y-4">
@@ -638,37 +708,37 @@ function RegisterForm() {
               />
             </div>
 
-            {!invitacion?.invitado && (
-              <>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div className="field">
-                    <label className="label">Ocupación</label>
-                    <input name="ocupacion" value={paso2.ocupacion} onChange={onChange2}
-                      className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
-                      style={{ fontSize: '16px' }} />
-                  </div>
-                  <div className="field">
-                    <label className="label">
-                      Empresa{' '}
-                      <span className="text-text-3 lowercase tracking-normal font-normal">(opcional)</span>
-                    </label>
-                    <input name="empresa" value={paso2.empresa} onChange={onChange2}
-                      className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
-                      style={{ fontSize: '16px' }} />
-                  </div>
-                </div>
-
+            {!invitacion?.invitado && !esFlujoLigero && (
+              <div className="grid sm:grid-cols-2 gap-3">
                 <div className="field">
-                  <label className="label">País</label>
-                  <select name="ciudad" value={paso2.ciudad} onChange={onChange2}
-                    className="input rounded-2xl py-3 text-base" style={{ fontSize: '16px' }}>
-                    <option value="">Seleccionar...</option>
-                    {PAISES.map(p => (
-                      <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
-                    ))}
-                  </select>
+                  <label className="label">Ocupación</label>
+                  <input name="ocupacion" value={paso2.ocupacion} onChange={onChange2}
+                    className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
+                    style={{ fontSize: '16px' }} />
                 </div>
-              </>
+                <div className="field">
+                  <label className="label">
+                    Empresa{' '}
+                    <span className="text-text-3 lowercase tracking-normal font-normal">(opcional)</span>
+                  </label>
+                  <input name="empresa" value={paso2.empresa} onChange={onChange2}
+                    className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
+                    style={{ fontSize: '16px' }} />
+                </div>
+              </div>
+            )}
+
+            {!invitacion?.invitado && (
+              <div className="field">
+                <label className="label">País</label>
+                <select name="ciudad" value={paso2.ciudad} onChange={onChange2}
+                  className="input rounded-2xl py-3 text-base" style={{ fontSize: '16px' }}>
+                  <option value="">Seleccionar...</option>
+                  {PAISES.map(p => (
+                    <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
+                  ))}
+                </select>
+              </div>
             )}
 
             <label className="flex items-start gap-3 cursor-pointer py-1">
@@ -711,4 +781,10 @@ function GoogleIcon({ className }) {
       <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
     </svg>
   );
+}
+function CalendarProposeIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+}
+function TicketProposeIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;
 }
