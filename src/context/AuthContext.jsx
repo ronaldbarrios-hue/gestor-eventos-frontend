@@ -33,15 +33,18 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
-  /* ID del evento al que el usuario fue invitado (si aplica), para redirigir
-     ahí en vez de al dashboard genérico tras login/registro/completar-perfil. */
-  const [invitacionRedirectId, setInvitacionRedirectId] = useState(null);
+  /* Info de la invitación recién vinculada (si aplica): { eventoId, rol, eventoTitulo }.
+     Se llena UNA vez, justo después de confirmar sesión, y se consume (limpia)
+     cuando alguna pantalla la usa para redirigir/mostrar el mensaje. */
+  const [invitacionInfo, setInvitacionInfo] = useState(null);
+  const [invitacionLoading, setInvitacionLoading] = useState(false);
   const vinculacionHecha = useRef(false);
 
-  /* Reclama invitaciones pendientes del email actual y guarda el evento al que
-     redirigir. Se llama automáticamente una sola vez por sesión iniciada. */
+  /* Reclama invitaciones pendientes del email actual. Se llama automáticamente
+     una sola vez por sesión iniciada (login, registro o Google). */
   const vincularInvitacionesPendientes = useCallback(async (accessToken) => {
     if (!accessToken) return;
+    setInvitacionLoading(true);
     try {
       const resp = await fetch(`${API_URL}/eventos/vincular-invitaciones`, {
         method: 'POST',
@@ -49,17 +52,19 @@ export function AuthProvider({ children }) {
       });
       if (!resp.ok) return;
       const data = await resp.json();
-      if (data?.eventos?.length) {
-        setInvitacionRedirectId(data.eventos[0]);
+      if (data?.invitaciones?.length) {
+        setInvitacionInfo(data.invitaciones[0]);
       }
     } catch (e) {
       console.warn('[auth] vincularInvitacionesPendientes falló:', e.message);
+    } finally {
+      setInvitacionLoading(false);
     }
   }, []);
 
   /* Consulta pública (sin sesión) si un email tiene una invitación pendiente.
-     Se usa desde el formulario de registro para saltarse las preguntas de
-     organizador cuando la persona viene a unirse a un equipo como staff. */
+     Se usa SOLO desde el formulario de registro (antes de tener cuenta/sesión),
+     donde no hay riesgo de condición de carrera con la vinculación automática. */
   const checkInvitacionPendiente = useCallback(async (email) => {
     if (!email || !email.includes('@')) return { invitado: false };
     try {
@@ -71,13 +76,15 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  /* Consume (limpia) el destino de redirección guardado, para no repetirlo
+  /* Consume (limpia) la info de invitación guardada, para no repetirla
      en navegaciones futuras dentro de la misma sesión. */
-  const consumirInvitacionRedirect = useCallback(() => {
-    const id = invitacionRedirectId;
-    setInvitacionRedirectId(null);
-    return id;
-  }, [invitacionRedirectId]);
+  const consumirInvitacionInfo = useCallback(() => {
+    setInvitacionInfo(prev => {
+      if (prev) setTimeout(() => setInvitacionInfo(null), 0);
+      return prev;
+    });
+    return invitacionInfo;
+  }, [invitacionInfo]);
 
   /* Inicializar: si volvemos de OAuth con ?code= en URL, lo intercambiamos
      por sesión explícitamente. Luego leemos la sesión y nos suscribimos. */
@@ -109,16 +116,16 @@ export function AuthProvider({ children }) {
 
       if (data.session?.access_token && !vinculacionHecha.current) {
         vinculacionHecha.current = true;
-        vincularInvitacionesPendientes(data.session.access_token);
+        await vincularInvitacionesPendientes(data.session.access_token);
       }
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       setSession(sess ?? null);
       setUsuario(mapUser(sess?.user));
       if (sess?.access_token && !vinculacionHecha.current) {
         vinculacionHecha.current = true;
-        vincularInvitacionesPendientes(sess.access_token);
+        await vincularInvitacionesPendientes(sess.access_token);
       }
       if (!sess) vinculacionHecha.current = false;
     });
@@ -160,7 +167,7 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
     setSession(null);
     setUsuario(null);
-    setInvitacionRedirectId(null);
+    setInvitacionInfo(null);
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
@@ -228,7 +235,7 @@ export function AuthProvider({ children }) {
       login, register, logout, signInWithGoogle,
       resetPassword, updatePassword, updateProfile, resendConfirmation,
       hasPermiso, hasRol,
-      invitacionRedirectId, consumirInvitacionRedirect, checkInvitacionPendiente,
+      invitacionInfo, invitacionLoading, consumirInvitacionInfo, checkInvitacionPendiente,
     }}>
       {children}
     </AuthContext.Provider>
