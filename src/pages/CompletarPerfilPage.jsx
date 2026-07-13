@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase.js';
 import logoG from '../assets/logo-g.svg';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader from '../components/ui/AvatarUploader.jsx';
+import { PAISES, bandera } from '../lib/paises.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 
@@ -208,11 +209,16 @@ export default function CompletarPerfilPage() {
             )}
 
             <div className="field">
-              <label className="label">Ciudad</label>
-              <input
+              <label className="label">País</label>
+              <select
                 value={form.ciudad} onChange={e => change('ciudad', e.target.value)}
-                className="input rounded-2xl py-3 text-base" placeholder="Ibagué, Colombia"
-              />
+                className="input rounded-2xl py-3 text-base"
+              >
+                <option value="">Seleccionar...</option>
+                {PAISES.map(p => (
+                  <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
+                ))}
+              </select>
             </div>
           </div>
 
