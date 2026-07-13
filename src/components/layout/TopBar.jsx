@@ -93,7 +93,17 @@ export default function TopBar({ onMenu }) {
   const modoActivo = usuario?.modoActivo || 'organizador';
 
   return (
-    <header className="h-14 flex-shrink-0 bg-surface border-b border-border flex items-center gap-3 px-4 sm:px-6 relative z-10">
+    <header
+      className="flex-shrink-0 bg-surface border-b border-border flex items-center gap-3 px-4 sm:px-6 relative z-10"
+      style={{
+        /* Respeta el "área segura" del celular (notch, cámara, barra de
+           estado) cuando la app corre instalada como PWA a pantalla
+           completa — sin esto, el botón de menú queda tapado por la hora
+           del teléfono. paddingTop se suma a la altura normal del header. */
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
+      }}
+    >
       {/* Hamburger mobile */}
       <button
         onClick={onMenu}
