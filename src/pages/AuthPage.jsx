@@ -6,6 +6,7 @@ import logoG from '../assets/logo-g.svg';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploader.jsx';
 import { supabase } from '../lib/supabase.js';
+import { PAISES, bandera } from '../lib/paises.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 const DUR_OUT = 420;
@@ -658,10 +659,14 @@ function RegisterForm() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Ciudad</label>
-                  <input name="ciudad" value={paso2.ciudad} onChange={onChange2}
-                    className="input rounded-2xl py-3 text-base" placeholder="Ibagué, Colombia"
-                    style={{ fontSize: '16px' }} />
+                  <label className="label">País</label>
+                  <select name="ciudad" value={paso2.ciudad} onChange={onChange2}
+                    className="input rounded-2xl py-3 text-base" style={{ fontSize: '16px' }}>
+                    <option value="">Seleccionar...</option>
+                    {PAISES.map(p => (
+                      <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
+                    ))}
+                  </select>
                 </div>
               </>
             )}
