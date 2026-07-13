@@ -58,12 +58,13 @@ export default function CheckinTab({ evento }) {
         {/* Scanner / input */}
         <div className="space-y-4">
           {mode === 'camara'
-            ? <CameraScanner onScan={onScanQr} disabled={working} />
+            ? <CameraScanner onScan={onScanQr} disabled={working} lastResult={last} />
             : <ManualInput onSubmit={(codigo) => handleCheckin({ codigo })} disabled={working} />
           }
 
-          {/* Resultado del último scan */}
-          {last && <ResultadoCard result={last} />}
+          {/* Resultado del último scan (solo se muestra aquí fuera de pantalla completa,
+              ya que en modo cámara el resultado aparece flotando sobre el video) */}
+          {mode !== 'camara' && last && <ResultadoCard result={last} />}
         </div>
 
         {/* Historial */}
@@ -120,19 +121,19 @@ function ManualInput({ onSubmit, disabled }) {
   );
 }
 
-/* ─────────── Cámara ─────────── */
+/* ─────────── Cámara — pantalla completa ─────────── */
 
-/* Tamaño de la caja de escaneo: proporcional al ancho de pantalla (70%),
-   pero con un mínimo y un máximo razonables para que sea grande y fácil
-   de apuntar tanto en celular como en pantallas grandes. */
+/* Tamaño de la caja de escaneo: proporcional al lado más chico de la pantalla
+   (85%), con un máximo razonable — a pantalla completa se puede dar mucho
+   más espacio que dentro del layout normal de la app. */
 function calcularQrBox() {
   if (typeof window === 'undefined') return { width: 280, height: 280 };
-  const lado = Math.round(Math.min(window.innerWidth * 0.7, 340));
-  const tamano = Math.max(220, lado);
+  const ladoCorto = Math.min(window.innerWidth, window.innerHeight);
+  const tamano = Math.max(240, Math.min(Math.round(ladoCorto * 0.8), 420));
   return { width: tamano, height: tamano };
 }
 
-function CameraScanner({ onScan, disabled }) {
+function CameraScanner({ onScan, disabled, lastResult }) {
   const containerId = 'qr-reader';
   const scannerRef = useRef(null);
   const [active, setActive] = useState(false);
@@ -147,6 +148,15 @@ function CameraScanner({ onScan, disabled }) {
   const onScanRef = useRef(onScan);
   useEffect(() => { onScanRef.current = onScan; }, [onScan]);
 
+  /* Bloquea el scroll del body mientras la cámara está en pantalla completa,
+     para que no se pueda desplazar el fondo detrás del overlay. */
+  useEffect(() => {
+    if (!active) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, [active]);
+
   useEffect(() => {
     if (!active) return;
     let cancelado = false;
@@ -155,7 +165,7 @@ function CameraScanner({ onScan, disabled }) {
 
     scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: calcularQrBox() },
+      { fps: 10, qrbox: calcularQrBox(), aspectRatio: 1 },
       (decoded) => {
         /* Dedupe: ignorar el mismo código dentro de 3 segundos */
         const now = Date.now();
@@ -178,40 +188,64 @@ function CameraScanner({ onScan, disabled }) {
     };
   }, [active]);
 
-  if (err) return (
-    <div className="rounded-3xl border border-danger/30 bg-danger/5 p-6 text-center">
-      <p className="text-sm text-danger mb-3">{err}</p>
-      <button onClick={() => { setErr(''); setActive(false); }} className="btn-secondary btn-sm">Reintentar</button>
-    </div>
-  );
-
   if (!active) return (
     <div className="rounded-3xl border border-border bg-surface/40 p-10 text-center">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-surface-2 border border-border mb-4">
         <CameraIcon />
       </div>
       <h3 className="text-lg font-bold font-display text-text-1 mb-2">Activar cámara</h3>
-      <p className="text-sm text-text-2 max-w-sm mx-auto mb-5">Apunta la cámara al QR del asistente. Tu navegador pedirá permisos la primera vez.</p>
-      <button onClick={() => setActive(true)} className="btn-gradient">
+      <p className="text-sm text-text-2 max-w-sm mx-auto mb-5">Se abrirá la cámara a pantalla completa para hacer más fácil apuntar al QR del asistente. Tu navegador pedirá permisos la primera vez.</p>
+      <button onClick={() => { setErr(''); setActive(true); }} className="btn-gradient">
         Activar cámara
       </button>
+      {err && (
+        <p className="text-sm text-danger mt-4">{err}</p>
+      )}
     </div>
   );
 
+  /* Modo pantalla completa: overlay fijo que tapa toda la interfaz de GESTEK. */
   return (
-    <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
-      <div id={containerId} className="w-full bg-black" />
-      <div className="px-5 py-3 border-t border-border flex items-center justify-between">
-        <span className="text-xs text-text-2">Escaneando... apunta al QR</span>
-        <button onClick={() => setActive(false)} className="btn-ghost btn-sm">Detener</button>
+    <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-[fadeIn_0.2s_ease_both]">
+      {/* Barra superior flotante */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-b from-black/70 to-transparent">
+        <span className="text-sm text-white/90 font-medium">Escaneando... apunta al QR</span>
+        <button
+          onClick={() => setActive(false)}
+          className="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md active:scale-95 transition-all"
+          aria-label="Cerrar cámara"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
+
+      {/* Video de la cámara, ocupando toda la pantalla */}
+      <div id={containerId} className="flex-1 w-full h-full [&>video]:!w-full [&>video]:!h-full [&>video]:!object-cover" />
+
+      {err && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/90 px-6">
+          <div className="text-center max-w-sm">
+            <p className="text-base text-danger mb-4">{err}</p>
+            <button onClick={() => { setErr(''); setActive(false); }} className="btn-secondary btn-sm">Volver</button>
+          </div>
+        </div>
+      )}
+
+      {/* Resultado del último escaneo, flotando sobre la cámara */}
+      {lastResult && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <ResultadoCard result={lastResult} compact />
+        </div>
+      )}
     </div>
   );
 }
 
 /* ─────────── Resultado del último scan ─────────── */
 
-function ResultadoCard({ result }) {
+function ResultadoCard({ result, compact }) {
   const ok = result.ok && !result.ya_usada;
   const yaUsada = result.ya_usada;
   const cls = ok
@@ -230,7 +264,7 @@ function ResultadoCard({ result }) {
   const ticket = result.ticket;
 
   return (
-    <div className={`rounded-3xl border-2 ${cls} p-6 animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+    <div className={`rounded-3xl border-2 ${cls} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-start gap-4">
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 ${iconCls}`}>
           {icon}
