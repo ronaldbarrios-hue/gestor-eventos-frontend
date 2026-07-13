@@ -17,10 +17,24 @@ const stagger = (i = 0) => ({
 });
 
 export default function CompletarPerfilPage() {
-  const { usuario, logout, invitacionInfo, invitacionLoading, consumirInvitacionInfo } = useAuth();
+  const { usuario, logout, invitacionInfo, invitacionLoading, consumirInvitacionInfo, updateProfile } = useAuth();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+
+  /* invitacionInfo viene del contexto (AuthContext), ya resuelto ANTES de que
+     esta pantalla se monte (se vincula automáticamente al iniciar sesión) —
+     así evitamos la condición de carrera de volver a consultar por email. */
+  const esInvitado = Boolean(invitacionInfo?.eventoId);
+
+  /* Paso 0: propósito (solo si NO viene de una invitación — si viene invitado
+     ya sabemos que es un flujo de staff, no hace falta preguntar). Este paso
+     es necesario aquí porque quienes entran por primera vez con Google nunca
+     pasan por el formulario de registro normal — llegan directo a esta pantalla. */
+  const [proposito, setProposito] = useState(null);
+  const [mostrarProposito, setMostrarProposito] = useState(!esInvitado && !invitacionLoading);
+
+  const esFlujoLigero = esInvitado || proposito === 'asistente';
 
   const [form, setForm] = useState({
     nombre       : usuario?.nombre        || '',
@@ -36,11 +50,6 @@ export default function CompletarPerfilPage() {
   const [loading, setLoading] = useState(false);
   const [err,     setErr]     = useState('');
 
-  /* invitacionInfo viene del contexto (AuthContext), ya resuelto ANTES de que
-     esta pantalla se monte (se vincula automáticamente al iniciar sesión) —
-     así evitamos la condición de carrera de volver a consultar por email. */
-  const esInvitado = Boolean(invitacionInfo?.eventoId);
-
   const change = (k, v) => { setErr(''); setForm(f => ({ ...f, [k]: v })); };
 
   const initials = form.nombre?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
@@ -48,6 +57,12 @@ export default function CompletarPerfilPage() {
   const handleVolver = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const elegirProposito = (p) => {
+    setProposito(p);
+    setMostrarProposito(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const onSubmit = async (e) => {
@@ -69,6 +84,7 @@ export default function CompletarPerfilPage() {
           participantes : form.participantes,
           contexto      : form.contexto,
           perfil_completo: true,
+          modo_activo   : esInvitado ? undefined : (proposito === 'asistente' ? 'asistente' : 'organizador'),
         },
       });
       if (e1) throw new Error(e1.message);
@@ -98,6 +114,16 @@ export default function CompletarPerfilPage() {
     }
   };
 
+  /* Mientras se resuelve si hay invitación pendiente, no mostramos nada
+     todavía para no parpadear entre "pregunta propósito" y "formulario". */
+  if (invitacionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <InlineLoader message="Cargando..." />
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-bg text-text-1 overflow-hidden px-4 py-12 animate-[fadeIn_0.4s_ease_both]">
       {/* Fondos con glow respirando */}
@@ -126,153 +152,211 @@ export default function CompletarPerfilPage() {
           <span className="font-display font-bold text-xl tracking-tight">GESTEK</span>
         </div>
 
-        <p {...stagger(1)} className={`${stagger(1).className} text-xs uppercase tracking-widest text-primary-light font-semibold mb-3`}>
-          Casi listo
-        </p>
-        <h1 {...stagger(2)} className={`${stagger(2).className} text-4xl sm:text-5xl font-bold font-display tracking-tight leading-[1.05] mb-3`}>
-          Completa tu perfil.
-        </h1>
-        <p {...stagger(3)} className={`${stagger(3).className} text-base text-text-2 leading-relaxed mb-10`}>
-          Conectaste con <span className="text-text-1 font-medium">{usuario?.email}</span>. Solo necesitamos unos datos más para preparar tu entorno de trabajo.
-        </p>
+        {/* PASO 0 — Propósito (solo si no viene de invitación) */}
+        {mostrarProposito ? (
+          <>
+            <p {...stagger(1)} className={`${stagger(1).className} text-xs uppercase tracking-widest text-primary-light font-semibold mb-3`}>
+              Casi listo
+            </p>
+            <h1 {...stagger(2)} className={`${stagger(2).className} text-4xl sm:text-5xl font-bold font-display tracking-tight leading-[1.05] mb-3`}>
+              ¿Qué te trae a GESTEK?
+            </h1>
+            <p {...stagger(3)} className={`${stagger(3).className} text-base text-text-2 leading-relaxed mb-8`}>
+              Conectaste con <span className="text-text-1 font-medium">{usuario?.email}</span>. Cuéntanos para qué vas a usar la plataforma.
+            </p>
 
-        {!invitacionLoading && esInvitado && (
-          <div {...stagger(3)} className={`${stagger(3).className} px-4 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-sm text-text-2 leading-relaxed mb-6`}>
-            <span className="text-text-1 font-medium">¡Te estaban esperando!</span> Fuiste invitado como <strong className="text-text-1">{invitacionInfo.rol}</strong>
-            {invitacionInfo.eventoTitulo ? <> a <strong className="text-text-1">{invitacionInfo.eventoTitulo}</strong></> : ''}. Al terminar, entrarás directo a ese evento.
-          </div>
-        )}
-
-        <form onSubmit={onSubmit} className="space-y-7">
-          {err && (
-            <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm animate-[fadeUp_0.3s_ease_both]">
-              {err}
-            </div>
-          )}
-
-          {/* SECCIÓN 1 — Foto y nombre */}
-          <div {...stagger(4)} className={`${stagger(4).className} rounded-3xl border border-border bg-surface/40 p-6`}>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-4">Tu identidad</p>
-
-            <AvatarUploader
-              value={form.avatar_url}
-              onChange={url => change('avatar_url', url)}
-              userId={usuario?.id}
-              initials={initials}
-              size={88}
-            />
-
-            <div className="field mt-5">
-              <label className="label">Tu nombre</label>
-              <input
-                name="nombre" value={form.nombre} onChange={e => change('nombre', e.target.value)}
-                className="input rounded-2xl py-3 text-base" required autoFocus
-                placeholder="Como quieres que te vean"
-              />
-            </div>
-          </div>
-
-          {/* SECCIÓN 2 — Contacto y ubicación */}
-          <div {...stagger(5)} className={`${stagger(5).className} rounded-3xl border border-border bg-surface/40 p-6 space-y-4`}>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Contacto</p>
-
-            <div className="field">
-              <label className="label">Teléfono *</label>
-              <div className="grid grid-cols-[110px_1fr] gap-2">
-                <select className="input rounded-2xl py-3">
-                  <option>+57 CO</option><option>+1 US</option><option>+34 ES</option><option>+52 MX</option>
-                </select>
-                <input
-                  value={form.telefono} onChange={e => change('telefono', e.target.value)}
-                  className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" required
-                />
-              </div>
-            </div>
-
-            {!esInvitado && (
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div className="field">
-                  <label className="label">Empresa</label>
-                  <input
-                    value={form.empresa} onChange={e => change('empresa', e.target.value)}
-                    className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
-                  />
+            <div {...stagger(4)} className={`${stagger(4).className} space-y-3`}>
+              <button
+                type="button"
+                onClick={() => elegirProposito('organizador')}
+                className="w-full text-left p-5 rounded-3xl border-2 border-border hover:border-primary/50 hover:bg-surface-2/40 transition-all group flex items-center gap-4"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                  <CalendarProposeIcon className="w-6 h-6 text-primary-light" />
                 </div>
-                <div className="field">
-                  <label className="label">Ocupación</label>
-                  <input
-                    value={form.ocupacion} onChange={e => change('ocupacion', e.target.value)}
-                    className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
-                  />
+                <div className="flex-1">
+                  <p className="text-base font-bold text-text-1 group-hover:text-primary-light transition-colors">Quiero organizar eventos</p>
+                  <p className="text-sm text-text-2 mt-0.5">Crea, gestiona y vende boletas para tus propios eventos.</p>
                 </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => elegirProposito('asistente')}
+                className="w-full text-left p-5 rounded-3xl border-2 border-border hover:border-accent/50 hover:bg-surface-2/40 transition-all group flex items-center gap-4"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
+                  <TicketProposeIcon className="w-6 h-6 text-accent-light" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-bold text-text-1 group-hover:text-accent-light transition-colors">Solo quiero ir a eventos</p>
+                  <p className="text-sm text-text-2 mt-0.5">Explora eventos y compra o reserva tus boletas.</p>
+                </div>
+              </button>
+            </div>
+
+            <p {...stagger(5)} className={`${stagger(5).className} text-xs text-text-3 mt-5`}>
+              Podrás cambiar de modo cuando quieras desde el menú lateral.
+            </p>
+          </>
+        ) : (
+          <>
+            <p {...stagger(1)} className={`${stagger(1).className} text-xs uppercase tracking-widest text-primary-light font-semibold mb-3`}>
+              Casi listo
+            </p>
+            <h1 {...stagger(2)} className={`${stagger(2).className} text-4xl sm:text-5xl font-bold font-display tracking-tight leading-[1.05] mb-3`}>
+              Completa tu perfil.
+            </h1>
+            <p {...stagger(3)} className={`${stagger(3).className} text-base text-text-2 leading-relaxed mb-10`}>
+              Conectaste con <span className="text-text-1 font-medium">{usuario?.email}</span>. Solo necesitamos unos datos más para preparar tu entorno de trabajo.
+            </p>
+
+            {esInvitado && (
+              <div {...stagger(3)} className={`${stagger(3).className} px-4 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-sm text-text-2 leading-relaxed mb-6`}>
+                <span className="text-text-1 font-medium">¡Te estaban esperando!</span> Fuiste invitado como <strong className="text-text-1">{invitacionInfo.rol}</strong>
+                {invitacionInfo.eventoTitulo ? <> a <strong className="text-text-1">{invitacionInfo.eventoTitulo}</strong></> : ''}. Al terminar, entrarás directo a ese evento.
               </div>
             )}
 
-            <div className="field">
-              <label className="label">País</label>
-              <select
-                value={form.ciudad} onChange={e => change('ciudad', e.target.value)}
-                className="input rounded-2xl py-3 text-base"
-              >
-                <option value="">Seleccionar...</option>
-                {PAISES.map(p => (
-                  <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+            <form onSubmit={onSubmit} className="space-y-7">
+              {err && (
+                <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm animate-[fadeUp_0.3s_ease_both]">
+                  {err}
+                </div>
+              )}
 
-          {/* SECCIÓN 3 — Sobre tus eventos (solo para organizadores, no invitados) */}
-          {!esInvitado && (
-            <div {...stagger(6)} className={`${stagger(6).className} rounded-3xl border border-border bg-surface/40 p-6 space-y-4`}>
-              <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Sobre tus eventos</p>
+              {/* SECCIÓN 1 — Foto y nombre */}
+              <div {...stagger(4)} className={`${stagger(4).className} rounded-3xl border border-border bg-surface/40 p-6`}>
+                <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-4">Tu identidad</p>
 
-              <div className="field">
-                <label className="label">Tamaño típico</label>
-                <select
-                  value={form.participantes} onChange={e => change('participantes', e.target.value)}
-                  className="input rounded-2xl py-3 text-base"
-                >
-                  <option value="">Seleccionar...</option>
-                  {PARTICIPANTES.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-
-              <div className="field">
-                <label className="label">Cuéntanos un poco más</label>
-                <textarea
-                  rows={2}
-                  value={form.contexto} onChange={e => change('contexto', e.target.value)}
-                  className="input rounded-2xl py-3 text-base resize-none"
-                  placeholder="Qué eventos organizas, frecuencia e industria. Sirve para personalizar tu experiencia."
+                <AvatarUploader
+                  value={form.avatar_url}
+                  onChange={url => change('avatar_url', url)}
+                  userId={usuario?.id}
+                  initials={initials}
+                  size={88}
                 />
+
+                <div className="field mt-5">
+                  <label className="label">Tu nombre</label>
+                  <input
+                    name="nombre" value={form.nombre} onChange={e => change('nombre', e.target.value)}
+                    className="input rounded-2xl py-3 text-base" required autoFocus
+                    placeholder="Como quieres que te vean"
+                  />
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Aceptar términos */}
-          <label {...stagger(7)} className={`${stagger(7).className} flex items-start gap-3 cursor-pointer`}>
-            <input
-              type="checkbox" checked={form.aceptar}
-              onChange={e => change('aceptar', e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-border bg-surface-2 accent-primary"
-            />
-            <span className="text-xs text-text-2 leading-relaxed">
-              Acepto los <a className="underline text-text-1 hover:text-primary-light" href="#">términos</a> y la <a className="underline text-text-1 hover:text-primary-light" href="#">política de privacidad</a>. Acepto recibir comunicaciones de GESTEK.
-            </span>
-          </label>
+              {/* SECCIÓN 2 — Contacto y ubicación */}
+              <div {...stagger(5)} className={`${stagger(5).className} rounded-3xl border border-border bg-surface/40 p-6 space-y-4`}>
+                <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Contacto</p>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            {...stagger(8)}
-            className={`${stagger(8).className} w-full py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-[0_0_30px_rgba(241,245,249,0.18)] hover:shadow-[0_0_40px_rgba(241,245,249,0.28)] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2`}
-          >
-            {loading ? <InlineLoader message="Guardando..." /> : 'Completar y entrar'}
-          </button>
-        </form>
+                <div className="field">
+                  <label className="label">Teléfono *</label>
+                  <div className="grid grid-cols-[110px_1fr] gap-2">
+                    <select className="input rounded-2xl py-3">
+                      <option>+57 CO</option><option>+1 US</option><option>+34 ES</option><option>+52 MX</option>
+                    </select>
+                    <input
+                      value={form.telefono} onChange={e => change('telefono', e.target.value)}
+                      className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" required
+                    />
+                  </div>
+                </div>
+
+                {!esFlujoLigero && (
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="field">
+                      <label className="label">Empresa</label>
+                      <input
+                        value={form.empresa} onChange={e => change('empresa', e.target.value)}
+                        className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
+                      />
+                    </div>
+                    <div className="field">
+                      <label className="label">Ocupación</label>
+                      <input
+                        value={form.ocupacion} onChange={e => change('ocupacion', e.target.value)}
+                        className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="field">
+                  <label className="label">País</label>
+                  <select
+                    value={form.ciudad} onChange={e => change('ciudad', e.target.value)}
+                    className="input rounded-2xl py-3 text-base"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {PAISES.map(p => (
+                      <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* SECCIÓN 3 — Sobre tus eventos (solo organizador) */}
+              {!esFlujoLigero && (
+                <div {...stagger(6)} className={`${stagger(6).className} rounded-3xl border border-border bg-surface/40 p-6 space-y-4`}>
+                  <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Sobre tus eventos</p>
+
+                  <div className="field">
+                    <label className="label">Tamaño típico</label>
+                    <select
+                      value={form.participantes} onChange={e => change('participantes', e.target.value)}
+                      className="input rounded-2xl py-3 text-base"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {PARTICIPANTES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label className="label">Cuéntanos un poco más</label>
+                    <textarea
+                      rows={2}
+                      value={form.contexto} onChange={e => change('contexto', e.target.value)}
+                      className="input rounded-2xl py-3 text-base resize-none"
+                      placeholder="Qué eventos organizas, frecuencia e industria. Sirve para personalizar tu experiencia."
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Aceptar términos */}
+              <label {...stagger(7)} className={`${stagger(7).className} flex items-start gap-3 cursor-pointer`}>
+                <input
+                  type="checkbox" checked={form.aceptar}
+                  onChange={e => change('aceptar', e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-border bg-surface-2 accent-primary"
+                />
+                <span className="text-xs text-text-2 leading-relaxed">
+                  Acepto los <a className="underline text-text-1 hover:text-primary-light" href="#">términos</a> y la <a className="underline text-text-1 hover:text-primary-light" href="#">política de privacidad</a>. Acepto recibir comunicaciones de GESTEK.
+                </span>
+              </label>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                {...stagger(8)}
+                className={`${stagger(8).className} w-full py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-[0_0_30px_rgba(241,245,249,0.18)] hover:shadow-[0_0_40px_rgba(241,245,249,0.28)] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2`}
+              >
+                {loading ? <InlineLoader message="Guardando..." /> : 'Completar y entrar'}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
+}
+
+function CalendarProposeIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+}
+function TicketProposeIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;
 }
