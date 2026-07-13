@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, supabaseConfigured, authRedirect } from '../lib/supabase.js';
 
 const AuthContext = createContext(null);
+
+const API_URL = (import.meta.env.VITE_API_URL || 'https://gestor-eventos-backend-yx75.onrender.com').replace(/\/$/, '');
 
 /* Convierte un user de Supabase + metadata en el shape que usa el resto de la app.
    Incluye los nombres de campo que envía Google OAuth (full_name, name, picture, avatar_url). */
@@ -31,6 +33,51 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
+  /* ID del evento al que el usuario fue invitado (si aplica), para redirigir
+     ahí en vez de al dashboard genérico tras login/registro/completar-perfil. */
+  const [invitacionRedirectId, setInvitacionRedirectId] = useState(null);
+  const vinculacionHecha = useRef(false);
+
+  /* Reclama invitaciones pendientes del email actual y guarda el evento al que
+     redirigir. Se llama automáticamente una sola vez por sesión iniciada. */
+  const vincularInvitacionesPendientes = useCallback(async (accessToken) => {
+    if (!accessToken) return;
+    try {
+      const resp = await fetch(`${API_URL}/eventos/vincular-invitaciones`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (data?.eventos?.length) {
+        setInvitacionRedirectId(data.eventos[0]);
+      }
+    } catch (e) {
+      console.warn('[auth] vincularInvitacionesPendientes falló:', e.message);
+    }
+  }, []);
+
+  /* Consulta pública (sin sesión) si un email tiene una invitación pendiente.
+     Se usa desde el formulario de registro para saltarse las preguntas de
+     organizador cuando la persona viene a unirse a un equipo como staff. */
+  const checkInvitacionPendiente = useCallback(async (email) => {
+    if (!email || !email.includes('@')) return { invitado: false };
+    try {
+      const resp = await fetch(`${API_URL}/eventos/publicos/invitacion-pendiente?email=${encodeURIComponent(email.toLowerCase().trim())}`);
+      if (!resp.ok) return { invitado: false };
+      return await resp.json();
+    } catch {
+      return { invitado: false };
+    }
+  }, []);
+
+  /* Consume (limpia) el destino de redirección guardado, para no repetirlo
+     en navegaciones futuras dentro de la misma sesión. */
+  const consumirInvitacionRedirect = useCallback(() => {
+    const id = invitacionRedirectId;
+    setInvitacionRedirectId(null);
+    return id;
+  }, [invitacionRedirectId]);
 
   /* Inicializar: si volvemos de OAuth con ?code= en URL, lo intercambiamos
      por sesión explícitamente. Luego leemos la sesión y nos suscribimos. */
@@ -59,18 +106,28 @@ export function AuthProvider({ children }) {
       setSession(data.session ?? null);
       setUsuario(mapUser(data.session?.user));
       setLoading(false);
+
+      if (data.session?.access_token && !vinculacionHecha.current) {
+        vinculacionHecha.current = true;
+        vincularInvitacionesPendientes(data.session.access_token);
+      }
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess ?? null);
       setUsuario(mapUser(sess?.user));
+      if (sess?.access_token && !vinculacionHecha.current) {
+        vinculacionHecha.current = true;
+        vincularInvitacionesPendientes(sess.access_token);
+      }
+      if (!sess) vinculacionHecha.current = false;
     });
 
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [vincularInvitacionesPendientes]);
 
   const login = useCallback(async (email, password) => {
     if (!supabaseConfigured) return { ok: false, error: 'Supabase no está configurado. Ver docs/SUPABASE_SETUP.md' };
@@ -103,6 +160,7 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
     setSession(null);
     setUsuario(null);
+    setInvitacionRedirectId(null);
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
@@ -170,6 +228,7 @@ export function AuthProvider({ children }) {
       login, register, logout, signInWithGoogle,
       resetPassword, updatePassword, updateProfile, resendConfirmation,
       hasPermiso, hasRol,
+      invitacionRedirectId, consumirInvitacionRedirect, checkInvitacionPendiente,
     }}>
       {children}
     </AuthContext.Provider>
