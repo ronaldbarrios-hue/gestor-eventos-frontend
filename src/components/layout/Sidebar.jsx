@@ -1,9 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { usePlan } from '../../hooks/usePlan.js';
 import GestekMark from './GestekMark.jsx';
 
-const NAV_SECTIONS = [
+const NAV_ORGANIZADOR = [
   {
     label: 'Principal',
     items: [
@@ -39,9 +40,31 @@ const NAV_SECTIONS = [
   },
 ];
 
+/* Menú reducido para el modo Asistente: solo lo que necesita alguien que
+   viene a explorar eventos y comprar/gestionar sus boletas. */
+const NAV_ASISTENTE = [
+  {
+    label: 'Principal',
+    items: [
+      { to: '/dashboard',    icon: HomeIcon,     label: 'Dashboard' },
+      { to: '/app/explorar', icon: CompassIcon,  label: 'Explorar'  },
+      { to: '/mis-boletas',  icon: TicketIcon,   label: 'Mis boletas' },
+    ],
+  },
+  {
+    label: 'Cuenta',
+    items: [
+      { to: '/notificaciones', icon: BellIcon, label: 'Notificaciones' },
+      { to: '/recompensas',    icon: GiftIcon, label: 'Recompensas'    },
+      { to: '/configuracion',  icon: SettingsIcon, label: 'Ajustes'    },
+    ],
+  },
+];
+
 export default function Sidebar({ mobile = false, onClose }) {
-  const { usuario, logout, hasPermiso } = useAuth();
+  const { usuario, logout, hasPermiso, cambiarModo } = useAuth();
   const navigate = useNavigate();
+  const [cambiando, setCambiando] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -53,6 +76,18 @@ export default function Sidebar({ mobile = false, onClose }) {
     .toUpperCase() || 'U';
 
   const { esPro } = usePlan();
+
+  const modoActivo = usuario?.modoActivo || 'organizador';
+  const NAV_SECTIONS = modoActivo === 'asistente' ? NAV_ASISTENTE : NAV_ORGANIZADOR;
+
+  const handleCambiarModo = async (nuevoModo) => {
+    if (nuevoModo === modoActivo || cambiando) return;
+    setCambiando(true);
+    await cambiarModo(nuevoModo);
+    setCambiando(false);
+    navigate('/dashboard');
+    if (mobile && onClose) onClose();
+  };
 
   return (
     <aside className={`${mobile ? 'w-full' : 'w-[var(--sidebar-w)]'} h-full flex-shrink-0 bg-surface border-r border-border flex flex-col`}>
@@ -86,6 +121,30 @@ export default function Sidebar({ mobile = false, onClose }) {
             </svg>
           </button>
         )}
+      </div>
+
+      {/* Switch de modo — estilo Airbnb Huésped/Anfitrión */}
+      <div className="px-3 pt-3">
+        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
+          <button
+            onClick={() => handleCambiarModo('organizador')}
+            disabled={cambiando}
+            className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60 ${
+              modoActivo === 'organizador' ? 'bg-surface-3 text-text-1 shadow-sm' : 'text-text-3 hover:text-text-2'
+            }`}
+          >
+            Organizador
+          </button>
+          <button
+            onClick={() => handleCambiarModo('asistente')}
+            disabled={cambiando}
+            className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60 ${
+              modoActivo === 'asistente' ? 'bg-surface-3 text-text-1 shadow-sm' : 'text-text-3 hover:text-text-2'
+            }`}
+          >
+            Asistente
+          </button>
+        </div>
       </div>
 
       <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-0.5">
