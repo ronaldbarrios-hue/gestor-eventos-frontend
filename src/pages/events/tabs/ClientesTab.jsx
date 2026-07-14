@@ -61,6 +61,9 @@ export default function ClientesTab({ evento }) {
 
   const clientes = data?.clientes || [];
   const stats    = data?.stats    || { total: 0, ingresos: 0 };
+  /* Mapa id de campo → etiqueta, para traducir las claves de `respuestas`
+     (que se guardan por UUID del campo) a su texto real ("Cédula", "Edad"). */
+  const camposFormulario = data?.campos_formulario || [];
 
   return (
     <div className="space-y-5">
@@ -153,6 +156,7 @@ export default function ClientesTab({ evento }) {
         <DetalleModal
           cliente={detalleCliente}
           currency={evento.currency}
+          camposFormulario={camposFormulario}
           onClose={() => setDetalleCliente(null)}
         />
       )}
@@ -276,19 +280,30 @@ function ClienteRow({ cliente, currency, onCambiarEstado, onVerDetalle, style })
 }
 
 /* ─────────── Detalle de un asistente (incluye formulario que diligenció) ─────────── */
-function DetalleModal({ cliente, currency, onClose }) {
+function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
   const nombre = cliente.usuario?.nombre || cliente.guest_nombre || cliente.guest_email;
   const email  = cliente.usuario?.email || cliente.guest_email;
   const initials = (nombre || 'U').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-  /* respuestas puede venir como objeto { "¿Pregunta?": "respuesta" } o como
-     array de { pregunta, respuesta } — soportamos ambos formatos. */
+  /* respuestas se guarda como { "<id_del_campo>": valor }. Usamos el id
+     para buscar la etiqueta real en camposFormulario (ej. "Cédula", "Edad")
+     en vez de mostrar el UUID crudo. Si algún id ya no existe en la
+     definición actual del formulario, mostramos "Pregunta eliminada" como
+     respaldo en vez de ocultar la respuesta. */
   const respuestas = cliente.respuestas;
-  let preguntas = [];
+  const mapaCampos = new Map((camposFormulario || []).map(c => [c.id, c]));
+
+  let filas = [];
   if (Array.isArray(respuestas)) {
-    preguntas = respuestas.map(r => [r.pregunta || r.label || 'Pregunta', r.respuesta ?? r.value]);
+    /* Formato alterno: array de { pregunta, respuesta } ya con texto legible. */
+    filas = respuestas.map(r => ({ etiqueta: r.pregunta || r.label || 'Pregunta', valor: r.respuesta ?? r.value }));
   } else if (respuestas && typeof respuestas === 'object') {
-    preguntas = Object.entries(respuestas);
+    filas = Object.entries(respuestas)
+      .map(([campoId, valor]) => {
+        const campo = mapaCampos.get(campoId);
+        return { etiqueta: campo?.etiqueta || 'Pregunta eliminada', valor, orden: campo?.orden ?? 999 };
+      })
+      .sort((a, b) => a.orden - b.orden);
   }
 
   return createPortal(
@@ -336,17 +351,17 @@ function DetalleModal({ cliente, currency, onClose }) {
 
           <div>
             <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">Formulario que diligenció</p>
-            {preguntas.length === 0 ? (
+            {filas.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-surface/40 px-4 py-6 text-center">
                 <p className="text-sm text-text-3">Este evento no tiene preguntas personalizadas, o la persona no respondió ninguna.</p>
               </div>
             ) : (
               <div className="rounded-2xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
-                {preguntas.map(([pregunta, respuesta], i) => (
+                {filas.map((f, i) => (
                   <div key={i} className="px-4 py-3">
-                    <p className="text-xs text-text-3 mb-0.5">{pregunta}</p>
+                    <p className="text-xs text-text-3 mb-0.5">{f.etiqueta}</p>
                     <p className="text-sm text-text-1 leading-relaxed">
-                      {Array.isArray(respuesta) ? respuesta.join(', ') : (respuesta || respuesta === 0 ? String(respuesta) : '—')}
+                      {Array.isArray(f.valor) ? f.valor.join(', ') : (f.valor || f.valor === 0 ? String(f.valor) : '—')}
                     </p>
                   </div>
                 ))}
