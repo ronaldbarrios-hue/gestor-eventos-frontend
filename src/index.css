@@ -6,12 +6,54 @@
   :root {
     --radius: 0.75rem;
     --sidebar-w: 264px;
+
+    /* ── Paleta modo OSCURO (por defecto) ──────────────────────────
+       Cada color base como "canal R G B" (sin paréntesis), para que
+       Tailwind pueda combinarlo con modificadores de opacidad como
+       bg-primary/10, border-border-2, etc. */
+    --color-bg         : 7 12 24;
+    --color-surface     : 13 21 37;
+    --color-surface-2   : 17 30 53;
+    --color-surface-3   : 22 36 69;
+    --color-border-rgb  : 255 255 255;
+    --color-text-1      : 241 245 249;
+    --color-text-2      : 148 163 184;
+    --color-text-3      : 71 85 105;
+
+    --color-primary       : 59 130 246;
+    --color-primary-dark  : 37 99 235;
+    --color-primary-light : 96 165 250;
+    --color-accent         : 139 92 246;
+    --color-accent-dark    : 124 58 237;
+    --color-accent-light   : 167 139 250;
+    --color-success        : 16 185 129;
+    --color-success-light  : 52 211 153;
+    --color-warning         : 245 158 11;
+    --color-warning-light   : 252 211 77;
+    --color-danger          : 239 68 68;
+    --color-danger-light    : 248 113 113;
+  }
+
+  /* ── Paleta modo CLARO ──────────────────────────────────────────
+     Se activa agregando la clase "light" al <html> (lo hace
+     ThemeContext). Los colores de marca (primary/accent/etc.) se
+     mantienen iguales para no perder identidad visual. */
+  html.light {
+    --color-bg         : 248 250 252;
+    --color-surface     : 255 255 255;
+    --color-surface-2   : 241 245 249;
+    --color-surface-3   : 226 232 240;
+    --color-border-rgb  : 15 23 42;
+    --color-text-1      : 15 23 42;
+    --color-text-2      : 71 85 105;
+    --color-text-3      : 148 163 184;
   }
 
   html {
     color-scheme: dark; scroll-behavior: smooth;
     font-size: 16.5px; /* sube base ~3% */
   }
+  html.light { color-scheme: light; }
   @media (min-width: 1024px) { html { font-size: 17px; } }
 
   body {
@@ -22,6 +64,15 @@
       url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(255,255,255,0.025)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
     /* background-attachment: fixed quitado: causaba jank de scroll
        (repintaba el fondo en cada frame). */
+  }
+
+  /* En modo claro, la rejilla de puntos blancos casi no se ve sobre
+     fondo claro — usamos una versión con trazo oscuro y más sutil. */
+  html.light body {
+    background-image:
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(59,130,246,0.06), transparent 60%),
+      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(139,92,246,0.05), transparent 70%),
+      url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(15,23,42,0.035)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
   }
 
   * { box-sizing: border-box; }
@@ -36,7 +87,7 @@
     }
   }
 
-  ::selection { background: rgba(59,130,246,0.3); color: #F1F5F9; }
+  ::selection { background: rgba(59,130,246,0.3); color: rgb(var(--color-text-1)); }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -84,7 +135,7 @@
   }
   .card-glass {
     @apply rounded-2xl border border-border shadow-card;
-    background: rgba(13,21,37,0.8);
+    background: rgb(var(--color-surface) / 0.8);
     backdrop-filter: blur(20px);
   }
   .card-header { @apply px-6 py-4 border-b border-border flex items-center justify-between; }
@@ -158,7 +209,7 @@
     background-clip: text;
   }
   .glass {
-    background: rgba(13,21,37,0.7);
+    background: rgb(var(--color-surface) / 0.7);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
