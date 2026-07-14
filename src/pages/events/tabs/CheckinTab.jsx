@@ -4,6 +4,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
+import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 
 /* Tab Check-in — escanea boletas con cámara o ingresa código manual. */
 
@@ -14,6 +16,8 @@ export default function CheckinTab({ evento }) {
   const [historial, setHistorial] = useState([]); // últimos check-ins de esta sesión
   const { error: toastErr } = useToast();
 
+  const { ingresados, total: totalAsistentes, bumpOptimista } = useAsistenciaEnVivo(evento.id);
+
   const handleCheckin = useCallback(async (payload) => {
     if (working) return;
     setWorking(true);
@@ -22,6 +26,7 @@ export default function CheckinTab({ evento }) {
       const r = await clientesApi.checkin(evento.id, payload);
       setLast({ ok: true, ...r });
       setHistorial(h => [{ ...r.ticket, at: new Date(), ok: true }, ...h].slice(0, 10));
+      bumpOptimista();
     } catch (e) {
       const detail = e.response?.data || {};
       setLast({ ok: false, error: e.message, ...detail });
@@ -32,7 +37,7 @@ export default function CheckinTab({ evento }) {
       /* Pequeño cooldown para que el operador alcance a leer el resultado */
       setTimeout(() => setWorking(false), 600);
     }
-  }, [evento.id, working]);
+  }, [evento.id, working, bumpOptimista]);
 
   /* onScan estable (misma identidad siempre): CameraScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
@@ -45,13 +50,16 @@ export default function CheckinTab({ evento }) {
           <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Check-in</h2>
           <p className="text-sm text-text-2 mt-1">Escanea el QR de cada asistente o ingresa el código manualmente.</p>
         </div>
-        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-          {[['manual', 'Código'], ['camara', 'Cámara']].map(([k, l]) => (
-            <button key={k} onClick={() => setMode(k)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${mode === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
-              {l}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <AsistenciaContador ingresados={ingresados} total={totalAsistentes} compact />
+          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
+            {[['manual', 'Código'], ['camara', 'Cámara']].map(([k, l]) => (
+              <button key={k} onClick={() => setMode(k)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${mode === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
