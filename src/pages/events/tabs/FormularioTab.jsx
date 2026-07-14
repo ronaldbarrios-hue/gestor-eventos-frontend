@@ -5,7 +5,10 @@ import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 
 /* Tab Formulario — campos personalizados que se piden en el formulario de compra
-   (cédula, edad, ciudad, talla, etc). Se guardan como lista completa (reemplaza todo). */
+   (cédula, edad, ciudad, talla, etc). Se guardan preservando el `id` de cada
+   campo existente (el backend hace un diff: actualiza los que ya existen,
+   agrega los nuevos, borra los quitados) — así las respuestas que ya
+   diligenciaron los asistentes nunca quedan "huérfanas" al editar el formulario. */
 
 const TIPOS = [
   { value: 'texto',     label: 'Texto corto' },
@@ -41,9 +44,14 @@ function sugerenciasPorCategoria(nombreCategoria) {
   ];
 }
 
+/* _key es solo para el `key` de React en la lista (identidad estable en el
+   navegador). `id` es el identificador real de la base de datos — si el
+   campo ya existía, lo conservamos; si es nuevo (agregado en esta sesión),
+   queda como null y el backend lo inserta y le asigna uno. */
 function nuevoCampo(preset = {}) {
   return {
-    _key: Math.random().toString(36).slice(2),
+    _key: preset.id || Math.random().toString(36).slice(2),
+    id: preset.id || null,
     tipo: preset.tipo || 'texto',
     etiqueta: preset.etiqueta || '',
     opciones: preset.opciones || [],
@@ -87,8 +95,13 @@ export default function FormularioTab({ evento }) {
     }
     setSaving(true);
     try {
-      const payload = campos.map(({ tipo, etiqueta, opciones, requerido }) => ({ tipo, etiqueta, opciones, requerido }));
-      await eventosApi.guardarFormulario(evento.id, payload);
+      /* Enviamos el `id` de cada campo (null si es nuevo) para que el backend
+         pueda conservar los existentes en vez de recrearlos con id distinto. */
+      const payload = campos.map(({ id, tipo, etiqueta, opciones, requerido }) => ({ id, tipo, etiqueta, opciones, requerido }));
+      const r = await eventosApi.guardarFormulario(evento.id, payload);
+      /* Refrescamos con los ids reales que devolvió el backend (importante
+         para los campos que eran nuevos y ya tienen su id definitivo). */
+      setCampos((r.campos || []).map(c => nuevoCampo({ ...c, opciones: c.opciones || [] })));
       success('Formulario guardado. Ya se aplica en la página de compra.');
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setSaving(false); }
