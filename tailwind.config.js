@@ -4,21 +4,47 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg         : '#070C18',
+        /* Todos los colores base ahora leen de variables CSS (definidas en
+           index.css) — así el modo claro/oscuro cambia sin tocar ningún
+           componente: solo cambia qué valores tienen esas variables. El
+           patrón "rgb(var(--x) / <alpha-value>)" preserva los modificadores
+           de opacidad que ya se usan en toda la app (ej. bg-primary/10). */
+        bg         : 'rgb(var(--color-bg) / <alpha-value>)',
         'bg-grid'  : '#0A1020',
-        surface    : '#0D1525',
-        'surface-2': '#111E35',
-        'surface-3': '#162445',
-        border     : 'rgba(255,255,255,0.07)',
-        'border-2' : 'rgba(255,255,255,0.12)',
-        primary    : { DEFAULT:'#3B82F6', dark:'#2563EB', light:'#60A5FA', glow:'rgba(59,130,246,0.25)' },
-        accent     : { DEFAULT:'#8B5CF6', dark:'#7C3AED', light:'#A78BFA', glow:'rgba(139,92,246,0.25)' },
-        success    : { DEFAULT:'#10B981', light:'#34D399', glow:'rgba(16,185,129,0.2)' },
-        warning    : { DEFAULT:'#F59E0B', light:'#FCD34D' },
-        danger     : { DEFAULT:'#EF4444', light:'#F87171', glow:'rgba(239,68,68,0.2)' },
-        'text-1'   : '#F1F5F9',
-        'text-2'   : '#94A3B8',
-        'text-3'   : '#475569',
+        surface    : 'rgb(var(--color-surface) / <alpha-value>)',
+        'surface-2': 'rgb(var(--color-surface-2) / <alpha-value>)',
+        'surface-3': 'rgb(var(--color-surface-3) / <alpha-value>)',
+        border     : 'rgb(var(--color-border-rgb) / 0.07)',
+        'border-2' : 'rgb(var(--color-border-rgb) / 0.12)',
+        primary    : {
+          DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
+          dark   : 'rgb(var(--color-primary-dark) / <alpha-value>)',
+          light  : 'rgb(var(--color-primary-light) / <alpha-value>)',
+          glow   : 'rgba(59,130,246,0.25)',
+        },
+        accent     : {
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
+          dark   : 'rgb(var(--color-accent-dark) / <alpha-value>)',
+          light  : 'rgb(var(--color-accent-light) / <alpha-value>)',
+          glow   : 'rgba(139,92,246,0.25)',
+        },
+        success    : {
+          DEFAULT: 'rgb(var(--color-success) / <alpha-value>)',
+          light  : 'rgb(var(--color-success-light) / <alpha-value>)',
+          glow   : 'rgba(16,185,129,0.2)',
+        },
+        warning    : {
+          DEFAULT: 'rgb(var(--color-warning) / <alpha-value>)',
+          light  : 'rgb(var(--color-warning-light) / <alpha-value>)',
+        },
+        danger     : {
+          DEFAULT: 'rgb(var(--color-danger) / <alpha-value>)',
+          light  : 'rgb(var(--color-danger-light) / <alpha-value>)',
+          glow   : 'rgba(239,68,68,0.2)',
+        },
+        'text-1'   : 'rgb(var(--color-text-1) / <alpha-value>)',
+        'text-2'   : 'rgb(var(--color-text-2) / <alpha-value>)',
+        'text-3'   : 'rgb(var(--color-text-3) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
