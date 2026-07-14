@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { tareasApi } from '../../../api/tareas.js';
 import { useToast } from '../../../context/ToastContext.jsx';
+import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
+import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 
 /* Tab Resumen — info general + equipo + recordatorios. */
 
@@ -13,6 +15,8 @@ export default function ResumenTab({ evento }) {
   const pct = evento.aforo_total > 0
     ? Math.min(100, Math.round((evento.aforo_vendido || 0) / evento.aforo_total * 100))
     : 0;
+
+  const { ingresados, total: totalAsistentes } = useAsistenciaEnVivo(evento.id);
 
   return (
     <div className="grid lg:grid-cols-3 gap-5">
@@ -61,6 +65,8 @@ export default function ResumenTab({ evento }) {
             </div>
           )}
         </Card>
+
+        <AsistenciaContador ingresados={ingresados} total={totalAsistentes} />
       </div>
 
       {/* DERECHA — Equipo (1/3) */}
