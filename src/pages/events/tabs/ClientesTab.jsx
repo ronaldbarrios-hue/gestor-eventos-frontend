@@ -300,15 +300,10 @@ function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
     filas = Object.entries(respuestas)
       .map(([campoId, valor]) => {
         const campo = mapaCampos.get(campoId);
-        return { etiqueta: campo?.etiqueta || 'Pregunta eliminada', valor, orden: campo?.orden ?? 999, _idBuscado: campoId };
+        return { etiqueta: campo?.etiqueta || 'Pregunta eliminada', valor, orden: campo?.orden ?? 999 };
       })
       .sort((a, b) => a.orden - b.orden);
   }
-
-  /* Diagnóstico temporal: si alguna respuesta no encontró su campo, mostramos
-     los IDs en crudo para comparar a simple vista sin herramientas externas.
-     Se puede quitar este bloque una vez confirmado el problema. */
-  const hayHuerfanas = filas.some(f => f.etiqueta === 'Pregunta eliminada');
 
   return createPortal(
     <div
@@ -372,29 +367,6 @@ function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
               </div>
             )}
           </div>
-
-          {/* Bloque de diagnóstico temporal — quitar después de resolver */}
-          {hayHuerfanas && (
-            <div className="rounded-2xl border border-warning/30 bg-warning/5 p-4 space-y-3">
-              <p className="text-xs uppercase tracking-widest text-warning font-semibold">Diagnóstico (temporal)</p>
-              <div>
-                <p className="text-[11px] text-text-3 mb-1">IDs guardados en la respuesta de este ticket:</p>
-                {filas.map((f, i) => (
-                  <p key={i} className="text-[11px] font-mono text-text-2 break-all">{f._idBuscado || '(sin id)'}</p>
-                ))}
-              </div>
-              <div>
-                <p className="text-[11px] text-text-3 mb-1">IDs actuales en el formulario del evento:</p>
-                {(camposFormulario || []).length === 0 ? (
-                  <p className="text-[11px] font-mono text-danger-light">camposFormulario llegó VACÍO a este modal.</p>
-                ) : (
-                  camposFormulario.map(c => (
-                    <p key={c.id} className="text-[11px] font-mono text-text-2 break-all">{c.id} — {c.etiqueta}</p>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>,
