@@ -24,6 +24,7 @@ import AnalyticsTab      from './tabs/AnalyticsTab.jsx';
 import BroadcastModal    from './BroadcastModal.jsx';
 import PlaceholderTab    from './tabs/PlaceholderTab.jsx';
 import WaitlistTab      from './tabs/WaitlistTab.jsx';
+import NetworkingTab    from './tabs/NetworkingTab.jsx';
 
 /* Workspace por evento. Header + tabs. Cada tab carga su contenido. */
 
@@ -38,6 +39,7 @@ const GRUPOS = [
     { id: 'tareas',  label: 'Tareas' },
     { id: 'solicitudes', label: 'Sugerencias' },
     { id: 'agenda',  label: 'Agenda' },
+    { id: 'networking', label: 'Rueda de negocios' },
   ] },
   { label: 'Facturación', items: [
     { id: 'tickets',   label: 'Boletas' },
@@ -64,6 +66,7 @@ const TAB_PERM = {
   checkin: 'checkin', gente: 'ver_clientes', waitlist: '__solo_owner__',
   equipo: ['gestionar_roles', 'invitar_staff', 'remover_miembros'],
   agenda: null, tareas: null, solicitudes: null, chat: null, ranking: null,
+  networking: null,
 };
 function puedeVerTab(id, soyOwner, permisos) {
   if (soyOwner) return true;
@@ -239,6 +242,7 @@ export default function EventDetailPage() {
         {tab === 'tareas'      && <TareasTab evento={evento} />}
         {tab === 'solicitudes' && <SolicitudesTab evento={evento} />}
         {tab === 'ranking'     && <RankingTab evento={evento} />}
+        {tab === 'networking'  && <NetworkingTab evento={evento} soyOwner={soyOwner} />}
         {tab === 'pagos'     && <PlaceholderTab title="Pagos" desc="Configura tu llave BRE-B, recibe transacciones, emite reembolsos." icon="wallet" />}
         {tab === 'chat'      && <ChatTab evento={evento} />}
         {tab === 'analytics' && <AnalyticsTab evento={evento} />}
