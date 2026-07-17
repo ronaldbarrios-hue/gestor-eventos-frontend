@@ -6,7 +6,10 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 
 /* Tab Torneo — categoría Deportes. Un torneo por evento.
-   Formatos: eliminación directa (bracket visual) o liga (tabla de posiciones). */
+   Formatos: eliminación directa (bracket visual) o liga (tabla de posiciones).
+   Cada partido se puede PROGRAMAR (fecha/hora/cancha) de forma independiente
+   a registrar su resultado — así el organizador arma el calendario del
+   torneo antes de que se jueguen los partidos. */
 
 export default function TorneoTab({ evento, soyOwner }) {
   const [torneo, setTorneo] = useState(undefined); // undefined = cargando, null = no existe
@@ -430,7 +433,8 @@ function FotoEquipoLazy({ value, onChange, eventoId, torneoId }) {
 
 /* ─────────── Vista Bracket (eliminación) ─────────── */
 function BracketView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
-  const [editando, setEditando] = useState(null); // partido siendo editado
+  const [editando, setEditando] = useState(null);   // partido: resultado
+  const [programando, setProgramando] = useState(null); // partido: horario/cancha
 
   if (partidos.length === 0) {
     return (
@@ -466,6 +470,7 @@ function BracketView({ evento, torneo, partidos, equipos, soyOwner, onReload }) 
                 equipoB={p.equipo_b_id ? equipoPorId.get(p.equipo_b_id) : null}
                 puedeEditar={soyOwner}
                 onEditar={() => setEditando(p)}
+                onProgramar={() => setProgramando(p)}
               />
             ))}
           </div>
@@ -481,26 +486,57 @@ function BracketView({ evento, torneo, partidos, equipos, soyOwner, onReload }) 
           onDone={() => { setEditando(null); onReload(); }}
         />
       )}
+      {programando && (
+        <ProgramarModal
+          evento={evento} torneo={torneo} partido={programando}
+          equipoA={programando.equipo_a_id ? equipoPorId.get(programando.equipo_a_id) : null}
+          equipoB={programando.equipo_b_id ? equipoPorId.get(programando.equipo_b_id) : null}
+          onClose={() => setProgramando(null)}
+          onDone={() => { setProgramando(null); onReload(); }}
+        />
+      )}
     </div>
   );
 }
 
-function PartidoCard({ partido, equipoA, equipoB, puedeEditar, onEditar }) {
+function PartidoCard({ partido, equipoA, equipoB, puedeEditar, onEditar, onProgramar }) {
   const puedeJugarse = equipoA && equipoB;
   const ganoA = partido.estado === 'jugado' && partido.marcador_a > partido.marcador_b;
   const ganoB = partido.estado === 'jugado' && partido.marcador_b > partido.marcador_a;
+  const programado = partido.fecha_hora && partido.estado === 'pendiente';
+
+  const fechaTxt = partido.fecha_hora
+    ? new Date(partido.fecha_hora).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null;
 
   return (
-    <button
-      onClick={() => puedeEditar && puedeJugarse && onEditar()}
-      disabled={!puedeEditar || !puedeJugarse}
-      className={`rounded-2xl border overflow-hidden text-left transition-all
-        ${puedeJugarse && puedeEditar ? 'border-border-2 hover:border-primary/40 cursor-pointer' : 'border-border cursor-default'}`}
-    >
-      <EquipoSlot equipo={equipoA} marcador={partido.estado === 'jugado' ? partido.marcador_a : null} gano={ganoA} />
-      <div className="h-px bg-border" />
-      <EquipoSlot equipo={equipoB} marcador={partido.estado === 'jugado' ? partido.marcador_b : null} gano={ganoB} />
-    </button>
+    <div className="relative rounded-2xl border border-border-2 overflow-hidden">
+      <div
+        onClick={() => puedeEditar && puedeJugarse && onEditar()}
+        className={`${puedeJugarse && puedeEditar ? 'hover:border-primary/40 cursor-pointer' : 'cursor-default'}`}
+      >
+        <EquipoSlot equipo={equipoA} marcador={partido.estado === 'jugado' ? partido.marcador_a : null} gano={ganoA} />
+        <div className="h-px bg-border" />
+        <EquipoSlot equipo={equipoB} marcador={partido.estado === 'jugado' ? partido.marcador_b : null} gano={ganoB} />
+      </div>
+
+      {(programado || partido.cancha) && (
+        <div className="px-3 py-1.5 bg-surface-2/60 border-t border-border flex items-center gap-1.5 text-[11px] text-text-3">
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <span className="truncate">{fechaTxt}{partido.cancha ? ` · ${partido.cancha}` : ''}</span>
+        </div>
+      )}
+
+      {puedeEditar && puedeJugarse && partido.estado === 'pendiente' && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onProgramar(); }}
+          title="Programar horario / cancha"
+          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-surface/90 border border-border text-text-3 hover:text-primary-light hover:border-primary/40 flex items-center justify-center"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -520,12 +556,84 @@ function EquipoSlot({ equipo, marcador, gano }) {
   );
 }
 
+/* ─────────── Modal: Programar horario / cancha (sin resultado) ─────────── */
+function ProgramarModal({ evento, torneo, partido, equipoA, equipoB, onClose, onDone }) {
+  const fechaActual = partido.fecha_hora ? new Date(partido.fecha_hora) : null;
+  const [fecha, setFecha] = useState(fechaActual ? fechaActual.toISOString().slice(0, 10) : '');
+  const [hora, setHora] = useState(fechaActual ? fechaActual.toTimeString().slice(0, 5) : '');
+  const [cancha, setCancha] = useState(partido.cancha || '');
+  const [working, setWorking] = useState(false);
+  const { success, error: toastErr } = useToast();
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!fecha || !hora) { toastErr('Completa fecha y hora.'); return; }
+    setWorking(true);
+    try {
+      await torneosApi.registrarResultado(evento.id, torneo.id, partido.id, {
+        fecha_hora: new Date(`${fecha}T${hora}:00`).toISOString(),
+        cancha: cancha.trim() || null,
+      });
+      success('Horario programado.');
+      onDone();
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/70 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
+      <div
+        className="relative w-full max-w-sm rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[88vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 bg-surface px-6 py-5 border-b border-border flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold font-display tracking-tight text-text-1">Programar partido</h2>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <p className="text-sm text-text-2">
+            <strong className="text-text-1">{equipoA?.nombre}</strong> vs <strong className="text-text-1">{equipoB?.nombre}</strong>
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="field">
+              <label className="label">Fecha</label>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="input rounded-2xl py-3" required autoFocus />
+            </div>
+            <div className="field">
+              <label className="label">Hora</label>
+              <input type="time" value={hora} onChange={e => setHora(e.target.value)} className="input rounded-2xl py-3" required />
+            </div>
+          </div>
+          <div className="field">
+            <label className="label">Cancha / sede <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
+            <input value={cancha} onChange={e => setCancha(e.target.value)} className="input rounded-2xl py-3" placeholder="Ej. Cancha 2" />
+          </div>
+          <button type="submit" disabled={working}
+            className="w-full py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
+            {working ? <><Spinner size="sm" /> Guardando...</> : 'Guardar horario'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ResultadoModal({ evento, torneo, partido, equipoA, equipoB, onClose, onDone }) {
   const [marcadorA, setMarcadorA] = useState(partido.marcador_a ?? '');
   const [marcadorB, setMarcadorB] = useState(partido.marcador_b ?? '');
   const [cancha, setCancha] = useState(partido.cancha || '');
   const [working, setWorking] = useState(false);
   const { success, error: toastErr } = useToast();
+
+  const fechaTxt = partido.fecha_hora
+    ? new Date(partido.fecha_hora).toLocaleString('es-CO', { weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -558,6 +666,9 @@ function ResultadoModal({ evento, torneo, partido, equipoA, equipoB, onClose, on
           </button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
+          {fechaTxt && (
+            <p className="text-xs text-text-3 -mt-1 capitalize">📅 {fechaTxt}{partido.cancha ? ` · ${partido.cancha}` : ''}</p>
+          )}
           <div className="flex items-center gap-3">
             <div className="flex-1 text-center">
               <p className="text-sm font-medium text-text-1 truncate mb-2">{equipoA?.nombre}</p>
@@ -589,6 +700,7 @@ function ResultadoModal({ evento, torneo, partido, equipoA, equipoB, onClose, on
 function LigaView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
   const [posiciones, setPosiciones] = useState(null);
   const [editando, setEditando] = useState(null);
+  const [programando, setProgramando] = useState(null);
   const { error: toastErr } = useToast();
 
   const cargarPosiciones = () => {
@@ -660,20 +772,35 @@ function LigaView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
           {partidos.map(p => {
             const eqA = equipoPorId.get(p.equipo_a_id);
             const eqB = equipoPorId.get(p.equipo_b_id);
+            const fechaTxt = p.fecha_hora
+              ? new Date(p.fecha_hora).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+              : null;
             return (
-              <button
-                key={p.id}
-                onClick={() => soyOwner && setEditando(p)}
-                disabled={!soyOwner}
-                className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-surface-2/30 transition-colors text-left disabled:cursor-default"
-              >
-                <span className="text-sm text-text-1 flex-1 truncate">{eqA?.nombre} <span className="text-text-3">vs</span> {eqB?.nombre}</span>
+              <div key={p.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-surface-2/30 transition-colors">
+                <button
+                  onClick={() => soyOwner && setEditando(p)}
+                  disabled={!soyOwner}
+                  className="flex-1 text-left disabled:cursor-default min-w-0"
+                >
+                  <p className="text-sm text-text-1 truncate">{eqA?.nombre} <span className="text-text-3">vs</span> {eqB?.nombre}</p>
+                  {(fechaTxt || p.cancha) && (
+                    <p className="text-[11px] text-text-3 mt-0.5">📅 {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
+                  )}
+                </button>
                 {p.estado === 'jugado' ? (
-                  <span className="text-sm font-bold tabular-nums text-text-1">{p.marcador_a} - {p.marcador_b}</span>
+                  <span className="text-sm font-bold tabular-nums text-text-1 flex-shrink-0">{p.marcador_a} - {p.marcador_b}</span>
                 ) : (
-                  <span className="text-xs text-warning">Pendiente</span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs text-warning">Pendiente</span>
+                    {soyOwner && (
+                      <button onClick={() => setProgramando(p)} title="Programar horario"
+                        className="w-7 h-7 rounded-md bg-surface-2 border border-border text-text-3 hover:text-primary-light hover:border-primary/40 flex items-center justify-center">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      </button>
+                    )}
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -686,6 +813,15 @@ function LigaView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
           equipoB={equipoPorId.get(editando.equipo_b_id)}
           onClose={() => setEditando(null)}
           onDone={() => { setEditando(null); onReload(); }}
+        />
+      )}
+      {programando && (
+        <ProgramarModal
+          evento={evento} torneo={torneo} partido={programando}
+          equipoA={equipoPorId.get(programando.equipo_a_id)}
+          equipoB={equipoPorId.get(programando.equipo_b_id)}
+          onClose={() => setProgramando(null)}
+          onDone={() => { setProgramando(null); onReload(); }}
         />
       )}
     </div>
