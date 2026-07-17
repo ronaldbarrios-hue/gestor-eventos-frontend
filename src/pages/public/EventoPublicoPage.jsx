@@ -98,7 +98,7 @@ export default function EventoPublicoPage() {
     <BrandingProvider organizador={evento.organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
 
-      {/* Barra secundaria: volver + Rueda de Negocios (si aplica) + compartir
+      {/* Barra secundaria: volver + Rueda de Negocios/Torneo (si aplican) + compartir
           (oculta "Explorar eventos" en modo standalone) */}
       <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         {isStandalone ? <span /> : (
@@ -117,6 +117,13 @@ export default function EventoPublicoPage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30
                          bg-primary/10 text-sm text-primary-light hover:bg-primary/20 transition-colors">
               🤝 Rueda de Negocios
+            </Link>
+          )}
+          {evento.tiene_torneo && (
+            <Link to={`/explorar/${slug}/torneo`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-warning/30
+                         bg-warning/10 text-sm text-warning hover:bg-warning/20 transition-colors">
+              🏆 Ver Torneo
             </Link>
           )}
           <ShareButton />
@@ -549,12 +556,6 @@ function ConfirmacionModal({ ticket, onClose }) {
   );
 }
 
-/* Envoltorio de todos los modales de esta página. Antes crecía tan alto
-   como su contenido, así que en formularios largos (con muchos campos
-   personalizados, o el uploader de foto) el modal se salía de la pantalla
-   y al hacer scroll se movía la página de ATRÁS en vez del formulario.
-   Ahora limita su alto y activa scroll interno, con un botón de cerrar
-   fijo arriba que siempre queda visible. */
 function ModalShell({ children, onClose }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
