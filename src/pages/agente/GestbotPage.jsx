@@ -5,7 +5,13 @@ import { Link } from 'react-router-dom';
 import Criatura from '../../components/agente/Criatura.jsx';
 import { agenteApi } from '../../api/agente.js';
 import { usePlan } from '../../hooks/usePlan.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { alertDialog } from '../../components/ui/Confirm.jsx';
+
+/* Cuentas con acceso a Gestbot sin necesidad de plan Pro — uso personal
+   del desarrollador para pruebas, mientras el resto de usuarios sigue
+   necesitando Pro normalmente. */
+const EMAILS_DESBLOQUEADOS = ['ronaldbarrios890@gmail.com'];
 
 const LS_KEY = 'gestbot:convs';
 const SALUDO = {
@@ -56,6 +62,10 @@ export default function GestbotPage() {
   const scrollRef = useRef(null);
   const fileRef   = useRef(null);
   const { esPro, loading: planLoading } = usePlan();
+  const { usuario } = useAuth();
+
+  const tieneAccesoDesbloqueado = EMAILS_DESBLOQUEADOS.includes((usuario?.email || '').toLowerCase());
+  const tieneAcceso = esPro || tieneAccesoDesbloqueado;
 
   const conv = convs.find(c => c.id === activa) || convs[0];
   const mensajes = conv.mensajes;
@@ -173,7 +183,7 @@ export default function GestbotPage() {
     : mood === 'error' ? 'Hubo un problema con la solicitud'
     : mood === 'talking' ? 'Respondiendo…' : 'Listo para ayudarte';
 
-  if (!planLoading && !esPro) {
+  if (!planLoading && !tieneAcceso) {
     return (
       <div className="max-w-lg mx-auto mt-12 text-center space-y-5">
         <div className="flex justify-center"><Criatura mood="happy" size={170} /></div>
