@@ -98,7 +98,8 @@ export default function EventoPublicoPage() {
     <BrandingProvider organizador={evento.organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
 
-      {/* Barra secundaria: volver + compartir (oculta "Explorar eventos" en modo standalone) */}
+      {/* Barra secundaria: volver + Rueda de Negocios (si aplica) + compartir
+          (oculta "Explorar eventos" en modo standalone) */}
       <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         {isStandalone ? <span /> : (
           <Link to="/explorar"
@@ -110,7 +111,16 @@ export default function EventoPublicoPage() {
             Explorar eventos
           </Link>
         )}
-        <ShareButton />
+        <div className="flex items-center gap-2">
+          {evento.tiene_networking && (
+            <Link to={`/explorar/${slug}/networking`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30
+                         bg-primary/10 text-sm text-primary-light hover:bg-primary/20 transition-colors">
+              🤝 Rueda de Negocios
+            </Link>
+          )}
+          <ShareButton />
+        </div>
       </div>
 
       {/* Contenedor único que envuelve TODO el contenido restante (imagen + bloques + footer):
