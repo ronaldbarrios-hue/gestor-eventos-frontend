@@ -166,7 +166,7 @@ function FormularioPendiente({ ticket, campos, onListo }) {
         {err && <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
 
         {campos.map(c => (
-          <CampoDinamico key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} />
+          <CampoDinamico key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={ticket.evento?.id} />
         ))}
 
         <button type="submit" disabled={working}
@@ -178,7 +178,7 @@ function FormularioPendiente({ ticket, campos, onListo }) {
   );
 }
 
-function CampoDinamico({ campo, value, onChange }) {
+function CampoDinamico({ campo, value, onChange, eventoId }) {
   const req = campo.requerido;
   if (campo.tipo === 'checkbox') {
     return (
@@ -201,6 +201,14 @@ function CampoDinamico({ campo, value, onChange }) {
       </div>
     );
   }
+  if (campo.tipo === 'foto') {
+    return (
+      <div className="field">
+        <label className="label">{campo.etiqueta}{req && ' *'}</label>
+        <FormPhotoUploaderLazy value={value} onChange={onChange} eventoId={eventoId} campoId={campo.id} />
+      </div>
+    );
+  }
   const tipoInput = campo.tipo === 'numero' ? 'number' : campo.tipo === 'fecha' ? 'date' : 'text';
   return (
     <div className="field">
@@ -209,6 +217,18 @@ function CampoDinamico({ campo, value, onChange }) {
         className="input rounded-2xl py-3 text-base" />
     </div>
   );
+}
+
+/* Carga diferida: el uploader de fotos usa Supabase Storage directo desde
+   el navegador, así que solo lo importamos si realmente hay un campo tipo
+   "foto" en el formulario. */
+function FormPhotoUploaderLazy(props) {
+  const [Comp, setComp] = useState(null);
+  useEffect(() => {
+    import('../../components/ui/FormPhotoUploader.jsx').then(m => setComp(() => m.default));
+  }, []);
+  if (!Comp) return <div className="h-40 rounded-2xl bg-surface-2/40 animate-pulse" />;
+  return <Comp {...props} />;
 }
 
 function Row({ label, value }) {
