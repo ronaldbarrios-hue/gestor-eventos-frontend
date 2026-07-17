@@ -25,12 +25,16 @@ import BroadcastModal    from './BroadcastModal.jsx';
 import PlaceholderTab    from './tabs/PlaceholderTab.jsx';
 import WaitlistTab      from './tabs/WaitlistTab.jsx';
 import NetworkingTab    from './tabs/NetworkingTab.jsx';
+import TorneoTab         from './tabs/TorneoTab.jsx';
 
 /* Workspace por evento. Header + tabs. Cada tab carga su contenido. */
 
 /* Categorías donde tiene sentido la Rueda de Negocios — debe coincidir con
    CATEGORIAS_PERMITIDAS en routes/networking.js del backend. */
 const CATEGORIAS_NETWORKING = ['negocios', 'marketing', 'tecnologia'];
+/* Categoría donde tiene sentido el módulo de Torneo — debe coincidir con
+   CATEGORIA_PERMITIDA en routes/torneos.js del backend. */
+const CATEGORIAS_TORNEO = ['deportes'];
 
 const GRUPOS = [
   { label: 'General', items: [
@@ -44,6 +48,7 @@ const GRUPOS = [
     { id: 'solicitudes', label: 'Sugerencias' },
     { id: 'agenda',  label: 'Agenda' },
     { id: 'networking', label: 'Rueda de negocios' },
+    { id: 'torneo', label: 'Torneo' },
   ] },
   { label: 'Facturación', items: [
     { id: 'tickets',   label: 'Boletas' },
@@ -71,6 +76,7 @@ const TAB_PERM = {
   equipo: ['gestionar_roles', 'invitar_staff', 'remover_miembros'],
   agenda: null, tareas: null, solicitudes: null, chat: null, ranking: null,
   networking: null,
+  torneo: ['gestionar_torneo'],
 };
 function puedeVerTab(id, soyOwner, permisos) {
   if (soyOwner) return true;
@@ -156,6 +162,7 @@ export default function EventDetailPage() {
 
   const esDueno = String(evento.owner_id) === String(usuario?.id) || usuario?.rol === 'admin_global';
   const permiteNetworking = CATEGORIAS_NETWORKING.includes(evento.categoria?.slug);
+  const permiteTorneo = CATEGORIAS_TORNEO.includes(evento.categoria?.slug);
 
   return (
     <div className="max-w-6xl mx-auto space-y-5 animate-[fadeUp_0.4s_ease_both]">
@@ -179,9 +186,10 @@ export default function EventDetailPage() {
             ...g,
             items: g.items
               .filter(it => puedeVerTab(it.id, soyOwner, permisos))
-              /* La pestaña de Rueda de Negocios solo aparece si la categoría
-                 del evento admite este módulo (Negocios, Marketing, Tecnología). */
-              .filter(it => it.id !== 'networking' || permiteNetworking),
+              /* Rueda de Negocios y Torneo solo aparecen si la categoría del
+                 evento admite ese módulo. */
+              .filter(it => it.id !== 'networking' || permiteNetworking)
+              .filter(it => it.id !== 'torneo' || permiteTorneo),
           }))
           .filter(g => g.items.length);
         const grupoActivo = esChat ? null : (TAB_GRUPO[tab] || gruposVis[0]?.label);
@@ -255,6 +263,7 @@ export default function EventDetailPage() {
         {tab === 'solicitudes' && <SolicitudesTab evento={evento} />}
         {tab === 'ranking'     && <RankingTab evento={evento} />}
         {tab === 'networking'  && permiteNetworking && <NetworkingTab evento={evento} soyOwner={soyOwner} />}
+        {tab === 'torneo'      && permiteTorneo && <TorneoTab evento={evento} soyOwner={soyOwner} />}
         {tab === 'pagos'     && <PlaceholderTab title="Pagos" desc="Configura tu llave BRE-B, recibe transacciones, emite reembolsos." icon="wallet" />}
         {tab === 'chat'      && <ChatTab evento={evento} />}
         {tab === 'analytics' && <AnalyticsTab evento={evento} />}
