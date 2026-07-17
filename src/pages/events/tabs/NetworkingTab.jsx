@@ -7,7 +7,9 @@ import GLoader from '../../../components/ui/GLoader.jsx';
 
 /* Tab Rueda de Negocios — gestionado + autogestionado:
    el organizador crea expositores y sus horarios disponibles; los
-   asistentes reservan citas libremente, confirmación automática. */
+   asistentes reservan citas libremente, confirmación automática.
+   ExplorarView y MisCitasView se exportan también para poder reutilizarse
+   desde la página pública (src/pages/public/NetworkingPublicPage.jsx). */
 
 export default function NetworkingTab({ evento, soyOwner }) {
   const [sub, setSub] = useState(soyOwner ? 'admin' : 'explorar'); // admin | explorar | mis-citas
@@ -45,7 +47,7 @@ export default function NetworkingTab({ evento, soyOwner }) {
 }
 
 /* ─────────── Vista Explorar (asistente) ─────────── */
-function ExplorarView({ evento }) {
+export function ExplorarView({ evento }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -136,7 +138,7 @@ function ExplorarView({ evento }) {
 }
 
 /* ─────────── Vista Mis Citas (asistente) ─────────── */
-function MisCitasView({ evento }) {
+export function MisCitasView({ evento }) {
   const [citas, setCitas] = useState(null);
   const [busy, setBusy] = useState(null);
   const { success, error: toastErr } = useToast();
