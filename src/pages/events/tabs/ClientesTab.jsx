@@ -359,9 +359,20 @@ function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
                 {filas.map((f, i) => (
                   <div key={i} className="px-4 py-3">
                     <p className="text-xs text-text-3 mb-0.5">{f.etiqueta}</p>
-                    <p className="text-sm text-text-1 leading-relaxed">
-                      {Array.isArray(f.valor) ? f.valor.join(', ') : (f.valor || f.valor === 0 ? String(f.valor) : '—')}
-                    </p>
+                    {/* Fotos se muestran como imagen (con link de descarga), no como texto/URL crudo */}
+                    {typeof f.valor === 'string' && /^https?:\/\/.*\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(f.valor) ? (
+                      <div className="mt-1">
+                        <img src={f.valor} alt={f.etiqueta} className="w-full max-w-xs rounded-xl border border-border object-cover" />
+                        <a href={f.valor} download target="_blank" rel="noreferrer"
+                          className="inline-block text-xs text-primary-light hover:underline mt-1.5">
+                          Descargar imagen
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-text-1 leading-relaxed">
+                        {Array.isArray(f.valor) ? f.valor.join(', ') : (f.valor || f.valor === 0 ? String(f.valor) : '—')}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
