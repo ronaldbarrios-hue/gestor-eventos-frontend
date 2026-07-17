@@ -28,6 +28,10 @@ import NetworkingTab    from './tabs/NetworkingTab.jsx';
 
 /* Workspace por evento. Header + tabs. Cada tab carga su contenido. */
 
+/* Categorías donde tiene sentido la Rueda de Negocios — debe coincidir con
+   CATEGORIAS_PERMITIDAS en routes/networking.js del backend. */
+const CATEGORIAS_NETWORKING = ['negocios', 'marketing', 'tecnologia'];
+
 const GRUPOS = [
   { label: 'General', items: [
     { id: 'resumen', label: 'Resumen' },
@@ -151,6 +155,7 @@ export default function EventDetailPage() {
   );
 
   const esDueno = String(evento.owner_id) === String(usuario?.id) || usuario?.rol === 'admin_global';
+  const permiteNetworking = CATEGORIAS_NETWORKING.includes(evento.categoria?.slug);
 
   return (
     <div className="max-w-6xl mx-auto space-y-5 animate-[fadeUp_0.4s_ease_both]">
@@ -170,7 +175,14 @@ export default function EventDetailPage() {
       {(() => {
         const esChat = tab === 'chat';
         const gruposVis = GRUPOS
-          .map(g => ({ ...g, items: g.items.filter(it => puedeVerTab(it.id, soyOwner, permisos)) }))
+          .map(g => ({
+            ...g,
+            items: g.items
+              .filter(it => puedeVerTab(it.id, soyOwner, permisos))
+              /* La pestaña de Rueda de Negocios solo aparece si la categoría
+                 del evento admite este módulo (Negocios, Marketing, Tecnología). */
+              .filter(it => it.id !== 'networking' || permiteNetworking),
+          }))
           .filter(g => g.items.length);
         const grupoActivo = esChat ? null : (TAB_GRUPO[tab] || gruposVis[0]?.label);
         const grupo = gruposVis.find(g => g.label === grupoActivo);
@@ -242,7 +254,7 @@ export default function EventDetailPage() {
         {tab === 'tareas'      && <TareasTab evento={evento} />}
         {tab === 'solicitudes' && <SolicitudesTab evento={evento} />}
         {tab === 'ranking'     && <RankingTab evento={evento} />}
-        {tab === 'networking'  && <NetworkingTab evento={evento} soyOwner={soyOwner} />}
+        {tab === 'networking'  && permiteNetworking && <NetworkingTab evento={evento} soyOwner={soyOwner} />}
         {tab === 'pagos'     && <PlaceholderTab title="Pagos" desc="Configura tu llave BRE-B, recibe transacciones, emite reembolsos." icon="wallet" />}
         {tab === 'chat'      && <ChatTab evento={evento} />}
         {tab === 'analytics' && <AnalyticsTab evento={evento} />}
