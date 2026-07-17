@@ -166,6 +166,7 @@ function BorrarTorneoBtn({ evento, torneo, onDone }) {
 /* ─────────── Vista Equipos ─────────── */
 function EquiposView({ evento, torneo, equipos, soyOwner, onReload }) {
   const [formOpen, setFormOpen] = useState(false);
+  const [importarOpen, setImportarOpen] = useState(false);
   const { success, error: toastErr } = useToast();
 
   const puedeEditar = soyOwner && torneo.estado === 'armando';
@@ -192,8 +193,13 @@ function EquiposView({ evento, torneo, equipos, soyOwner, onReload }) {
   return (
     <div className="space-y-4">
       {puedeEditar && (
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <button onClick={() => setFormOpen(true)} className="btn-gradient btn-sm">+ Agregar equipo</button>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setFormOpen(true)} className="btn-gradient btn-sm">+ Agregar equipo</button>
+            <button onClick={() => setImportarOpen(true)} className="btn-secondary btn-sm">
+              📥 Importar desde boletas
+            </button>
+          </div>
           {equipos.length >= 2 && (
             <button onClick={generar} className="btn-primary btn-sm">
               🏆 Generar fixture ({equipos.length} equipos)
@@ -230,6 +236,14 @@ function EquiposView({ evento, torneo, equipos, soyOwner, onReload }) {
           evento={evento} torneo={torneo}
           onClose={() => setFormOpen(false)}
           onDone={() => { setFormOpen(false); onReload(); }}
+        />
+      )}
+
+      {importarOpen && (
+        <ImportarEquiposModal
+          evento={evento} torneo={torneo}
+          onClose={() => setImportarOpen(false)}
+          onDone={() => { setImportarOpen(false); onReload(); }}
         />
       )}
     </div>
@@ -278,7 +292,7 @@ function NuevoEquipoModal({ evento, torneo, onClose, onDone }) {
             <label className="label">Foto / logo <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
             <FotoEquipoLazy value={foto} onChange={setFoto} eventoId={evento.id} torneoId={torneo.id} />
             <p className="text-xs text-text-3 mt-1.5">
-              Tip: si tu formulario de compra pide "Foto" al comprador, puedes descargarla del detalle del asistente y subirla aquí.
+              Tip: si prefieres, usa "Importar desde boletas" para traer equipos y fotos automáticamente desde el formulario de compra.
             </p>
           </div>
           <div className="flex gap-3 pt-2">
@@ -288,6 +302,116 @@ function NuevoEquipoModal({ evento, torneo, onClose, onDone }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Importar equipos desde boletas ─────────── */
+function ImportarEquiposModal({ evento, torneo, onClose, onDone }) {
+  const [campos, setCampos] = useState(null);
+  const [campoNombre, setCampoNombre] = useState('');
+  const [campoFoto, setCampoFoto] = useState('');
+  const [working, setWorking] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const { error: toastErr } = useToast();
+
+  useEffect(() => {
+    torneosApi.camposDisponibles(evento.id, torneo.id)
+      .then(d => setCampos(d.campos || []))
+      .catch(e => toastErr(e.response?.data?.error || e.message));
+    /* eslint-disable-next-line */
+  }, []);
+
+  const camposTexto = (campos || []).filter(c => c.tipo === 'texto');
+  const camposFoto  = (campos || []).filter(c => c.tipo === 'foto');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!campoNombre) { toastErr('Selecciona qué campo usar como nombre del equipo.'); return; }
+    setWorking(true);
+    try {
+      const r = await torneosApi.importarEquipos(evento.id, torneo.id, {
+        campo_nombre_id: campoNombre,
+        campo_foto_id: campoFoto || null,
+      });
+      setResultado(r);
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/70 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
+      <div
+        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[88vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 bg-surface px-6 py-5 border-b border-border flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Importar desde boletas</h2>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="p-6">
+          {campos === null ? (
+            <GLoader message="Buscando campos del formulario..." />
+          ) : resultado ? (
+            <div className="text-center py-3">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-success/15 border border-success/30 mb-4">
+                <svg className="w-7 h-7 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <p className="text-lg font-bold font-display text-text-1 mb-1">{resultado.importados} equipos importados</p>
+              <p className="text-sm text-text-2 mb-6 leading-relaxed">
+                Se revisaron {resultado.total_boletas_revisadas} boletas.
+                {resultado.omitidos > 0 && ` ${resultado.omitidos} se omitieron (sin ese campo respondido, o nombre repetido).`}
+              </p>
+              <button onClick={onDone} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+                Listo
+              </button>
+            </div>
+          ) : camposTexto.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-text-2 leading-relaxed mb-4">
+                Tu formulario de compra no tiene ningún campo de tipo "Texto" que pueda usarse como nombre de equipo.
+              </p>
+              <p className="text-xs text-text-3 leading-relaxed">
+                Ve a la pestaña <strong className="text-text-1">Formulario</strong>, agrega un campo tipo texto (ej. "Nombre del equipo") y opcionalmente uno tipo foto, guarda, y vuelve a intentar aquí.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={submit} className="space-y-4">
+              <p className="text-sm text-text-2 leading-relaxed">
+                Elige qué campos de tu formulario de compra corresponden al nombre y la foto del equipo. Se creará un equipo por cada boleta que tenga esos datos.
+              </p>
+              <div className="field">
+                <label className="label">Campo para el nombre del equipo</label>
+                <select value={campoNombre} onChange={e => setCampoNombre(e.target.value)} className="input bg-surface-2 rounded-2xl py-3" required>
+                  <option value="">— Selecciona —</option>
+                  {camposTexto.map(c => <option key={c.id} value={c.id}>{c.etiqueta}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label className="label">Campo para la foto <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
+                <select value={campoFoto} onChange={e => setCampoFoto(e.target.value)} className="input bg-surface-2 rounded-2xl py-3">
+                  <option value="">— Sin foto —</option>
+                  {camposFoto.map(c => <option key={c.id} value={c.id}>{c.etiqueta}</option>)}
+                </select>
+                {camposFoto.length === 0 && (
+                  <p className="text-xs text-text-3 mt-1.5">No tienes ningún campo tipo "Foto" en el formulario. Puedes agregarlo en la pestaña Formulario si quieres importar fotos también.</p>
+                )}
+              </div>
+              <button type="submit" disabled={working}
+                className="w-full py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
+                {working ? <><Spinner size="sm" /> Importando...</> : 'Importar equipos'}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
