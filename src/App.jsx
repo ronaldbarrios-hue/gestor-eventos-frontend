@@ -13,6 +13,7 @@ const ComoFuncionaPage   = lazy(() => import('./pages/public/ComoFuncionaPage.js
 const ProductoPage       = lazy(() => import('./pages/public/ProductoPage.jsx'));
 const ExplorarPage       = lazy(() => import('./pages/public/ExplorarPage.jsx'));
 const EventoPublicoPage  = lazy(() => import('./pages/public/EventoPublicoPage.jsx'));
+const NetworkingPublicPage = lazy(() => import('./pages/public/NetworkingPublicPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
 const PlanesPage         = lazy(() => import('./pages/public/PlanesPage.jsx'));
 const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
@@ -50,8 +51,6 @@ function PrivateRoute({ children, allowIncomplete = false }) {
   const { pathname } = location;
   if (loading) return <AuthLoader />;
   if (!token) {
-    /* Guardamos a dónde intentaba ir (ej. /eventos/:id de una invitación)
-       para que el login/registro pueda regresarlo ahí en vez de al dashboard. */
     return <Navigate to="/login" replace state={{ from: pathname }} />;
   }
   if (!allowIncomplete && usuario && !usuario.perfilCompleto && pathname !== '/completar-perfil') {
@@ -81,6 +80,7 @@ export default function App() {
                 <Route path="/producto"          element={<ProductoPage />} />
                 <Route path="/explorar"          element={<ExplorarPage />} />
                 <Route path="/explorar/:slug"    element={<EventoPublicoPage />} />
+                <Route path="/explorar/:slug/networking" element={<NetworkingPublicPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
                 <Route path="/planes"            element={<PlanesPage />} />
                 <Route path="/faq"               element={<FAQPage />} />
