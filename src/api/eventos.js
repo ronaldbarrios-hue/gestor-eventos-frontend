@@ -1,127 +1,26 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext.jsx';
-import { ToastProvider } from './context/ToastContext.jsx';
-import { ConfirmHost } from './components/ui/Confirm.jsx';
-import GLoader from './components/ui/GLoader.jsx';
-import PublicLayout from './components/layout/PublicLayout.jsx';
-import AppLayout from './components/layout/AppLayout.jsx';
-import LandingHomePage from './pages/public/LandingHomePage.jsx';
-import AuthPage from './pages/AuthPage.jsx';
+import client from './client.js';
 
-const ComoFuncionaPage   = lazy(() => import('./pages/public/ComoFuncionaPage.jsx'));
-const ProductoPage       = lazy(() => import('./pages/public/ProductoPage.jsx'));
-const ExplorarPage       = lazy(() => import('./pages/public/ExplorarPage.jsx'));
-const EventoPublicoPage  = lazy(() => import('./pages/public/EventoPublicoPage.jsx'));
-const NetworkingPublicPage = lazy(() => import('./pages/public/NetworkingPublicPage.jsx'));
-const TorneoPublicoPage  = lazy(() => import('./pages/public/TorneoPublicoPage.jsx'));
-const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
-const PlanesPage         = lazy(() => import('./pages/public/PlanesPage.jsx'));
-const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
-const RecuperarPage      = lazy(() => import('./pages/RecuperarPage.jsx'));
-const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage.jsx'));
-const ConfirmarPage      = lazy(() => import('./pages/ConfirmarPage.jsx'));
-const CompletarPerfilPage= lazy(() => import('./pages/CompletarPerfilPage.jsx'));
-const DashboardPage      = lazy(() => import('./pages/DashboardPage.jsx'));
-const EventsListPage     = lazy(() => import('./pages/events/EventsListPage.jsx'));
-const EventCreatePage    = lazy(() => import('./pages/events/EventCreatePage.jsx'));
-const EventDetailPage    = lazy(() => import('./pages/events/EventDetailPage.jsx'));
-const EventEditPage      = lazy(() => import('./pages/events/EventEditPage.jsx'));
-const UsersPage          = lazy(() => import('./pages/users/UsersPage.jsx'));
-const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage.jsx'));
-const GestbotPage        = lazy(() => import('./pages/agente/GestbotPage.jsx'));
-const ChatHubPage        = lazy(() => import('./pages/chat/ChatHubPage.jsx'));
-const PagosPage          = lazy(() => import('./pages/settings/PagosPage.jsx'));
-const NotificacionesPage = lazy(() => import('./pages/settings/NotificacionesPage.jsx'));
-const RecompensasPage    = lazy(() => import('./pages/settings/RecompensasPage.jsx'));
-const WhiteLabelPage     = lazy(() => import('./pages/settings/WhiteLabelPage.jsx'));
-const MiTrabajoPage      = lazy(() => import('./pages/equipo/MiTrabajoPage.jsx'));
-const MisBoletasPage     = lazy(() => import('./pages/settings/MisBoletasPage.jsx'));
-
-function AuthLoader() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-bg">
-      <GLoader size="lg" />
-    </div>
-  );
-}
-
-function PrivateRoute({ children, allowIncomplete = false }) {
-  const { token, loading, usuario } = useAuth();
-  const location = useLocation();
-  const { pathname } = location;
-  if (loading) return <AuthLoader />;
-  if (!token) {
-    return <Navigate to="/login" replace state={{ from: pathname }} />;
-  }
-  if (!allowIncomplete && usuario && !usuario.perfilCompleto && pathname !== '/completar-perfil') {
-    return <Navigate to="/completar-perfil" replace state={{ from: pathname }} />;
-  }
-  return children;
-}
-
-function PublicOnlyRoute({ children }) {
-  const { token, loading, usuario } = useAuth();
-  if (loading) return <AuthLoader />;
-  if (!token) return children;
-  if (usuario && !usuario.perfilCompleto) return <Navigate to="/completar-perfil" replace />;
-  return <Navigate to="/dashboard" replace />;
-}
-
-export default function App() {
-  return (
-    <BrowserRouter>
-      <ToastProvider>
-        <AuthProvider>
-          <Suspense fallback={<AuthLoader />}>
-            <Routes>
-              <Route element={<PublicLayout />}>
-                <Route path="/"                  element={<LandingHomePage />} />
-                <Route path="/como-funciona"     element={<ComoFuncionaPage />} />
-                <Route path="/producto"          element={<ProductoPage />} />
-                <Route path="/explorar"          element={<ExplorarPage />} />
-                <Route path="/explorar/:slug"    element={<EventoPublicoPage />} />
-                <Route path="/explorar/:slug/networking" element={<NetworkingPublicPage />} />
-                <Route path="/explorar/:slug/torneo" element={<TorneoPublicoPage />} />
-                <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
-                <Route path="/planes"            element={<PlanesPage />} />
-                <Route path="/faq"               element={<FAQPage />} />
-              </Route>
-
-              <Route path="/login"    element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
-              <Route path="/register" element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
-              <Route path="/acceder"  element={<Navigate to="/login" replace />} />
-              <Route path="/recuperar"        element={<RecuperarPage />} />
-              <Route path="/restablecer"      element={<ResetPasswordPage />} />
-              <Route path="/confirmar"        element={<ConfirmarPage />} />
-              <Route path="/completar-perfil" element={<PrivateRoute allowIncomplete><CompletarPerfilPage /></PrivateRoute>} />
-
-              <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-                <Route path="/dashboard"          element={<DashboardPage />} />
-                <Route path="/eventos"            element={<EventsListPage />} />
-                <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
-                <Route path="/eventos/:id"        element={<EventDetailPage />} />
-                <Route path="/eventos/:id/editar" element={<EventEditPage />} />
-                <Route path="/app/explorar"       element={<ExplorarPage />} />
-                <Route path="/app/explorar/:slug" element={<EventoPublicoPage />} />
-                <Route path="/mis-boletas"        element={<MisBoletasPage />} />
-                <Route path="/gestbot"            element={<GestbotPage />} />
-                <Route path="/chat"               element={<ChatHubPage />} />
-                <Route path="/pagos"              element={<PagosPage />} />
-                <Route path="/notificaciones"     element={<NotificacionesPage />} />
-                <Route path="/recompensas"        element={<RecompensasPage />} />
-                <Route path="/white-label"        element={<WhiteLabelPage />} />
-                <Route path="/mi-trabajo"         element={<MiTrabajoPage />} />
-                <Route path="/usuarios"           element={<UsersPage />} />
-                <Route path="/configuracion"      element={<SettingsPage />} />
-              </Route>
-
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-          <ConfirmHost />
-        </AuthProvider>
-      </ToastProvider>
-    </BrowserRouter>
-  );
-}
+export const eventosApi = {
+  /* Privadas (requieren login) */
+  list      : (params = {}) => client.get('/eventos',           { params }).then(r => r.data),
+  get       : (id)          => client.get(`/eventos/${id}`).then(r => r.data),
+  create    : (body)        => client.post('/eventos', body).then(r => r.data),
+  update    : (id, body)    => client.patch(`/eventos/${id}`, body).then(r => r.data),
+  delete    : (id)          => client.delete(`/eventos/${id}`).then(r => r.data),
+  cambiarEstado: (id, estado) => client.post(`/eventos/${id}/estado`, { estado }).then(r => r.data),
+  publicar  : (id) => client.post(`/eventos/${id}/estado`, { estado: 'publicado' }).then(r => r.data),
+  cancelar  : (id) => client.post(`/eventos/${id}/estado`, { estado: 'cancelado' }).then(r => r.data),
+  /* Formulario personalizado de compra */
+  getFormulario     : (id)        => client.get(`/eventos/${id}/formulario`).then(r => r.data),
+  guardarFormulario : (id, campos) => client.put(`/eventos/${id}/formulario`, { campos }).then(r => r.data),
+  /* Públicas (sin auth) */
+  publicos     : (params = {}) => client.get('/eventos/publicos', { params }).then(r => r.data),
+  publicoBySlug: (slug)        => client.get(`/eventos/publicos/slug/${slug}`).then(r => r.data),
+  reservar     : (slug, body)  => client.post(`/eventos/publicos/slug/${slug}/reservar`, body).then(r => r.data),
+  ticketByCode : (codigo)      => client.get(`/eventos/publicos/ticket/${codigo}`).then(r => r.data),
+  completarFormularioTicket: (codigo, respuestas) =>
+    client.post(`/eventos/publicos/ticket/${codigo}/formulario`, { respuestas }).then(r => r.data),
+  torneoPublico: (slug) => client.get(`/eventos/publicos/slug/${slug}/torneo`).then(r => r.data),
+  /* Catálogo */
+  categorias: () => client.get('/categorias').then(r => r.data),
+};
