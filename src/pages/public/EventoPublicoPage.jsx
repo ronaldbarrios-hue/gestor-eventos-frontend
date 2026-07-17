@@ -549,18 +549,34 @@ function ConfirmacionModal({ ticket, onClose }) {
   );
 }
 
+/* Envoltorio de todos los modales de esta página. Antes crecía tan alto
+   como su contenido, así que en formularios largos (con muchos campos
+   personalizados, o el uploader de foto) el modal se salía de la pantalla
+   y al hacer scroll se movía la página de ATRÁS en vez del formulario.
+   Ahora limita su alto y activa scroll interno, con un botón de cerrar
+   fijo arriba que siempre queda visible. */
 function ModalShell({ children, onClose }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
-      <div className="relative w-full max-w-md rounded-3xl border border-border-2 bg-surface shadow-2xl p-6 animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
-        onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
+      <div
+        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[90vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        onClick={e => e.stopPropagation()}
+      >
         <button onClick={onClose} aria-label="Cerrar"
-          className="absolute top-3 right-3 w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+          className="sticky top-3 float-right mr-3 w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors bg-surface z-10">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        {children}
+        <div className="p-6 -mt-9">
+          {children}
+        </div>
       </div>
     </div>
   );
