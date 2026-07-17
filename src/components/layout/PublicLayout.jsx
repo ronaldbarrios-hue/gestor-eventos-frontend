@@ -18,8 +18,9 @@ export default function PublicLayout() {
      pero SÍ con un link discreto de vuelta al dashboard del organizador. */
   const esListadoExplorar = /^\/(app\/)?explorar\/?$/.test(pathname);
   /* Página pública de un evento individual (/explorar/algun-evento), incluyendo
-     sus sub-rutas como la Rueda de Negocios (/explorar/algun-evento/networking):
-     marca blanca total del organizador, sin ningún rastro de GESTEK. */
+     sus sub-rutas como Rueda de Negocios o Torneo (/explorar/algun-evento/networking,
+     /explorar/algun-evento/torneo): marca blanca total del organizador, sin
+     ningún rastro de GESTEK. */
   const esPaginaEvento = /^\/(app\/)?explorar\/[^/]+(\/.*)?$/.test(pathname) && !esListadoExplorar;
   /* Página pública de una boleta (/mi-ticket/:codigo): tampoco debe mostrar
      la barra de GESTEK con "Iniciar sesión/Registrarse" — solo un botón
