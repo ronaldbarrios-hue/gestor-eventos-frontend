@@ -332,13 +332,17 @@ function NuevoExpositorModal({ eventoId, onClose, onDone }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/70 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
       <div
-        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[85vh] flex flex-col animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[88vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-6 pt-6 pb-4 flex-shrink-0">
+        <div className="sticky top-0 z-10 bg-surface px-6 py-5 border-b border-border flex items-center justify-between gap-3">
           <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Nuevo expositor</h2>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
-        <form id="form-nuevo-expositor" onSubmit={submit} className="px-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={submit} className="p-6 space-y-4">
           <div className="field">
             <label className="label">Nombre</label>
             <input value={nombre} onChange={e => setNombre(e.target.value)} className="input rounded-2xl py-3" placeholder="Nombre de la empresa" required autoFocus />
@@ -346,20 +350,20 @@ function NuevoExpositorModal({ eventoId, onClose, onDone }) {
           <div className="field">
             <label className="label">Stand <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
             <input value={stand} onChange={e => setStand(e.target.value)} className="input rounded-2xl py-3" placeholder="Ej. A-12" />
-            <p className="text-xs text-text-3 mt-1.5">Número o ubicación física del puesto de esta empresa en el evento. Lo ven los asistentes para saber a dónde ir a la cita.</p>
+            <p className="text-xs text-text-3 mt-1.5">Número o código del puesto físico donde estará el día del evento.</p>
           </div>
-          <div className="field pb-2">
+          <div className="field">
             <label className="label">Descripción <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
             <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={2} className="input rounded-2xl py-3 resize-none" placeholder="A qué se dedican, qué ofrecen..." />
-            <p className="text-xs text-text-3 mt-1.5">Ayuda a los asistentes a decidir con quién agendar antes de reservar.</p>
+            <p className="text-xs text-text-3 mt-1.5">Ayuda a los asistentes a decidir si les interesa agendar cita.</p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl text-sm font-medium text-text-1 border border-border-2 hover:bg-surface-2">Cancelar</button>
+            <button type="submit" disabled={working} className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
+              {working ? <><Spinner size="sm" /> Creando...</> : 'Crear'}
+            </button>
           </div>
         </form>
-        <div className="px-6 py-4 border-t border-border flex gap-3 flex-shrink-0">
-          <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl text-sm font-medium text-text-1 border border-border-2 hover:bg-surface-2">Cancelar</button>
-          <button type="submit" form="form-nuevo-expositor" disabled={working} className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
-            {working ? <><Spinner size="sm" /> Creando...</> : 'Crear'}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -395,14 +399,21 @@ function GenerarHorariosModal({ eventoId, expositor, onClose, onDone }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/70 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
       <div
-        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[85vh] flex flex-col animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[88vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-6 pt-6 pb-1 flex-shrink-0">
-          <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Generar horarios</h2>
-          <p className="text-sm text-text-2 mt-1 mb-4">Para <strong className="text-text-1">{expositor.nombre}</strong> — se crean bloques consecutivos automáticamente.</p>
+        <div className="sticky top-0 z-10 bg-surface px-6 py-5 border-b border-border flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Generar horarios</h2>
+            <p className="text-sm text-text-2 mt-0.5">Para <strong className="text-text-1">{expositor.nombre}</strong></p>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
-        <form id="form-generar-horarios" onSubmit={submit} className="px-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <p className="text-sm text-text-2 -mt-1">Se crean bloques consecutivos automáticamente.</p>
           <div className="field">
             <label className="label">Fecha</label>
             <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="input rounded-2xl py-3" required autoFocus />
@@ -417,7 +428,7 @@ function GenerarHorariosModal({ eventoId, expositor, onClose, onDone }) {
               <input type="time" value={horaFin} onChange={e => setHoraFin(e.target.value)} className="input rounded-2xl py-3" required />
             </div>
           </div>
-          <div className="field pb-2">
+          <div className="field">
             <label className="label">Duración de cada cita (minutos)</label>
             <select value={duracion} onChange={e => setDuracion(e.target.value)} className="input bg-surface-2 rounded-2xl py-3">
               <option value={10}>10 minutos</option>
@@ -426,13 +437,13 @@ function GenerarHorariosModal({ eventoId, expositor, onClose, onDone }) {
               <option value={30}>30 minutos</option>
             </select>
           </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl text-sm font-medium text-text-1 border border-border-2 hover:bg-surface-2">Cancelar</button>
+            <button type="submit" disabled={working} className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
+              {working ? <><Spinner size="sm" /> Generando...</> : 'Generar'}
+            </button>
+          </div>
         </form>
-        <div className="px-6 py-4 border-t border-border flex gap-3 flex-shrink-0">
-          <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl text-sm font-medium text-text-1 border border-border-2 hover:bg-surface-2">Cancelar</button>
-          <button type="submit" form="form-generar-horarios" disabled={working} className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
-            {working ? <><Spinner size="sm" /> Generando...</> : 'Generar'}
-          </button>
-        </div>
       </div>
     </div>
   );
