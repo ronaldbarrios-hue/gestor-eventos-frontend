@@ -12,6 +12,7 @@ export const torneosApi = {
   importarEquipos  : (eventoId, torneoId, body) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/importar-equipos`, body).then(r => r.data),
 
   generarFixture   : (eventoId, torneoId) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/generar`).then(r => r.data),
+  cerrarGrupos     : (eventoId, torneoId) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/cerrar-grupos`).then(r => r.data),
 
   registrarResultado: (eventoId, torneoId, partidoId, body) =>
     client.patch(`/eventos/${eventoId}/torneo/${torneoId}/partidos/${partidoId}`, body).then(r => r.data),
