@@ -8,6 +8,9 @@ export const torneosApi = {
   crearEquipo      : (eventoId, torneoId, body) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/equipos`, body).then(r => r.data),
   borrarEquipo     : (eventoId, torneoId, equipoId) => client.delete(`/eventos/${eventoId}/torneo/${torneoId}/equipos/${equipoId}`).then(r => r.data),
 
+  camposDisponibles: (eventoId, torneoId) => client.get(`/eventos/${eventoId}/torneo/${torneoId}/campos-disponibles`).then(r => r.data),
+  importarEquipos  : (eventoId, torneoId, body) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/importar-equipos`, body).then(r => r.data),
+
   generarFixture   : (eventoId, torneoId) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/generar`).then(r => r.data),
 
   registrarResultado: (eventoId, torneoId, partidoId, body) =>
