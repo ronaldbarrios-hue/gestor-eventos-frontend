@@ -194,6 +194,10 @@ export default function GestbotPage() {
           Tu asistente de eventos con IA — crea y publica eventos, arma boletas,
           analiza PDFs y más, hablando en lenguaje natural. Disponible al activar Pro.
         </p>
+        {/* DIAGNÓSTICO TEMPORAL — quitar después de confirmar la causa */}
+        <p className="text-[10px] text-text-3 font-mono border border-border rounded-lg px-3 py-2 max-w-xs mx-auto break-all">
+          debug email="{usuario?.email || '(vacío)'}" desbloqueado={String(tieneAccesoDesbloqueado)} esPro={String(esPro)} planLoading={String(planLoading)}
+        </p>
         <Link to="/pagos"
           className="inline-block rounded-xl bg-gradient-primary px-6 py-3 text-white font-semibold
                      hover:opacity-90 active:scale-95 transition">
