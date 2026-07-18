@@ -21,6 +21,7 @@ export const eventosApi = {
   completarFormularioTicket: (codigo, respuestas) =>
     client.post(`/eventos/publicos/ticket/${codigo}/formulario`, { respuestas }).then(r => r.data),
   torneoPublico: (slug) => client.get(`/eventos/publicos/slug/${slug}/torneo`).then(r => r.data),
+  agendaPublica: (slug) => client.get(`/eventos/publicos/slug/${slug}/agenda`).then(r => r.data),
   /* Catálogo */
   categorias: () => client.get('/categorias').then(r => r.data),
 };
