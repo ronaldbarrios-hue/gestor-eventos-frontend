@@ -8,7 +8,12 @@ import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 
 /* Tab Agenda — sesiones + speakers.
-   Sesiones tienen 3 vistas: Lista / Semana / Mes. */
+   Sesiones tienen 4 vistas: Lista / Día / Semana / Mes / Salas.
+   "Salas" (calendario en paralelo por track) solo aparece en eventos de
+   categoría Educación, Tecnología, Cultura o Música — debe coincidir con
+   CATEGORIAS_AGENDA en routes/eventos.publicos.js del backend. */
+
+const CATEGORIAS_AGENDA = ['educacion', 'tecnologia', 'cultura', 'musica'];
 
 const DOW_SHORT = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
 const MES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -20,12 +25,14 @@ export default function AgendaTab({ evento }) {
   const [speakers, setSpeakers] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [view,     setView]     = useState('sessions'); // sessions | speakers
-  const [subView,  setSubView]  = useState('lista');    // lista | semana | mes
+  const [subView,  setSubView]  = useState('lista');    // lista | dia | semana | mes | salas
   const [cursor,   setCursor]   = useState(() => startOfMonth(new Date()));
   const [creating, setCreating] = useState(false);
   const [prefillDate, setPrefillDate] = useState(null);
   const [editing,  setEditing]  = useState(null);
   const { success, error: toastErr } = useToast();
+
+  const permiteSalas = CATEGORIAS_AGENDA.includes(evento.categoria?.slug);
 
   const reload = async () => {
     setLoading(true);
@@ -59,12 +66,12 @@ export default function AgendaTab({ evento }) {
   const nudge = (delta) => {
     const d = new Date(cursor);
     if (subView === 'mes') { d.setMonth(d.getMonth() + delta); setCursor(startOfMonth(d)); }
-    else if (subView === 'dia') { d.setDate(d.getDate() + delta); setCursor(startOfDay(d)); }
+    else if (subView === 'dia' || subView === 'salas') { d.setDate(d.getDate() + delta); setCursor(startOfDay(d)); }
     else { d.setDate(d.getDate() + delta * 7); setCursor(startOfWeek(d)); }
   };
   const goHoy = () => setCursor(
     subView === 'mes' ? startOfMonth(new Date())
-    : subView === 'dia' ? startOfDay(new Date())
+    : (subView === 'dia' || subView === 'salas') ? startOfDay(new Date())
     : startOfWeek(new Date())
   );
 
@@ -102,14 +109,15 @@ export default function AgendaTab({ evento }) {
       {/* Switcher de vista (solo en sesiones) */}
       {view === 'sessions' && (
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-            {[['lista', 'Lista'], ['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes']].map(([k, l]) => (
+          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 flex-wrap">
+            {[['lista', 'Lista'], ['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes'],
+              ...(permiteSalas ? [['salas', 'Salas']] : [])].map(([k, l]) => (
               <button key={k}
                 onClick={() => {
                   setSubView(k);
                   if (k === 'mes') setCursor(startOfMonth(cursor));
                   else if (k === 'semana') setCursor(startOfWeek(cursor));
-                  else if (k === 'dia') setCursor(startOfDay(new Date()));
+                  else if (k === 'dia' || k === 'salas') setCursor(startOfDay(new Date()));
                 }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${subView === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
                 {l}
@@ -126,7 +134,7 @@ export default function AgendaTab({ evento }) {
               <h3 className="text-base font-bold font-display tracking-tight text-text-1 min-w-[180px] text-center" key={cursor.toISOString()}>
                 {subView === 'mes'
                   ? `${MES_LARGO[cursor.getMonth()]} ${cursor.getFullYear()}`
-                  : subView === 'dia'
+                  : (subView === 'dia' || subView === 'salas')
                   ? `${DIA_SEMANA[(cursor.getDay()+6)%7]} ${cursor.getDate()} ${MES_LARGO[cursor.getMonth()].toLowerCase()}`
                   : `${dmy(cursor)} — ${dmy(addDays(cursor, 6))}`}
               </h3>
@@ -218,6 +226,15 @@ export default function AgendaTab({ evento }) {
         <MesGrid cursor={cursor} sessionsByDay={sessionsByDay} onPickDay={openCreate} />
       )}
 
+      {view === 'sessions' && subView === 'salas' && (
+        <SalasGrid
+          cursor={cursor}
+          sesiones={sessionsByDay[ymd(cursor)] || []}
+          onCrearAt={(date) => openCreate(date)}
+          onEditar={(s) => { setSubView('lista'); setEditing(s.id); }}
+        />
+      )}
+
       {/* Speakers */}
       {view === 'speakers' && (
         speakers.length === 0
@@ -238,6 +255,81 @@ export default function AgendaTab({ evento }) {
               }}
             />
       )}
+    </div>
+  );
+}
+
+/* ─────────── Vista Salas (calendario en paralelo por track) ─────────── */
+function SalasGrid({ cursor, sesiones, onCrearAt, onEditar }) {
+  const tracks = useMemo(() => {
+    const set = new Set(sesiones.map(s => s.track || 'principal'));
+    return [...set].sort((a, b) => (a === 'principal' ? -1 : b === 'principal' ? 1 : a.localeCompare(b)));
+  }, [sesiones]);
+
+  if (sesiones.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-border bg-surface/40 px-6 py-16 text-center">
+        <p className="text-sm text-text-2">No hay sesiones programadas este día.</p>
+        <button onClick={() => onCrearAt(withDefaultTime(cursor, 9, 0))} className="btn-secondary btn-sm mt-4">
+          + Agregar sesión
+        </button>
+      </div>
+    );
+  }
+
+  const horas = sesiones.map(s => new Date(s.inicio).getHours()).filter(Number.isFinite);
+  const finales = sesiones.map(s => new Date(s.fin || s.inicio).getHours() + 1).filter(Number.isFinite);
+  const minH = Math.min(8, ...(horas.length ? horas : [8]));
+  const maxH = Math.max(19, ...(finales.length ? finales : [19]));
+  const rango = [];
+  for (let h = minH; h <= Math.min(23, maxH); h++) rango.push(h);
+
+  return (
+    <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden overflow-x-auto">
+      <div style={{ minWidth: `${80 + tracks.length * 220}px` }}>
+        {/* Header de salas */}
+        <div className="flex border-b border-border bg-surface-2/40 sticky top-0 z-10">
+          <div className="w-20 flex-shrink-0 px-3 py-3 text-xs uppercase tracking-widest text-text-3 font-semibold">Hora</div>
+          {tracks.map(t => (
+            <div key={t} className="flex-1 min-w-[220px] px-3 py-3 border-l border-border">
+              <p className="text-sm font-bold text-text-1 truncate">{t === 'principal' ? 'Principal' : t}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Filas por hora */}
+        {rango.map(h => (
+          <div key={h} className="flex border-b border-border last:border-b-0">
+            <div className="w-20 flex-shrink-0 px-3 py-3 text-right text-xs font-mono tabular-nums text-text-3">
+              {pad(h)}:00
+            </div>
+            {tracks.map(t => {
+              const items = sesiones.filter(s => (s.track || 'principal') === t && new Date(s.inicio).getHours() === h);
+              return (
+                <div key={t} className="flex-1 min-w-[220px] border-l border-border px-2 py-2 space-y-1.5 group/cell">
+                  {items.map(s => (
+                    <button key={s.id} onClick={() => onEditar(s)}
+                      className="w-full text-left rounded-xl border border-primary/25 bg-primary/10 hover:border-primary/45 hover:bg-primary/15 transition-colors px-2.5 py-2">
+                      <p className="text-[11px] font-mono tabular-nums text-primary-light">
+                        {new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                        {s.fin ? ` – ${new Date(s.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                      </p>
+                      <p className="text-sm font-semibold text-text-1 truncate">{s.titulo}</p>
+                      {s.speaker?.nombre && <p className="text-xs text-text-3 truncate">{s.speaker.nombre}</p>}
+                    </button>
+                  ))}
+                  {items.length === 0 && (
+                    <button onClick={() => onCrearAt(withDefaultTime(cursor, h, 0))}
+                      className="opacity-0 group-hover/cell:opacity-100 transition-opacity w-full text-left text-xs text-text-3 hover:text-primary-light py-1.5 flex items-center gap-1">
+                      <PlusIcon className="w-3 h-3" /> Agregar
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -561,14 +653,15 @@ function SessionForm({ initial, speakers, prefillDate, onSave, onCancel }) {
       </div>
       <div className="grid sm:grid-cols-3 gap-3">
         <div className="field">
-          <label className="label">Track</label>
+          <label className="label">Track / sala</label>
           <input value={form.track} onChange={e => setForm(f => ({...f, track: e.target.value}))}
             placeholder="principal" className="input rounded-2xl py-3 text-base" />
+          <p className="text-[11px] text-text-3 mt-1">Ej. "Auditorio A", "Sala 2". Sesiones con el mismo track aparecen juntas en la vista "Salas".</p>
         </div>
         <div className="field">
-          <label className="label">Ubicación / sala</label>
+          <label className="label">Ubicación</label>
           <input value={form.ubicacion} onChange={e => setForm(f => ({...f, ubicacion: e.target.value}))}
-            placeholder="Auditorio A" className="input rounded-2xl py-3 text-base" />
+            placeholder="Piso 2" className="input rounded-2xl py-3 text-base" />
         </div>
         <div className="field">
           <label className="label">Speaker</label>
