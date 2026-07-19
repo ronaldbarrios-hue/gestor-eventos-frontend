@@ -37,6 +37,18 @@ export default function EventoPublicoPage() {
     return [{ id: 'inicio', nombre: 'Inicio', blocks: [] }];
   }, [evento]);
 
+  /* Favicon y título de pestaña con la marca del evento */
+  useEffect(() => {
+    if (!evento) return;
+    document.title = brandingEventoTitulo(evento);
+    const fav = evento.page_json?.branding?.favicon_url;
+    if (fav) {
+      let link = document.querySelector("link[rel~='icon']");
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.href = fav;
+    }
+  }, [evento]);
+
   const pageIdx = (() => {
     const p = Number(params.get('p') || 1);
     return Math.max(1, Math.min(pages.length, p));
@@ -63,7 +75,14 @@ export default function EventoPublicoPage() {
   );
 
   const hasCover = Boolean(evento.cover_url);
-  const organizador = evento.organizador;
+  /* White Label del evento (page_json.branding) pisa el branding del
+     organizador SOLO en esta página — corazón de eFrame. */
+  const brandingEvento = evento.page_json?.branding || {};
+  const organizador = {
+    ...(evento.organizador || {}),
+    branding: { ...((evento.organizador || {}).branding || {}), ...brandingEvento },
+    ...(brandingEvento.logo_url ? { empresa_logo_url: brandingEvento.logo_url } : {}),
+  };
   const logoUrl = organizador?.empresa_logo_url;
   const nombreOrg = organizador?.branding?.plataforma || organizador?.empresa || organizador?.nombre;
 
@@ -95,7 +114,7 @@ export default function EventoPublicoPage() {
   );
 
   return (
-    <BrandingProvider organizador={evento.organizador}>
+    <BrandingProvider organizador={organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
 
       {/* Barra secundaria: volver + Rueda de Negocios/Torneo/Agenda (si aplican)
@@ -169,7 +188,7 @@ export default function EventoPublicoPage() {
           <>
             {/* Fallback sin portada: logo grande centrado + pestañas como antes */}
             <div className="mb-8">
-              <BrandHeader organizador={evento.organizador} size="lg" />
+              <BrandHeader organizador={organizador} size="lg" />
             </div>
             {pages.length > 1 && (
               <nav className="mb-8 flex items-center justify-center gap-1.5 flex-wrap">
@@ -216,7 +235,7 @@ export default function EventoPublicoPage() {
               ← Volver a explorar
             </Link>
           )}
-          <PoweredBy organizador={evento.organizador} />
+          <PoweredBy organizador={organizador} />
         </div>
       </div>
 
@@ -588,4 +607,9 @@ function ModalShell({ children, onClose }) {
       </div>
     </div>
   );
+}
+
+function brandingEventoTitulo(evento) {
+  const marca = evento.page_json?.branding?.plataforma;
+  return marca ? `${evento.titulo} · ${marca}` : `${evento.titulo} · GESTEK`;
 }

@@ -10,6 +10,7 @@ import GestekMark from '../../../components/layout/GestekMark.jsx';
 import TopBar from '../../../components/layout/TopBar.jsx';
 
 import ResumenSection    from './ResumenSection.jsx';
+import WhiteLabelSection from './WhiteLabelSection.jsx';
 import PaginaPublicaTab  from '../tabs/PaginaPublicaTab.jsx';
 import FormularioTab     from '../tabs/FormularioTab.jsx';
 import EquipoTab         from '../tabs/EquipoTab.jsx';
@@ -47,7 +48,7 @@ const SECCIONES = [
   { id: 'experience', label: 'Event Experience', icon: SparkIcon, tabs: [
     { id: 'landing',    label: 'Landing',     perm: 'editar_pagina_publica' },
     { id: 'formularios', label: 'Formularios', perm: 'gestionar_tickets' },
-    { id: 'whitelabel', label: 'White Label', perm: 'editar_pagina_publica', placeholder: ['White Label', 'Logo, colores, tipografía, dominio propio, favicon, navbar y footer del sitio público.'] },
+    { id: 'whitelabel', label: 'White Label', perm: 'editar_pagina_publica' },
     { id: 'checkout',   label: 'Checkout',    perm: 'gestionar_tickets',    placeholder: ['Checkout', 'Pasos de compra, métodos de pago, confirmaciones, campos y validaciones.'] },
     { id: 'emails',     label: 'Emails',      perm: 'editar_pagina_publica', placeholder: ['Emails', 'Personaliza confirmación, QR, recordatorios, cancelaciones y bienvenida.'] },
     { id: 'seo',        label: 'SEO',         perm: 'editar_pagina_publica', placeholder: ['SEO', 'Meta tags, Open Graph, analytics, pixel y scripts del sitio público.'] },
@@ -323,6 +324,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio }) {
     case 'resumen/general'          : return <ResumenSection evento={evento} soyOwner={soyOwner} reload={reload} />;
     case 'experience/landing'       : return <PaginaPublicaTab evento={evento} />;
     case 'experience/formularios'   : return <FormularioTab evento={evento} />;
+    case 'experience/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
     case 'organizacion/equipo'      : return <EquipoTab evento={evento} />;
     case 'organizacion/tareas'      : return <TareasTab evento={evento} />;
     case 'organizacion/solicitudes' : return <SolicitudesTab evento={evento} />;

@@ -136,8 +136,9 @@ export function BrandHeader({ organizador, size = 'sm' }) {
 
 export function PoweredBy({ organizador }) {
   const b = organizador?.branding || {};
-  const isPro = organizador?.plan === 'pro';
-  if (isPro) {
+  /* Rework: sin planes. El White Label del evento decide si se muestra
+     la marca GESTEK en el footer. */
+  if (b.ocultar_marca) {
     return b.footer
       ? <p className="text-xs text-text-3 mt-6 text-center">{b.footer}</p>
       : null;
