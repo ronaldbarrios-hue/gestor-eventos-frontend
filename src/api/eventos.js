@@ -10,6 +10,8 @@ export const eventosApi = {
   cambiarEstado: (id, estado) => client.post(`/eventos/${id}/estado`, { estado }).then(r => r.data),
   publicar  : (id) => client.post(`/eventos/${id}/estado`, { estado: 'publicado' }).then(r => r.data),
   cancelar  : (id) => client.post(`/eventos/${id}/estado`, { estado: 'cancelado' }).then(r => r.data),
+  archivar  : (id) => client.post(`/eventos/${id}/estado`, { estado: 'archivado' }).then(r => r.data),
+  duplicar  : (id, titulo) => client.post(`/eventos/${id}/duplicar`, titulo ? { titulo } : {}).then(r => r.data),
   /* Formulario personalizado de compra */
   getFormulario     : (id)        => client.get(`/eventos/${id}/formulario`).then(r => r.data),
   guardarFormulario : (id, campos) => client.put(`/eventos/${id}/formulario`, { campos }).then(r => r.data),
