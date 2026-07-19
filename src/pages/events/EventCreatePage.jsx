@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
+import { agenteApi } from '../../api/agente.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
@@ -36,6 +37,41 @@ export default function EventCreatePage() {
 
   const [plantillas, setPlantillas] = useState([]);
   const [usandoPlantilla, setUsandoPlantilla] = useState(null);
+  const [iaOpen, setIaOpen]       = useState(false);
+  const [iaTexto, setIaTexto]     = useState('');
+  const [iaCargando, setIaCargando] = useState(false);
+  const [iaDisponible, setIaDisponible] = useState(false);
+
+  useEffect(() => {
+    agenteApi.estado().then(r => setIaDisponible(!!r.disponible)).catch(() => {});
+  }, []);
+
+  const generarConIA = async () => {
+    if (iaTexto.trim().length < 10) { error('Describe tu evento con al menos una frase.'); return; }
+    setIaCargando(true);
+    try {
+      const { borrador } = await agenteApi.generarEvento(iaTexto.trim());
+      const cat = cats.find(c => c.slug === borrador.categoria_slug);
+      const inicio = new Date(); inicio.setDate(inicio.getDate() + 30); inicio.setHours(18, 0, 0, 0);
+      const fin = new Date(inicio.getTime() + (Number(borrador.duracion_horas) || 4) * 3600000);
+      setForm(f => ({
+        ...f,
+        titulo            : borrador.titulo || f.titulo,
+        descripcion       : borrador.descripcion || f.descripcion,
+        modalidad         : ['fisico', 'virtual', 'hibrido'].includes(borrador.modalidad) ? borrador.modalidad : f.modalidad,
+        categoria_id      : cat ? String(cat.id) : f.categoria_id,
+        aforo_total       : borrador.aforo_total ?? f.aforo_total,
+        location_nombre   : borrador.location_nombre || f.location_nombre,
+        fecha_inicio      : inicio.toISOString().slice(0, 16),
+        fecha_fin         : fin.toISOString().slice(0, 16),
+      }));
+      setIaOpen(false);
+      setStep(0);
+      const nBoletas = (borrador.boletas_sugeridas || []).length;
+      success(`Borrador generado${nBoletas ? ` (con ${nBoletas} tipos de boleta sugeridos — créalos en el evento)` : ''}. Revisa y ajusta cada paso.`);
+    } catch (x) { error(x.response?.data?.error || x.message); }
+    finally { setIaCargando(false); }
+  };
 
   const usarPlantilla = async (ev) => {
     setUsandoPlantilla(ev.id);
@@ -99,6 +135,39 @@ export default function EventCreatePage() {
         <ChevronIcon className="w-3 h-3 text-text-3" />
         <span className="text-text-1">Crear evento</span>
       </nav>
+
+      {step === 0 && iaDisponible && (
+        <div className="rounded-3xl border border-accent/30 bg-gradient-to-br from-accent/10 to-transparent p-5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-sm font-semibold text-text-1 flex items-center gap-2">
+                <span className="text-accent">✦</span> Crear con IA
+              </h3>
+              <p className="text-xs text-text-3 mt-0.5">Describe tu evento y Gestbot genera el borrador completo: tú solo revisas y ajustas.</p>
+            </div>
+            {!iaOpen && (
+              <button onClick={() => setIaOpen(true)} className="btn-primary btn-sm">Describir mi evento</button>
+            )}
+          </div>
+          {iaOpen && (
+            <div className="mt-4 space-y-3">
+              <textarea
+                value={iaTexto}
+                onChange={e => setIaTexto(e.target.value)}
+                rows={3}
+                placeholder='Ej. "Conferencia tecnológica para 300 personas en Bogotá durante dos días, con entrada general y VIP."'
+                className="w-full rounded-xl bg-surface border border-border text-sm text-text-1 placeholder:text-text-3 px-3.5 py-2.5 focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20 resize-none"
+              />
+              <div className="flex items-center gap-2">
+                <button onClick={generarConIA} disabled={iaCargando} className="btn-primary btn-sm">
+                  {iaCargando ? <><Spinner size="sm" /> Generando…</> : 'Generar borrador'}
+                </button>
+                <button onClick={() => setIaOpen(false)} disabled={iaCargando} className="btn-ghost btn-sm">Cancelar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {step === 0 && plantillas.length > 0 && (
         <div className="rounded-3xl border border-accent/25 bg-accent/5 p-5">
