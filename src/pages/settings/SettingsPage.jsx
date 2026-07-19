@@ -531,7 +531,7 @@ function IntegracionesTab() {
 
       {!pro && (
         <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3 text-sm text-text-2">
-          Necesitás plan Pro para crear tokens y webhooks. Activalo en la pestaña <strong className="text-text-1">Pagos</strong>.
+          Configura tu integración para crear tokens y webhooks.
         </div>
       )}
 
@@ -1239,8 +1239,7 @@ export function NotificacionesTab() {
         <ul className="card-body text-sm text-text-2 space-y-2 leading-relaxed list-disc pl-5">
           <li>Cada dispositivo (laptop, móvil, tablet) se suscribe por separado. Activalas en cada uno donde uses GESTEK.</li>
           <li>Si cerrás el navegador o reiniciás el dispositivo, las notificaciones siguen llegando.</li>
-          <li>El broadcast a asistentes desde un evento requiere plan Pro.</li>
-        </ul>
+                  </ul>
       </div>
     </div>
   );

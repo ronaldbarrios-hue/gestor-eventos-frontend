@@ -56,7 +56,7 @@ export default function EquipoTab({ evento }) {
   );
 }
 
-/* ─────────── AUDITORÍA (plan Pro) ─────────── */
+/* ─────────── AUDITORÍA ─────────── */
 const ACCION_LABEL = {
   'evento.crear'  : 'Creó el evento',
   'evento.editar' : 'Editó el evento',
@@ -103,7 +103,7 @@ function AuditoriaSection({ eventoId }) {
         <div className="rounded-3xl border border-border bg-surface/40 p-6"><Spinner size="md" /></div>
       ) : !pro ? (
         <div className="rounded-3xl border border-accent/30 bg-accent/5 px-6 py-10 text-center">
-          <p className="text-base font-semibold text-text-1 mb-1">Disponible en el plan Pro</p>
+          <p className="text-base font-semibold text-text-1 mb-1">Auditoría no disponible</p>
           <p className="text-sm text-text-2 max-w-sm mx-auto leading-relaxed">
             Registrá quién hizo qué en tu evento (cambios de roles, ediciones, tickets, equipo). Activá Pro desde Configuración → Pagos.
           </p>

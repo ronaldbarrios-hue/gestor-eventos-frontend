@@ -115,7 +115,7 @@ export default function PageBuilder({ evento, onClose }) {
   const onGuardar = async () => {
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { pages } });
+      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), pages } });
       success('Página guardada.');
       setDirty(false);
     } catch (e) { toastErr(e.message); }

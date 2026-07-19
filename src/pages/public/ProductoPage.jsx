@@ -86,7 +86,7 @@ const GROUPS = {
     ],
   },
   pro: {
-    label: 'Plan Pro',
+    label: 'Marca blanca',
     accent: 'accent',
     sections: [
       {
@@ -189,7 +189,7 @@ function Hero({ tab, setTab }) {
         Todo lo que GESTEK ofrece
       </h1>
       <p className="relative text-lg text-text-2 max-w-2xl mx-auto leading-relaxed mb-10">
-        Lo esencial siempre va incluido en el plan gratis. El plan Pro añade
+        GESTEK incluye todo lo esencial, y suma
         API, agente IA, white-label y dominio propio para los equipos que
         necesitan escalar y mantener su marca.
       </p>
@@ -209,7 +209,7 @@ function Hero({ tab, setTab }) {
             tab === 'pro' ? 'bg-gradient-to-r from-primary to-accent text-white shadow-card' : 'text-text-2 hover:text-text-1'
           }`}
         >
-          Plan Pro
+          Marca blanca
           <span className={`text-[10px] px-2 py-0.5 rounded-full ${tab === 'pro' ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent-light'}`}>+IA · API</span>
         </button>
       </div>

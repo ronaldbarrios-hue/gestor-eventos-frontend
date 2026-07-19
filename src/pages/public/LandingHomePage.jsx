@@ -113,9 +113,9 @@ export default function LandingHomePage() {
       />
       <FeatureSplit
         side="right"
-        kicker="API + Webhooks · Plan Pro"
+        kicker="API + Webhooks"
         title="Conecta GESTEK con todo tu stack"
-        desc="El plan Pro incluye API REST con API key (HMAC), webhooks que disparan en cada inscripción, pago o check-in, y auditoría de todas las acciones del equipo."
+        desc="GESTEK incluye API REST con API key (HMAC), webhooks que disparan en cada inscripción, pago o check-in, y auditoría de todas las acciones del equipo."
         bullets={[
           'API key por organización con firma HMAC',
           'Webhooks: registro, pago, check-in, cancelación + reintentos',
@@ -645,7 +645,6 @@ function FAQTeaser() {
   const items = [
     { q: '¿Qué incluye el plan gratis?', a: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad y página pública. Lo principal está incluido sin trampa.' },
     { q: '¿Cobran comisión por las ventas con BRE-B?', a: 'No en el plan gratis. El dinero va directo del asistente a tu cuenta vía BRE-B. GESTEK no toca ese flujo.' },
-    { q: '¿Qué pasa si cancelo el plan Pro?', a: 'Vuelves al plan gratis sin perder eventos ni datos. Solo se desactivan las funciones Pro (IA, branding, etc).' },
   ];
   const [open, setOpen] = useState(0);
   return (

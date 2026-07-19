@@ -131,6 +131,16 @@ export default function EventsListPage() {
     try { await navigator.clipboard.writeText(url); success('Enlace público copiado.'); }
     catch { err('No se pudo copiar el enlace.'); }
   };
+  const plantillaToggle = async (e) => {
+    setAccionando(e.id);
+    try {
+      const esPlantilla = !!e.page_json?.plantilla;
+      await eventosApi.update(e.id, { page_json: { ...(e.page_json || {}), plantilla: !esPlantilla } });
+      success(esPlantilla ? 'Ya no es plantilla.' : 'Guardado como plantilla. Aparecerá al crear eventos.');
+      cargar();
+    } catch (x) { err(x.response?.data?.error || x.message); }
+    finally { setAccionando(null); }
+  };
   const duplicar = async (e) => {
     setAccionando(e.id);
     try { const r = await eventosApi.duplicar(e.id); success(`Evento duplicado: ${r.evento.titulo}`); cargar(); }
@@ -167,7 +177,7 @@ export default function EventsListPage() {
     finally { setAccionando(null); }
   };
 
-  const acciones = { abrir, compartir, duplicar, publicarToggle, archivar, restaurar, eliminar, toggleFavorito };
+  const acciones = { abrir, compartir, duplicar, publicarToggle, archivar, restaurar, eliminar, toggleFavorito, plantillaToggle };
 
   return (
     <div className="space-y-6 animate-[fadeUp_0.4s_ease_both]">
@@ -263,7 +273,10 @@ function TarjetaEvento({ e, fav, acciones, ocupado }) {
             : <div className="w-full h-full bg-gradient-to-br from-accent/30 to-primary/20 flex items-center justify-center">
                 <span className="text-4xl font-display font-bold text-white/30">{(e.titulo || '?')[0].toUpperCase()}</span>
               </div>}
-          <div className="absolute top-3 left-3"><EstadoBadge estado={e.estado} /></div>
+          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+            <EstadoBadge estado={e.estado} />
+            {e.page_json?.plantilla && <span className="badge badge-purple text-[10px]">Plantilla</span>}
+          </div>
           {f && (
             <div className="absolute bottom-3 left-3 rounded-xl bg-bg/80 backdrop-blur px-2.5 py-1 text-center">
               <p className="text-[9px] uppercase text-text-3 leading-none">{f.toLocaleDateString('es-CO', { month: 'short' }).replace('.', '')}</p>
@@ -453,6 +466,9 @@ function MenuAcciones({ e, acciones, ocupado }) {
             <Item onClick={() => run(acciones.abrir)}>Abrir evento</Item>
             <Item onClick={() => run(acciones.compartir)}>Compartir enlace público</Item>
             <Item onClick={() => run(acciones.duplicar)}>Duplicar</Item>
+            <Item onClick={() => run(acciones.plantillaToggle)}>
+              {e.page_json?.plantilla ? 'Quitar de plantillas' : 'Guardar como plantilla'}
+            </Item>
             {!archivado && (
               <Item onClick={() => run(acciones.publicarToggle)}>
                 {e.estado === 'publicado' ? 'Despublicar' : 'Publicar'}

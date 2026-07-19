@@ -3,6 +3,27 @@ import { supabase, supabaseConfigured, authRedirect } from '../lib/supabase.js';
 
 const AuthContext = createContext(null);
 
+/* ── Bypass de login para desarrollo local ─────────────────────────
+   Activo ÚNICAMENTE cuando corre `npm run dev` (import.meta.env.DEV)
+   y en .env.local está VITE_DEV_BYPASS_AUTH=1. Nunca aplica en builds
+   de producción. Entra con un usuario ficticio admin; las llamadas al
+   backend fallarán en silencio si exigen JWT real. */
+export const DEV_BYPASS = import.meta.env.DEV && import.meta.env.VITE_DEV_BYPASS_AUTH === '1';
+
+const DEV_USER = {
+  id: '00000000-0000-4000-8000-000000000dev',
+  email: 'dev@gestek.local',
+  nombre: 'Dev Local',
+  rol: 'admin_global',
+  foto: null,
+  perfilCompleto: true,
+  permisos: ['*'],
+  emailConfirmado: true,
+  modoActivo: 'organizador',
+  empresa: 'GESTEK Dev',
+  raw: { user_metadata: {}, last_sign_in_at: new Date().toISOString() },
+};
+
 const API_URL = (import.meta.env.VITE_API_URL || 'https://gestor-eventos-backend-yx75.onrender.com').replace(/\/$/, '');
 
 /* Convierte un user de Supabase + metadata en el shape que usa el resto de la app.
@@ -34,9 +55,9 @@ function mapUser(user) {
 }
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
-  const [usuario, setUsuario] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(DEV_BYPASS ? { access_token: 'dev-bypass' } : null);
+  const [usuario, setUsuario] = useState(DEV_BYPASS ? DEV_USER : null);
+  const [loading, setLoading] = useState(!DEV_BYPASS);
   /* Info de la invitación recién vinculada (si aplica): { eventoId, rol, eventoTitulo }.
      Se llena UNA vez, justo después de confirmar sesión, y se consume (limpia)
      cuando alguna pantalla la usa para redirigir/mostrar el mensaje. */
@@ -112,6 +133,7 @@ export function AuthProvider({ children }) {
         console.warn('[auth] exchangeCodeForSession falló:', e?.message || e);
       }
 
+      if (DEV_BYPASS) { setLoading(false); return; }
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
       setSession(data.session ?? null);
@@ -125,6 +147,7 @@ export function AuthProvider({ children }) {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+      if (DEV_BYPASS) return;
       setSession(sess ?? null);
       setUsuario(mapUser(sess?.user));
       if (sess?.access_token && !vinculacionHecha.current) {

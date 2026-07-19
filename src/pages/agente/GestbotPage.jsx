@@ -7,7 +7,7 @@ import { agenteApi } from '../../api/agente.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { alertDialog } from '../../components/ui/Confirm.jsx';
 
-/* Cuentas con acceso a Gestbot sin necesidad de plan Pro — uso personal
+/* Cuentas con acceso especial a Gestbot — uso personal
    del desarrollador para pruebas, mientras el resto de usuarios sigue
    necesitando Pro normalmente. */
 

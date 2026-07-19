@@ -3,7 +3,7 @@ import { pushApi } from '../../api/push.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 
-/* Modal para enviar push broadcast al equipo del evento. Requiere plan Pro. */
+/* Modal para enviar push broadcast al equipo del evento. */
 
 export default function BroadcastModal({ evento, onClose }) {
   const { success, error } = useToast();
@@ -26,7 +26,7 @@ export default function BroadcastModal({ evento, onClose }) {
       }
     } catch (e) {
       if (e.response?.status === 402) {
-        error(e.response?.data?.error || 'Plan Pro requerido.');
+        error(e.response?.data?.error || 'No se pudo enviar el anuncio.');
       } else {
         error(e.response?.data?.error || e.message);
       }
@@ -50,7 +50,7 @@ export default function BroadcastModal({ evento, onClose }) {
 
         <form onSubmit={submit} className="p-5 space-y-4">
           <div className="rounded-2xl bg-primary/5 border border-primary/20 px-4 py-3 text-sm text-text-2 leading-relaxed">
-            Llega a vos y a los miembros activos del equipo que hayan activado notificaciones desde su Configuración. <strong className="text-text-1">Requiere plan Pro.</strong>
+            Llega a vos y a los miembros activos del equipo que hayan activado notificaciones desde su Configuración.
           </div>
 
           <div className="field">

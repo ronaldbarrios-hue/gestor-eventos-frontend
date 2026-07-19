@@ -55,7 +55,7 @@ const STEPS = [
     n: '07',
     title: 'Mide, mejora, repite',
     desc: 'Panel con asistencia, ocupación, conversión, ingresos. Exporta a CSV. Conecta tu CRM con la API + webhooks.',
-    detail: 'Analytics avanzados (cohortes, retención de asistentes, fuente de inscripción) llegan en plan Pro. El plan gratis trae lo esencial.',
+    detail: 'Analytics del evento: ventas, conversión, tráfico y embudo, con reportes avanzados en camino.',
   },
 ];
 
@@ -100,7 +100,7 @@ const USE_CASES = [
       'Venta de boletas con QR único por persona',
       'Control de acceso en varias puertas en simultáneo',
       'Webhook a tu CRM con cada venta',
-      'White-label completo en plan Pro (sin logo GESTEK)',
+      'White-label completo por evento (sin logo GESTEK)',
     ],
     profile: 'Productora · 3.000 asistentes · 2 días',
   },

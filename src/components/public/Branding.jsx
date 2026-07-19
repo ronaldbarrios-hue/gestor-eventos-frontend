@@ -1,4 +1,4 @@
-/* Branding del organizador en páginas públicas (para TODOS los planes):
+/* Branding del organizador en páginas públicas:
    colores, fondo, tipografía, radio de bordes, modo claro/oscuro,
    header con tagline + redes, y footer. */
 

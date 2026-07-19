@@ -34,6 +34,28 @@ export default function EventCreatePage() {
     aforo_total       : '',
   });
 
+  const [plantillas, setPlantillas] = useState([]);
+  const [usandoPlantilla, setUsandoPlantilla] = useState(null);
+
+  const usarPlantilla = async (ev) => {
+    setUsandoPlantilla(ev.id);
+    try {
+      const r = await eventosApi.duplicar(ev.id, `${ev.titulo.replace(' (copia)', '')} — nuevo`);
+      /* el clon no debe quedar marcado como plantilla */
+      try {
+        await eventosApi.update(r.evento.id, { page_json: { ...(r.evento.page_json || {}), plantilla: false } });
+      } catch { /* noop */ }
+      success('Evento creado desde la plantilla. Ajusta fechas y detalles.');
+      navigate(`/eventos/${r.evento.id}/editar`);
+    } catch (x) { error(x.response?.data?.error || x.message); setUsandoPlantilla(null); }
+  };
+
+  useEffect(() => {
+    eventosApi.list({ limit: 100 })
+      .then(d => setPlantillas((d.eventos || []).filter(e => e.page_json?.plantilla)))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     eventosApi.categorias()
       .then(d => setCats(d.categorias || []))
@@ -77,6 +99,26 @@ export default function EventCreatePage() {
         <ChevronIcon className="w-3 h-3 text-text-3" />
         <span className="text-text-1">Crear evento</span>
       </nav>
+
+      {step === 0 && plantillas.length > 0 && (
+        <div className="rounded-3xl border border-accent/25 bg-accent/5 p-5">
+          <h3 className="text-sm font-semibold text-text-1 mb-1">Empezar desde una plantilla</h3>
+          <p className="text-xs text-text-3 mb-3">Reutiliza branding, landing, formularios y boletas de un evento guardado como plantilla.</p>
+          <div className="flex flex-wrap gap-2">
+            {plantillas.map(ev => (
+              <button
+                key={ev.id}
+                onClick={() => usarPlantilla(ev)}
+                disabled={usandoPlantilla !== null}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm font-medium transition-colors
+                            ${usandoPlantilla === ev.id ? 'border-accent bg-accent text-white' : 'border-border bg-surface text-text-1 hover:border-accent/50'}`}
+              >
+                {usandoPlantilla === ev.id ? <Spinner size="sm" /> : '📋'} {ev.titulo}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-1">
         {STEPS.map((s, i) => (

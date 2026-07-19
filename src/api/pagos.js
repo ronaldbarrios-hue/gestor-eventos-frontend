@@ -10,5 +10,4 @@ export const pagosApi = {
   /* Flujo público de compra */
   comprar    : (slug, body)        => client.post(`/eventos/publicos/slug/${slug}/comprar`, body).then(r => r.data),
 
-  /* Plan Pro */
 };
