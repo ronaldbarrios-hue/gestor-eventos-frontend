@@ -1,3 +1,4 @@
+import { pantallaInicial } from '../lib/prefs.js';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -23,7 +24,7 @@ function useDestinoPostAuth() {
   const { consumirInvitacionInfo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  return (fallback = '/inicio') => {
+  return (fallback = pantallaInicial()) => {
     const from = location.state?.from;
     const info = consumirInvitacionInfo();
     navigate(from || (info?.eventoId ? `/eventos/${info.eventoId}` : fallback), { replace: true });

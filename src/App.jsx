@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { ConfirmHost } from './components/ui/Confirm.jsx';
 import GLoader from './components/ui/GLoader.jsx';
+import { pantallaInicial } from './lib/prefs.js';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import AppLayout from './components/layout/AppLayout.jsx';
 import LandingHomePage from './pages/public/LandingHomePage.jsx';
@@ -30,6 +31,7 @@ const EventWorkspace     = lazy(() => import('./pages/events/workspace/EventWork
 const EventEditPage      = lazy(() => import('./pages/events/EventEditPage.jsx'));
 const UsersPage          = lazy(() => import('./pages/users/UsersPage.jsx'));
 const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage.jsx'));
+const AjustesPage        = lazy(() => import('./pages/ajustes/AjustesPage.jsx'));
 const GestbotPage        = lazy(() => import('./pages/agente/GestbotPage.jsx'));
 const ChatHubPage        = lazy(() => import('./pages/chat/ChatHubPage.jsx'));
 const PagosPage          = lazy(() => import('./pages/settings/PagosPage.jsx'));
@@ -66,7 +68,7 @@ function PublicOnlyRoute({ children }) {
   if (loading) return <AuthLoader />;
   if (!token) return children;
   if (usuario && !usuario.perfilCompleto) return <Navigate to="/completar-perfil" replace />;
-  return <Navigate to="/inicio" replace />;
+  return <Navigate to={pantallaInicial(usuario?.id)} replace />;
 }
 
 export default function App() {
@@ -107,7 +109,7 @@ export default function App() {
                 <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
                 <Route path="/eventos/:id/editar" element={<EventEditPage />} />
                 <Route path="/mi-espacio"         element={<MiEspacioPage />} />
-                <Route path="/ajustes"            element={<SettingsPage />} />
+                <Route path="/ajustes"            element={<AjustesPage />} />
                 <Route path="/app/explorar"       element={<ExplorarPage />} />
                 <Route path="/app/explorar/:slug" element={<EventoPublicoPage />} />
                 <Route path="/mis-boletas"        element={<MisBoletasPage />} />
