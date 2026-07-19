@@ -23,6 +23,7 @@ const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage.jsx'));
 const ConfirmarPage      = lazy(() => import('./pages/ConfirmarPage.jsx'));
 const CompletarPerfilPage= lazy(() => import('./pages/CompletarPerfilPage.jsx'));
 const DashboardPage      = lazy(() => import('./pages/DashboardPage.jsx'));
+const InicioPage         = lazy(() => import('./pages/inicio/InicioPage.jsx'));
 const EventsListPage     = lazy(() => import('./pages/events/EventsListPage.jsx'));
 const EventCreatePage    = lazy(() => import('./pages/events/EventCreatePage.jsx'));
 const EventDetailPage    = lazy(() => import('./pages/events/EventDetailPage.jsx'));
@@ -97,7 +98,8 @@ export default function App() {
               <Route path="/completar-perfil" element={<PrivateRoute allowIncomplete><CompletarPerfilPage /></PrivateRoute>} />
 
               <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-                <Route path="/inicio"             element={<DashboardPage />} />
+                <Route path="/inicio"             element={<InicioPage />} />
+                <Route path="/inicio/clasico"     element={<DashboardPage />} />
                 <Route path="/eventos"            element={<EventsListPage />} />
                 <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
                 <Route path="/eventos/:id"        element={<EventDetailPage />} />
