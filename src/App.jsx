@@ -26,7 +26,7 @@ const DashboardPage      = lazy(() => import('./pages/DashboardPage.jsx'));
 const InicioPage         = lazy(() => import('./pages/inicio/InicioPage.jsx'));
 const EventsListPage     = lazy(() => import('./pages/events/EventsListPage.jsx'));
 const EventCreatePage    = lazy(() => import('./pages/events/EventCreatePage.jsx'));
-const EventDetailPage    = lazy(() => import('./pages/events/EventDetailPage.jsx'));
+const EventWorkspace     = lazy(() => import('./pages/events/workspace/EventWorkspace.jsx'));
 const EventEditPage      = lazy(() => import('./pages/events/EventEditPage.jsx'));
 const UsersPage          = lazy(() => import('./pages/users/UsersPage.jsx'));
 const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage.jsx'));
@@ -97,12 +97,14 @@ export default function App() {
               <Route path="/confirmar"        element={<ConfirmarPage />} />
               <Route path="/completar-perfil" element={<PrivateRoute allowIncomplete><CompletarPerfilPage /></PrivateRoute>} />
 
+              {/* Workspace del evento: contexto completo con sidebar propio */}
+              <Route path="/eventos/:id" element={<PrivateRoute><EventWorkspace /></PrivateRoute>} />
+
               <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
                 <Route path="/inicio"             element={<InicioPage />} />
                 <Route path="/inicio/clasico"     element={<DashboardPage />} />
                 <Route path="/eventos"            element={<EventsListPage />} />
                 <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
-                <Route path="/eventos/:id"        element={<EventDetailPage />} />
                 <Route path="/eventos/:id/editar" element={<EventEditPage />} />
                 <Route path="/mi-espacio"         element={<MiTrabajoPage />} />
                 <Route path="/ajustes"            element={<SettingsPage />} />
