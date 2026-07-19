@@ -2,15 +2,16 @@ import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
-   Sistema de widgets del Inicio — Rework Fase 1
-   Layout por usuario persistido en localStorage (Fase 5: Supabase,
-   sincronizado en Ajustes > Espacio de Trabajo).
-   Tamaños → columnas del grid de 12:
-     sm = 4 · md = 6 · lg = 8 · full = 12
+   Sistema de widgets multi-página — Rework Fase 1/4
+   Cada pantalla personal (Inicio, Mi Espacio, …) define su registry
+   de widgets y llama useWidgets(scope, meta). El layout se persiste
+   por usuario y por pantalla (Fase 5: sincronización en Supabase).
+   Tamaños → columnas del grid de 12: sm=4 · md=6 · lg=8 · full=12
    ────────────────────────────────────────────────────────────────── */
 
 export const TAMANOS = ['sm', 'md', 'lg', 'full'];
 
+/* Registry del INICIO */
 export const WIDGETS_META = [
   { id: 'eventos',       titulo: 'Eventos activos',    descripcion: 'Eventos en los que participas, con acceso rápido.', defaultSize: 'md',  defaultVisible: true  },
   { id: 'mi-trabajo',    titulo: 'Mi trabajo',         descripcion: 'Tareas, solicitudes y aprobaciones pendientes.',    defaultSize: 'md',  defaultVisible: true  },
@@ -23,26 +24,25 @@ export const WIDGETS_META = [
   { id: 'notificaciones',titulo: 'Notificaciones',     descripcion: 'Alertas importantes sin leer.',                     defaultSize: 'sm',  defaultVisible: false },
 ];
 
-const layoutDefault = () => ({
-  orden : WIDGETS_META.map(w => w.id),
-  config: Object.fromEntries(WIDGETS_META.map(w => [w.id, { visible: w.defaultVisible, size: w.defaultSize }])),
+const layoutDefault = (meta) => ({
+  orden : meta.map(w => w.id),
+  config: Object.fromEntries(meta.map(w => [w.id, { visible: w.defaultVisible, size: w.defaultSize }])),
 });
 
-export function useWidgets() {
+export function useWidgets(scope = 'inicio', meta = WIDGETS_META) {
   const { usuario } = useAuth();
-  const KEY = `gestek-inicio-layout-v1:${usuario?.id || 'anon'}`;
+  const KEY = `gestek-${scope}-layout-v1:${usuario?.id || 'anon'}`;
 
   const [layout, setLayout] = useState(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (!raw) return layoutDefault();
+      if (!raw) return layoutDefault(meta);
       const saved = JSON.parse(raw);
-      const base = layoutDefault();
-      /* merge: widgets nuevos que no existían cuando se guardó */
+      const base = layoutDefault(meta);
       const orden = [...saved.orden.filter(id => base.orden.includes(id)),
                      ...base.orden.filter(id => !saved.orden.includes(id))];
       return { orden, config: { ...base.config, ...saved.config } };
-    } catch { return layoutDefault(); }
+    } catch { return layoutDefault(meta); }
   });
 
   const persist = useCallback((next) => {
@@ -67,7 +67,7 @@ export function useWidgets() {
     persist({ ...layout, orden });
   }, [layout, persist]);
 
-  const reset = useCallback(() => persist(layoutDefault()), [persist]);
+  const reset = useCallback(() => persist(layoutDefault(meta)), [persist, meta]);
 
   const visibles = useMemo(
     () => layout.orden.filter(id => layout.config[id]?.visible),

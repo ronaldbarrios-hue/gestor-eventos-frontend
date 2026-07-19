@@ -44,7 +44,7 @@ export default function InicioPage() {
 
 function InicioContent() {
   const { usuario } = useAuth();
-  const { layout, visibles, toggle, setSize, mover, reset } = useWidgets();
+  const { layout, visibles, toggle, setSize, mover, reset } = useWidgets('inicio', WIDGETS_META);
   const [panelOpen, setPanelOpen] = useState(false);
   const { eventos, notifs, solicitudes, loading } = useInicioData();
 

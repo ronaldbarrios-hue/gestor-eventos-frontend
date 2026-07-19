@@ -36,7 +36,7 @@ const PagosPage          = lazy(() => import('./pages/settings/PagosPage.jsx'));
 const NotificacionesPage = lazy(() => import('./pages/settings/NotificacionesPage.jsx'));
 const RecompensasPage    = lazy(() => import('./pages/settings/RecompensasPage.jsx'));
 const WhiteLabelPage     = lazy(() => import('./pages/settings/WhiteLabelPage.jsx'));
-const MiTrabajoPage      = lazy(() => import('./pages/equipo/MiTrabajoPage.jsx'));
+const MiEspacioPage      = lazy(() => import('./pages/espacio/MiEspacioPage.jsx'));
 const MisBoletasPage     = lazy(() => import('./pages/settings/MisBoletasPage.jsx'));
 
 function AuthLoader() {
@@ -106,7 +106,7 @@ export default function App() {
                 <Route path="/eventos"            element={<EventsListPage />} />
                 <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
                 <Route path="/eventos/:id/editar" element={<EventEditPage />} />
-                <Route path="/mi-espacio"         element={<MiTrabajoPage />} />
+                <Route path="/mi-espacio"         element={<MiEspacioPage />} />
                 <Route path="/ajustes"            element={<SettingsPage />} />
                 <Route path="/app/explorar"       element={<ExplorarPage />} />
                 <Route path="/app/explorar/:slug" element={<EventoPublicoPage />} />

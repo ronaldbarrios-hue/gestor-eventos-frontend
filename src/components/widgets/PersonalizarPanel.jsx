@@ -3,7 +3,7 @@ import { WIDGETS_META, TAMANOS } from '../../hooks/useWidgets.js';
 const SIZE_LABEL = { sm: 'S', md: 'M', lg: 'L', full: 'XL' };
 
 /* Panel lateral de personalización del Inicio. */
-export default function PersonalizarPanel({ open, onClose, layout, toggle, setSize, reset }) {
+export default function PersonalizarPanel({ open, onClose, layout, toggle, setSize, reset, meta = WIDGETS_META, titulo = 'Personalizar Inicio' }) {
   return (
     <>
       <div
@@ -18,7 +18,7 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 className="text-base font-semibold text-text-1">Personalizar Inicio</h2>
+            <h2 className="text-base font-semibold text-text-1">{titulo}</h2>
             <p className="text-xs text-text-3 mt-0.5">Activa, oculta y dimensiona tus widgets.</p>
           </div>
           <button
@@ -33,7 +33,7 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-          {WIDGETS_META.map(w => {
+          {meta.map(w => {
             const cfg = layout.config[w.id] || {};
             return (
               <div key={w.id} className={`rounded-2xl border p-3.5 transition-colors ${cfg.visible ? 'border-accent/30 bg-accent/5' : 'border-border'}`}>
