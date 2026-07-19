@@ -7,7 +7,6 @@ const NAV_LINKS = [
   { to: '/como-funciona', label: 'Cómo funciona' },
   { to: '/producto',      label: 'Producto'      },
   { to: '/explorar',      label: 'Explorar'      },
-  { to: '/planes',        label: 'Planes'        },
   { to: '/faq',           label: 'FAQ'           },
 ];
 

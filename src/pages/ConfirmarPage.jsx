@@ -22,7 +22,7 @@ export default function ConfirmarPage() {
         setMessage(data.session.user.email);
         /* Si el usuario llego aqui por el link del email de confirmacion,
            ya tiene sesion activa. Lo mandamos al dashboard. */
-        setTimeout(() => navigate('/dashboard'), 2200);
+        setTimeout(() => navigate('/inicio'), 2200);
       } else {
         setStatus('error');
         setMessage('El enlace de confirmación es inválido o expiró.');

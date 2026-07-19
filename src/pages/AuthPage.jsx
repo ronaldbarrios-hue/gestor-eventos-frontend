@@ -23,7 +23,7 @@ function useDestinoPostAuth() {
   const { consumirInvitacionInfo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  return (fallback = '/dashboard') => {
+  return (fallback = '/inicio') => {
     const from = location.state?.from;
     const info = consumirInvitacionInfo();
     navigate(from || (info?.eventoId ? `/eventos/${info.eventoId}` : fallback), { replace: true });
@@ -171,7 +171,7 @@ function LoginForm() {
     const res = await login(form.email, form.password);
     setLoading(false);
     if (res.ok) {
-      setTimeout(() => irDestinoPostAuth('/dashboard'), 300);
+      setTimeout(() => irDestinoPostAuth('/inicio'), 300);
     } else {
       setErr(res.error); toastError(res.error);
     }
@@ -430,7 +430,7 @@ function RegisterForm() {
         setStep('sent');
       } else {
         success('Cuenta creada exitosamente.');
-        setTimeout(() => irDestinoPostAuth('/dashboard'), 300);
+        setTimeout(() => irDestinoPostAuth('/inicio'), 300);
       }
     } else {
       setErr(res.error);

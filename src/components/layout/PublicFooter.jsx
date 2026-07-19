@@ -22,7 +22,6 @@ export default function PublicFooter() {
               ['/como-funciona', 'Cómo funciona'],
               ['/producto',      'Producto'      ],
               ['/explorar',      'Explorar'      ],
-              ['/planes',        'Planes'        ],
             ].map(([to, label]) => (
               <li key={to}>
                 <Link to={to} className="text-sm text-text-2 hover:text-text-1 transition-colors">{label}</Link>

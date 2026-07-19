@@ -42,6 +42,11 @@ export default {
           light  : 'rgb(var(--color-danger-light) / <alpha-value>)',
           glow   : 'rgba(239,68,68,0.2)',
         },
+        sidebar    : {
+          DEFAULT: 'rgb(var(--color-sidebar) / <alpha-value>)',
+          2      : 'rgb(var(--color-sidebar-2) / <alpha-value>)',
+          3      : 'rgb(var(--color-sidebar-3) / <alpha-value>)',
+        },
         'text-1'   : 'rgb(var(--color-text-1) / <alpha-value>)',
         'text-2'   : 'rgb(var(--color-text-2) / <alpha-value>)',
         'text-3'   : 'rgb(var(--color-text-3) / <alpha-value>)',

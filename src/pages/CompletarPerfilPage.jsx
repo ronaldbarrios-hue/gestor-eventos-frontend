@@ -105,7 +105,7 @@ export default function CompletarPerfilPage() {
       success('Bienvenido a GESTEK.');
       const from = location.state?.from;
       const info = consumirInvitacionInfo();
-      navigate(from || (info?.eventoId ? `/eventos/${info.eventoId}` : '/dashboard'), { replace: true });
+      navigate(from || (info?.eventoId ? `/eventos/${info.eventoId}` : '/inicio'), { replace: true });
     } catch (e) {
       setErr(e.message);
       toastError(e.message);

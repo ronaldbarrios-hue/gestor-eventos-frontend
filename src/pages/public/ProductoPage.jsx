@@ -161,7 +161,6 @@ export default function ProductoPage() {
     <>
       <Hero tab={tab} setTab={setTab} />
       <Grid group={group} key={tab} />
-      <Comparison />
       <CTA />
     </>
   );
@@ -282,55 +281,6 @@ function FeatureIcon({ name }) {
   }
 }
 
-function Comparison() {
-  return (
-    <section className="px-5 sm:px-8 py-20">
-      <div className="relative max-w-4xl mx-auto rounded-3xl border border-border-2 bg-surface/40 backdrop-blur p-8 sm:p-12 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-accent/10 blur-[120px] rounded-full" />
-        </div>
-        <div className="relative text-center mb-10">
-          <p className="text-sm uppercase tracking-widest text-accent-light font-semibold mb-3">Diferencia entre planes</p>
-          <h2 className="text-3xl sm:text-4xl font-bold font-display text-text-1 leading-tight">
-            ¿Cuándo deberías subir a Pro?
-          </h2>
-        </div>
-
-        <div className="relative grid md:grid-cols-2 gap-5">
-          <div className="p-6 rounded-2xl border border-border bg-bg/40">
-            <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mb-3">Quédate en Free si...</p>
-            <ul className="space-y-2.5 text-sm text-text-1">
-              {[
-                'Manejas tus eventos sin integraciones externas',
-                'No te molesta que tu URL sea gestek.io/tu-marca',
-                'No necesitas el agente IA para crear eventos',
-                'Tu equipo funciona bien con los roles incluidos',
-              ].map(t => <li key={t} className="flex gap-2"><span className="text-primary-light mt-1">·</span>{t}</li>)}
-            </ul>
-          </div>
-          <div className="p-6 rounded-2xl border border-accent/25 bg-accent/5">
-            <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-3">Sube a Pro si...</p>
-            <ul className="space-y-2.5 text-sm text-text-1">
-              {[
-                'Necesitas conectar GESTEK con tu CRM, ERP o flujos automatizados',
-                'Tu marca exige dominio propio sin referencias a GESTEK',
-                'Quieres acelerar la creación de eventos con IA',
-                'Necesitas analytics avanzados y auditoría del equipo',
-              ].map(t => <li key={t} className="flex gap-2"><span className="text-accent-light mt-1">·</span>{t}</li>)}
-            </ul>
-          </div>
-        </div>
-
-        <p className="relative text-center text-sm text-text-3 mt-8">
-          <Link to="/planes" className="underline underline-offset-2 hover:text-text-1 transition-colors">
-            Ver comparativa completa con tabla detallada
-          </Link>
-        </p>
-      </div>
-    </section>
-  );
-}
-
 function CTA() {
   return (
     <section className="px-5 sm:px-8 pb-24">
@@ -348,8 +298,8 @@ function CTA() {
           <Link to="/register" className="px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all">
             Crear cuenta gratis
           </Link>
-          <Link to="/planes" className="px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
-            Ver planes
+          <Link to="/explorar" className="px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
+            Explorar eventos
           </Link>
         </div>
       </div>

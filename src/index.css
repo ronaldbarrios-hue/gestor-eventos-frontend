@@ -7,18 +7,24 @@
     --radius: 0.75rem;
     --sidebar-w: 264px;
 
-    /* ── Paleta modo OSCURO (por defecto) ──────────────────────────
+    /* ── Paleta modo CLARO (por defecto) ───────────────────────────
        Cada color base como "canal R G B" (sin paréntesis), para que
        Tailwind pueda combinarlo con modificadores de opacidad como
-       bg-primary/10, border-border-2, etc. */
-    --color-bg         : 7 12 24;
-    --color-surface     : 13 21 37;
-    --color-surface-2   : 17 30 53;
-    --color-surface-3   : 22 36 69;
-    --color-border-rgb  : 255 255 255;
-    --color-text-1      : 241 245 249;
-    --color-text-2      : 148 163 184;
-    --color-text-3      : 71 85 105;
+       bg-primary/10, border-border-2, etc.
+       El modo oscuro se activa con la clase "dark" en <html>. */
+    --color-bg         : 248 250 252;
+    --color-surface     : 255 255 255;
+    --color-surface-2   : 241 245 249;
+    --color-surface-3   : 226 232 240;
+    --color-border-rgb  : 15 23 42;
+    --color-text-1      : 15 23 42;
+    --color-text-2      : 71 85 105;
+    --color-text-3      : 148 163 184;
+
+    /* ── Sidebar (azul oscuro identitario, IGUAL en ambos modos) ──── */
+    --color-sidebar     : 10 15 26;   /* #0A0F1A */
+    --color-sidebar-2   : 17 24 39;   /* hover/superficie interna */
+    --color-sidebar-3   : 26 34 53;   /* activo */
 
     --color-primary       : 59 130 246;
     --color-primary-dark  : 37 99 235;
@@ -34,45 +40,43 @@
     --color-danger-light    : 248 113 113;
   }
 
-  /* ── Paleta modo CLARO ──────────────────────────────────────────
-     Se activa agregando la clase "light" al <html> (lo hace
-     ThemeContext). Los colores de marca (primary/accent/etc.) se
-     mantienen iguales para no perder identidad visual. */
-  html.light {
-    --color-bg         : 248 250 252;
-    --color-surface     : 255 255 255;
-    --color-surface-2   : 241 245 249;
-    --color-surface-3   : 226 232 240;
-    --color-border-rgb  : 15 23 42;
-    --color-text-1      : 15 23 42;
-    --color-text-2      : 71 85 105;
-    --color-text-3      : 148 163 184;
+  /* ── Paleta modo OSCURO ─────────────────────────────────────────
+     Se activa agregando la clase "dark" al <html> (lo hace
+     ThemeContext). Grises azulados neutros — no negro puro — y los
+     mismos acentos de marca para no perder identidad visual. */
+  html.dark {
+    --color-bg         : 14 17 22;    /* #0E1116 */
+    --color-surface     : 21 26 34;    /* #151A22 */
+    --color-surface-2   : 28 34 48;    /* #1C2230 */
+    --color-surface-3   : 35 43 61;    /* #232B3D */
+    --color-border-rgb  : 255 255 255;
+    --color-text-1      : 241 245 249;
+    --color-text-2      : 148 163 184;
+    --color-text-3      : 100 116 139;
   }
 
   html {
-    color-scheme: dark; scroll-behavior: smooth;
+    color-scheme: light; scroll-behavior: smooth;
     font-size: 16.5px; /* sube base ~3% */
   }
-  html.light { color-scheme: light; }
+  html.dark { color-scheme: dark; }
   @media (min-width: 1024px) { html { font-size: 17px; } }
 
   body {
     @apply bg-bg text-text-1 font-sans antialiased text-base;
     background-image:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(59,130,246,0.10), transparent 60%),
-      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(139,92,246,0.08), transparent 70%),
-      url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(255,255,255,0.025)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
-    /* background-attachment: fixed quitado: causaba jank de scroll
-       (repintaba el fondo en cada frame). */
-  }
-
-  /* En modo claro, la rejilla de puntos blancos casi no se ve sobre
-     fondo claro — usamos una versión con trazo oscuro y más sutil. */
-  html.light body {
-    background-image:
       radial-gradient(ellipse 60% 40% at 50% -10%, rgba(59,130,246,0.06), transparent 60%),
       radial-gradient(ellipse 50% 35% at 100% 100%, rgba(139,92,246,0.05), transparent 70%),
       url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(15,23,42,0.035)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+  }
+
+  /* En modo oscuro la rejilla clara casi no se ve — versión con trazo
+     blanco sutil y glows un poco más presentes. */
+  html.dark body {
+    background-image:
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(59,130,246,0.10), transparent 60%),
+      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(139,92,246,0.08), transparent 70%),
+      url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(255,255,255,0.025)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
   }
 
   * { box-sizing: border-box; }

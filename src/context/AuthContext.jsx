@@ -178,7 +178,7 @@ export function AuthProvider({ children }) {
     if (!supabaseConfigured) return { ok: false, error: 'Supabase no está configurado.' };
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: authRedirect('/dashboard') },
+      options: { redirectTo: authRedirect('/inicio') },
     });
     if (error) return { ok: false, error: traducirError(error.message) };
     return { ok: true };

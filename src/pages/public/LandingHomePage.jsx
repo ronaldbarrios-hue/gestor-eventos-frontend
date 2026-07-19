@@ -100,7 +100,7 @@ export default function LandingHomePage() {
       />
       <FeatureSplit
         side="left"
-        kicker="White-label · Todos los planes"
+        kicker="White-label"
         title="Tu marca, no la nuestra"
         desc="Personaliza el panel y las páginas públicas: logo, nombre, colores, fondo, tipografía, radio de bordes, tagline y redes. En Pro, además quitas la marca GESTEK y pones tu footer."
         bullets={[
@@ -124,7 +124,6 @@ export default function LandingHomePage() {
         ]}
         visual={<CodeMockup />}
       />
-      <PricingTeaser />
       <FAQTeaser />
       <CTASection />
     </>
@@ -640,79 +639,6 @@ function AIPro() {
   );
 }
 
-/* ─────────── Pricing teaser ─────────── */
-function PricingTeaser() {
-  const [ref, visible] = useReveal();
-  return (
-    <section className="px-5 sm:px-8 py-24">
-      <div ref={ref} className="max-w-5xl mx-auto">
-        <div className={`text-center mb-12 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-          <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Planes</p>
-          <h2 className="text-4xl sm:text-5xl font-bold font-display text-text-1 tracking-tight leading-tight mb-4">
-            Empieza gratis. Sube cuando quieras.
-          </h2>
-          <p className="text-base sm:text-lg text-text-2 max-w-xl mx-auto">
-            Empieza gratis con lo esencial. Pro suma IA, API, white-label y soporte — pruébalo 14 días sin tarjeta.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-5">
-          <div className="p-7 rounded-3xl border border-border bg-surface/40 hover:bg-surface/60 transition-all">
-            <h3 className="text-2xl font-bold font-display text-text-1 mb-2">Free</h3>
-            <p className="text-sm text-text-2 mb-5">Lo esencial para empezar, sin tarjeta.</p>
-            <p className="text-4xl font-bold font-display text-text-1 mb-6">$0</p>
-            <ul className="space-y-2.5 text-sm text-text-1 mb-7">
-              {[
-                'Asistentes ilimitados',
-                'QR de check-in / check-out',
-                'Agenda (Día/Semana/Mes), speakers y patrocinadores',
-                'Equipo con roles + chat + sugerencias',
-                'Fidelidad: puntos, recompensas y ranking',
-                'Pasarela BRE-B sin comisiones',
-                'White-label básico + página pública',
-              ].map(f => (
-                <li key={f} className="flex items-start gap-2"><span className="text-primary-light mt-0.5">✓</span> {f}</li>
-              ))}
-            </ul>
-            <Link to="/register" className="block text-center py-3 rounded-full border border-border-2 hover:bg-surface-2 text-sm font-semibold text-text-1 transition-colors">
-              Crear cuenta gratis
-            </Link>
-          </div>
-
-          <div className="relative p-7 rounded-3xl border border-primary/40 bg-surface/80 shadow-[0_0_60px_rgba(59,130,246,0.12)] hover:shadow-[0_0_80px_rgba(59,130,246,0.2)] transition-all">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-semibold tracking-widest uppercase bg-primary text-white">Recomendado</span>
-            <h3 className="text-2xl font-bold font-display text-text-1 mb-2">Pro</h3>
-            <p className="text-sm text-text-2 mb-5">IA, API, white-label y soporte. 14 días de prueba gratis.</p>
-            <p className="text-4xl font-bold font-display text-text-1 mb-1">$19.99 <span className="text-base text-text-3 font-medium">USD/mes</span></p>
-            <p className="text-xs text-primary-light mb-5">14 días gratis · sin tarjeta · cancela cuando quieras</p>
-            <ul className="space-y-2.5 text-sm text-text-1 mb-7">
-              {[
-                'Todo lo del Free',
-                'Gestbot — asistente IA que opera tu evento',
-                'API REST + Webhooks con HMAC',
-                'White-label sin marca GESTEK',
-                'Auditoría de acciones del equipo',
-                'Analytics avanzados',
-                'Soporte prioritario',
-              ].map(f => (
-                <li key={f} className="flex items-start gap-2"><span className="text-primary-light mt-0.5">✓</span> {f}</li>
-              ))}
-            </ul>
-            <Link to="/register?plan=pro" className="block text-center py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-colors">
-              Probar Pro
-            </Link>
-          </div>
-        </div>
-
-        <p className="text-center text-sm text-text-3 mt-8">
-          <Link to="/planes" className="underline underline-offset-2 hover:text-text-1 transition-colors">
-            Ver comparativa completa
-          </Link>
-        </p>
-      </div>
-    </section>
-  );
-}
 
 /* ─────────── FAQ teaser ─────────── */
 function FAQTeaser() {
@@ -769,14 +695,14 @@ function CTASection() {
           Tu próximo evento empieza hoy
         </h2>
         <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-10">
-          Crea tu cuenta en menos de un minuto. Empieza gratis; Pro con 14 días de prueba.
+          Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy.
         </p>
         <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link to="/register" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all shadow-[0_0_40px_rgba(241,245,249,0.2)] hover:scale-[1.02]">
             Crear cuenta gratis
           </Link>
-          <Link to="/planes" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
-            Ver planes
+          <Link to="/como-funciona" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
+            Cómo funciona
           </Link>
         </div>
       </div>

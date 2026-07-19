@@ -1,18 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { RolBadge } from '../ui/Badge.jsx';
+import { useTheme } from '../../context/ThemeContext.jsx';
 import { notificacionesApi } from '../../api/notificaciones.js';
 import { supabase } from '../../lib/supabase.js';
 
-const ROOT_PATHS = new Set(['/dashboard', '/eventos', '/usuarios', '/configuracion']);
+/* ──────────────────────────────────────────────────────────────────
+   TopBar — Rework 2026
+   Izquierda : hamburger (mobile) + volver + breadcrumb
+   Centro    : buscador contextual/global (⌘K — paleta en Fase 1)
+   Derecha   : notificaciones · cuenta del usuario (menú)
+   ────────────────────────────────────────────────────────────────── */
+
+const ROOT_PATHS = new Set(['/inicio', '/eventos', '/mi-espacio', '/ajustes']);
 
 const CRUMBS = {
-  '/dashboard'    : [{ label: 'Dashboard' }],
+  '/inicio'       : [{ label: 'Inicio' }],
   '/eventos'      : [{ label: 'Eventos' }],
   '/eventos/nuevo': [{ to: '/eventos', label: 'Eventos' }, { label: 'Nuevo evento' }],
-  '/usuarios'     : [{ label: 'Usuarios' }],
-  '/configuracion': [{ label: 'Configuración' }],
+  '/mi-espacio'   : [{ label: 'Mi Espacio' }],
+  '/ajustes'      : [{ label: 'Ajustes' }],
+  '/gestbot'      : [{ label: 'Gestbot' }],
 };
 
 function tiempoRelativo(iso) {
@@ -26,14 +34,40 @@ function tiempoRelativo(iso) {
 
 export default function TopBar({ onMenu }) {
   const { pathname }  = useLocation();
-  const { usuario }   = useAuth();
+  const { usuario, logout } = useAuth();
+  const { theme, toggle: toggleTheme } = useTheme();
   const navigate      = useNavigate();
   const [notifOpen,   setNotifOpen]   = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [busqueda,    setBusqueda]    = useState('');
   const [notifs,      setNotifs]      = useState([]);
   const [unread,      setUnread]      = useState(0);
   const loadedRef     = useRef(false);
+  const searchRef     = useRef(null);
 
-  const crumbs  = CRUMBS[pathname] || (pathname.startsWith('/eventos/') ? [{ to: '/eventos', label: 'Eventos' }, { label: 'Detalle' }] : [{ label: 'GESTEK' }]);
+  const crumbs = CRUMBS[pathname]
+    || (pathname.startsWith('/eventos/') ? [{ to: '/eventos', label: 'Eventos' }, { label: 'Detalle' }] : [{ label: 'GESTEK' }]);
+
+  /* ⌘K / Ctrl+K enfoca el buscador (paleta de comandos completa: Fase 1) */
+  useEffect(() => {
+    const h = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  const onBuscar = (e) => {
+    e.preventDefault();
+    const q = busqueda.trim();
+    if (!q) return;
+    navigate(`/eventos?q=${encodeURIComponent(q)}`);
+    setBusqueda('');
+    searchRef.current?.blur();
+  };
 
   const cargar = useCallback(async () => {
     try {
@@ -43,7 +77,6 @@ export default function TopBar({ onMenu }) {
     } catch { /* silencioso: no rompemos el topbar si falla */ }
   }, []);
 
-  /* Carga inicial */
   useEffect(() => {
     if (!usuario?.id || loadedRef.current) return;
     loadedRef.current = true;
@@ -84,22 +117,16 @@ export default function TopBar({ onMenu }) {
     if (n.link) navigate(n.link);
   };
 
-  const showBack = !ROOT_PATHS.has(pathname);
+  const handleLogout = () => { setAccountOpen(false); logout(); navigate('/login'); };
 
-  /* El badge de arriba debe reflejar el MODO activo del dashboard
-     (organizador/asistente, elegido por el usuario y guardado), no el
-     "rol" interno de permisos (que siempre es 'organizador' salvo casos
-     especiales de seguridad). */
-  const modoActivo = usuario?.modoActivo || 'organizador';
+  const showBack = !ROOT_PATHS.has(pathname);
+  const initials = usuario?.nombre
+    ?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
 
   return (
     <header
       className="flex-shrink-0 bg-surface border-b border-border flex items-center gap-3 px-4 sm:px-6 relative z-10"
       style={{
-        /* Respeta el "área segura" del celular (notch, cámara, barra de
-           estado) cuando la app corre instalada como PWA a pantalla
-           completa — sin esto, el botón de menú queda tapado por la hora
-           del teléfono. paddingTop se suma a la altura normal del header. */
         paddingTop: 'env(safe-area-inset-top, 0px)',
         minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
       }}
@@ -123,7 +150,7 @@ export default function TopBar({ onMenu }) {
       )}
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm flex-1 min-w-0">
+      <nav className="hidden sm:flex items-center gap-1.5 text-sm min-w-0 flex-shrink-0">
         {crumbs.map((c, i) => (
           <span key={i} className="flex items-center gap-1.5 min-w-0">
             {i > 0 && <ChevronIcon className="w-3 h-3 text-text-3 flex-shrink-0" />}
@@ -135,17 +162,34 @@ export default function TopBar({ onMenu }) {
         ))}
       </nav>
 
+      {/* Buscador contextual / global */}
+      <form onSubmit={onBuscar} className="flex-1 flex justify-center min-w-0 px-2">
+        <div className="relative w-full max-w-md">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-3 pointer-events-none" />
+          <input
+            ref={searchRef}
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar en GESTEK…"
+            className="w-full h-9 pl-9 pr-14 rounded-xl bg-surface-2 border border-border text-sm text-text-1
+                       placeholder:text-text-3 focus:outline-none focus:border-accent/50 focus:ring-2
+                       focus:ring-accent/20 transition-all"
+          />
+          <kbd className="hidden md:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center gap-0.5
+                          px-1.5 py-0.5 rounded-md bg-surface-3 text-[10px] font-medium text-text-3 pointer-events-none">
+            ⌘K
+          </kbd>
+        </div>
+      </form>
+
       {/* Right side */}
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-1.5 flex-shrink-0">
         {/* Notifications */}
         <div className="relative">
-          <button
-            onClick={() => setNotifOpen(v => !v)}
-            className="btn-icon btn-ghost relative"
-          >
+          <button onClick={() => setNotifOpen(v => !v)} aria-label="Notificaciones" className="btn-icon btn-ghost relative">
             <BellIcon className="w-4 h-4" />
             {unread > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full shadow-glow-sm" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full shadow-glow-sm" />
             )}
           </button>
 
@@ -187,13 +231,70 @@ export default function TopBar({ onMenu }) {
           )}
         </div>
 
-        {/* Badge del modo activo (Organizador/Asistente) */}
-        <RolBadge rol={modoActivo} />
+        {/* Cuenta del usuario */}
+        <div className="relative">
+          <button
+            onClick={() => setAccountOpen(v => !v)}
+            aria-label="Cuenta"
+            className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-surface-2 transition-colors"
+          >
+            <span className="w-8 h-8 rounded-full bg-gradient-primary text-white text-xs font-bold
+                             flex items-center justify-center flex-shrink-0">
+              {initials}
+            </span>
+            <span className="hidden md:block text-sm font-medium text-text-1 max-w-[120px] truncate">
+              {usuario?.nombre?.split(' ')[0] || 'Cuenta'}
+            </span>
+            <ChevronDownIcon className="hidden md:block w-3 h-3 text-text-3" />
+          </button>
+
+          {accountOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setAccountOpen(false)} />
+              <div className="absolute right-0 top-12 z-20 w-64 card-glass rounded-2xl overflow-hidden animate-[scaleIn_0.15s_ease_both] origin-top-right">
+                <div className="px-4 py-3 border-b border-border">
+                  <p className="text-sm font-semibold text-text-1 truncate">{usuario?.nombre || 'Usuario'}</p>
+                  <p className="text-xs text-text-2 truncate">{usuario?.email || ''}</p>
+                </div>
+                <div className="py-1.5">
+                  <MenuItem onClick={() => { setAccountOpen(false); navigate('/ajustes'); }}>
+                    <UserIcon className="w-4 h-4" /> Mi perfil
+                  </MenuItem>
+                  <MenuItem onClick={() => { setAccountOpen(false); navigate('/mis-boletas'); }}>
+                    <TicketIcon className="w-4 h-4" /> Mis boletas
+                  </MenuItem>
+                  <MenuItem onClick={toggleTheme}>
+                    {theme === 'dark' ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
+                    {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+                  </MenuItem>
+                </div>
+                <div className="py-1.5 border-t border-border">
+                  <MenuItem onClick={handleLogout} danger>
+                    <LogoutIcon className="w-4 h-4" /> Cerrar sesión
+                  </MenuItem>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
 }
 
+function MenuItem({ children, onClick, danger = false }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left
+                  ${danger ? 'text-danger hover:bg-danger/10' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ── Icons ─────────────────────────────────────────────────────── */
 function MenuIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>;
 }
@@ -205,4 +306,25 @@ function BackIcon({ className }) {
 }
 function ChevronIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>;
+}
+function ChevronDownIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
+}
+function SearchIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
+}
+function UserIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
+}
+function TicketIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;
+}
+function SunIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
+}
+function MoonIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>;
+}
+function LogoutIcon({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
 }

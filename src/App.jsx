@@ -17,7 +17,6 @@ const NetworkingPublicPage = lazy(() => import('./pages/public/NetworkingPublicP
 const TorneoPublicoPage  = lazy(() => import('./pages/public/TorneoPublicoPage.jsx'));
 const AgendaPublicaPage  = lazy(() => import('./pages/public/AgendaPublicaPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
-const PlanesPage         = lazy(() => import('./pages/public/PlanesPage.jsx'));
 const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
 const RecuperarPage      = lazy(() => import('./pages/RecuperarPage.jsx'));
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage.jsx'));
@@ -66,7 +65,7 @@ function PublicOnlyRoute({ children }) {
   if (loading) return <AuthLoader />;
   if (!token) return children;
   if (usuario && !usuario.perfilCompleto) return <Navigate to="/completar-perfil" replace />;
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/inicio" replace />;
 }
 
 export default function App() {
@@ -86,8 +85,7 @@ export default function App() {
                 <Route path="/explorar/:slug/torneo" element={<TorneoPublicoPage />} />
                 <Route path="/explorar/:slug/agenda" element={<AgendaPublicaPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
-                <Route path="/planes"            element={<PlanesPage />} />
-                <Route path="/faq"               element={<FAQPage />} />
+                  <Route path="/faq"               element={<FAQPage />} />
               </Route>
 
               <Route path="/login"    element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
@@ -99,11 +97,13 @@ export default function App() {
               <Route path="/completar-perfil" element={<PrivateRoute allowIncomplete><CompletarPerfilPage /></PrivateRoute>} />
 
               <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-                <Route path="/dashboard"          element={<DashboardPage />} />
+                <Route path="/inicio"             element={<DashboardPage />} />
                 <Route path="/eventos"            element={<EventsListPage />} />
                 <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
                 <Route path="/eventos/:id"        element={<EventDetailPage />} />
                 <Route path="/eventos/:id/editar" element={<EventEditPage />} />
+                <Route path="/mi-espacio"         element={<MiTrabajoPage />} />
+                <Route path="/ajustes"            element={<SettingsPage />} />
                 <Route path="/app/explorar"       element={<ExplorarPage />} />
                 <Route path="/app/explorar/:slug" element={<EventoPublicoPage />} />
                 <Route path="/mis-boletas"        element={<MisBoletasPage />} />
@@ -113,9 +113,11 @@ export default function App() {
                 <Route path="/notificaciones"     element={<NotificacionesPage />} />
                 <Route path="/recompensas"        element={<RecompensasPage />} />
                 <Route path="/white-label"        element={<WhiteLabelPage />} />
-                <Route path="/mi-trabajo"         element={<MiTrabajoPage />} />
                 <Route path="/usuarios"           element={<UsersPage />} />
-                <Route path="/configuracion"      element={<SettingsPage />} />
+                {/* Rutas legadas → nueva estructura del rework */}
+                <Route path="/dashboard"          element={<Navigate to="/inicio" replace />} />
+                <Route path="/mi-trabajo"         element={<Navigate to="/mi-espacio" replace />} />
+                <Route path="/configuracion"      element={<Navigate to="/ajustes" replace />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

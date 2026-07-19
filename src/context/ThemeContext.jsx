@@ -3,16 +3,19 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 const ThemeContext = createContext(null);
 const STORAGE_KEY = 'gestek-theme';
 
+/* Modo CLARO por defecto (rework 2026). El modo oscuro se activa
+   agregando la clase "dark" al <html>. Los tokens viven en index.css. */
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return localStorage.getItem(STORAGE_KEY) || 'dark';
+    if (typeof window === 'undefined') return 'light';
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === 'dark' ? 'dark' : 'light';
   });
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'light') root.classList.add('light');
-    else root.classList.remove('light');
+    root.classList.toggle('dark', theme === 'dark');
+    root.classList.remove('light'); // clase legada del sistema anterior
     localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 

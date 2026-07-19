@@ -8,7 +8,6 @@ import AvatarUploader from '../../components/ui/AvatarUploader.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { pagosApi } from '../../api/pagos.js';
 import { usePush } from '../../hooks/usePush.js';
-import { notificarPlanCambiado } from '../../hooks/usePlan.js';
 import { guardarBrandingLocal } from '../../hooks/useBranding.js';
 
 /* Pagos, Notificaciones y Recompensas viven ahora como secciones
@@ -281,7 +280,6 @@ export function WhiteLabelTab() {
       <div className="card">
         <div className="card-header">
           <h3 className="text-base font-semibold text-text-1">Marca de tu empresa</h3>
-          <span className="badge-blue text-xs">Disponible en todos los planes</span>
         </div>
         <div className="card-body grid lg:grid-cols-[1fr_320px] gap-6">
           {/* Form */}
@@ -714,7 +712,6 @@ export function PagosTab() {
 
   return (
     <div className="space-y-5">
-      <PlanProCard />
 
       <div className="card">
         <div className="card-header">
@@ -805,107 +802,6 @@ export function PagosTab() {
   );
 }
 
-function formatPrecio(plan) {
-  if (!plan) return '$79.900 COP';
-  const cur = plan.currency || 'COP';
-  if (cur === 'USD') return `USD $${plan.precio_usd || plan.precio || 19.99}`;
-  return `$${Number(plan.precio || 79900).toLocaleString('es-CO')} ${cur}`;
-}
-
-function PlanProCard() {
-  const { success, error } = useToast();
-  const [plan, setPlan] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [working, setWorking] = useState(false);
-
-  const cargar = async () => {
-    setLoading(true);
-    try { setPlan(await pagosApi.planEstado()); } catch (e) { /* silencioso */ }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { cargar(); }, []);
-
-  /* Si volvemos del checkout MP con ?plan=ok, refrescá y avisá */
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.get('plan') === 'ok') {
-      success('¡Pago recibido! Tu plan Pro se activará en cuanto MP nos confirme (suele ser instantáneo).');
-      url.searchParams.delete('plan');
-      window.history.replaceState({}, '', url.toString());
-      setTimeout(() => { cargar(); notificarPlanCambiado(); }, 2500);
-    }
-  }, []);
-
-  const comprar = async () => {
-    setWorking(true);
-    try {
-      const r = await pagosApi.comprarPro();
-      const link = r.checkout?.init_point || r.checkout?.sandbox_init_point;
-      if (!link) throw new Error('Mercado Pago no devolvió el link.');
-      window.location.href = link;
-    } catch (e) { error(e.response?.data?.error || e.message); setWorking(false); }
-  };
-
-  if (loading) return null;
-  const esPro = plan?.plan === 'pro';
-
-  return (
-    <div className="card border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-      <div className="card-header">
-        <div>
-          <h3 className="text-base font-semibold text-text-1">Plan {esPro ? 'Pro' : 'Free'}</h3>
-          <p className="text-xs text-text-3 mt-0.5">
-            {esPro
-              ? `${plan.en_trial ? 'Prueba Pro · ' : ''}Activo hasta ${plan.expires_at ? new Date(plan.expires_at).toLocaleDateString() : '—'}`
-              : `Pro: white-label, API, webhooks, auditoría y Gestbot. ${plan?.trial_dias || 14} días de prueba gratis, luego US$ ${plan?.precio_usd ?? 19.99}/mes.`}
-          </p>
-        </div>
-        {esPro
-          ? <span className="badge badge-green">{plan.en_trial ? 'Prueba' : 'Pro'}</span>
-          : <span className="badge badge-gray">Free</span>}
-      </div>
-      <div className="card-body flex items-center justify-between flex-wrap gap-3">
-        <div className="text-sm text-text-2 max-w-md">
-          {esPro
-            ? (plan.en_trial
-                ? 'Estás en tu prueba gratuita. Cuando termine, paga para seguir con Pro.'
-                : 'Renovás manualmente cuando se acerque la fecha. Sin cobros automáticos.')
-            : `Empieza con ${plan?.trial_dias || 14} días de Pro gratis (sin tarjeta). Después, US$ ${plan?.precio_usd ?? 19.99}/mes — sin renovación automática.`}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {plan?.dev_activation && (
-            <button onClick={async () => {
-              setWorking(true);
-              try { await pagosApi.activarProDev(); success('Pro activado (modo dev).'); await cargar(); notificarPlanCambiado(); }
-              catch (e) { error(e.response?.data?.error || e.message); }
-              finally    { setWorking(false); }
-            }} disabled={working} className="btn-secondary btn-sm" title="Activa Pro sin pasar por MP (solo dev)">
-              <DevIcon /> Activar dev
-            </button>
-          )}
-          {plan?.trial_disponible && (
-            <button onClick={async () => {
-              setWorking(true);
-              try {
-                const r = await pagosApi.trial();
-                success(`¡Prueba activada! Tienes ${r.trial_dias} días de Pro gratis.`);
-                await cargar(); notificarPlanCambiado();
-              } catch (e) { error(e.response?.data?.error || e.message); }
-              finally { setWorking(false); }
-            }} disabled={working} className="btn-secondary btn-sm">
-              Probar 14 días gratis
-            </button>
-          )}
-          <button onClick={comprar} disabled={working} className="btn-gradient">
-            {working ? <><Spinner size="sm" /> Redirigiendo...</> : (esPro ? 'Renovar Pro' : 'Pagar y activar Pro')}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DevIcon() { return <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>; }
 function TrophyIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8m-4-4v4m7-13a3 3 0 003-3V3H6v2a3 3 0 003 3m6 0a6 6 0 11-6 0m9-3h2a2 2 0 01-2 2m-13-2H3a2 2 0 002 2" /></svg>;
 }

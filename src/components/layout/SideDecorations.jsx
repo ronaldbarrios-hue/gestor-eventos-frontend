@@ -36,7 +36,6 @@ function getVariant(pathname) {
   if (pathname.startsWith('/como-funciona'))     return { primary: 'primary', secondary: 'success' };
   if (pathname.startsWith('/producto'))          return { primary: 'accent',  secondary: 'primary' };
   if (pathname.startsWith('/explorar'))          return { primary: 'success', secondary: 'primary' };
-  if (pathname.startsWith('/planes'))            return { primary: 'accent',  secondary: 'primary' };
   if (pathname.startsWith('/faq'))               return { primary: 'primary', secondary: 'accent' };
   return { primary: 'primary', secondary: 'accent' };
 }
