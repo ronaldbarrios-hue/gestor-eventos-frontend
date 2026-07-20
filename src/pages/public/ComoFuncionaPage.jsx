@@ -17,14 +17,14 @@ function useReveal(threshold = 0.15) {
 const STEPS = [
   {
     n: '01',
-    title: 'Crea tu cuenta gratis',
+    title: 'Crea tu cuenta',
     desc: 'Registro en 2 pasos. Datos básicos + perfil del organizador. Sin tarjeta de crédito, sin demos, sin esperas.',
     detail: 'Confirmas el email con un enlace de Supabase y entras directo al panel de organizador. Todo lo principal queda activado desde el segundo uno.',
   },
   {
     n: '02',
     title: 'Configura tu entorno de trabajo',
-    desc: 'Cuéntanos en lenguaje natural qué tipo de eventos organizas. La IA Pro propone bloques iniciales según tu contexto; el plan gratis te lleva al wizard estándar.',
+    desc: 'Cuéntanos en lenguaje natural qué tipo de eventos organizas: Gestbot propone la estructura inicial, o usa el wizard paso a paso.',
     detail: 'Industria, frecuencia, tamaño promedio, modalidad — el agente prepara plantillas, agenda base y copy de invitación. Tú ajustas, no empiezas en blanco.',
   },
   {
@@ -37,7 +37,7 @@ const STEPS = [
     n: '04',
     title: 'Comparte y vende boletas',
     desc: 'Tu evento tiene página pública propia (gestek.io/explorar/tu-evento). Botón de compra con BRE-B usando tu llave o QR de organizador.',
-    detail: 'El dinero va directo a tu cuenta. GESTEK no toca el flujo de pago en el plan gratis. Recibos automáticos por email al asistente.',
+    detail: 'El dinero va directo a tu cuenta — GESTEK no toca el flujo de pago. Recibos automáticos por email al asistente.',
   },
   {
     n: '05',
@@ -107,7 +107,7 @@ const USE_CASES = [
 ];
 
 const FAQ_FLOW = [
-  { q: '¿Cuánto tiempo tarda crear un evento desde cero?', a: 'Entre 5 y 10 minutos con el wizard. Con el agente IA Pro, baja a 1-2 minutos porque te genera la estructura base.' },
+  { q: '¿Cuánto tiempo tarda crear un evento desde cero?', a: 'Entre 5 y 10 minutos con el wizard. Con Gestbot, baja a 1-2 minutos porque te genera la estructura base.' },
   { q: '¿Necesito instalar algo?', a: 'No. Todo corre en el navegador. El escáner de QR funciona desde la cámara del móvil de tu coordinador.' },
   { q: '¿Puedo importar asistentes de un Excel?', a: 'Sí — desde el panel del evento subes un CSV con nombre y email y la plataforma genera los QR e invitaciones.' },
 ];
@@ -141,7 +141,7 @@ function Hero() {
       </p>
       <div className="relative mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
         <Link to="/register" className="px-7 py-3.5 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all shadow-[0_0_40px_rgba(241,245,249,0.18)]">
-          Probar gratis
+          Probar GESTEK
         </Link>
         <Link to="/producto" className="px-7 py-3.5 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
           Ver todas las funciones
@@ -190,7 +190,7 @@ function FlowStep({ step, index }) {
           <p className="text-sm text-text-3 leading-relaxed">{step.detail}</p>
         </div>
         <span className="hidden lg:inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary-light tracking-wider uppercase whitespace-nowrap self-center">
-          Plan gratis
+          Incluido
         </span>
       </div>
     </div>
@@ -317,10 +317,10 @@ function CTA() {
           Suficiente teoría
         </h2>
         <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-8">
-          Crea tu cuenta gratis y prueba el flujo con un evento de demo en menos de 5 minutos.
+          Crea tu cuenta y prueba el flujo con un evento de demo en menos de 5 minutos.
         </p>
         <Link to="/register" className="relative inline-block px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all">
-          Crear cuenta gratis
+          Crear mi cuenta
         </Link>
       </div>
     </section>

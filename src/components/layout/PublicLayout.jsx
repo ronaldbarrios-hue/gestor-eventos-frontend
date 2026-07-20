@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { useTheme } from '../../context/ThemeContext.jsx';
 import PublicNavbar from './PublicNavbar.jsx';
 import PublicFooter from './PublicFooter.jsx';
 import SideDecorations from './SideDecorations.jsx';
@@ -8,6 +9,18 @@ export default function PublicLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [animKey, setAnimKey] = useState(pathname);
+  const { theme } = useTheme();
+
+  /* El sitio público de GESTEK vive SIEMPRE en oscuro (azules profundos +
+     gris, texto claro): identidad de marketing, sin saturar la vista.
+     La app interna conserva la preferencia claro/oscuro del usuario —
+     al salir del layout público se restaura su tema. */
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+    return () => {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    };
+  }, [theme]);
 
   useEffect(() => {
     setAnimKey(pathname);

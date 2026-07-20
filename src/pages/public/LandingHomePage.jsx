@@ -61,7 +61,7 @@ export default function LandingHomePage() {
         side="right"
         kicker="Pagos BRE-B · Gratis"
         title="Cobra tus boletas con BRE-B en menos de un minuto"
-        desc="Pega tu llave BRE-B o sube tu código QR — el dinero va directo a tu cuenta. GESTEK no toca ese flujo en el plan gratis y no cobra comisión por encima."
+        desc="Pega tu llave BRE-B o sube tu código QR — el dinero va directo a tu cuenta. GESTEK no toca ese flujo."
         bullets={[
           'Llave o QR del organizador (tu cobras, tu recibes)',
           'Pago en línea desde la página pública del evento',
@@ -102,7 +102,7 @@ export default function LandingHomePage() {
         side="left"
         kicker="White-label"
         title="Tu marca, no la nuestra"
-        desc="Personaliza el panel y las páginas públicas: logo, nombre, colores, fondo, tipografía, radio de bordes, tagline y redes. En Pro, además quitas la marca GESTEK y pones tu footer."
+        desc="Personaliza el panel y las páginas públicas: logo, nombre, colores, fondo, tipografía, radio de bordes, tagline y redes. Y si quieres, quitas la marca GESTEK y pones tu footer."
         bullets={[
           'Logo, colores, fondo y tipografía propios',
           'Se aplica en el panel y en las páginas públicas del evento',
@@ -170,8 +170,8 @@ Primera plataforma de gestión de eventos con IA integrada para automatizarlos
 
         <p className={`mt-8 text-lg sm:text-2xl text-text-2 max-w-3xl mx-auto leading-relaxed transition-all duration-700 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           La plataforma de gestión de eventos que reemplaza tu stack actual.
-          Creación, ventas, asistencia, pagos y comunidad. Empieza gratis y
-          sube a Pro cuando lo necesites — 14 días de prueba.
+          Creación, ventas, asistencia, pagos y comunidad — todo el
+          ecosistema de tu evento en un solo lugar.
         </p>
 
         <div className={`mt-12 flex flex-col sm:flex-row items-center justify-center gap-3 transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
@@ -179,7 +179,7 @@ Primera plataforma de gestión de eventos con IA integrada para automatizarlos
             to="/register"
             className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all shadow-[0_0_40px_rgba(241,245,249,0.2)] hover:shadow-[0_0_60px_rgba(241,245,249,0.35)] hover:scale-[1.02] active:scale-[0.98]"
           >
-            Empezar gratis
+            Crear mi cuenta
           </Link>
           <Link
             to="/como-funciona"
@@ -190,7 +190,7 @@ Primera plataforma de gestión de eventos con IA integrada para automatizarlos
         </div>
 
         <p className={`mt-6 text-sm text-text-3 transition-all duration-700 delay-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
-          Sin tarjeta de crédito · Todo lo principal incluido en el plan gratis
+          Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy
         </p>
       </div>
     </section>
@@ -249,14 +249,14 @@ function Stats() {
     {
       kicker: 'Sin trucos',
       title: 'Empieza',
-      highlight: 'gratis',
-      desc: 'Crea y vende sin tarjeta. Pro suma IA, API, white-label y más — con 14 días de prueba.',
+      highlight: 'hoy mismo',
+      desc: 'Crea y vende desde el primer día: boletas con QR, check-in y página pública propia.',
     },
     {
       kicker: 'Escala',
       title: 'API y agente IA',
-      highlight: 'cuando los necesites',
-      desc: 'Si tu volumen crece, Pro suma agente IA, white-label y API. No antes.',
+      highlight: 'incluidos',
+      desc: 'Gestbot opera tu evento con lenguaje natural, y la API + webhooks conectan tu stack.',
     },
   ];
   return (
@@ -311,9 +311,9 @@ function FreeIntro() {
 function Pillars() {
   const [ref, visible] = useReveal();
   const items = [
-    { title: 'Gratis para empezar', desc: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad, chat y página pública. Lo esencial sin pagar.' },
+    { title: 'Todo incluido', desc: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad, chat y página pública.' },
     { title: 'Pagos sin fricción', desc: 'Conecta tu llave o QR de BRE-B y vende boletas. El dinero va directo a tu cuenta — GESTEK no se queda con comisión.' },
-    { title: 'Pro cuando escalas', desc: 'Gestbot (IA que opera el evento), API + Webhooks y auditoría. 14 días de prueba gratis, luego US$ 19.99/mes.' },
+    { title: 'IA que trabaja contigo', desc: 'Gestbot crea y opera eventos, arma boletas y analiza documentos hablando en lenguaje natural.' },
   ];
   return (
     <section className="px-5 sm:px-8 py-24 sm:py-28">
@@ -321,7 +321,7 @@ function Pillars() {
         <div className={`text-center mb-16 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Por qué GESTEK</p>
           <h2 className="text-4xl sm:text-5xl font-bold font-display text-text-1 tracking-tight leading-tight">
-            Lo principal, en gratis.<br />Lo cómodo, en Pro.
+            Todo lo que tu evento necesita,<br />en una sola plataforma.
           </h2>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
@@ -629,10 +629,9 @@ function AIPro() {
           <Link to="/register?plan=pro"
             className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-r from-primary to-accent
                        text-white text-sm font-semibold hover:opacity-90 transition-all shadow-glow-accent">
-            Probar Gestbot 14 días gratis
+            Conocer a Gestbot
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
           </Link>
-          <p className="text-xs text-text-3 mt-3">Función Pro · sin tarjeta · cancela cuando quieras</p>
         </div>
       </div>
     </section>
@@ -643,8 +642,8 @@ function AIPro() {
 /* ─────────── FAQ teaser ─────────── */
 function FAQTeaser() {
   const items = [
-    { q: '¿Qué incluye el plan gratis?', a: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad y página pública. Lo principal está incluido sin trampa.' },
-    { q: '¿Cobran comisión por las ventas con BRE-B?', a: 'No en el plan gratis. El dinero va directo del asistente a tu cuenta vía BRE-B. GESTEK no toca ese flujo.' },
+    { q: '¿Qué incluye GESTEK?', a: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad, IA y página pública con tu marca.' },
+    { q: '¿Cobran comisión por las ventas con BRE-B?', a: 'No. El dinero va directo del asistente a tu cuenta vía BRE-B. GESTEK no toca ese flujo.' },
   ];
   const [open, setOpen] = useState(0);
   return (

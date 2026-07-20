@@ -1,8 +1,8 @@
 import { useState } from 'react';
 const FAQS = [
-  { q: '¿Qué incluye el plan gratis?', a: 'Todo lo esencial para operar eventos: creación, página pública, asistentes ilimitados, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B.' },
+  { q: '¿Qué incluye GESTEK?', a: 'Todo lo necesario para operar eventos: creación, página pública, asistentes ilimitados, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B.' },
   { q: '¿Qué incluye GESTEK?', a: 'Todo: agente IA que arma tus eventos según contexto, personalización de colores y tipografía, white-label (tu logo en vez de GESTEK), analytics, boletas con QR, check-in y soporte.' },
-  { q: '¿Cómo funciona la pasarela BRE-B?', a: 'Tú pegas tu llave o subes tu código QR de BRE-B en tu cuenta de organizador. Los pagos van directo a ti — GESTEK no toca ese dinero ni cobra comisión en el plan gratis.' },
+  { q: '¿Cómo funciona la pasarela BRE-B?', a: 'Tú pegas tu llave o subes tu código QR de BRE-B en tu cuenta de organizador. Los pagos van directo a ti — GESTEK no toca ese dinero ni cobra comisión.' },
   { q: '¿Necesito tarjeta de crédito para registrarme?', a: 'No. El plan gratis no requiere tarjeta. Solo registras correo y contraseña.' },
   { q: '¿Cómo confirmo mi cuenta?', a: 'Te enviamos un correo desde Supabase con un enlace de confirmación. Si no lo recibes en 2 minutos, revisa spam o solicita reenvío desde la pantalla de login.' },
   { q: '¿Olvidé mi contraseña, qué hago?', a: 'En la pantalla de login hay un enlace de "olvidé mi contraseña". Recibirás un correo con un enlace para restablecerla.' },
