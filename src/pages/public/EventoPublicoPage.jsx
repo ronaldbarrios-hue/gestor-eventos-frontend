@@ -225,7 +225,7 @@ export default function EventoPublicoPage() {
             />
           </div>
         ) : (
-        <div className="space-y-8 max-w-4xl mx-auto" key={activePage?.id}>
+        <div className="space-y-8" key={activePage?.id}>
           {(activePage?.blocks || []).map(block => {
             if (block.data?.oculto) return null;
             if (hasCover && block.type === 'portada') return null;
@@ -245,8 +245,9 @@ export default function EventoPublicoPage() {
             const Preview = B.Preview;
             const animCls = { aparecer: 'gk-anim-fade', subir: 'gk-anim-up', zoom: 'gk-anim-zoom', izq: 'gk-anim-left', der: 'gk-anim-right' }[block.data?._anim] || 'animate-[fadeUp_0.4s_ease_both]';
             const animStyle = block.data?._anim ? { animationDuration: `${block.data?._animDur || 0.8}s`, animationDelay: `${block.data?._animDelay || 0}s` } : undefined;
+            const ancho = block.data?._ancho === 'full' ? '' : block.data?._ancho === 'angosto' ? 'max-w-xl mx-auto' : 'max-w-4xl mx-auto';
             return (
-              <div key={block.id} className={animCls} style={animStyle}>
+              <div key={block.id} className={`${animCls} ${ancho}`} style={animStyle}>
                 <Preview data={block.data || {}} evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />
               </div>
             );

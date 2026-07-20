@@ -1,4 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -103,6 +106,12 @@ export default function ExperienceBuilder({ evento, onClose }) {
     finally { setSaving(false); }
   };
 
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const onDragSeccion = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    setBlocks(bs => arrayMove(bs, bs.findIndex(b => b.id === active.id), bs.findIndex(b => b.id === over.id)));
+  };
+
   const tiposDisponibles = ['lienzo', ...BLOCK_TYPES_SISTEMA, ...BLOCK_TYPES_CUSTOM];
   const labelDe = (type) => type === 'lienzo' ? 'Lienzo libre' : (BLOCKS[type]?.label || type);
   const IconDe  = (type) => type === 'lienzo' ? IcLienzo : (BLOCKS[type]?.icon || IcLienzo);
@@ -203,11 +212,34 @@ export default function ExperienceBuilder({ evento, onClose }) {
           )}
         </aside>
 
-        {/* CENTRO · LA PÁGINA (grande, clickeable) */}
+        {/* CENTRO · LA PÁGINA (grande, clickeable, igual al público) */}
         <main className="flex-1 min-w-0">
           <div className="rounded-2xl border border-border bg-bg overflow-hidden">
+            {/* Navbar del sitio público (representación fiel) */}
+            <div className="flex justify-center pt-4 pb-1">
+              <div className="flex items-center gap-1 bg-surface/80 border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg">
+                <span className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #3B82F6, #8B5CF6)' }}>
+                  {(evento.page_json?.branding?.plataforma || evento.titulo || 'E')[0].toUpperCase()}
+                </span>
+                {pages.map((pg, i) => (
+                  <span key={pg.id} className={`h-8 px-3.5 rounded-full text-sm font-medium flex items-center
+                    ${i === 0 ? 'bg-text-1 text-bg' : 'text-text-2'}`}>{i + 1}. {pg.nombre}</span>
+                ))}
+              </div>
+            </div>
+            {/* Hero de portada: igual que en el público (la portada va arriba) */}
+            {evento.cover_url && (
+              <div className="relative mx-6 sm:mx-10 mt-3 rounded-2xl overflow-hidden cursor-pointer group"
+                   onClick={() => { const b = page?.blocks.find(x => x.type === 'portada'); if (b) setSelId(b.id); }}>
+                <img src={evento.cover_url} alt="" className="w-full max-h-[420px] object-cover" />
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-surface/90 text-text-2 opacity-0 group-hover:opacity-100 transition-opacity">Portada (hero)</span>
+              </div>
+            )}
+            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragSeccion}>
+            <SortableContext items={(page?.blocks || []).filter(b => !(evento.cover_url && b.type === 'portada')).map(b => b.id)} strategy={verticalListSortingStrategy}>
             <div className="px-6 sm:px-10 py-8 space-y-6">
-              {page?.blocks.map(b => {
+              {page?.blocks.filter(b => !(evento.cover_url && b.type === 'portada')).map(b => {
                 const activo = selId === b.id;
                 if (b.type === 'lienzo') {
                   return (
@@ -241,25 +273,12 @@ export default function ExperienceBuilder({ evento, onClose }) {
                 }
                 const B = BLOCKS[b.type];
                 if (!B) return null;
-                const Pv = B.Preview;
                 return (
-                  <div key={b.id} id={`sec-${b.id}`}
-                       onClick={() => setSelId(activo ? null : b.id)}
-                       className={`relative rounded-2xl transition-shadow cursor-pointer group
-                                   ${activo ? 'ring-2 ring-accent shadow-glow-sm' : 'hover:ring-1 hover:ring-accent/40'}`}>
-                    <div className="pointer-events-none">
-                      <Pv data={b.data || {}} evento={evento} isEditor />
-                    </div>
-                    <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-opacity
-                                     ${activo ? 'bg-accent text-white opacity-100' : 'bg-surface/90 text-text-2 opacity-0 group-hover:opacity-100'}`}>
-                      {labelDe(b.type)}
-                    </span>
-                    {activo && (
-                      <div className="absolute top-2 right-2" onClick={e => e.stopPropagation()}>
-                        <BarraSeccion onUp={() => mover(b.id, -1)} onDown={() => mover(b.id, +1)} onDup={() => duplicateBlock(b.id)} onDel={() => removeBlock(b.id)} onCerrar={() => setSelId(null)} />
-                      </div>
-                    )}
-                  </div>
+                  <SeccionSortable key={b.id} b={b} activo={activo} evento={evento}
+                    label={labelDe(b.type)}
+                    onSelect={() => setSelId(activo ? null : b.id)}
+                    barra={<BarraSeccion onUp={() => mover(b.id, -1)} onDown={() => mover(b.id, +1)} onDup={() => duplicateBlock(b.id)} onDel={() => removeBlock(b.id)} onCerrar={() => setSelId(null)} />}
+                  />
                 );
               })}
               {(!page || page.blocks.length === 0) && (
@@ -268,12 +287,14 @@ export default function ExperienceBuilder({ evento, onClose }) {
                 </div>
               )}
             </div>
+            </SortableContext>
+            </DndContext>
           </div>
         </main>
 
         {/* DERECHA · Propiedades + Animación (solo con selección, y no para lienzo) */}
         {sel && sel.type !== 'lienzo' && (
-          <aside className="hidden xl:block flex-shrink-0 w-[310px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
+          <aside className="hidden xl:block flex-shrink-0 w-[380px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
             <header className="flex items-center justify-between px-4 py-3 border-b border-border">
               <h3 className="text-[13px] font-semibold text-text-1 truncate">{labelDe(sel.type)}</h3>
               <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs">✕</button>
@@ -285,6 +306,16 @@ export default function ExperienceBuilder({ evento, onClose }) {
                   <Ed data={sel.data || {}} evento={evento} onChange={(d) => updateBlockData(sel.id, d)} />
                 ) : null;
               })()}
+
+              {/* Diseño de la sección */}
+              <div className="border-t border-border pt-3.5 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-text-3">Diseño</p>
+                <label className="text-xs text-text-2 block">Ancho de la sección</label>
+                <select className="input" value={sel.data?._ancho || ''}
+                        onChange={e => updateBlockData(sel.id, { ...sel.data, _ancho: e.target.value })}>
+                  {ANCHOS_SECCION.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                </select>
+              </div>
 
               {/* Animación de entrada de la sección */}
               <div className="border-t border-border pt-3.5 space-y-2.5">
@@ -314,6 +345,47 @@ export default function ExperienceBuilder({ evento, onClose }) {
           </aside>
         )}
       </div>
+    </div>
+  );
+}
+
+export const ANCHOS_SECCION = [
+  { value: '',          label: 'Normal (contenido)' },
+  { value: 'full',      label: 'Ancho completo' },
+  { value: 'angosto',   label: 'Angosto (centrado)' },
+];
+export function claseAncho(v) {
+  if (v === 'full') return 'max-w-none';
+  if (v === 'angosto') return 'max-w-xl mx-auto';
+  return 'max-w-4xl mx-auto';
+}
+
+function SeccionSortable({ b, activo, evento, label, onSelect, barra }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: b.id });
+  const B = BLOCKS[b.type];
+  const Pv = B.Preview;
+  return (
+    <div ref={setNodeRef} id={`sec-${b.id}`}
+         style={{ transform: CSS.Transform.toString(transform), transition }}
+         onClick={onSelect}
+         className={`relative rounded-2xl transition-shadow cursor-pointer group isolate
+                     ${activo ? 'ring-2 ring-accent shadow-glow-sm' : 'hover:ring-1 hover:ring-accent/40'}
+                     ${isDragging ? 'opacity-70 z-30' : ''}`}>
+      <div className={`pointer-events-none overflow-hidden rounded-2xl ${claseAncho(b.data?._ancho)}`}>
+        <Pv data={b.data || {}} evento={evento} isEditor />
+      </div>
+      {/* Grip de arrastre — visible en hover, siempre en activo */}
+      <button {...attributes} {...listeners} onClick={e => e.stopPropagation()} aria-label="Arrastrar sección"
+        className={`absolute top-2 left-2 w-7 h-7 rounded-lg bg-surface/95 border border-border text-text-3 hover:text-text-1
+                    flex items-center justify-center cursor-grab active:cursor-grabbing transition-opacity z-10
+                    ${activo ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+      </button>
+      <span className={`absolute top-2 left-11 px-2 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-opacity
+                       ${activo ? 'bg-accent text-white opacity-100' : 'bg-surface/90 text-text-2 opacity-0 group-hover:opacity-100'}`}>
+        {label}
+      </span>
+      {activo && <div className="absolute top-2 right-2 z-10" onClick={e => e.stopPropagation()}>{barra}</div>}
     </div>
   );
 }
