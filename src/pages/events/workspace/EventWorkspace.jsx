@@ -199,10 +199,10 @@ export default function EventWorkspace() {
       <div className="mx-3 mb-2 rounded-2xl bg-sidebar-2 border border-white/5 p-3.5">
         <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Evento activo</p>
         <p className="text-sm font-semibold text-white leading-snug line-clamp-2">{evento.titulo}</p>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex flex-col items-start gap-1.5 mt-2.5">
           <EstadoBadge estado={evento.estado} />
-          <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full
-                            ${soyOwner ? 'bg-accent/25 text-accent-light' : 'bg-primary/25 text-primary-light'}`}>
+          <span className={`text-[9px] font-semibold uppercase tracking-widest px-2 py-1 rounded-md
+                            ${soyOwner ? 'bg-accent/20 text-accent-light' : 'bg-primary/20 text-primary-light'}`}>
             {rolLabel}
           </span>
         </div>
@@ -261,7 +261,7 @@ export default function EventWorkspace() {
       <div className="flex flex-col flex-1 overflow-hidden">
         <TopBar onMenu={() => setDrawer(true)} />
         <main className="relative flex-1 overflow-y-auto">
-          <div className="relative z-10 p-4 sm:p-6 max-w-7xl mx-auto w-full space-y-5">
+          <div className="relative z-10 p-4 sm:p-6 w-full space-y-5">
 
             {/* Header de sección */}
             <header className="flex items-center justify-between gap-3 flex-wrap">

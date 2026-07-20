@@ -229,11 +229,24 @@ export default function EventoPublicoPage() {
           {(activePage?.blocks || []).map(block => {
             if (block.data?.oculto) return null;
             if (hasCover && block.type === 'portada') return null;
+            if (block.type === 'lienzo') {
+              return (
+                <div key={block.id} className="animate-[fadeUp_0.4s_ease_both] -mx-4 sm:mx-0">
+                  <CanvasPublico
+                    canvas={block.data?.canvas}
+                    evento={evento}
+                    boletasRender={<BloqueBoletasCanvas evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />}
+                  />
+                </div>
+              );
+            }
             const B = BLOCKS[block.type];
             if (!B) return null;
             const Preview = B.Preview;
+            const animCls = { aparecer: 'gk-anim-fade', subir: 'gk-anim-up', zoom: 'gk-anim-zoom', izq: 'gk-anim-left', der: 'gk-anim-right' }[block.data?._anim] || 'animate-[fadeUp_0.4s_ease_both]';
+            const animStyle = block.data?._anim ? { animationDuration: `${block.data?._animDur || 0.8}s`, animationDelay: `${block.data?._animDelay || 0}s` } : undefined;
             return (
-              <div key={block.id} className="animate-[fadeUp_0.4s_ease_both]">
+              <div key={block.id} className={animCls} style={animStyle}>
                 <Preview data={block.data || {}} evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />
               </div>
             );
