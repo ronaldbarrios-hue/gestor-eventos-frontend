@@ -5,6 +5,7 @@ import { eventosApi } from '../../api/eventos.js';
 import { pagosApi }   from '../../api/pagos.js';
 import { BLOCKS } from '../events/editor/blocks.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/public/Branding.jsx';
+import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import { useT } from '../../lib/i18n.js';
 
@@ -115,7 +116,7 @@ export default function EventoPublicoPage() {
 
   return (
     <BrandingProvider organizador={organizador}>
-    <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-5xl mx-auto">
+    <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-6xl mx-auto">
 
       {/* Barra secundaria: volver + Rueda de Negocios/Torneo/Agenda (si aplican)
           + compartir (oculta "Explorar eventos" en modo standalone) */}
@@ -212,8 +213,19 @@ export default function EventoPublicoPage() {
           </>
         )}
 
-        {/* Bloques (se omite el bloque "portada" porque ya se muestra como hero arriba) */}
-        <div className="space-y-8 max-w-3xl mx-auto" key={activePage?.id}>
+        {/* Contenido de la página: lienzo libre o bloques ordenados */}
+        {activePage?.modo === 'lienzo' && activePage?.canvas?.elementos?.length > 0 ? (
+          <div key={activePage?.id} className="animate-[fadeUp_0.4s_ease_both]">
+            <CanvasPublico
+              canvas={activePage.canvas}
+              evento={evento}
+              boletasRender={
+                <BloqueBoletasCanvas evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />
+              }
+            />
+          </div>
+        ) : (
+        <div className="space-y-8 max-w-4xl mx-auto" key={activePage?.id}>
           {(activePage?.blocks || []).map(block => {
             if (block.data?.oculto) return null;
             if (hasCover && block.type === 'portada') return null;
@@ -227,6 +239,7 @@ export default function EventoPublicoPage() {
             );
           })}
         </div>
+        )}
 
         {/* Volver a explorar (oculto en modo standalone) */}
         <div className="mt-12 text-center">
@@ -612,4 +625,12 @@ function ModalShell({ children, onClose }) {
 function brandingEventoTitulo(evento) {
   const marca = evento.page_json?.branding?.plataforma;
   return marca ? `${evento.titulo} · ${marca}` : `${evento.titulo} · GESTEK`;
+}
+
+/* Boletas funcionales incrustadas en el lienzo libre */
+function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
+  const B = BLOCKS['tickets'];
+  if (!B) return null;
+  const Preview = B.Preview;
+  return <Preview data={{}} evento={evento} onReservar={onReservar} onWaitlist={onWaitlist} />;
 }

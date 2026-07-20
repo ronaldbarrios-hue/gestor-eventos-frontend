@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { BLOCKS, BLOCK_TYPES_SISTEMA, BLOCK_TYPES_CUSTOM } from './blocks.jsx';
 import { TemplatesPicker, instanciarTemplate } from './templates.jsx';
+import CanvasEditor from './canvas/CanvasEditor.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Event Experience · Editor de la landing — Rework (mockup del PDF)
@@ -46,6 +47,9 @@ export default function ExperienceBuilder({ evento, onClose }) {
   }, [pages]);
 
   const page = pages.find(p => p.id === pageId) || pages[0];
+  const modoPagina = page?.modo || 'bloques';
+  const setModoPagina = (m) => setPages(prev => prev.map(p => p.id === page.id ? { ...p, modo: m } : p));
+  const setCanvas = (canvas) => setPages(prev => prev.map(p => p.id === page.id ? { ...p, canvas } : p));
   const sel  = page?.blocks.find(b => b.id === selId) || null;
 
   const setBlocks = (updater) =>
@@ -107,6 +111,16 @@ export default function ExperienceBuilder({ evento, onClose }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Modo de diseño de la página */}
+          <div className="flex rounded-xl border border-border bg-surface overflow-hidden">
+            {[['bloques', 'Bloques'], ['lienzo', 'Lienzo libre']].map(([m, label]) => (
+              <button key={m} onClick={() => setModoPagina(m)}
+                className={`px-3 h-8 text-xs font-medium transition-colors
+                            ${modoPagina === m ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
           <button onClick={() => setTemplatesOpen(true)} className="btn-secondary btn-sm">Plantillas</button>
           <a href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm">Ver sitio público</a>
           {onClose && <button onClick={onClose} className="btn-ghost btn-sm">Salir</button>}
@@ -116,7 +130,9 @@ export default function ExperienceBuilder({ evento, onClose }) {
         </div>
       </div>
 
-      {/* ── 3 paneles ── */}
+      {modoPagina === 'lienzo' ? (
+        <CanvasEditor canvas={page?.canvas} onChange={setCanvas} evento={evento} />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] xl:grid-cols-[250px_1fr_400px] gap-4 items-start">
 
         {/* IZQUIERDA · Secciones de la landing */}
@@ -230,6 +246,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
           </div>
         </aside>
       </div>
+      )}
 
       {templatesOpen && <TemplatesPicker onPick={aplicarTemplate} onCancel={() => setTemplatesOpen(false)} />}
     </div>
