@@ -110,7 +110,7 @@ export default function App() {
                 <Route path="/eventos/:id/editar" element={<EventEditPage />} />
                 <Route path="/mi-espacio"         element={<MiEspacioPage />} />
                 <Route path="/ajustes"            element={<AjustesPage />} />
-                <Route path="/app/explorar"       element={<ExplorarPage />} />
+                <Route path="/app/explorar"       element={<Navigate to="/eventos?tab=explorar" replace />} />
                 <Route path="/app/explorar/:slug" element={<EventoPublicoPage />} />
                 <Route path="/mis-boletas"        element={<MisBoletasPage />} />
                 <Route path="/gestbot"            element={<GestbotPage />} />
