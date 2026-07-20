@@ -19,7 +19,7 @@ export default function PaginaPublicaTab({ evento }) {
   const previewWidth = DEVICES.find(d => d.id === device)?.w || '100%';
 
   if (mode === 'edit') {
-    return <PageBuilder evento={evento} onClose={() => { setMode('preview'); setReloadKey(k => k + 1); }} />;
+    return <ExperienceBuilder evento={evento} onClose={() => { setMode('preview'); setReloadKey(k => k + 1); }} />;
   }
 
   return (
