@@ -12,6 +12,10 @@ import TopBar from '../../../components/layout/TopBar.jsx';
 
 import ResumenSection    from './ResumenSection.jsx';
 import WhiteLabelSection from './WhiteLabelSection.jsx';
+import PagosSection        from './comercial/PagosSection.jsx';
+import FacturacionSection  from './comercial/FacturacionSection.jsx';
+import PromocionesSection  from './comercial/PromocionesSection.jsx';
+import CredencialesSection from './asistentes/CredencialesSection.jsx';
 import PaginaPublicaTab  from '../tabs/PaginaPublicaTab.jsx';
 import FormularioTab     from '../tabs/FormularioTab.jsx';
 import EquipoTab         from '../tabs/EquipoTab.jsx';
@@ -65,15 +69,15 @@ const SECCIONES = [
     { id: 'boletas',      label: 'Boletas',      perm: 'gestionar_tickets' },
     { id: 'pagos',        label: 'Pagos',        perm: 'ver_pagos' },
     { id: 'analytics',    label: 'Analytics',    perm: 'ver_analytics' },
-    { id: 'promociones',  label: 'Promociones',  perm: 'gestionar_tickets', placeholder: ['Promociones', 'Cupones, descuentos, preventas y accesos VIP.'] },
-    { id: 'facturacion',  label: 'Facturación',  perm: 'ver_pagos',         placeholder: ['Facturación', 'Facturas, historial y exportaciones contables.'] },
+    { id: 'promociones',  label: 'Promociones',  perm: 'gestionar_tickets' },
+    { id: 'facturacion',  label: 'Facturación',  perm: 'ver_pagos' },
   ]},
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
     { id: 'clientes',     label: 'Clientes',        perm: 'ver_clientes' },
     { id: 'checkin',      label: 'Check-in',        perm: 'checkin' },
     { id: 'waitlist',     label: 'Lista de espera', perm: '__solo_owner__' },
     { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes', placeholder: ['Invitaciones', 'Invitados especiales: VIP, prensa, speakers y patrocinadores.'] },
-    { id: 'credenciales', label: 'Credenciales',    perm: 'checkin',      placeholder: ['Credenciales', 'Generación de carnets, escarapelas e identificaciones.'] },
+    { id: 'credenciales', label: 'Credenciales',    perm: 'checkin' },
   ]},
   { id: 'dinamicas', label: 'Dinámicas', icon: TrophyIcon, tabs: [
     { id: 'networking', label: 'Rueda de negocios', perm: null },
@@ -335,11 +339,14 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio }) {
     case 'organizacion/agenda'      : return <AgendaTab evento={evento} />;
     case 'organizacion/ranking'     : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
-    case 'comercial/pagos'          : return <PlaceholderTab title="Pagos" desc="Conecta Mercado Pago o configura tu llave Bre-B; revisa transacciones y reembolsos." icon="wallet" />;
+    case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
     case 'comercial/analytics'      : return <AnalyticsTab evento={evento} />;
+    case 'comercial/promociones'    : return <PromocionesSection evento={evento} />;
+    case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
+    case 'asistentes/credenciales'  : return <CredencialesSection evento={evento} />;
     case 'dinamicas/networking'     : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
     case 'dinamicas/torneo'         : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
     case 'comunicacion/chat'        : return <ChatTab evento={evento} />;
