@@ -225,3 +225,19 @@
   .no-scrollbar::-webkit-scrollbar { display:none; }
   .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
 }
+
+/* ── Animaciones del Lienzo libre (Event Experience) ─────────────── */
+@keyframes gkFade  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes gkUp    { from { opacity: 0; transform: translateY(26px) } to { opacity: 1; transform: none } }
+@keyframes gkZoom  { from { opacity: 0; transform: scale(0.82) } to { opacity: 1; transform: none } }
+@keyframes gkLeft  { from { opacity: 0; transform: translateX(-34px) } to { opacity: 1; transform: none } }
+@keyframes gkRight { from { opacity: 0; transform: translateX(34px) } to { opacity: 1; transform: none } }
+@keyframes gkFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+@keyframes gkPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.045) } }
+.gk-anim-fade  { animation: gkFade  0.8s ease both; }
+.gk-anim-up    { animation: gkUp    0.8s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-zoom  { animation: gkZoom  0.8s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-left  { animation: gkLeft  0.8s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-right { animation: gkRight 0.8s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-float { animation: gkFloat 3.5s ease-in-out infinite; }
+.gk-anim-pulse { animation: gkPulse 2.2s ease-in-out infinite; }

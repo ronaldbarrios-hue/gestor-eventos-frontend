@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BLOCKS } from '../blocks.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Lienzo libre · catálogo de elementos (Rework Event Experience)
@@ -16,6 +17,28 @@ export const FUENTES_CANVAS = [
   { value: "Georgia, serif",              label: 'Georgia' },
   { value: "'JetBrains Mono', monospace", label: 'Mono' },
 ];
+
+export const ANIMACIONES = [
+  { value: '',         label: 'Sin animación' },
+  { value: 'aparecer', label: 'Aparecer (fade)' },
+  { value: 'subir',    label: 'Subir suave' },
+  { value: 'zoom',     label: 'Zoom' },
+  { value: 'izq',      label: 'Desde la izquierda' },
+  { value: 'der',      label: 'Desde la derecha' },
+  { value: 'maquina',  label: 'Máquina de escribir (solo texto)' },
+  { value: 'flotar',   label: 'Flotar (bucle)' },
+  { value: 'pulso',    label: 'Pulso (bucle)' },
+];
+
+const ANIM_CSS = {
+  aparecer: 'gk-anim-fade',
+  subir   : 'gk-anim-up',
+  zoom    : 'gk-anim-zoom',
+  izq     : 'gk-anim-left',
+  der     : 'gk-anim-right',
+  flotar  : 'gk-anim-float',
+  pulso   : 'gk-anim-pulse',
+};
 
 export const ELEMENTOS = {
   titulo: {
@@ -54,11 +77,33 @@ export const ELEMENTOS = {
     label: 'Video', icon: IcVideo,
     defaults: { w: 560, h: 320, props: { url: '' } },
   },
+  bloque: {
+    label: 'Sección del evento', icon: IcBloque,
+    defaults: { w: 760, h: 420, props: { bloque: 'agenda' } },
+  },
 };
 
+/* Bloques funcionales que se pueden incrustar en el lienzo */
+export const BLOQUES_INCRUSTABLES = Object.keys(BLOCKS)
+  .filter(k => !['portada', 'titulo'].includes(k))
+  .map(k => ({ value: k, label: BLOCKS[k].label }));
+
 /* ── Render de un elemento (compartido editor ↔ público) ── */
-export function ElementoRender({ el, evento, publico = false, onReservar }) {
+export function ElementoRender({ el, evento, publico = false, onReservar, animar = false, animKey = 0 }) {
   const p = el.props || {};
+  const anim = p.anim || '';
+  const activarAnim = (animar || animKey > 0) && anim;
+  const wrapStyle = activarAnim && ANIM_CSS[anim]
+    ? { animationDuration: `${p.animDur || 0.8}s`, animationDelay: `${p.animDelay || 0}s` }
+    : undefined;
+  const wrapClass = activarAnim && ANIM_CSS[anim] ? ANIM_CSS[anim] : '';
+  const contenido = renderInner(el, p, evento, publico, onReservar, activarAnim, animKey);
+  return wrapClass
+    ? <div key={animKey} className={`w-full h-full ${wrapClass}`} style={wrapStyle}>{contenido}</div>
+    : contenido;
+}
+
+function renderInner(el, p, evento, publico, onReservar, activarAnim, animKey) {
   const estiloTexto = {
     fontSize: p.fontSize, fontWeight: p.bold ? 700 : 400, textAlign: p.align,
     color: p.color || 'inherit', fontFamily: p.fuente || 'inherit',
@@ -66,8 +111,12 @@ export function ElementoRender({ el, evento, publico = false, onReservar }) {
   };
   switch (el.type) {
     case 'titulo':
-    case 'texto':
+    case 'texto': {
+      if (p.anim === 'maquina' && activarAnim) {
+        return <TextoMaquina key={animKey} texto={p.texto || ''} estilo={estiloTexto} display={el.type === 'titulo'} dur={p.animDur || 2} delay={p.animDelay || 0} />;
+      }
       return <div style={estiloTexto} className={el.type === 'titulo' ? 'font-display' : ''}>{p.texto}</div>;
+    }
     case 'imagen':
       return p.url
         ? <img src={p.url} alt="" draggable={false} className="w-full h-full select-none" style={{ objectFit: p.ajuste || 'cover', borderRadius: p.radio ?? 20 }} />
@@ -94,6 +143,16 @@ export function ElementoRender({ el, evento, publico = false, onReservar }) {
       return embed
         ? <iframe src={embed} className="w-full h-full rounded-2xl" style={{ pointerEvents: publico ? 'auto' : 'none' }} allowFullScreen title="video" />
         : <div className="w-full h-full flex items-center justify-center text-xs text-text-3 border-2 border-dashed border-border-2 rounded-2xl">Pega un link de YouTube/Vimeo</div>;
+    }
+    case 'bloque': {
+      const B = BLOCKS[p.bloque];
+      if (!B) return <div className="w-full h-full flex items-center justify-center text-xs text-text-3 border-2 border-dashed border-border-2 rounded-2xl">Elige la sección a la derecha</div>;
+      const Pv = B.Preview;
+      return (
+        <div className="w-full h-full overflow-y-auto no-scrollbar" style={{ pointerEvents: publico ? 'auto' : 'none' }}>
+          <Pv data={{}} evento={evento} isEditor={!publico} />
+        </div>
+      );
     }
     case 'boletas':
       return (
@@ -143,6 +202,31 @@ function urlEmbed(url = '') {
   return null;
 }
 
+/* Máquina de escribir: revela el texto carácter a carácter */
+function TextoMaquina({ texto, estilo, display, dur, delay }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    const chars = [...texto];
+    if (chars.length === 0) return;
+    const paso = Math.max(18, (dur * 1000) / chars.length);
+    let i = 0, intId;
+    const t = setTimeout(() => {
+      intId = setInterval(() => {
+        i += 1; setN(i);
+        if (i >= chars.length) clearInterval(intId);
+      }, paso);
+    }, (delay || 0) * 1000);
+    return () => { clearTimeout(t); clearInterval(intId); };
+  }, [texto, dur, delay]);
+  return (
+    <div style={estilo} className={display ? 'font-display' : ''}>
+      {[...texto].slice(0, n).join('')}
+      <span className="opacity-60 animate-pulse">▍</span>
+    </div>
+  );
+}
+
 /* icons */
 function IcTexto({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" d="M4 6h16M4 6v2m16-2v2M12 6v14m-3 0h6" /></svg>; }
 function IcParrafo({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" d="M4 6h16M4 10h16M4 14h10M4 18h7" /></svg>; }
@@ -152,4 +236,5 @@ function IcReloj({ className }) { return <svg className={className} fill="none" 
 function IcCaja({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="4" y="4" width="16" height="16" rx="3" /></svg>; }
 function IcLinea({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M4 12h16" /></svg>; }
 function IcTicket({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>; }
+function IcBloque({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>; }
 function IcVideo({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.55-2.28A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>; }

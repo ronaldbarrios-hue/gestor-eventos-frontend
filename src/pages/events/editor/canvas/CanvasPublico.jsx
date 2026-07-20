@@ -27,6 +27,7 @@ export default function CanvasPublico({ canvas, evento, boletasRender }) {
             el={el}
             evento={evento}
             publico
+            animar
             onReservar={el.type === 'boletas' ? boletasRender : undefined}
           />
         </div>
