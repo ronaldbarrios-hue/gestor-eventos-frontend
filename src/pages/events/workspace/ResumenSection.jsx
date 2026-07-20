@@ -59,6 +59,30 @@ export default function ResumenSection({ evento, soyOwner }) {
 
   return (
     <div className="space-y-5">
+      {/* ── Banner con identidad del evento ── */}
+      <div className="relative h-40 sm:h-52 rounded-3xl overflow-hidden border border-border">
+        {evento.cover_url ? (
+          <img src={evento.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/30 via-primary/20 to-transparent" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 p-5 flex items-end justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold font-display text-white tracking-tight truncate">{evento.titulo}</h2>
+            <p className="text-sm text-white/70 truncate">
+              {evento.fecha_inicio ? new Date(evento.fecha_inicio).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' }) : 'Sin fecha'}
+              {evento.location_nombre ? ` · ${evento.location_nombre}` : ''}
+            </p>
+          </div>
+          {diasRestantes !== null && diasRestantes >= 0 && (
+            <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur text-white text-xs font-semibold">
+              {diasRestantes === 0 ? '¡Es hoy!' : `Faltan ${diasRestantes} día${diasRestantes !== 1 ? 's' : ''}`}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Kpi label="Boletas vendidas" valor={(evento.aforo_vendido || 0).toLocaleString('es-CO')} />

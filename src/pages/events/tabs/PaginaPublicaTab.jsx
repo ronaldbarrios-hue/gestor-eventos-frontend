@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import PageBuilder from '../editor/PageBuilder.jsx';
+import ExperienceBuilder from '../editor/ExperienceBuilder.jsx';
 
 /* Tab Página pública — alterna entre Preview (vista cliente con iframe)
    y Editor (constructor visual de bloques). */

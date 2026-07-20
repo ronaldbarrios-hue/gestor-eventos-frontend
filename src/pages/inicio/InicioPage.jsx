@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { PanelEspacio } from '../espacio/MiEspacioPage.jsx';
+import VistaColaborador from '../../components/inicio/VistaColaborador.jsx';
 import { EspacioDataProvider } from '../../components/widgets/espacio/EspacioData.jsx';
 import { useWidgets } from '../../hooks/useWidgets.js';
 import { InicioDataProvider, useInicioData } from '../../components/inicio/InicioDataContext.jsx';
@@ -99,7 +99,7 @@ function InicioContent() {
 
       {vistaRol === 'colaborador' ? (
         <EspacioDataProvider>
-          <PanelEspacio embebido />
+          <VistaColaborador />
         </EspacioDataProvider>
       ) : (<>
 

@@ -14,7 +14,7 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
       <aside
         className={`fixed top-0 right-0 z-[80] h-full w-[340px] max-w-[90vw] bg-surface border-l border-border
                     flex flex-col transform transition-transform duration-300
-                    ${open ? 'translate-x-0' : 'translate-x-full'}`}
+                    ${open ? 'translate-x-0' : 'translate-x-full invisible'}`}
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>

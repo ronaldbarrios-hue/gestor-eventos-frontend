@@ -75,7 +75,7 @@ export default function MiEspacioPage() {
   );
 }
 
-export function PanelEspacio({ embebido = false }) {
+function PanelEspacio({ embebido = false }) {
   const { usuario } = useAuth();
   const { layout, visibles, toggle, setSize, mover, reset } = useWidgets('mi-espacio', ESPACIO_WIDGETS);
   const [panelOpen, setPanelOpen] = useState(false);
