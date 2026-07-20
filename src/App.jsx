@@ -19,6 +19,8 @@ const TorneoPublicoPage  = lazy(() => import('./pages/public/TorneoPublicoPage.j
 const AgendaPublicaPage  = lazy(() => import('./pages/public/AgendaPublicaPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
 const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
+const PrivacidadPage     = lazy(() => import('./pages/public/PrivacidadPage.jsx'));
+const TerminosPage       = lazy(() => import('./pages/public/TerminosPage.jsx'));
 const RecuperarPage      = lazy(() => import('./pages/RecuperarPage.jsx'));
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage.jsx'));
 const ConfirmarPage      = lazy(() => import('./pages/ConfirmarPage.jsx'));
@@ -89,6 +91,8 @@ export default function App() {
                 <Route path="/explorar/:slug/agenda" element={<AgendaPublicaPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
                   <Route path="/faq"               element={<FAQPage />} />
+                <Route path="/privacidad"        element={<PrivacidadPage />} />
+                <Route path="/terminos"          element={<TerminosPage />} />
               </Route>
 
               <Route path="/login"    element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />

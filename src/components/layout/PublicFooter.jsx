@@ -38,6 +38,14 @@ export default function PublicFooter() {
             <li><Link to="/faq"      className="text-sm text-text-2 hover:text-text-1 transition-colors">FAQ</Link></li>
           </ul>
         </div>
+
+        <div>
+          <h4 className="text-xs font-semibold uppercase tracking-widest text-text-3 mb-3">Legal</h4>
+          <ul className="space-y-2">
+            <li><Link to="/privacidad" className="text-sm text-text-2 hover:text-text-1 transition-colors">Política de Privacidad</Link></li>
+            <li><Link to="/terminos"   className="text-sm text-text-2 hover:text-text-1 transition-colors">Términos del Servicio</Link></li>
+          </ul>
+        </div>
       </div>
 
       <div className="border-t border-border">
