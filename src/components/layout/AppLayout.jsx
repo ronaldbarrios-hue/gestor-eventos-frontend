@@ -3,16 +3,16 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import TopBar from './TopBar.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { useBranding } from '../../hooks/useBranding.js';
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  const { usuario } = useAuth();
-  const b = useBranding(usuario?.raw?.user_metadata?.branding);
-  const bPrimary = b?.primary || '#3B82F6';
-  const bAccent  = b?.accent  || '#8B5CF6';
-  const bBg      = b?.bg || null;
+  useAuth(); /* mantiene el contexto activo */
+  /* Rework: el shell de la app respeta SIEMPRE los tokens de tema
+     (claro/oscuro). El branding es por evento y vive en su sitio
+     público — ya no pinta el panel interno. */
+  const bPrimary = '#3B82F6';
+  const bAccent  = '#8B5CF6';
 
   /* Cerrar drawer al navegar */
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -24,8 +24,7 @@ export default function AppLayout() {
   }, [open]);
 
   return (
-    <div className="flex h-screen bg-bg overflow-hidden"
-         style={bBg ? { background: bBg } : undefined}>
+    <div className="flex h-screen bg-bg overflow-hidden">
       {/* Sidebar desktop */}
       <div className="hidden lg:flex">
         <Sidebar />

@@ -15,14 +15,19 @@ import UsersPage from '../users/UsersPage.jsx';
    "¿Cómo quiero que funcione mi cuenta y mi espacio de trabajo?"
    ────────────────────────────────────────────────────────────────── */
 
+const I = (d) => ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+  </svg>
+);
 const APARTADOS = [
-  { id: 'perfil',        label: 'Mi Perfil',          icon: '👤' },
-  { id: 'organizacion',  label: 'Organización',       icon: '🏢' },
-  { id: 'espacio',       label: 'Espacio de Trabajo', icon: '🧩' },
-  { id: 'notificaciones',label: 'Notificaciones',     icon: '🔔' },
-  { id: 'seguridad',     label: 'Seguridad',          icon: '🔐' },
-  { id: 'integraciones', label: 'Integraciones',      icon: '🔌' },
-  { id: 'preferencias',  label: 'Preferencias',       icon: '⚙️' },
+  { id: 'perfil',        label: 'Mi Perfil',          icon: I('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
+  { id: 'organizacion',  label: 'Organización',       icon: I('M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4') },
+  { id: 'espacio',       label: 'Espacio de Trabajo', icon: I('M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z') },
+  { id: 'notificaciones',label: 'Notificaciones',     icon: I('M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3C7.7 6.2 6 8.4 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
+  { id: 'seguridad',     label: 'Seguridad',          icon: I('M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z') },
+  { id: 'integraciones', label: 'Integraciones',      icon: I('M13 10V3L4 14h7v7l9-11h-7z') },
+  { id: 'preferencias',  label: 'Preferencias',       icon: I('M10.3 4.3c.4-1.8 2.9-1.8 3.4 0a1.7 1.7 0 002.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 001 2.5c1.8.5 1.8 3 0 3.4a1.7 1.7 0 00-1 2.6c.9 1.5-.9 3.3-2.4 2.4a1.7 1.7 0 00-2.6 1c-.5 1.8-3 1.8-3.4 0a1.7 1.7 0 00-2.5-1c-1.6.9-3.3-.9-2.4-2.4a1.7 1.7 0 00-1.1-2.6c-1.8-.4-1.8-2.9 0-3.4a1.7 1.7 0 001.1-2.5c-.9-1.6.8-3.3 2.4-2.4 1 .6 2.3.1 2.5-1.1z M15 12a3 3 0 11-6 0 3 3 0 016 0z') },
 ];
 
 export default function AjustesPage() {
@@ -40,7 +45,7 @@ export default function AjustesPage() {
             className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors text-left
                         ${apartado === a.id ? 'bg-accent text-white shadow-glow-sm' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
           >
-            <span className="text-base leading-none">{a.icon}</span>
+            <a.icon className="w-[17px] h-[17px] flex-shrink-0" />
             {a.label}
           </button>
         ))}
@@ -77,6 +82,18 @@ function Seccion({ titulo, desc, children }) {
 
 /* ── 2. Organización ── */
 function Organizacion() {
+  const { hasPermiso, usuario } = useAuth();
+  const esAdmin = hasPermiso('usuarios:ver') || usuario?.rol === 'admin_global';
+  if (!esAdmin) {
+    return (
+      <Seccion titulo="Organización" desc="Miembros, roles globales y auditoría de tu organización.">
+        <div className="card p-6">
+          <h3 className="text-sm font-semibold text-text-1 mb-1.5">Solo para administradores</h3>
+          <p className="text-sm text-text-2">La gestión de miembros y roles globales de la organización está disponible únicamente para cuentas administradoras. Si necesitas acceso, pídele a tu administrador que te lo otorgue.</p>
+        </div>
+      </Seccion>
+    );
+  }
   return (
     <Seccion titulo="Organización" desc="Miembros, roles globales y auditoría de tu organización.">
       <UsersPage />

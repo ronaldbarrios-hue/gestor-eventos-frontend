@@ -10,6 +10,7 @@ import {
   MisTareasWidget, MisSolicitudesWidget, MiCalendarioWidget, MisRecursosWidget,
   MisNotasWidget, MisLogrosWidget, MisBoletasWidget, MiActividadWidget,
 } from '../../components/widgets/espacio/EspacioWidgets.jsx';
+import MiEventoWidget from '../../components/widgets/espacio/MiEventoWidget.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Mi Espacio — Rework Fase 4
@@ -20,6 +21,7 @@ import {
    ────────────────────────────────────────────────────────────────── */
 
 const ESPACIO_WIDGETS = [
+  { id: 'mi-evento',       titulo: 'Mi evento',       descripcion: 'Fija un evento y ve sus tareas, prioridades y equipo.',           defaultSize: 'md', defaultVisible: true  },
   { id: 'mis-tareas',      titulo: 'Mis tareas',      descripcion: 'Tus tareas pendientes en todos los eventos, con vencimientos.', defaultSize: 'md', defaultVisible: true  },
   { id: 'mi-calendario',   titulo: 'Mi calendario',   descripcion: 'Próximos eventos en los que participas.',                       defaultSize: 'sm', defaultVisible: true  },
   { id: 'mis-recursos',    titulo: 'Mis recursos',    descripcion: 'PDFs, diapositivas y archivos para tu trabajo.',                defaultSize: 'sm', defaultVisible: true  },
@@ -31,6 +33,7 @@ const ESPACIO_WIDGETS = [
 ];
 
 const COMPONENTES = {
+  'mi-evento'      : MiEventoWidget,
   'mis-tareas'     : MisTareasWidget,
   'mi-calendario'  : MiCalendarioWidget,
   'mis-recursos'   : MisRecursosWidget,
@@ -72,7 +75,7 @@ export default function MiEspacioPage() {
   );
 }
 
-function PanelEspacio() {
+export function PanelEspacio({ embebido = false }) {
   const { usuario } = useAuth();
   const { layout, visibles, toggle, setSize, mover, reset } = useWidgets('mi-espacio', ESPACIO_WIDGETS);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -84,7 +87,7 @@ function PanelEspacio() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
+      <header className={`flex items-start justify-between gap-4 flex-wrap ${embebido ? 'hidden' : ''}`}>
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">Mi Espacio</h1>
           <p className="text-sm text-text-2 mt-1">

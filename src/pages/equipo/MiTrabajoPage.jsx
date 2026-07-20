@@ -135,7 +135,7 @@ function EventoTrabajo({ ev }) {
           Tus tareas pendientes {tareas.length > 0 && <span className="text-warning">({tareas.length})</span>}
         </p>
         {tareas.length === 0 ? (
-          <p className="text-sm text-text-3">No tienes tareas pendientes en este evento. 🎉</p>
+          <p className="text-sm text-text-3">No tienes tareas pendientes en este evento.</p>
         ) : tareas.map(t => (
           <div key={t.id} className="rounded-xl border border-border bg-surface/40 p-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">

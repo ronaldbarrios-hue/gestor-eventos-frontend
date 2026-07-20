@@ -11,14 +11,17 @@ import { useAuth } from '../context/AuthContext.jsx';
 
 export const TAMANOS = ['sm', 'md', 'lg', 'full'];
 
-/* Registry del INICIO */
+/* Registry del INICIO — orden default por jerarquía de importancia:
+   1) lo que opero (eventos), 2) lo que me toca hacer (mi trabajo),
+   3) cómo va el negocio (ventas), 4) qué viene (calendario),
+   5) qué pasó (actividad), 6) el asistente (gestbot). */
 export const WIDGETS_META = [
-  { id: 'eventos',       titulo: 'Eventos activos',    descripcion: 'Eventos en los que participas, con acceso rápido.', defaultSize: 'md',  defaultVisible: true  },
-  { id: 'mi-trabajo',    titulo: 'Mi trabajo',         descripcion: 'Tareas, solicitudes y aprobaciones pendientes.',    defaultSize: 'md',  defaultVisible: true  },
-  { id: 'calendario',    titulo: 'Calendario',         descripcion: 'Próximos compromisos relacionados contigo.',        defaultSize: 'sm',  defaultVisible: true  },
-  { id: 'actividad',     titulo: 'Actividad reciente', descripcion: 'Timeline de lo último en tu organización.',         defaultSize: 'sm',  defaultVisible: true  },
+  { id: 'eventos',       titulo: 'Eventos activos',    descripcion: 'Eventos en los que participas, con acceso rápido.', defaultSize: 'lg',  defaultVisible: true  },
   { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'sm',  defaultVisible: true  },
+  { id: 'mi-trabajo',    titulo: 'Mi trabajo',         descripcion: 'Tareas, solicitudes y aprobaciones pendientes.',    defaultSize: 'md',  defaultVisible: true  },
   { id: 'ventas',        titulo: 'Ventas',             descripcion: 'Resumen de boletas vendidas y ocupación.',          defaultSize: 'sm',  defaultVisible: true  },
+  { id: 'calendario',    titulo: 'Calendario',         descripcion: 'Próximos compromisos relacionados contigo.',        defaultSize: 'sm',  defaultVisible: true  },
+  { id: 'actividad',     titulo: 'Actividad reciente', descripcion: 'Timeline de lo último en tu organización.',         defaultSize: 'md',  defaultVisible: true  },
   { id: 'mensajes',      titulo: 'Mensajes',           descripcion: 'Actividad reciente de los chats.',                  defaultSize: 'sm',  defaultVisible: false },
   { id: 'recordatorios', titulo: 'Recordatorios',      descripcion: 'Tus recordatorios y notas personales.',             defaultSize: 'sm',  defaultVisible: false },
   { id: 'notificaciones',titulo: 'Notificaciones',     descripcion: 'Alertas importantes sin leer.',                     defaultSize: 'sm',  defaultVisible: false },
@@ -31,7 +34,7 @@ const layoutDefault = (meta) => ({
 
 export function useWidgets(scope = 'inicio', meta = WIDGETS_META) {
   const { usuario } = useAuth();
-  const KEY = `gestek-${scope}-layout-v1:${usuario?.id || 'anon'}`;
+  const KEY = `gestek-${scope}-layout-v2:${usuario?.id || 'anon'}`;
 
   const [layout, setLayout] = useState(() => {
     try {

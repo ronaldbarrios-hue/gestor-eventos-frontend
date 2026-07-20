@@ -273,7 +273,7 @@ function EquiposView({ evento, torneo, equipos, soyOwner, onReload }) {
           </div>
           {equipos.length >= minRequerido && (
             <button onClick={generar} className="btn-primary btn-sm">
-              🏆 Generar fixture ({equipos.length} equipos)
+              Generar fixture ({equipos.length} equipos)
             </button>
           )}
         </div>
@@ -948,7 +948,7 @@ function GruposView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
     return (
       <div className="space-y-6">
         <div className="rounded-2xl bg-success/10 border border-success/25 px-4 py-3 text-sm text-text-2">
-          ✅ La fase de grupos ya se cerró. Los clasificados están jugando la eliminatoria — revisa la pestaña "Bracket".
+          La fase de grupos ya se cerró. Los clasificados están jugando la eliminatoria — revisa la pestaña "Bracket".
         </div>
         {(porGrupo || []).map(g => (
           <div key={g.grupo}>

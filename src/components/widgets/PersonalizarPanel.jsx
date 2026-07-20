@@ -7,12 +7,12 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-bg/60 backdrop-blur-sm transition-opacity
+        className={`fixed inset-0 z-[70] bg-bg/60 backdrop-blur-sm transition-opacity
                     ${open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
       <aside
-        className={`fixed top-0 right-0 z-50 h-full w-[340px] max-w-[90vw] bg-surface border-l border-border
+        className={`fixed top-0 right-0 z-[80] h-full w-[340px] max-w-[90vw] bg-surface border-l border-border
                     flex flex-col transform transition-transform duration-300
                     ${open ? 'translate-x-0' : 'translate-x-full'}`}
       >

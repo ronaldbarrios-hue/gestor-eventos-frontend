@@ -125,7 +125,7 @@ export default function TopBar({ onMenu }) {
 
   return (
     <header
-      className="flex-shrink-0 bg-surface border-b border-border flex items-center gap-3 px-4 sm:px-6 relative z-10"
+      className="flex-shrink-0 bg-surface border-b border-border flex items-center gap-3 px-4 sm:px-6 relative z-40"
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)',
         minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
@@ -195,8 +195,8 @@ export default function TopBar({ onMenu }) {
 
           {notifOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
-              <div className="absolute right-0 top-11 z-20 w-80 card-glass rounded-2xl overflow-hidden animate-[scaleIn_0.15s_ease_both] origin-top-right">
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+              <div className="absolute right-0 top-11 z-50 w-80 card-glass rounded-2xl overflow-hidden animate-[scaleIn_0.15s_ease_both] origin-top-right">
                 <div className="card-header">
                   <h3 className="text-sm font-semibold text-text-1">Notificaciones</h3>
                   {unread > 0 && (
@@ -250,8 +250,8 @@ export default function TopBar({ onMenu }) {
 
           {accountOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setAccountOpen(false)} />
-              <div className="absolute right-0 top-12 z-20 w-64 card-glass rounded-2xl overflow-hidden animate-[scaleIn_0.15s_ease_both] origin-top-right">
+              <div className="fixed inset-0 z-40" onClick={() => setAccountOpen(false)} />
+              <div className="absolute right-0 top-12 z-50 w-64 card-glass rounded-2xl overflow-hidden animate-[scaleIn_0.15s_ease_both] origin-top-right">
                 <div className="px-4 py-3 border-b border-border">
                   <p className="text-sm font-semibold text-text-1 truncate">{usuario?.nombre || 'Usuario'}</p>
                   <p className="text-xs text-text-2 truncate">{usuario?.email || ''}</p>

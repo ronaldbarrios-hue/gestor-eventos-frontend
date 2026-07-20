@@ -182,7 +182,7 @@ export default function EventCreatePage() {
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm font-medium transition-colors
                             ${usandoPlantilla === ev.id ? 'border-accent bg-accent text-white' : 'border-border bg-surface text-text-1 hover:border-accent/50'}`}
               >
-                {usandoPlantilla === ev.id ? <Spinner size="sm" /> : '📋'} {ev.titulo}
+                {usandoPlantilla === ev.id ? <Spinner size="sm" /> : null} {ev.titulo}
               </button>
             ))}
           </div>

@@ -20,7 +20,7 @@ export default function MiTrabajoWidget() {
           </div>
         ))}
         {!loading && items.length === 0 && (
-          <p className="text-sm text-text-2 text-center py-6">Nada pendiente. Buen trabajo ✨</p>
+          <p className="text-sm text-text-2 text-center py-6">Nada pendiente. Buen trabajo</p>
         )}
       </div>
       <Link to="/mi-espacio" className="block text-center text-sm text-accent hover:underline py-3 border-t border-border">

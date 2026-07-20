@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { PanelEspacio } from '../espacio/MiEspacioPage.jsx';
+import { EspacioDataProvider } from '../../components/widgets/espacio/EspacioData.jsx';
 import { useWidgets } from '../../hooks/useWidgets.js';
 import { InicioDataProvider, useInicioData } from '../../components/inicio/InicioDataContext.jsx';
 import QuickActions from '../../components/inicio/QuickActions.jsx';
@@ -44,6 +46,9 @@ export default function InicioPage() {
 
 function InicioContent() {
   const { usuario } = useAuth();
+  const VISTA_KEY = `gestek-inicio-vista:${usuario?.id || 'anon'}`;
+  const [vistaRol, setVistaRol] = useState(() => { try { return localStorage.getItem(VISTA_KEY) || 'organizador'; } catch { return 'organizador'; } });
+  const cambiarVista = (v) => { setVistaRol(v); try { localStorage.setItem(VISTA_KEY, v); } catch { /* noop */ } };
   const { layout, visibles, toggle, setSize, mover, reset } = useWidgets('inicio', WIDGETS_META);
   const [panelOpen, setPanelOpen] = useState(false);
   const { eventos, notifs, solicitudes, loading } = useInicioData();
@@ -63,14 +68,27 @@ function InicioContent() {
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">
-            {saludo}, {nombre} 👋
+            {saludo}, {nombre}
           </h1>
           <p className="text-sm text-text-2 mt-1">
             {loading ? 'Cargando tu actividad…'
               : `Tienes ${activos} evento${activos !== 1 ? 's' : ''} activo${activos !== 1 ? 's' : ''}, ${pendientes} pendiente${pendientes !== 1 ? 's' : ''} y ${sinLeer} notificación${sinLeer !== 1 ? 'es' : ''} sin leer.`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Vista: lo que administro vs. donde colaboro */}
+          <div className="flex rounded-xl border border-border bg-surface overflow-hidden">
+            {[['organizador', 'Organizador'], ['colaborador', 'Colaborador']].map(([v, label]) => (
+              <button
+                key={v}
+                onClick={() => cambiarVista(v)}
+                className={`px-3.5 h-10 text-sm font-medium transition-colors
+                            ${vistaRol === v ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button onClick={() => setPanelOpen(true)} className="btn-secondary">
             <SlidersIcon className="w-4 h-4" />
             <span className="hidden sm:inline">Personalizar</span>
@@ -78,6 +96,12 @@ function InicioContent() {
           <QuickActions />
         </div>
       </header>
+
+      {vistaRol === 'colaborador' ? (
+        <EspacioDataProvider>
+          <PanelEspacio embebido />
+        </EspacioDataProvider>
+      ) : (<>
 
       {/* KPIs rápidos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -114,6 +138,8 @@ function InicioContent() {
           <button onClick={() => setPanelOpen(true)} className="btn-primary">Agregar widgets</button>
         </div>
       )}
+
+      </>)}
 
       <PersonalizarPanel
         open={panelOpen}

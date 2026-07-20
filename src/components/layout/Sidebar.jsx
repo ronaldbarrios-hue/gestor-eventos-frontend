@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import GestekMark from './GestekMark.jsx';
+import Criatura from '../agente/Criatura.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Sidebar — Rework 2026
@@ -98,10 +99,8 @@ export default function Sidebar({ mobile = false, onClose }) {
       {/* ── Hotspot Gestbot ── */}
       <div className="p-3">
         <div className="rounded-2xl bg-sidebar-2 border border-white/5 p-4">
-          <div className="flex items-center gap-2.5 mb-2">
-            <span className="w-8 h-8 rounded-xl bg-accent/20 text-accent-light flex items-center justify-center flex-shrink-0">
-              <SparkIcon className="w-4 h-4" />
-            </span>
+          <div className="flex items-center gap-3 mb-2.5">
+            <div className="flex-shrink-0 -my-1"><Criatura mood="happy" size={52} /></div>
             <p className="text-[13px] font-semibold text-white leading-tight">¿Necesitas ayuda en algo?</p>
           </div>
           <NavLink

@@ -142,7 +142,7 @@ export default function EventoPublicoPage() {
             <Link to={`/explorar/${slug}/torneo`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-warning/30
                          bg-warning/10 text-sm text-warning hover:bg-warning/20 transition-colors">
-              🏆 Ver Torneo
+              Ver Torneo
             </Link>
           )}
           {evento.tiene_agenda && (

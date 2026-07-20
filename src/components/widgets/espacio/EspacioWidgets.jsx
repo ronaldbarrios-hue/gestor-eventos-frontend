@@ -32,7 +32,7 @@ export function MisTareasWidget() {
   };
 
   if (loading) return <p className="text-sm text-text-3 p-5">Cargando tus tareas…</p>;
-  if (mias.length === 0) return <p className="text-sm text-text-2 text-center py-8 px-5">Sin tareas pendientes. ✨</p>;
+  if (mias.length === 0) return <p className="text-sm text-text-2 text-center py-8 px-5">Sin tareas pendientes.</p>;
 
   return (
     <ul className="divide-y divide-border">
@@ -48,7 +48,15 @@ export function MisTareasWidget() {
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-text-1 truncate">{t.titulo}</p>
-              <p className="text-[11px] text-text-3 truncate">{t.evento.titulo}</p>
+              <p className="text-[11px] text-text-3 truncate flex items-center gap-1.5">
+                {t.prioridad && (
+                  <span className={`px-1.5 py-px rounded-full text-[9px] font-semibold uppercase tracking-wide
+                    ${t.prioridad === 'alta' ? 'bg-danger/15 text-danger' : t.prioridad === 'media' ? 'bg-warning/15 text-warning' : 'bg-surface-2 text-text-3'}`}>
+                    {t.prioridad}
+                  </span>
+                )}
+                <span className="truncate">{t.evento.titulo}</span>
+              </p>
             </div>
             {t.vence_at && (
               <span className={`text-xs tabular-nums flex-shrink-0 ${vencida ? 'text-danger font-medium' : 'text-text-3'}`}>
@@ -114,7 +122,16 @@ export function MiCalendarioWidget() {
 }
 
 /* ── Mis recursos (PDFs, diapositivas, archivos de trabajo) ── */
-const EXT_ICON = { pdf: '📄', ppt: '📊', pptx: '📊', doc: '📝', docx: '📝', xls: '📈', xlsx: '📈', png: '🖼️', jpg: '🖼️', jpeg: '🖼️' };
+function FileIcon({ ext }) {
+  const color = { pdf: 'text-danger', ppt: 'text-warning', pptx: 'text-warning', xls: 'text-success', xlsx: 'text-success' }[ext] || 'text-primary';
+  return (
+    <span className={`w-7 h-7 rounded-lg bg-surface-2 flex items-center justify-center flex-shrink-0 ${color}`}>
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    </span>
+  );
+}
 
 export function MisRecursosWidget() {
   const { usuario } = useAuth();
@@ -153,7 +170,7 @@ export function MisRecursosWidget() {
       <ul className="flex-1 divide-y divide-border overflow-y-auto no-scrollbar">
         {items.map(i => (
           <li key={i.id} className="flex items-center gap-2.5 px-4 py-2 group">
-            <span className="text-base flex-shrink-0">{EXT_ICON[i.ext] || '📁'}</span>
+            <FileIcon ext={i.ext} />
             <a href={i.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm text-text-1 hover:text-accent truncate transition-colors">
               {i.nombre}
             </a>
@@ -211,7 +228,9 @@ export function MisLogrosWidget() {
   return (
     <div className="p-5 flex flex-col h-full">
       <div className="flex items-center gap-4 mb-4">
-        <span className="w-12 h-12 rounded-2xl bg-warning/15 text-warning text-xl flex items-center justify-center">🏆</span>
+        <span className="w-12 h-12 rounded-2xl bg-warning/15 text-warning flex items-center justify-center">
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8m-4-4v4m7-13a3 3 0 003-3V3H6v2a3 3 0 003 3m6 0a6 6 0 11-6 0m9-3h2a2 2 0 01-2 2m-13-2H3a2 2 0 002 2" /></svg>
+        </span>
         <div>
           <p className="text-2xl font-bold font-display text-text-1 tabular-nums">{loading ? '—' : puntos.toLocaleString('es-CO')}</p>
           <p className="text-xs text-text-3">Puntos acumulados{nivel ? ` · Nivel ${nivel}` : ''}</p>
@@ -235,7 +254,9 @@ export function MisBoletasWidget() {
             <ul className="space-y-2.5">
               {proximas.map((b, i) => (
                 <li key={b.id || i} className="flex items-center gap-2.5">
-                  <span className="text-base">🎟️</span>
+                  <span className="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
+                  </span>
                   <div className="min-w-0">
                     <p className="text-sm text-text-1 truncate">{b.evento_titulo || b.evento?.titulo || 'Evento'}</p>
                     <p className="text-[11px] text-text-3 capitalize">{b.estado || 'confirmada'}</p>

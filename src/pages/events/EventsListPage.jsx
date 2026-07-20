@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { confirmDialog } from '../../components/ui/Confirm.jsx';
 import { eventosApi } from '../../api/eventos.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { useEventosPrefs } from '../../hooks/useEventosPrefs.js';
 import { EstadoBadge, ModalidadBadge } from '../../components/ui/Badge.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
@@ -17,6 +18,11 @@ import ExplorarPage from '../public/ExplorarPage.jsx';
    Favoritos y recientes arriba · acciones rápidas por evento
    ────────────────────────────────────────────────────────────────── */
 
+const FILTRO_ROL = [
+  { value: '',            label: 'Organizando y colaborando' },
+  { value: 'organizando', label: 'Organizando' },
+  { value: 'colaborando', label: 'Colaborando' },
+];
 const FILTRO_ESTADOS = [
   { value: '',            label: 'Todos'         },
   { value: 'publicado',   label: 'Publicados'    },
@@ -59,6 +65,7 @@ function pasaFiltroFecha(e, filtro) {
 
 export default function EventsListPage() {
   const { success, error: err } = useToast();
+  const { usuario } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { vista, favoritos, recientes, setVista, toggleFavorito, registrarReciente } = useEventosPrefs();
@@ -68,7 +75,7 @@ export default function EventsListPage() {
   const [categorias, setCategorias] = useState([]);
   const [q, setQ] = useState(searchParams.get('q') || '');
   const [pestana, setPestana] = useState(searchParams.get('tab') === 'explorar' ? 'explorar' : 'mios');
-  const [filtros, setFiltros] = useState({ estado: '', fecha: '', modalidad: '', categoria: '' });
+  const [filtros, setFiltros] = useState({ rol: '', estado: '', fecha: '', modalidad: '', categoria: '' });
   const [accionando, setAccionando] = useState(null);
 
   const cargar = useCallback(async () => {
@@ -100,6 +107,11 @@ export default function EventsListPage() {
   const filtrados = useMemo(() => {
     const texto = q.trim().toLowerCase();
     return eventos.filter(e => {
+      if (filtros.rol) {
+        const soyDueno = String(e.owner_id) === String(usuario?.id);
+        if (filtros.rol === 'organizando' && !soyDueno) return false;
+        if (filtros.rol === 'colaborando' && soyDueno) return false;
+      }
       if (!filtros.estado && e.estado === 'archivado') return false; /* archivados solo bajo demanda */
       if (filtros.estado && e.estado !== filtros.estado) return false;
       if (filtros.modalidad && e.modalidad !== filtros.modalidad) return false;
@@ -111,7 +123,7 @@ export default function EventsListPage() {
       }
       return true;
     });
-  }, [eventos, q, filtros]);
+  }, [eventos, q, filtros, usuario?.id]);
 
   /* Orden: favoritos → recientes → fecha próxima */
   const ordenados = useMemo(() => {
@@ -235,6 +247,7 @@ export default function EventsListPage() {
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Select value={filtros.rol}       onChange={v => setFiltros(f => ({ ...f, rol: v }))}       opciones={FILTRO_ROL} />
           <Select value={filtros.estado}    onChange={v => setFiltros(f => ({ ...f, estado: v }))}    opciones={FILTRO_ESTADOS} />
           <Select value={filtros.fecha}     onChange={v => setFiltros(f => ({ ...f, fecha: v }))}     opciones={FILTRO_FECHAS} />
           <Select value={filtros.modalidad} onChange={v => setFiltros(f => ({ ...f, modalidad: v }))} opciones={FILTRO_MODALIDAD} />

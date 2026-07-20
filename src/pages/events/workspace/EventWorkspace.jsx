@@ -7,6 +7,7 @@ import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { EstadoBadge } from '../../../components/ui/Badge.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import GestekMark from '../../../components/layout/GestekMark.jsx';
+import Criatura from '../../../components/agente/Criatura.jsx';
 import TopBar from '../../../components/layout/TopBar.jsx';
 
 import ResumenSection    from './ResumenSection.jsx';
@@ -229,7 +230,10 @@ export default function EventWorkspace() {
       {/* Gestbot + salir */}
       <div className="p-3 space-y-2">
         <div className="rounded-2xl bg-sidebar-2 border border-white/5 p-3.5">
-          <p className="text-[13px] font-semibold text-white mb-2">¿Necesitas ayuda?</p>
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="flex-shrink-0 -my-1"><Criatura mood="happy" size={44} /></div>
+            <p className="text-[13px] font-semibold text-white leading-tight">¿Necesitas ayuda?</p>
+          </div>
           <Link to="/gestbot" className="block w-full text-center px-3 py-2 rounded-xl bg-accent hover:bg-accent-dark text-white text-[13px] font-medium transition-colors">
             Abrir Gestbot
           </Link>
