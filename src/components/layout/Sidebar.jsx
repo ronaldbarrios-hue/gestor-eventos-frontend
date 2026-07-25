@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import GestekMark from './GestekMark.jsx';
 import Criatura from '../agente/Criatura.jsx';
@@ -29,10 +30,25 @@ export default function Sidebar({ mobile = false, onClose }) {
   const { usuario } = useAuth();
   const { accesos, agregar, quitar } = useAccesosDirectos(usuario?.id);
   const [picker, setPicker] = useState(false);
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
+  const plusRef = useRef(null);
   const [modo, setModo] = useState('general');      // general | evento
   const [eventos, setEventos] = useState(null);      // lazy: solo al abrir "de un evento"
   const [eventoSel, setEventoSel] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+
+  /* Abre el picker como panel FIJO anclado al botón, hacia la derecha (sobre el
+     contenido). En portal para que el sidebar angosto no lo recorte. */
+  const abrirPicker = () => {
+    const r = plusRef.current?.getBoundingClientRect();
+    if (r) {
+      const w = 288, margin = 8;
+      let left = r.right + margin;
+      if (left + w > window.innerWidth - margin) left = Math.max(margin, r.left - w - margin);
+      setPickerPos({ top: Math.min(r.bottom + 4, window.innerHeight - 360), left });
+    }
+    setPicker(true);
+  };
   const disponibles = DESTINOS_ACCESO.filter(d => !accesos.some(a => a.to === d.to));
 
   /* Resultados agrupados por categoría según la vista y el buscador. */
@@ -108,12 +124,13 @@ export default function Sidebar({ mobile = false, onClose }) {
           <div className="flex items-center justify-between px-3 pb-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Accesos directos</p>
             <div className="relative">
-              <button onClick={() => setPicker(p => !p)} title="Agregar acceso directo"
+              <button ref={plusRef} onClick={() => picker ? cerrarPicker() : abrirPicker()} title="Agregar acceso directo"
                 className="w-5 h-5 rounded-md text-slate-400 hover:text-white hover:bg-sidebar-2 flex items-center justify-center transition-colors leading-none">+</button>
-              {picker && (
+              {picker && createPortal(
                 <>
-                  <div className="fixed inset-0 z-30" onClick={cerrarPicker} />
-                  <div className="absolute right-0 top-6 z-40 w-72 rounded-xl bg-sidebar-2 border border-white/10 shadow-xl overflow-hidden">
+                  <div className="fixed inset-0 z-[9998]" onClick={cerrarPicker} />
+                  <div style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, width: 288 }}
+                    className="z-[9999] rounded-xl bg-sidebar-2 border border-white/10 shadow-xl overflow-hidden">
                     {/* Dos orígenes: funciones generales o una sección de un evento */}
                     <div className="flex border-b border-white/10">
                       {[['general', 'General'], ['evento', 'De un evento']].map(([v, l]) => (
@@ -175,7 +192,8 @@ export default function Sidebar({ mobile = false, onClose }) {
                       </>)}
                     </div>
                   </div>
-                </>
+                </>,
+                document.body
               )}
             </div>
           </div>

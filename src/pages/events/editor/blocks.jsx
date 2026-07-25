@@ -1049,46 +1049,47 @@ function MapaEventoPreview({ data, evento }) {
     <section className="py-4">
       {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
       {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-4 max-w-2xl">{data.subtitulo}</p>}
-      <div className="relative rounded-2xl overflow-hidden border border-border bg-surface-2">
-        <img src={mapa.imagen_url} alt="Mapa del evento" className="w-full block" />
-        {marcadores.map((m, i) => {
-          const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : 'punto');
-          const pos = { left: `${m.x}%`, top: `${m.y}%` };
+      <div className="rounded-2xl overflow-auto border border-border bg-surface-2 flex justify-center">
+        <div className="relative">
+          <img src={mapa.imagen_url} alt="Mapa del evento" className="block max-h-[75vh] w-auto max-w-full" />
+          {marcadores.map((m, i) => {
+            const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : 'punto');
+            const pos = { left: `${m.x}%`, top: `${m.y}%` };
+            const label = tipo === 'punto' ? m.nombre
+              : tipo === 'sesion' ? sesPorId.get(m.sesion_id)?.titulo
+              : expoPorId.get(m.expositor_id)?.nombre;
 
-          if (tipo === 'expositor') {
-            const e = expoPorId.get(m.expositor_id);
-            if (!e) return null; // borrador/borrado: no se muestra
-            return (
-              <button key={i} onClick={() => setSel({ kind: 'expositor', data: e })}
-                className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110" style={pos} title={e.nombre}>
-                <span className="block w-10 h-10 rounded-full border-2 border-white shadow-lg bg-white overflow-hidden ring-2 ring-primary/50">
+            let circulo = null, onClick = null;
+            if (tipo === 'expositor') {
+              const e = expoPorId.get(m.expositor_id);
+              if (!e) return null;
+              onClick = () => setSel({ kind: 'expositor', data: e });
+              circulo = (
+                <span className="block w-11 h-11 rounded-full border-2 border-white shadow-lg bg-white overflow-hidden ring-2 ring-white/70">
                   {e.logo_url
                     ? <img src={e.logo_url} alt="" className="w-full h-full object-cover" />
                     : <span className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-700">{(e.nombre || '?')[0]}</span>}
                 </span>
-              </button>
-            );
-          }
-          if (tipo === 'sesion') {
-            const s = sesPorId.get(m.sesion_id);
-            if (!s) return null;
-            const t = tipoEspacio(s.tipo);
+              );
+            } else if (tipo === 'sesion') {
+              const s = sesPorId.get(m.sesion_id);
+              if (!s) return null;
+              onClick = () => setSel({ kind: 'sesion', data: s });
+              circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold flex items-center justify-center" style={{ background: '#6366F1' }}>{(s.titulo || '?')[0].toUpperCase()}</span>;
+            } else {
+              onClick = () => setSel({ kind: 'punto', data: m });
+              circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center" style={{ background: m.color || '#64748B' }}>{m.codigo || 'P'}</span>;
+            }
+
             return (
-              <button key={i} onClick={() => setSel({ kind: 'sesion', data: s })}
-                className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-105" style={pos} title={s.titulo}>
-                <span className="flex items-center gap-1 px-2 py-1 rounded-full border-2 border-white shadow-lg text-white text-[11px] font-medium whitespace-nowrap" style={{ background: t.color }}>
-                  <span>{t.icon}</span>{(s.titulo || 'Sub-evento').slice(0, 20)}
-                </span>
+              <button key={i} onClick={onClick} title={label || ''}
+                className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-transform hover:scale-110" style={pos}>
+                {circulo}
+                {label && <span className="mt-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] whitespace-nowrap max-w-[130px] truncate">{label}</span>}
               </button>
             );
-          }
-          /* punto de interés */
-          return (
-            <span key={i} className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/90 border-2 border-white shadow-lg text-white text-[11px] font-medium whitespace-nowrap" style={pos}>
-              <span>{m.icono}</span>{m.label}
-            </span>
-          );
-        })}
+          })}
+        </div>
       </div>
 
       {sel && (
@@ -1116,9 +1117,9 @@ function MapaEventoPreview({ data, evento }) {
                 </div>
               )}
               {sel.data.sitio_web && <a href={sel.data.sitio_web} target="_blank" rel="noreferrer noopener" className="text-xs text-primary-light hover:underline mt-3 inline-block">Ver sitio →</a>}
-            </>) : (<>
+            </>) : sel.kind === 'sesion' ? (<>
               <div className="flex items-start gap-3">
-                <span className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: `${tipoEspacio(sel.data.tipo).color}22` }}>{tipoEspacio(sel.data.tipo).icon}</span>
+                <span className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0" style={{ background: tipoEspacio(sel.data.tipo).color }}>{(sel.data.titulo || '?')[0].toUpperCase()}</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-semibold text-text-1">{sel.data.titulo}</p>
                   <p className="text-xs text-text-3">{tipoEspacio(sel.data.tipo).label}</p>
@@ -1126,8 +1127,17 @@ function MapaEventoPreview({ data, evento }) {
                 <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
               </div>
               <div className="mt-3 space-y-1 text-sm text-text-2">
-                {sel.data.inicio && <p>🕒 {new Date(sel.data.inicio).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>}
-                {sel.data.ubicacion && <p>📍 {sel.data.ubicacion}</p>}
+                {sel.data.inicio && <p><span className="text-text-3">Hora:</span> {new Date(sel.data.inicio).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>}
+                {sel.data.ubicacion && <p><span className="text-text-3">Lugar:</span> {sel.data.ubicacion}</p>}
+              </div>
+            </>) : (<>
+              <div className="flex items-start gap-3">
+                <span className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0" style={{ background: sel.data.color || '#64748B' }}>{sel.data.codigo || 'P'}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-text-1">{sel.data.nombre || 'Punto de interés'}</p>
+                  {sel.data.codigo && <p className="text-xs text-text-3">Referencia {sel.data.codigo}</p>}
+                </div>
+                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
               </div>
             </>)}
           </div>
