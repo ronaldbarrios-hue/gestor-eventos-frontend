@@ -69,7 +69,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
   }, []);
 
   const [pages, setPages]   = useState(initialPages);
-  const [pageId]            = useState(initialPages[0]?.id);
+  const [pageId, setPageId] = useState(initialPages[0]?.id);
   const [selId, setSelId]   = useState(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty]   = useState(false);
@@ -88,6 +88,24 @@ export default function ExperienceBuilder({ evento, onClose }) {
   }, [pages, navbar]);
 
   const setNav = (patch) => setNavbar(n => ({ ...n, ...patch }));
+
+  /* ── Páginas (los "tabs" del navbar del sitio) ── */
+  const agregarPagina = () => {
+    const nueva = { id: uid('p'), nombre: `Página ${pages.length + 1}`, blocks: [] };
+    setPages(prev => [...prev, nueva]);
+    setPageId(nueva.id);
+    setSelId(null);
+  };
+  const renombrarPagina = (id, nombre) => setPages(prev => prev.map(p => p.id === id ? { ...p, nombre } : p));
+  const borrarPagina = (id) => {
+    if (pages.length <= 1) { toastErr('Debe quedar al menos una página.'); return; }
+    setPages(prev => {
+      const rest = prev.filter(p => p.id !== id);
+      if (pageId === id) setPageId(rest[0].id);
+      return rest;
+    });
+    setSelId(null);
+  };
 
   const page = pages.find(p => p.id === pageId) || pages[0];
   const sel  = page?.blocks?.find(b => b.id === selId) || null;
@@ -201,6 +219,41 @@ export default function ExperienceBuilder({ evento, onClose }) {
             {saving ? <><Spinner size="sm" /> Guardando…</> : 'Guardar cambios'}
           </button>
         </div>
+      </div>
+
+      {/* ── Páginas del sitio (los "tabs" que verá el visitante en el navbar) ── */}
+      <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-surface/70 px-2.5 py-2 overflow-x-auto no-scrollbar">
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-text-3 pl-1 pr-1 flex-shrink-0">Páginas</span>
+        {pages.map(p => {
+          const activa = p.id === pageId;
+          return (
+            <div key={p.id}
+              className={`group flex items-center gap-1 rounded-xl border pl-1 pr-1 flex-shrink-0 transition-colors
+                          ${activa ? 'border-accent/50 bg-accent/10' : 'border-transparent hover:bg-surface-2'}`}>
+              {activa ? (
+                <input
+                  value={p.nombre || ''}
+                  onChange={e => renombrarPagina(p.id, e.target.value)}
+                  className="bg-transparent text-[12.5px] font-medium text-text-1 px-1.5 py-1 w-[110px] focus:outline-none focus:w-[150px] transition-[width]"
+                  aria-label="Nombre de la página" />
+              ) : (
+                <button onClick={() => { setPageId(p.id); setSelId(null); }}
+                  className="text-[12.5px] text-text-2 hover:text-text-1 px-1.5 py-1 max-w-[140px] truncate">
+                  {p.nombre || 'Página'}
+                </button>
+              )}
+              {pages.length > 1 && (
+                <button onClick={() => borrarPagina(p.id)} aria-label="Eliminar página"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 text-text-3 hover:text-danger transition-opacity">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+            </div>
+          );
+        })}
+        <button onClick={agregarPagina} className="btn-ghost btn-sm flex-shrink-0 !px-2.5" title="Agregar una página nueva al sitio">
+          + Página
+        </button>
       </div>
 
       {/* ── Editor unificado ── */}
@@ -357,7 +410,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
               <h3 className="text-[13px] font-semibold text-text-1 truncate">{labelDe(sel.type)}</h3>
               <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs">✕</button>
             </header>
-            <div className="p-4 space-y-4 overflow-y-auto no-scrollbar max-h-[calc(100vh-150px)]">
+            <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-150px)]">
               {(() => {
                 const Ed = BLOCKS[sel.type]?.Editor;
                 return Ed ? (
@@ -399,6 +452,14 @@ export default function ExperienceBuilder({ evento, onClose }) {
                   </div>
                 )}
               </div>
+
+              {/* Exportar esta sección como iframe (eFrame) — visible y claro */}
+              <div className="border-t border-border pt-3.5">
+                <button onClick={() => setEmbedId(sel.id)} className="btn-secondary btn-sm w-full justify-center">
+                  <span className="font-mono">{'</>'}</span> Exportar como iframe
+                </button>
+                <p className="text-[11px] text-text-3 mt-1.5">Genera el código para incrustar SOLO esta sección en otra web (eFrame).</p>
+              </div>
             </div>
           </aside>
         )}
@@ -416,8 +477,8 @@ export default function ExperienceBuilder({ evento, onClose }) {
           y el panel se fusionaba con la barra superior. */}
       {marcaOpen && createPortal(
         <>
-          <div className="fixed inset-0 z-[9998] bg-bg/60 backdrop-blur-sm" onClick={() => setMarcaOpen(false)} />
-          <aside className="fixed top-0 right-0 z-[9999] h-full w-[760px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
+          <div className="fixed inset-0 z-[9998] bg-black/25" onClick={() => setMarcaOpen(false)} />
+          <aside className="fixed top-0 right-0 z-[9999] h-full w-[1040px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
             <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
               <div>
                 <h2 className="text-base font-semibold text-text-1">Marca · White Label</h2>
@@ -438,8 +499,8 @@ export default function ExperienceBuilder({ evento, onClose }) {
       {/* Drawer: Navbar del sitio (portal al body, igual que Marca) */}
       {navOpen && createPortal(
         <>
-          <div className="fixed inset-0 z-[9998] bg-bg/60 backdrop-blur-sm" onClick={() => setNavOpen(false)} />
-          <aside className="fixed top-0 right-0 z-[9999] h-full w-[440px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
+          <div className="fixed inset-0 z-[9998] bg-black/25" onClick={() => setNavOpen(false)} />
+          <aside className="fixed top-0 right-0 z-[9999] h-full w-[520px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
             <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
               <div>
                 <h2 className="text-base font-semibold text-text-1">Navbar del sitio</h2>
