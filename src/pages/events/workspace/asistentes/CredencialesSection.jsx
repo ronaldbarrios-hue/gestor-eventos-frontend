@@ -15,10 +15,15 @@ import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
    digital de /mi-ticket. Lo que sí se imprime es el tipo/categoría. */
 
 const TAMANOS = [
-  { id: 'cr80',  label: 'Tarjeta (85×54 mm)',  w: 85.6, h: 54,  cols: 2 },
-  { id: '9x5',   label: 'Escarapela (90×55 mm)', w: 90, h: 55,  cols: 2 },
-  { id: 'a6',    label: 'A6 (105×148 mm)',     w: 105, h: 148, cols: 2 },
-  { id: '10x15', label: 'Colgante (100×150 mm)', w: 100, h: 150, cols: 2 },
+  { id: 'cr80',  label: 'Tarjeta (85×54 mm)',      w: 85.6, h: 54,  cols: 2 },
+  { id: '9x5',   label: 'Escarapela (90×55 mm)',   w: 90,  h: 55,  cols: 2 },
+  { id: 'mini',  label: 'Mini (70×40 mm)',         w: 70,  h: 40,  cols: 3 },
+  { id: 'us',    label: 'Badge US (102×76 mm)',    w: 102, h: 76,  cols: 2 },
+  { id: 'a7',    label: 'A7 (74×105 mm)',          w: 74,  h: 105, cols: 2 },
+  { id: 'a6',    label: 'A6 (105×148 mm)',         w: 105, h: 148, cols: 2 },
+  { id: '10x15', label: 'Colgante (100×150 mm)',   w: 100, h: 150, cols: 2 },
+  { id: 'a5',    label: 'A5 grande (148×210 mm)',  w: 148, h: 210, cols: 1 },
+  { id: 'cuad',  label: 'Cuadrada (100×100 mm)',   w: 100, h: 100, cols: 2 },
 ];
 
 const DEFECTO = {
@@ -26,6 +31,7 @@ const DEFECTO = {
   logo_url: '',
   mostrar: { logo: true, nombre: true, tipo: true, qr: true, codigo: false },
   campos_extra: [],           // ids de campos_formulario (ej. Empresa, Cargo)
+  campos_libres: [],          // { etiqueta, valor } — texto fijo que el organizador escribe
   colores: {},                // { 'VIP': '#d4af37', 'Staff': '#ef4444' }
 };
 
@@ -148,6 +154,28 @@ export default function CredencialesSection({ evento }) {
                 </div>
               )}
 
+              {/* Campos LIBRES: cualquier texto que el organizador quiera imprimir */}
+              <div>
+                <label className="label">Otros datos a imprimir <span className="lowercase tracking-normal font-normal text-text-3">(los que quieras)</span></label>
+                <div className="space-y-2">
+                  {(cfg.campos_libres || []).map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input value={c.etiqueta || ''} placeholder="Etiqueta (ej. Acceso)"
+                        onChange={e => set({ campos_libres: cfg.campos_libres.map((x, j) => j === i ? { ...x, etiqueta: e.target.value } : x) })}
+                        className="input !h-9 w-40" />
+                      <input value={c.valor || ''} placeholder="Valor (ej. Zona A · Wifi: gestek)"
+                        onChange={e => set({ campos_libres: cfg.campos_libres.map((x, j) => j === i ? { ...x, valor: e.target.value } : x) })}
+                        className="input !h-9 flex-1" />
+                      <button onClick={() => set({ campos_libres: cfg.campos_libres.filter((_, j) => j !== i) })}
+                        className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => set({ campos_libres: [...(cfg.campos_libres || []), { etiqueta: '', valor: '' }] })}
+                  className="btn-ghost btn-sm mt-2">+ Añadir dato</button>
+                <p className="text-[11px] text-text-3 mt-1">Texto fijo igual para todas las escarapelas (o del tipo que imprimas). Ej. “Acceso: General”, “Wifi: gestek2026”.</p>
+              </div>
+
               {tiposPresentes.length > 0 && (
                 <div>
                   <label className="label">Color por tipo de asistente</label>
@@ -262,6 +290,11 @@ function Escarapela({ f, cfg, evento, campos, tam }) {
           {cfg.mostrar?.nombre && <p className="text-[13px] font-bold leading-tight break-words">{f.nombre}</p>}
           {extras.map((x, i) => (
             <p key={i} className="text-[9px] text-slate-600 leading-tight truncate">{String(x.valor)}</p>
+          ))}
+          {(cfg.campos_libres || []).filter(c => (c.etiqueta || c.valor)).map((c, i) => (
+            <p key={`l${i}`} className="text-[9px] text-slate-600 leading-tight truncate">
+              {c.etiqueta ? <span className="font-semibold">{c.etiqueta}: </span> : null}{c.valor}
+            </p>
           ))}
           {cfg.mostrar?.tipo && (
             <span className="inline-block mt-1 text-[8px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full text-white"
