@@ -64,7 +64,11 @@ export default function DocumentosSection({ evento }) {
     setSubiendo(true);
     try {
       const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
-      const path = `${evento.owner_id || evento.id}/docs/${evento.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      /* La carpeta raíz debe ser el uid del usuario (política de Storage). */
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) throw new Error('Inicia sesión para subir documentos.');
+      const path = `${uid}/docs/${evento.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error: upErr } = await supabase.storage.from('event-media').upload(path, file, { upsert: false, contentType: file.type });
       if (upErr) throw new Error(upErr.message);
       const { data } = supabase.storage.from('event-media').getPublicUrl(path);

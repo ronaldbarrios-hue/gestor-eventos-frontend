@@ -10,15 +10,31 @@ import { useToast } from '../../context/ToastContext.jsx';
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ACCEPTED  = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+/* La política de Storage exige que la carpeta raíz sea el uid del usuario
+   (auth.uid() = foldername[1]). Por eso el folder SIEMPRE es el uid de la
+   sesión, sin importar el ownerId que pase el componente. Si no hay sesión
+   (ej. un expositor editando su ficha por código, sin login), se usa el bucket
+   público form-uploads, que sí admite subidas anónimas. */
 export async function uploadEventImage(file, ownerId, prefix = 'cover') {
-  const ext  = file.name.split('.').pop().toLowerCase();
-  const path = `${ownerId}/${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage
-    .from('event-media')
+  const ext = file.name.split('.').pop().toLowerCase();
+  const rand = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const { data: { session } } = await supabase.auth.getSession();
+  const uid = session?.user?.id;
+
+  if (uid) {
+    const path = `${uid}/${prefix}-${rand}.${ext}`;
+    const { error } = await supabase.storage.from('event-media')
+      .upload(path, file, { upsert: false, contentType: file.type });
+    if (error) throw new Error(error.message);
+    return supabase.storage.from('event-media').getPublicUrl(path).data.publicUrl;
+  }
+
+  const safe = String(ownerId || 'anon').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'anon';
+  const path = `expositor/${safe}/${prefix}-${rand}.${ext}`;
+  const { error } = await supabase.storage.from('form-uploads')
     .upload(path, file, { upsert: false, contentType: file.type });
   if (error) throw new Error(error.message);
-  const { data } = supabase.storage.from('event-media').getPublicUrl(path);
-  return data.publicUrl;
+  return supabase.storage.from('form-uploads').getPublicUrl(path).data.publicUrl;
 }
 
 export default function CoverUploader({ value, onChange, ownerId, label = 'Portada del evento' }) {
