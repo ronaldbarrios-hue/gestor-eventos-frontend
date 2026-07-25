@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { tareasApi } from '../../../api/tareas.js';
 import { auditoriaApi } from '../../../api/auditoria.js';
 import { agendaApi } from '../../../api/agenda.js';
+import { equipoApi } from '../../../api/equipo.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 
@@ -12,18 +13,30 @@ import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
    KPIs → actividad → mi trabajo → calendario → Gestbot → info general
    ────────────────────────────────────────────────────────────────── */
 
-export default function ResumenSection({ evento, soyOwner }) {
+export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, onEliminar }) {
   const { usuario } = useAuth();
   const [, setSearchParams] = useSearchParams();
   const [tareas, setTareas]       = useState([]);
   const [actividad, setActividad] = useState(null); /* null = sin acceso */
   const [sesiones, setSesiones]   = useState([]);
+  const [equipo, setEquipo]       = useState(null);
 
   useEffect(() => {
     tareasApi.list(evento.id).then(d => setTareas(d.tareas || [])).catch(() => {});
     auditoriaApi.list(evento.id, 12).then(d => setActividad(d.acciones || d.registros || d.auditoria || [])).catch(() => setActividad(null));
     agendaApi.sessions(evento.id).then(d => setSesiones(d.sesiones || [])).catch(() => {});
+    equipoApi.list(evento.id).then(d => setEquipo(d)).catch(() => setEquipo(null));
   }, [evento.id]);
+
+  const miembros = useMemo(() => {
+    if (!equipo) return [];
+    const lista = [];
+    if (equipo.owner) lista.push({ id: 'owner', nombre: equipo.owner.nombre || 'Organizador', avatar: equipo.owner.avatar_url, rol: 'Owner', email: equipo.owner.email, owner: true });
+    for (const m of (equipo.miembros || [])) {
+      lista.push({ id: m.id, nombre: m.profile?.nombre || m.nombre_invitado || m.email, avatar: m.profile?.avatar_url, rol: m.rol_detail?.nombre || m.rol || 'Miembro', email: m.email, status: m.status });
+    }
+    return lista;
+  }, [equipo]);
 
   const { ingresados } = useAsistenciaEnVivo(evento.id);
 
@@ -119,6 +132,30 @@ export default function ResumenSection({ evento, soyOwner }) {
             )}
           </Card>
 
+          {/* Equipo del evento — quién trabaja y su rol */}
+          {miembros.length > 0 && (
+            <Card titulo="Equipo del evento"
+              accion={<Link to="?s=organizacion&t=equipo" className="text-xs text-accent hover:underline">Gestionar equipo →</Link>}>
+              <ul className="divide-y divide-border -mx-5">
+                {miembros.map(m => (
+                  <li key={m.id} className="flex items-center gap-3 px-5 py-2.5">
+                    <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+                      {m.avatar ? <img src={m.avatar} alt="" className="w-full h-full object-cover" /> : (m.nombre || m.email || 'U').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-text-1 truncate">{m.nombre}</p>
+                      {m.email && <p className="text-[11px] text-text-3 truncate">{m.email}</p>}
+                    </div>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-md flex-shrink-0
+                      ${m.owner ? 'bg-accent/15 text-accent' : 'bg-surface-2 text-text-2'}`}>{m.rol}</span>
+                    {m.status === 'pendiente' && <span className="text-[10px] text-warning">pendiente</span>}
+                  </li>
+                ))}
+              </ul>
+              <Link to="?s=comunicacion&t=chat" className="block mt-3 text-xs text-accent hover:underline">Escribir al equipo en los chats →</Link>
+            </Card>
+          )}
+
           {/* Actividad reciente (auditoría) */}
           {Array.isArray(actividad) && actividad.length > 0 && (
             <Card titulo="Actividad reciente">
@@ -191,6 +228,32 @@ export default function ResumenSection({ evento, soyOwner }) {
               <Fila k="URL pública" v={<a className="text-accent hover:underline font-mono text-xs" href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer">/{evento.slug}</a>} />
             </div>
           </Card>
+
+          {/* Acciones del evento (movidas aquí desde el header) */}
+          {soyOwner && (onEditar || onAnuncio || onEliminar) && (
+            <Card titulo="Acciones del evento">
+              <div className="space-y-2">
+                {onEditar && (
+                  <button onClick={onEditar} className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex items-center gap-2.5">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    Editar información del evento
+                  </button>
+                )}
+                {onAnuncio && (
+                  <button onClick={onAnuncio} className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex items-center gap-2.5">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+                    Enviar anuncio al equipo
+                  </button>
+                )}
+                {onEliminar && (
+                  <button onClick={onEliminar} className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm text-danger/90 hover:text-danger hover:bg-danger/10 transition-colors flex items-center gap-2.5">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Eliminar evento
+                  </button>
+                )}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

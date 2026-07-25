@@ -38,9 +38,9 @@ export default function AppLayout() {
         </div>
       </div>
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <TopBar onMenu={() => setOpen(true)} />
-        <main className="relative flex-1 overflow-y-auto">
+        <main className="relative flex-1 overflow-y-auto overflow-x-hidden">
           {/* Fondo decorativo (estático, capa compositada — no repinta al scrollear) */}
           <div
             className="pointer-events-none fixed inset-0 z-0 overflow-hidden"

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -11,6 +12,10 @@ import { TEMPLATES, instanciarTemplate } from './templates.jsx';
 import CanvasEditor from './canvas/CanvasEditor.jsx';
 import CanvasPublico from './canvas/CanvasPublico.jsx';
 import { ANIMACIONES } from './canvas/elementos.jsx';
+import { EventNavbar, blocksVisibles, resolveBranding, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../../components/public/EventChrome.jsx';
+import { BrandHeader } from '../../../components/public/Branding.jsx';
+import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
+import ExportIframeModal from './ExportIframeModal.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Event Experience · Editor UNIFICADO (Rework v3)
@@ -24,6 +29,34 @@ import { ANIMACIONES } from './canvas/elementos.jsx';
 function uid(prefix = 'b') { return `${prefix}_${Math.random().toString(36).slice(2, 10)}`; }
 function defaultPages() {
   return [{ id: uid('p'), nombre: 'Inicio', blocks: BLOCK_TYPES_SISTEMA.map(type => ({ id: uid(), type, data: {} })) }];
+}
+
+/* Alturas iniciales aproximadas por tipo de sección al convertirla en pieza del lienzo. */
+const ALTO_SECCION = {
+  portada: 460, galeria_evento: 320, titulo: 150, descripcion: 180, info: 220,
+  direccion: 120, links: 150, tickets: 420, hero: 380, texto: 200, speakers: 380,
+  sponsors: 260, mapa: 380, countdown: 170, galeria: 340, video: 340, redes: 160,
+  faq: 340, cta: 140, cita: 180, separador: 60, recompensas: 320, expositores: 340, mapa_evento: 420,
+};
+
+/* Convierte las secciones de la página en elementos del lienzo CONSERVANDO su
+   contenido, para que todo quede movible y redimensionable sin perder nada. */
+function canvasDesdeBlocks(blocks, hasCover) {
+  const elementos = [];
+  let y = 40;
+  for (const b of (blocks || [])) {
+    if (!b || b.data?.oculto) continue;
+    if (hasCover && b.type === 'portada') continue; /* la portada va arriba, fuera del lienzo */
+    if (b.type === 'lienzo') continue;              /* no anidamos lienzos */
+    const h = ALTO_SECCION[b.type] || 300;
+    elementos.push({
+      id: uid('el'), type: 'bloque',
+      x: 100, y, w: 1000, h, z: elementos.length + 1,
+      props: { bloque: b.type, data: b.data || {} },
+    });
+    y += h + 40;
+  }
+  return { alto: Math.max(900, y + 60), elementos };
 }
 
 export default function ExperienceBuilder({ evento, onClose }) {
@@ -42,15 +75,42 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const [dirty, setDirty]   = useState(false);
   const [paleta, setPaleta] = useState(false);
   const [verPlantillas, setVerPlantillas] = useState(false);
+  const [marcaOpen, setMarcaOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [embedId, setEmbedId] = useState(null);   // sección que se está exportando como iframe
+  const [navbar, setNavbar] = useState(() => navbarConfig(evento.page_json));
+  const initialNavbar = useMemo(() => navbarConfig(evento.page_json), []); // eslint-disable-line
   const { success, error: toastErr } = useToast();
 
   useEffect(() => {
-    setDirty(JSON.stringify(pages) !== JSON.stringify(initialPages));
+    setDirty(JSON.stringify(pages) !== JSON.stringify(initialPages) || JSON.stringify(navbar) !== JSON.stringify(initialNavbar));
     /* eslint-disable-next-line */
-  }, [pages]);
+  }, [pages, navbar]);
+
+  const setNav = (patch) => setNavbar(n => ({ ...n, ...patch }));
 
   const page = pages.find(p => p.id === pageId) || pages[0];
-  const sel  = page?.blocks.find(b => b.id === selId) || null;
+  const sel  = page?.blocks?.find(b => b.id === selId) || null;
+  const esLienzoPagina = page?.modo === 'lienzo';
+
+  const setPageCanvas = (canvas) =>
+    setPages(prev => prev.map(p => p.id === page.id ? { ...p, canvas } : p));
+
+  const toggleModo = async () => {
+    if (!esLienzoPagina) {
+      if (!(await confirmDialog({
+        title: 'Lienzo libre (página completa)',
+        message: 'Tus secciones actuales se convierten en piezas del lienzo: podrás moverlas, redimensionarlas y ponerlas donde quieras (izquierda/derecha en la misma línea, como en Word/Paint). Nada se pierde: puedes volver a "Secciones" cuando quieras.',
+        confirmLabel: 'Activar lienzo libre',
+      }))) return;
+      setPages(prev => prev.map(p => p.id === page.id
+        ? { ...p, modo: 'lienzo', canvas: p.canvas?.elementos?.length ? p.canvas : canvasDesdeBlocks(p.blocks, Boolean(evento.cover_url)) }
+        : p));
+    } else {
+      setPages(prev => prev.map(p => p.id === page.id ? { ...p, modo: undefined } : p));
+    }
+    setSelId(null);
+  };
 
   const setBlocks = (updater) =>
     setPages(prev => prev.map(p => p.id === page.id ? { ...p, blocks: typeof updater === 'function' ? updater(p.blocks) : updater } : p));
@@ -99,7 +159,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const guardar = async () => {
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), pages } });
+      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), pages, navbar } });
       success('Página guardada. El sitio público ya está actualizado.');
       setDirty(false);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
@@ -122,14 +182,21 @@ export default function ExperienceBuilder({ evento, onClose }) {
       <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/90 backdrop-blur px-4 py-2.5 sticky top-0 z-30">
         <p className="text-sm text-text-2 min-w-0 truncate">
           <span className="font-semibold text-text-1">Editor de la página pública</span>
-          <span className="text-text-3"> · {page?.blocks.length || 0} secciones</span>
+          <span className="text-text-3"> · {esLienzoPagina ? 'lienzo libre' : `${page?.blocks?.length || 0} secciones`}</span>
           {dirty && <span className="text-warning"> · cambios sin guardar</span>}
         </p>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <a href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer" className="btn-ghost btn-sm" title="Ver sitio público">
-            <EyeIcon className="w-4 h-4" /><span className="hidden md:inline">Ver sitio</span>
-          </a>
-          {onClose && <button onClick={onClose} className="btn-ghost btn-sm">Salir</button>}
+          {onClose && <button onClick={onClose} className="btn-ghost btn-sm">← Volver al preview</button>}
+          <button onClick={toggleModo} className={`btn-ghost btn-sm ${esLienzoPagina ? 'text-accent' : ''}`}
+            title={esLienzoPagina ? 'Volver a modo Secciones' : 'Editar toda la página como Lienzo libre (mover/redimensionar todo)'}>
+            <IcLienzo className="w-4 h-4" /><span className="hidden md:inline">{esLienzoPagina ? 'Modo secciones' : 'Lienzo libre'}</span>
+          </button>
+          <button onClick={() => setNavOpen(true)} className="btn-ghost btn-sm" title="Editar el navbar del sitio">
+            <NavIcon className="w-4 h-4" /><span className="hidden md:inline">Navbar</span>
+          </button>
+          <button onClick={() => setMarcaOpen(true)} className="btn-ghost btn-sm" title="Marca / White Label del sitio">
+            <PaintIcon className="w-4 h-4" /><span className="hidden md:inline">Marca</span>
+          </button>
           <button onClick={guardar} disabled={saving || !dirty} className="btn-gradient btn-sm">
             {saving ? <><Spinner size="sm" /> Guardando…</> : 'Guardar cambios'}
           </button>
@@ -139,7 +206,8 @@ export default function ExperienceBuilder({ evento, onClose }) {
       {/* ── Editor unificado ── */}
       <div className="flex gap-3 items-start">
 
-        {/* IZQUIERDA · Secciones + Plantillas */}
+        {/* IZQUIERDA · Secciones + Plantillas (oculto en modo lienzo libre; el lienzo trae su propia paleta) */}
+        {!esLienzoPagina && (
         <aside className="hidden lg:flex flex-col flex-shrink-0 w-[225px] rounded-2xl border border-border bg-surface/70 overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
           <div className="flex border-b border-border">
             {[[false, 'Secciones'], [true, 'Plantillas']].map(([v, label]) => (
@@ -153,7 +221,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
 
           {!verPlantillas ? (<>
             <ul className="flex-1 p-2 space-y-0.5 overflow-y-auto no-scrollbar">
-              {page?.blocks.map((b, i) => {
+              {page?.blocks?.map((b, i) => {
                 const Icon = IconDe(b.type);
                 const activo = selId === b.id;
                 return (
@@ -166,7 +234,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
                       <button onClick={() => mover(b.id, +1)} disabled={i === page.blocks.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-20 leading-none text-[9px] px-1">▼</button>
                     </span>
                     <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${activo ? 'text-accent' : 'text-text-3'}`} />
-                    <span className={`flex-1 py-2 text-[12.5px] truncate ${activo ? 'text-text-1 font-medium' : 'text-text-2'}`}>{labelDe(b.type)}</span>
+                    <span className={`flex-1 py-2 text-[12.5px] truncate ${activo ? 'text-text-1 font-medium' : 'text-text-2'}`}>{b.data?.titulo?.trim() || labelDe(b.type)}</span>
                     <button onClick={(e) => { e.stopPropagation(); removeBlock(b.id); }} aria-label="Quitar"
                       className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-text-3 hover:text-danger transition-opacity">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -183,7 +251,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
                   <div className="absolute bottom-12 left-2 right-2 z-30 card-glass rounded-xl p-1.5 max-h-72 overflow-y-auto no-scrollbar space-y-0.5">
                     {tiposDisponibles.map(t => {
                       const Icon = IconDe(t);
-                      const yaExiste = BLOCKS[t]?.category === 'sistema' && page?.blocks.some(x => x.type === t);
+                      const yaExiste = BLOCKS[t]?.category === 'sistema' && page?.blocks?.some(x => x?.type === t);
                       return (
                         <button key={t} disabled={yaExiste} onClick={() => addBlock(t)}
                           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-text-1 hover:bg-surface-2 disabled:opacity-35 transition-colors text-left">
@@ -201,7 +269,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
               {TEMPLATES.map(t => (
                 <li key={t.nombre} className="rounded-xl border border-border p-3 hover:border-accent/40 transition-colors">
                   <p className="text-[13px] font-semibold text-text-1">{t.nombre}</p>
-                  {t.descripcion && <p className="text-[11px] text-text-3 leading-snug mt-0.5 line-clamp-2">{t.descripcion}</p>}
+                  {(t.desc || t.descripcion) && <p className="text-[11px] text-text-3 leading-snug mt-0.5 line-clamp-2">{t.desc || t.descripcion}</p>}
                   <p className="text-[10px] text-text-3 mt-1.5">{t.pages?.[0]?.blocks?.length || 0} secciones</p>
                   <button onClick={() => aplicarTemplate(t)} className="btn-secondary btn-sm w-full justify-center mt-2 !text-xs">
                     Aplicar con mi información
@@ -211,77 +279,65 @@ export default function ExperienceBuilder({ evento, onClose }) {
             </ul>
           )}
         </aside>
+        )}
 
         {/* CENTRO · LA PÁGINA (grande, clickeable, igual al público) */}
         <main className="flex-1 min-w-0">
           <div className="rounded-2xl border border-border bg-bg overflow-hidden">
-            {/* Navbar del sitio público (representación fiel) */}
-            <div className="flex justify-center pt-4 pb-1">
-              <div className="flex items-center gap-1 bg-surface/80 border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg">
-                <span className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #3B82F6, #8B5CF6)' }}>
-                  {(evento.page_json?.branding?.plataforma || evento.titulo || 'E')[0].toUpperCase()}
-                </span>
-                {pages.map((pg, i) => (
-                  <span key={pg.id} className={`h-8 px-3.5 rounded-full text-sm font-medium flex items-center
-                    ${i === 0 ? 'bg-text-1 text-bg' : 'text-text-2'}`}>{i + 1}. {pg.nombre}</span>
-                ))}
+            {/* Chrome superior idéntico al público (barra secundaria + navbar + portada) */}
+            <EditorTopChrome
+              evento={evento}
+              pages={pages}
+              navbar={navbar}
+              portadaData={page?.blocks?.find(x => x.type === 'portada')?.data || {}}
+              onPortada={() => { const b = page?.blocks?.find(x => x.type === 'portada'); if (b) setSelId(b.id); }}
+            />
+            {esLienzoPagina ? (
+              <div className="px-3 sm:px-5 py-5">
+                <CanvasEditor canvas={page?.canvas} onChange={setPageCanvas} evento={evento} />
               </div>
-            </div>
-            {/* Hero de portada: igual que en el público (la portada va arriba) */}
-            {evento.cover_url && (
-              <div className="relative mx-6 sm:mx-10 mt-3 rounded-2xl overflow-hidden cursor-pointer group"
-                   onClick={() => { const b = page?.blocks.find(x => x.type === 'portada'); if (b) setSelId(b.id); }}>
-                <img src={evento.cover_url} alt="" className="w-full max-h-[420px] object-cover" />
-                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-surface/90 text-text-2 opacity-0 group-hover:opacity-100 transition-opacity">Portada (hero)</span>
-              </div>
-            )}
+            ) : (() => {
+              const hasCover = Boolean(evento.cover_url);
+              const visibles = blocksVisibles(page, hasCover);
+              /* Solo las secciones realmente arrastrables entran al SortableContext:
+                 el lienzo en edición se excluye (se edita, no se reordena). Mantener
+                 items y nodos en sincronía evita que dnd-kit descuadre el layout y
+                 unas secciones se monten sobre otras (bug del mapa sobre FAQ). */
+              const sortableIds = visibles.filter(b => !(b.type === 'lienzo' && b.id === selId)).map(b => b.id);
+              return (
             <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragSeccion}>
-            <SortableContext items={(page?.blocks || []).filter(b => !(evento.cover_url && b.type === 'portada')).map(b => b.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
             <div className="px-6 sm:px-10 py-8 space-y-6">
-              {page?.blocks.filter(b => !(evento.cover_url && b.type === 'portada')).map(b => {
+              {visibles.map(b => {
                 const activo = selId === b.id;
-                if (b.type === 'lienzo') {
+                if (b.type === 'lienzo' && activo) {
                   return (
-                    <div key={b.id} id={`sec-${b.id}`} className={`relative rounded-2xl ${activo ? '' : 'cursor-pointer'}`}
-                         onClick={() => !activo && setSelId(b.id)}>
-                      {activo ? (
-                        <div className="rounded-2xl border-2 border-accent/50 p-3 bg-surface/30">
-                          <div className="flex items-center justify-between mb-2 px-1">
-                            <p className="text-xs font-semibold text-accent">Lienzo libre — edítalo aquí mismo</p>
-                            <BarraSeccion onUp={() => mover(b.id, -1)} onDown={() => mover(b.id, +1)} onDup={() => duplicateBlock(b.id)} onDel={() => removeBlock(b.id)} onCerrar={() => setSelId(null)} />
-                          </div>
-                          <CanvasEditor
-                            canvas={b.data?.canvas}
-                            onChange={(canvas) => updateBlockData(b.id, { ...b.data, canvas })}
-                            evento={evento}
-                          />
+                    <div key={b.id} id={`sec-${b.id}`} className="relative rounded-2xl">
+                      <div className="rounded-2xl border-2 border-accent/50 p-3 bg-surface/30">
+                        <div className="flex items-center justify-between mb-2 px-1">
+                          <p className="text-xs font-semibold text-accent">Lienzo libre — edítalo aquí mismo</p>
+                          <BarraSeccion onUp={() => mover(b.id, -1)} onDown={() => mover(b.id, +1)} onDup={() => duplicateBlock(b.id)} onDel={() => removeBlock(b.id)} onEmbed={() => setEmbedId(b.id)} onCerrar={() => setSelId(null)} />
                         </div>
-                      ) : (
-                        <div className="relative group">
-                          <CanvasPublico canvas={b.data?.canvas} evento={evento} />
-                          {(!b.data?.canvas?.elementos?.length) && (
-                            <div className="h-40 rounded-2xl border-2 border-dashed border-border-2 flex items-center justify-center">
-                              <p className="text-sm text-text-3">Lienzo libre vacío — haz clic para diseñarlo</p>
-                            </div>
-                          )}
-                          <HoverHalo activo={false} />
-                        </div>
-                      )}
+                        <CanvasEditor
+                          canvas={b.data?.canvas}
+                          onChange={(canvas) => updateBlockData(b.id, { ...b.data, canvas })}
+                          evento={evento}
+                        />
+                      </div>
                     </div>
                   );
                 }
-                const B = BLOCKS[b.type];
-                if (!B) return null;
+                if (b.type !== 'lienzo' && !BLOCKS[b.type]) return null;
                 return (
                   <SeccionSortable key={b.id} b={b} activo={activo} evento={evento}
                     label={labelDe(b.type)}
                     onSelect={() => setSelId(activo ? null : b.id)}
-                    barra={<BarraSeccion onUp={() => mover(b.id, -1)} onDown={() => mover(b.id, +1)} onDup={() => duplicateBlock(b.id)} onDel={() => removeBlock(b.id)} onCerrar={() => setSelId(null)} />}
+                    onDataChange={(d) => updateBlockData(b.id, d)}
+                    barra={<BarraSeccion onUp={() => mover(b.id, -1)} onDown={() => mover(b.id, +1)} onDup={() => duplicateBlock(b.id)} onDel={() => removeBlock(b.id)} onEmbed={() => setEmbedId(b.id)} onCerrar={() => setSelId(null)} />}
                   />
                 );
               })}
-              {(!page || page.blocks.length === 0) && (
+              {visibles.length === 0 && (
                 <div className="py-24 text-center">
                   <p className="text-text-2 text-sm">La página está vacía — agrega secciones a la izquierda o aplica una plantilla.</p>
                 </div>
@@ -289,12 +345,14 @@ export default function ExperienceBuilder({ evento, onClose }) {
             </div>
             </SortableContext>
             </DndContext>
+              );
+            })()}
           </div>
         </main>
 
         {/* DERECHA · Propiedades + Animación (solo con selección, y no para lienzo) */}
         {sel && sel.type !== 'lienzo' && (
-          <aside className="hidden xl:block flex-shrink-0 w-[380px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
+          <aside className="hidden lg:block flex-shrink-0 w-[400px] xl:w-[460px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
             <header className="flex items-center justify-between px-4 py-3 border-b border-border">
               <h3 className="text-[13px] font-semibold text-text-1 truncate">{labelDe(sel.type)}</h3>
               <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs">✕</button>
@@ -322,7 +380,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-text-3">Animación de entrada</p>
                 <select className="input" value={sel.data?._anim || ''}
                         onChange={e => updateBlockData(sel.id, { ...sel.data, _anim: e.target.value })}>
-                  {ANIMACIONES.filter(a => !['maquina', 'flotar', 'pulso'].includes(a.value)).map(a => (
+                  {ANIMACIONES.filter(a => !['maquina', 'flotar', 'pulso', 'balanceo'].includes(a.value)).map(a => (
                     <option key={a.value} value={a.value}>{a.label}</option>
                   ))}
                 </select>
@@ -345,9 +403,108 @@ export default function ExperienceBuilder({ evento, onClose }) {
           </aside>
         )}
       </div>
+
+      {/* Exportar sección como iframe (eFrame) */}
+      {embedId && (() => {
+        const b = page?.blocks?.find(x => x.id === embedId);
+        if (!b) return null;
+        return <ExportIframeModal evento={evento} bloque={b} label={labelDe(b.type)} onClose={() => setEmbedId(null)} />;
+      })()}
+
+      {/* Drawer: Marca / White Label — la identidad del sitio público se edita aquí mismo.
+          En PORTAL al body: dentro del árbol, los ancestros con transform rompían el `fixed`
+          y el panel se fusionaba con la barra superior. */}
+      {marcaOpen && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998] bg-bg/60 backdrop-blur-sm" onClick={() => setMarcaOpen(false)} />
+          <aside className="fixed top-0 right-0 z-[9999] h-full w-[760px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
+            <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-text-1">Marca · White Label</h2>
+                <p className="text-xs text-text-3 mt-0.5">Logo, colores, tipografía y footer del sitio público.</p>
+              </div>
+              <button onClick={() => setMarcaOpen(false)} aria-label="Cerrar" className="w-9 h-9 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-5">
+              <WhiteLabelSection evento={evento} />
+            </div>
+          </aside>
+        </>,
+        document.body,
+      )}
+
+      {/* Drawer: Navbar del sitio (portal al body, igual que Marca) */}
+      {navOpen && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998] bg-bg/60 backdrop-blur-sm" onClick={() => setNavOpen(false)} />
+          <aside className="fixed top-0 right-0 z-[9999] h-full w-[440px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
+            <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-text-1">Navbar del sitio</h2>
+                <p className="text-xs text-text-3 mt-0.5">Posición, botones y enlaces de la barra superior.</p>
+              </div>
+              <button onClick={() => setNavOpen(false)} aria-label="Cerrar" className="w-9 h-9 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              <div>
+                <label className="text-xs text-text-2 block mb-2">Posición del menú de páginas</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[['left', 'Izquierda'], ['center', 'Centro'], ['right', 'Derecha']].map(([v, l]) => (
+                    <button key={v} onClick={() => setNav({ alineacion: v })}
+                      className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${navbar.alineacion === v ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                <label className="flex items-center justify-between gap-3 text-sm text-text-2 cursor-pointer">
+                  <span>Mostrar "Explorar eventos"</span>
+                  <input type="checkbox" checked={navbar.mostrar_explorar} onChange={e => setNav({ mostrar_explorar: e.target.checked })} className="accent-[#8B5CF6] w-4 h-4" />
+                </label>
+                <label className="flex items-center justify-between gap-3 text-sm text-text-2 cursor-pointer">
+                  <span>Mostrar "Compartir"</span>
+                  <input type="checkbox" checked={navbar.mostrar_compartir} onChange={e => setNav({ mostrar_compartir: e.target.checked })} className="accent-[#8B5CF6] w-4 h-4" />
+                </label>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs text-text-2">Enlaces personalizados</label>
+                  <button onClick={() => setNav({ enlaces: [...navbar.enlaces, { label: '', url: '' }] })} className="text-xs text-accent hover:underline">+ Agregar</button>
+                </div>
+                <div className="space-y-2">
+                  {navbar.enlaces.length === 0 && <p className="text-xs text-text-3">Sin enlaces extra. Agrega botones que lleven a donde quieras.</p>}
+                  {navbar.enlaces.map((l, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input value={l.label} onChange={e => setNav({ enlaces: navbar.enlaces.map((x, idx) => idx === i ? { ...x, label: e.target.value } : x) })} placeholder="Texto" className="input !h-9 flex-1" />
+                      <input value={l.url} onChange={e => setNav({ enlaces: navbar.enlaces.map((x, idx) => idx === i ? { ...x, url: e.target.value } : x) })} placeholder="https://…" className="input !h-9 flex-1 font-mono text-xs" />
+                      <button onClick={() => setNav({ enlaces: navbar.enlaces.filter((_, idx) => idx !== i) })} className="text-text-3 hover:text-danger w-8 h-8 flex items-center justify-center flex-shrink-0 text-lg">×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[11px] text-text-3 border-t border-border pt-3">Los cambios se ven arriba en la vista previa. Guarda con "Guardar cambios".</p>
+            </div>
+          </aside>
+        </>,
+        document.body,
+      )}
     </div>
   );
 }
+
+function PaintIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 00-2 2 2 2 0 104 0m6-11h4a2 2 0 012 2v3a2 2 0 01-2 2h-2" /></svg>; }
+function NavIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="5" width="18" height="6" rx="2" /><path strokeLinecap="round" d="M7 8h4" /></svg>; }
+
+/* Mismas clases que el público, para que la animación de entrada se VEA
+   en el editor al cambiarla (antes solo se aplicaba en el sitio público). */
+const ANIM_CLASE = {
+  aparecer: 'gk-anim-fade', subir: 'gk-anim-up', bajar: 'gk-anim-down', zoom: 'gk-anim-zoom',
+  izq: 'gk-anim-left', der: 'gk-anim-right', rebote: 'gk-anim-bounce',
+  girar: 'gk-anim-rotate', voltear: 'gk-anim-flip', desenfoque: 'gk-anim-blur',
+};
 
 export const ANCHOS_SECCION = [
   { value: '',          label: 'Normal (contenido)' },
@@ -360,10 +517,13 @@ export function claseAncho(v) {
   return 'max-w-4xl mx-auto';
 }
 
-function SeccionSortable({ b, activo, evento, label, onSelect, barra }) {
+function SeccionSortable({ b, activo, evento, label, onSelect, barra, onDataChange }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: b.id });
+  const esLienzo = b.type === 'lienzo';
   const B = BLOCKS[b.type];
-  const Pv = B.Preview;
+  /* Cuando la sección está seleccionada, sus sub-elementos (speakers, FAQ,
+     galería, redes) se pueden arrastrar directamente en la vista previa. */
+  const reorder = activo && onDataChange ? { onChange: onDataChange } : undefined;
   return (
     <div ref={setNodeRef} id={`sec-${b.id}`}
          style={{ transform: CSS.Transform.toString(transform), transition }}
@@ -371,8 +531,18 @@ function SeccionSortable({ b, activo, evento, label, onSelect, barra }) {
          className={`relative rounded-2xl transition-shadow cursor-pointer group isolate
                      ${activo ? 'ring-2 ring-accent shadow-glow-sm' : 'hover:ring-1 hover:ring-accent/40'}
                      ${isDragging ? 'opacity-70 z-30' : ''}`}>
-      <div className={`pointer-events-none overflow-hidden rounded-2xl ${claseAncho(b.data?._ancho)}`}>
-        <Pv data={b.data || {}} evento={evento} isEditor />
+      {/* key con los ajustes de animación: al cambiarlos se remonta y la animación
+          se reproduce en el editor, no solo en el sitio público. */}
+      <div key={`anim-${b.data?._anim || ''}-${b.data?._animDur ?? ''}-${b.data?._animDelay ?? ''}`}
+        className={`pointer-events-none overflow-hidden rounded-2xl ${esLienzo ? '' : claseAncho(b.data?._ancho)} ${ANIM_CLASE[b.data?._anim] || ''}`}
+        style={b.data?._anim ? { animationDuration: `${b.data?._animDur ?? 0.8}s`, animationDelay: `${b.data?._animDelay ?? 0}s` } : undefined}>
+        {esLienzo ? (
+          b.data?.canvas?.elementos?.length
+            ? <CanvasPublico canvas={b.data?.canvas} evento={evento} />
+            : <div className="h-40 rounded-2xl border-2 border-dashed border-border-2 flex items-center justify-center"><p className="text-sm text-text-3">Lienzo libre vacío — haz clic para diseñarlo</p></div>
+        ) : (
+          <B.Preview data={b.data || {}} evento={evento} isEditor reorder={reorder} />
+        )}
       </div>
       {/* Grip de arrastre — visible en hover, siempre en activo */}
       <button {...attributes} {...listeners} onClick={e => e.stopPropagation()} aria-label="Arrastrar sección"
@@ -390,7 +560,7 @@ function SeccionSortable({ b, activo, evento, label, onSelect, barra }) {
   );
 }
 
-function BarraSeccion({ onUp, onDown, onDup, onDel, onCerrar }) {
+function BarraSeccion({ onUp, onDown, onDup, onDel, onEmbed, onCerrar }) {
   const B = ({ children, onClick, danger, title }) => (
     <button onClick={onClick} title={title}
       className={`w-6.5 h-6.5 w-[26px] h-[26px] rounded-md text-[11px] flex items-center justify-center transition-colors
@@ -403,6 +573,7 @@ function BarraSeccion({ onUp, onDown, onDup, onDel, onCerrar }) {
       <B title="Subir" onClick={onUp}>▲</B>
       <B title="Bajar" onClick={onDown}>▼</B>
       <B title="Duplicar" onClick={onDup}>⧉</B>
+      {onEmbed && <B title="Exportar como iframe (incrustar en otra web)" onClick={onEmbed}>{'</>'}</B>}
       <B title="Quitar" danger onClick={onDel}>✕</B>
       <B title="Cerrar edición" onClick={onCerrar}>✓</B>
     </div>
@@ -411,4 +582,71 @@ function BarraSeccion({ onUp, onDown, onDup, onDel, onCerrar }) {
 
 function IcLienzo({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>; }
 function EyeIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>; }
-function HoverHalo() { return null; }
+
+/* Representación fiel (no interactiva) del chrome superior del sitio público:
+   barra secundaria (Explorar eventos + Rueda/Torneo/Agenda + Compartir),
+   navbar/píldora de páginas y portada. Así el editor se ve igual que el
+   público — el único punto interactivo es la portada, que al hacer clic
+   selecciona el bloque "Portada" para editarlo. */
+function EditorTopChrome({ evento, pages, onPortada, portadaData, navbar = {} }) {
+  const hasCover = Boolean(evento.cover_url);
+  const { organizador, nombreOrg } = resolveBranding(evento);
+  const { contenido: coverContenido, ratio: coverRatio } = coverLayout(portadaData);
+  const nav = { alineacion: 'center', mostrar_explorar: true, mostrar_compartir: true, enlaces: [], ...navbar };
+  const pillAlign = NAVBAR_ALINEACION[nav.alineacion] || 'justify-center';
+  const Chip = ({ children }) => (
+    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border text-sm text-text-2">{children}</span>
+  );
+  return (
+    <div className="select-none">
+      {/* Barra secundaria (representación · configurable desde "Navbar") */}
+      <div className="pointer-events-none flex items-center justify-between gap-3 px-6 sm:px-10 pt-5 flex-wrap min-h-[1px]">
+        {nav.mostrar_explorar ? (
+          <Chip>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            Explorar eventos
+          </Chip>
+        ) : <span />}
+        <div className="flex items-center gap-2 flex-wrap">
+          {evento.tiene_networking && <Chip>🤝 Rueda de Negocios</Chip>}
+          {evento.tiene_torneo && <Chip>Ver Torneo</Chip>}
+          {evento.tiene_agenda && <Chip>📅 Ver Agenda</Chip>}
+          {nav.enlaces.map((l, i) => <Chip key={i}>{l.label}</Chip>)}
+          {nav.mostrar_compartir && (
+            <Chip>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Compartir
+            </Chip>
+          )}
+        </div>
+      </div>
+
+      {hasCover ? (
+        <div className="px-6 sm:px-10 pt-4">
+          <div className={`pointer-events-none flex ${pillAlign} relative z-10 mb-[-14px]`}>
+            <EventNavbar evento={evento} pages={pages} activeIdx={0} />
+          </div>
+          <div className={`rounded-3xl overflow-hidden border border-border cursor-pointer group relative bg-surface-2 ${coverContenido ? 'max-w-3xl mx-auto' : ''}`}
+               style={{ aspectRatio: coverRatio }} onClick={onPortada}>
+            <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
+            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-surface/90 text-text-2 opacity-0 group-hover:opacity-100 transition-opacity">Portada (clic para editar)</span>
+          </div>
+          {nombreOrg && (
+            <p className="text-xs text-text-3 text-center mt-3">
+              Presentado por <span className="text-text-2 font-medium">{nombreOrg}</span>
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="pointer-events-none px-6 sm:px-10 pt-4">
+          <BrandHeader organizador={organizador} size="lg" />
+          {pages.length > 1 && (
+            <div className={`flex ${pillAlign} mt-6`}>
+              <EventNavbar evento={evento} pages={pages} activeIdx={0} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,6 +1,11 @@
 import client from './client.js';
 
 export const torneosApi = {
+  /* Lista de torneos del evento (multi-torneo). */
+  list             : (eventoId) => client.get(`/eventos/${eventoId}/torneos`).then(r => r.data),
+  /* Un torneo concreto con equipos + partidos. */
+  getOne           : (eventoId, torneoId) => client.get(`/eventos/${eventoId}/torneos/${torneoId}`).then(r => r.data),
+  /* RETROCOMPAT: primer torneo del evento (+ lista en `torneos`). */
   get              : (eventoId) => client.get(`/eventos/${eventoId}/torneo`).then(r => r.data),
   crear            : (eventoId, body) => client.post(`/eventos/${eventoId}/torneo`, body).then(r => r.data),
   borrar           : (eventoId, torneoId) => client.delete(`/eventos/${eventoId}/torneo/${torneoId}`).then(r => r.data),

@@ -18,6 +18,8 @@ const NetworkingPublicPage = lazy(() => import('./pages/public/NetworkingPublicP
 const TorneoPublicoPage  = lazy(() => import('./pages/public/TorneoPublicoPage.jsx'));
 const AgendaPublicaPage  = lazy(() => import('./pages/public/AgendaPublicaPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
+const EmbedPage          = lazy(() => import('./pages/public/EmbedPage.jsx'));
+const ExpositorPage      = lazy(() => import('./pages/public/ExpositorPage.jsx'));
 const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
 const PrivacidadPage     = lazy(() => import('./pages/public/PrivacidadPage.jsx'));
 const TerminosPage       = lazy(() => import('./pages/public/TerminosPage.jsx'));
@@ -90,10 +92,15 @@ export default function App() {
                 <Route path="/explorar/:slug/torneo" element={<TorneoPublicoPage />} />
                 <Route path="/explorar/:slug/agenda" element={<AgendaPublicaPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
+                <Route path="/expositor/:codigo"  element={<ExpositorPage />} />
                   <Route path="/faq"               element={<FAQPage />} />
                 <Route path="/privacidad"        element={<PrivacidadPage />} />
                 <Route path="/terminos"          element={<TerminosPage />} />
               </Route>
+
+              {/* eFrame: una sección suelta para incrustar en otra web.
+                  Fuera de PublicLayout a propósito — sin navbar ni footer. */}
+              <Route path="/embed/:slug/:seccion" element={<EmbedPage />} />
 
               <Route path="/login"    element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />
               <Route path="/register" element={<PublicOnlyRoute><AuthPage /></PublicOnlyRoute>} />

@@ -4,7 +4,51 @@
    Cada uno expone: label, icon, defaults, Editor, Preview, category. */
 
 import { useState, useEffect } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
+import { COVER_ASPECTOS, coverLayout } from '../../../components/public/EventChrome.jsx';
+import { tipoEspacio } from '../../../lib/espacio.js';
+
+/* ─────────── reordenar sub-elementos EN la vista previa (Rework #2) ───────────
+   Cuando un bloque con lista está seleccionado en el editor, sus items se pueden
+   arrastrar directamente en la vista previa para reordenarlos (ej. bajar el
+   speaker 2). El público nunca recibe `reorder`, así que allí no pasa nada.
+   Trabajamos con índices reales del array completo aunque se muestren filtrados:
+   así el orden guardado siempre corresponde a lo que se ve. */
+export function PreviewReorder({ visibleIndices, onMove, strategy, className, renderItem }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter}
+      onDragEnd={({ active, over }) => { if (over && active.id !== over.id) onMove(Number(active.id), Number(over.id)); }}>
+      <SortableContext items={visibleIndices.map(String)} strategy={strategy || verticalListSortingStrategy}>
+        <div className={className}>
+          {visibleIndices.map(realIdx => (
+            <PreviewSortable key={realIdx} id={String(realIdx)}>{renderItem(realIdx)}</PreviewSortable>
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+function PreviewSortable({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`relative ${isDragging ? 'opacity-80 z-30' : ''}`}>
+      {/* Handle SIEMPRE visible (la sección seleccionada es pointer-events-none,
+          así que un handle por hover nunca se vería). pointer-events-auto lo
+          reactiva solo a él para poder arrastrar. */}
+      <button {...attributes} {...listeners} type="button" aria-label="Arrastrar para reordenar" title="Arrastra para reordenar"
+        onClick={e => e.stopPropagation()}
+        className="pointer-events-auto absolute left-1.5 top-1.5 z-20 w-6 h-6 rounded-md bg-accent/90 hover:bg-accent border border-white/20 text-white flex items-center justify-center cursor-grab active:cursor-grabbing shadow-card">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+      </button>
+      {children}
+    </div>
+  );
+}
 
 /* ─────────── helpers ─────────── */
 
@@ -274,6 +318,54 @@ function SystemEditor({ data, onChange, evento, Preview, label }) {
   );
 }
 
+/* Editor de Portada — además de la visibilidad, controla el TAMAÑO de la
+   imagen de portada (pantalla completa vs contenida, y su proporción/altura).
+   Lo leen igual el público y el editor vía coverLayout(). */
+function PortadaEditor({ data, onChange, evento }) {
+  const modo = data.cover_modo || 'full';
+  const { ratio } = coverLayout(data);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Portada</p>
+        <VisibilityToggle data={data} onChange={onChange} />
+      </div>
+      {data.oculto ? <HiddenNotice label="Portada" /> : (<>
+        {!evento.cover_url && (
+          <p className="text-xs text-text-3">Sube la imagen de portada desde <strong className="text-text-2">Editar información</strong> del evento.</p>
+        )}
+        <div className="space-y-2">
+          <label className="text-xs text-text-2 block">Ancho de la imagen</label>
+          <div className="grid grid-cols-2 gap-2">
+            {[['full', 'Pantalla completa'], ['contenido', 'Contenida']].map(([v, l]) => (
+              <button key={v} type="button" onClick={() => onChange({ ...data, cover_modo: v })}
+                className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors
+                  ${modo === v ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-text-2 block mb-1">Proporción (altura)</label>
+          <select className="input" value={data.cover_aspecto || ''} onChange={e => onChange({ ...data, cover_aspecto: e.target.value })}>
+            {COVER_ASPECTOS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+          </select>
+          <p className="text-[11px] text-text-3 mt-1">Proporciones más compactas hacen la portada más baja (ocupa menos pantalla).</p>
+        </div>
+        {evento.cover_url && (
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1.5">Vista previa</p>
+            <div className="overflow-hidden border border-border bg-surface-2 rounded-2xl" style={{ aspectRatio: ratio }}>
+              <img src={evento.cover_url} alt="" className="w-full h-full object-cover" />
+            </div>
+          </div>
+        )}
+      </>)}
+    </div>
+  );
+}
+
 /* ============================================================
    CUSTOM BLOCKS
    ============================================================ */
@@ -332,20 +424,27 @@ function GaleriaEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function GaleriaPreview({ data }) {
-  const urls = (data.urls || []).filter(Boolean);
-  if (urls.length === 0) return null;
+function GaleriaPreview({ data, reorder }) {
+  const all = data.urls || [];
+  const visibleIndices = all.map((_, i) => i).filter(i => Boolean(all[i]));
+  if (visibleIndices.length === 0) return null;
+  const grid = 'grid grid-cols-2 sm:grid-cols-3 gap-3';
+  const cell = (i) => (
+    <a key={i} href={all[i]} target="_blank" rel="noreferrer noopener"
+      className="block aspect-square rounded-2xl overflow-hidden border border-border hover:border-border-2 transition-all hover:scale-[1.02]">
+      <img src={all[i]} alt="" className="w-full h-full object-cover" loading="lazy" />
+    </a>
+  );
   return (
     <div>
       {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {urls.map((u, i) => (
-          <a key={i} href={u} target="_blank" rel="noreferrer noopener"
-            className="aspect-square rounded-2xl overflow-hidden border border-border hover:border-border-2 transition-all hover:scale-[1.02]">
-            <img src={u} alt="" className="w-full h-full object-cover" loading="lazy" />
-          </a>
-        ))}
-      </div>
+      {reorder ? (
+        <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
+          onMove={(from, to) => reorder.onChange({ ...data, urls: arrayMove(all, from, to) })}
+          renderItem={cell} />
+      ) : (
+        <div className={grid}>{visibleIndices.map(cell)}</div>
+      )}
     </div>
   );
 }
@@ -406,15 +505,21 @@ function FAQEditor({ data, onChange }) {
     </div>
   );
 }
-function FAQPreview({ data }) {
-  const items = (data.items || []).filter(it => it.q?.trim());
-  if (items.length === 0) return null;
+function FAQPreview({ data, reorder }) {
+  const all = data.items || [];
+  const visibleIndices = all.map((_, i) => i).filter(i => all[i]?.q?.trim());
+  if (visibleIndices.length === 0) return null;
+  const item = (i) => <FAQItem key={i} q={all[i].q} a={all[i].a} />;
   return (
     <div>
       {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
-      <div className="space-y-2">
-        {items.map((it, i) => <FAQItem key={i} q={it.q} a={it.a} />)}
-      </div>
+      {reorder ? (
+        <PreviewReorder visibleIndices={visibleIndices} strategy={verticalListSortingStrategy} className="space-y-2"
+          onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
+          renderItem={item} />
+      ) : (
+        <div className="space-y-2">{visibleIndices.map(item)}</div>
+      )}
     </div>
   );
 }
@@ -480,6 +585,15 @@ function HeroEditor({ data, onChange, evento }) {
         ownerId={evento?.owner_id}
         placeholder="URL imagen de fondo o sube una"
       />
+      <div>
+        <label className="text-xs text-text-2 flex items-center justify-between mb-1">
+          <span>Alto del banner</span>
+          <span className="text-text-3 tabular-nums">{data.alto ?? 320}px</span>
+        </label>
+        <input type="range" min={140} max={640} step={20} value={data.alto ?? 320}
+          onChange={e => onChange({ ...data, alto: Number(e.target.value) })}
+          className="w-full accent-[#8B5CF6]" />
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <input value={data.cta_texto || ''} onChange={e => onChange({ ...data, cta_texto: e.target.value })}
           placeholder="Texto del botón (opcional)"
@@ -494,7 +608,8 @@ function HeroEditor({ data, onChange, evento }) {
 function HeroPreview({ data }) {
   if (!data.titulo) return null;
   return (
-    <div className="relative rounded-3xl overflow-hidden border border-border min-h-[320px] flex items-center px-8 py-12">
+    <div className="relative rounded-3xl overflow-hidden border border-border flex items-center px-8 py-12"
+      style={{ minHeight: data.alto ?? 320 }}>
       {data.imagen && (
         <>
           <img src={data.imagen} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -547,32 +662,42 @@ function SpeakersEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function SpeakersPreview({ data }) {
-  const items = (data.items || []).filter(it => it.nombre?.trim());
-  if (items.length === 0) return null;
+function SpeakersPreview({ data, reorder }) {
+  const all = data.items || [];
+  const visibleIndices = all.map((_, i) => i).filter(i => all[i]?.nombre?.trim());
+  if (visibleIndices.length === 0) return null;
+  const card = (i) => {
+    const s = all[i];
+    return (
+      <div key={i} className="rounded-3xl border border-border bg-surface/40 p-5 flex items-start gap-4 hover:border-border-2 transition-all">
+        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
+          {s.foto
+            ? <img src={s.foto} alt={s.nombre} className="w-full h-full object-cover" />
+            : <span className="text-white font-bold text-lg">{s.nombre?.charAt(0)?.toUpperCase()}</span>}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-semibold text-text-1 truncate">{s.nombre}</p>
+          {(s.cargo || s.empresa) && (
+            <p className="text-xs text-text-3 mt-0.5 truncate">
+              {s.cargo}{s.cargo && s.empresa ? ' · ' : ''}{s.empresa}
+            </p>
+          )}
+          {s.bio && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{s.bio}</p>}
+        </div>
+      </div>
+    );
+  };
+  const grid = 'grid sm:grid-cols-2 gap-3';
   return (
     <div>
       {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5">{data.titulo}</h2>}
-      <div className="grid sm:grid-cols-2 gap-3">
-        {items.map((s, i) => (
-          <div key={i} className="rounded-3xl border border-border bg-surface/40 p-5 flex items-start gap-4 hover:border-border-2 transition-all">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-              {s.foto
-                ? <img src={s.foto} alt={s.nombre} className="w-full h-full object-cover" />
-                : <span className="text-white font-bold text-lg">{s.nombre?.charAt(0)?.toUpperCase()}</span>}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold text-text-1 truncate">{s.nombre}</p>
-              {(s.cargo || s.empresa) && (
-                <p className="text-xs text-text-3 mt-0.5 truncate">
-                  {s.cargo}{s.cargo && s.empresa ? ' · ' : ''}{s.empresa}
-                </p>
-              )}
-              {s.bio && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{s.bio}</p>}
-            </div>
-          </div>
-        ))}
-      </div>
+      {reorder ? (
+        <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
+          onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
+          renderItem={card} />
+      ) : (
+        <div className={grid}>{visibleIndices.map(card)}</div>
+      )}
     </div>
   );
 }
@@ -783,21 +908,31 @@ function RedesEditor({ data, onChange }) {
     </div>
   );
 }
-function RedesPreview({ data }) {
-  const items = (data.items || []).filter(it => it.url?.trim());
-  if (items.length === 0) return null;
+function RedesPreview({ data, reorder }) {
+  const all = data.items || [];
+  const visibleIndices = all.map((_, i) => i).filter(i => all[i]?.url?.trim());
+  if (visibleIndices.length === 0) return null;
+  const chip = (i) => {
+    const l = all[i];
+    return (
+      <a key={i} href={l.url} target="_blank" rel="noreferrer noopener"
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border bg-surface/40 hover:bg-surface hover:border-border-2 text-sm text-text-1 transition-all hover:scale-[1.02]">
+        <span className="text-xs uppercase tracking-wider text-text-3">{l.tipo}</span>
+        <span className="truncate max-w-[200px]">{l.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+      </a>
+    );
+  };
+  const wrap = 'flex flex-wrap justify-center gap-2';
   return (
     <div className="text-center">
       {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5">{data.titulo}</h2>}
-      <div className="flex flex-wrap justify-center gap-2">
-        {items.map((l, i) => (
-          <a key={i} href={l.url} target="_blank" rel="noreferrer noopener"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border bg-surface/40 hover:bg-surface hover:border-border-2 text-sm text-text-1 transition-all hover:scale-[1.02]">
-            <span className="text-xs uppercase tracking-wider text-text-3">{l.tipo}</span>
-            <span className="truncate max-w-[200px]">{l.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
-          </a>
-        ))}
-      </div>
+      {reorder ? (
+        <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={wrap}
+          onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
+          renderItem={chip} />
+      ) : (
+        <div className={wrap}>{visibleIndices.map(chip)}</div>
+      )}
     </div>
   );
 }
@@ -821,6 +956,242 @@ function CTAEditor({ data, onChange }) {
     </div>
   );
 }
+/* ── Premios y recompensas ──
+   Muestra el catálogo real del evento (evento.recompensas). El saldo NO se
+   muestra aquí: es por boleta y vive en /mi-ticket. */
+function RecompensasEditor({ data, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })}
+        placeholder="Título" className="input" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })}
+        placeholder="Explica cómo se ganan los puntos" rows={3} className="input resize-none" />
+      <p className="text-[11px] text-text-3">
+        Los premios se administran en Ajustes → Recompensas (o por evento). Aquí solo se muestran.
+      </p>
+    </div>
+  );
+}
+
+function RecompensasPreview({ data, evento }) {
+  const items = evento?.recompensas || [];
+  return (
+    <section className="py-4">
+      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
+      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-5 max-w-2xl">{data.subtitulo}</p>}
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">Aún no hay premios publicados.</p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {items.map(r => (
+            <div key={r.id} className={`rounded-2xl border border-border bg-surface/40 p-4 ${r.agotada ? 'opacity-50' : ''}`}>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-text-1">{r.titulo}</p>
+                <span className="text-xs font-bold tabular-nums text-primary-light flex-shrink-0">{r.costo_puntos} pts</span>
+              </div>
+              {r.descripcion && <p className="text-xs text-text-3 mt-1.5 leading-relaxed">{r.descripcion}</p>}
+              {r.agotada && <p className="text-[11px] text-danger mt-2">Agotado</p>}
+              {!r.agotada && r.stock != null && (
+                <p className="text-[11px] text-text-3 mt-2">Quedan {Math.max(0, r.stock - r.canjeados)}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function IconRecompensas({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zM5 12h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+  </svg>;
+}
+function IconExpositores({ className }) {
+  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3m6-14h6m-6 4h6m-6 4h6" />
+  </svg>;
+}
+
+/* ── Mapa del evento ── (page_json.mapa: {imagen_url, marcadores:[{expositor_id,x,y}]}
+   cruzado con evento.expositores para la card al hacer clic) */
+function MapaEventoEditor({ data, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })} placeholder="Título" className="input" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })} placeholder="Subtítulo" rows={2} className="input resize-none" />
+      <p className="text-[11px] text-text-3">El plano y las posiciones se arman en Dinámicas → Mapa del evento. Aquí solo se muestra.</p>
+    </div>
+  );
+}
+
+function MapaEventoPreview({ data, evento }) {
+  const [sel, setSel] = useState(null);
+  const mapa = evento?.page_json?.mapa || {};
+  const marcadores = Array.isArray(mapa.marcadores) ? mapa.marcadores : [];
+  const expoPorId = new Map((evento?.expositores || []).map(e => [e.id, e]));
+  const sesPorId  = new Map((evento?.mapa_sesiones || []).map(s => [s.id, s]));
+
+  if (!mapa.imagen_url) {
+    return (
+      <section className="py-4">
+        {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">El mapa aún no está configurado.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="py-4">
+      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
+      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-4 max-w-2xl">{data.subtitulo}</p>}
+      <div className="relative rounded-2xl overflow-hidden border border-border bg-surface-2">
+        <img src={mapa.imagen_url} alt="Mapa del evento" className="w-full block" />
+        {marcadores.map((m, i) => {
+          const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : 'punto');
+          const pos = { left: `${m.x}%`, top: `${m.y}%` };
+
+          if (tipo === 'expositor') {
+            const e = expoPorId.get(m.expositor_id);
+            if (!e) return null; // borrador/borrado: no se muestra
+            return (
+              <button key={i} onClick={() => setSel({ kind: 'expositor', data: e })}
+                className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110" style={pos} title={e.nombre}>
+                <span className="block w-10 h-10 rounded-full border-2 border-white shadow-lg bg-white overflow-hidden ring-2 ring-primary/50">
+                  {e.logo_url
+                    ? <img src={e.logo_url} alt="" className="w-full h-full object-cover" />
+                    : <span className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-700">{(e.nombre || '?')[0]}</span>}
+                </span>
+              </button>
+            );
+          }
+          if (tipo === 'sesion') {
+            const s = sesPorId.get(m.sesion_id);
+            if (!s) return null;
+            const t = tipoEspacio(s.tipo);
+            return (
+              <button key={i} onClick={() => setSel({ kind: 'sesion', data: s })}
+                className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-105" style={pos} title={s.titulo}>
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full border-2 border-white shadow-lg text-white text-[11px] font-medium whitespace-nowrap" style={{ background: t.color }}>
+                  <span>{t.icon}</span>{(s.titulo || 'Sub-evento').slice(0, 20)}
+                </span>
+              </button>
+            );
+          }
+          /* punto de interés */
+          return (
+            <span key={i} className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/90 border-2 border-white shadow-lg text-white text-[11px] font-medium whitespace-nowrap" style={pos}>
+              <span>{m.icono}</span>{m.label}
+            </span>
+          );
+        })}
+      </div>
+
+      {sel && (
+        <div className="fixed inset-0 z-[9990] flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSel(null)}>
+          <div className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+            {sel.kind === 'expositor' ? (<>
+              <div className="flex items-start gap-3">
+                {sel.data.logo_url
+                  ? <img src={sel.data.logo_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                  : <div className="w-14 h-14 rounded-xl bg-surface-2 flex items-center justify-center text-xl font-bold text-text-3 flex-shrink-0">{(sel.data.nombre || '?')[0]}</div>}
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-text-1">{sel.data.nombre}</p>
+                  {sel.data.categoria_negocio && <p className="text-xs text-text-3">{sel.data.categoria_negocio}</p>}
+                  {sel.data.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {sel.data.stand}</span>}
+                </div>
+                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
+              </div>
+              {sel.data.descripcion && <p className="text-sm text-text-2 mt-3 leading-relaxed">{sel.data.descripcion}</p>}
+              {Array.isArray(sel.data.franjas) && sel.data.franjas.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border space-y-1">
+                  <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">En el cronograma</p>
+                  {sel.data.franjas.slice(0, 5).map(fr => (
+                    <p key={fr.id} className="text-xs text-text-2"><span className="font-mono text-text-3">{new Date(fr.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span> · {fr.titulo}</p>
+                  ))}
+                </div>
+              )}
+              {sel.data.sitio_web && <a href={sel.data.sitio_web} target="_blank" rel="noreferrer noopener" className="text-xs text-primary-light hover:underline mt-3 inline-block">Ver sitio →</a>}
+            </>) : (<>
+              <div className="flex items-start gap-3">
+                <span className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: `${tipoEspacio(sel.data.tipo).color}22` }}>{tipoEspacio(sel.data.tipo).icon}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-text-1">{sel.data.titulo}</p>
+                  <p className="text-xs text-text-3">{tipoEspacio(sel.data.tipo).label}</p>
+                </div>
+                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
+              </div>
+              <div className="mt-3 space-y-1 text-sm text-text-2">
+                {sel.data.inicio && <p>🕒 {new Date(sel.data.inicio).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>}
+                {sel.data.ubicacion && <p>📍 {sel.data.ubicacion}</p>}
+              </div>
+            </>)}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ── Directorio de expositores ── (evento.expositores, con sus franjas) */
+function ExpositoresEditor({ data, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })} placeholder="Título" className="input" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })} placeholder="Subtítulo" rows={2} className="input resize-none" />
+      <p className="text-[11px] text-text-3">Las fichas las llenan las propias empresas con su boleta de stand. Aquí solo se muestran las publicadas.</p>
+    </div>
+  );
+}
+
+function ExpositoresPreview({ data, evento }) {
+  const items = evento?.expositores || [];
+  const hora = (s) => new Date(s).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  return (
+    <section className="py-4">
+      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
+      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-5 max-w-2xl">{data.subtitulo}</p>}
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">Aún no hay expositores publicados.</p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {items.map(x => (
+            <div key={x.id} className="rounded-2xl border border-border bg-surface/40 p-4">
+              <div className="flex items-start gap-3">
+                {x.logo_url
+                  ? <img src={x.logo_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
+                  : <div className="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-lg font-bold text-text-3 flex-shrink-0">{(x.nombre || '?')[0]}</div>}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text-1 truncate">{x.nombre}</p>
+                  {x.categoria_negocio && <p className="text-[11px] text-text-3">{x.categoria_negocio}</p>}
+                  {x.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {x.stand}</span>}
+                </div>
+              </div>
+              {x.descripcion && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{x.descripcion}</p>}
+              {Array.isArray(x.franjas) && x.franjas.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border space-y-1">
+                  {x.franjas.slice(0, 4).map(fr => (
+                    <p key={fr.id} className="text-[11px] text-text-3 flex items-center gap-1.5">
+                      <span className="font-mono text-text-2">{hora(fr.inicio)}</span> {fr.titulo}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {x.sitio_web && <a href={x.sitio_web} target="_blank" rel="noreferrer noopener" className="text-[11px] text-primary-light hover:underline mt-2 inline-block">Ver sitio →</a>}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CTAPreview({ data }) {
   if (!data.texto || !data.url) return null;
   const cls = data.estilo === 'secondary'
@@ -893,7 +1264,7 @@ export const BLOCKS = {
     label: 'Portada', category: 'sistema', icon: IconCover,
     defaults: {},
     Preview: PortadaPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={PortadaPreview} label="Portada" />,
+    Editor: PortadaEditor,
   },
   galeria_evento: {
     label: 'Galería del evento', category: 'sistema', icon: IconGaleria,
@@ -941,7 +1312,7 @@ export const BLOCKS = {
   /* CUSTOM */
   hero: {
     label: 'Hero / banner', category: 'custom', icon: IconHero,
-    defaults: { titulo: 'Bienvenido al evento', subtitulo: '', imagen: '', cta_texto: '', cta_url: '' },
+    defaults: { titulo: 'Bienvenido al evento', subtitulo: '', imagen: '', cta_texto: '', cta_url: '', alto: 320 },
     Editor: HeroEditor, Preview: HeroPreview,
   },
   texto: {
@@ -988,6 +1359,21 @@ export const BLOCKS = {
     label: 'FAQ', category: 'custom', icon: IconFAQ,
     defaults: { titulo: 'Preguntas frecuentes', items: [{ q: '', a: '' }] },
     Editor: FAQEditor, Preview: FAQPreview,
+  },
+  recompensas: {
+    label: 'Premios y recompensas', category: 'custom', icon: IconRecompensas,
+    defaults: { titulo: 'Gana puntos y canjéalos', subtitulo: 'Participa en los stands y actividades del evento: acumulas puntos en tu escarapela y los cambias por premios.' },
+    Editor: RecompensasEditor, Preview: RecompensasPreview,
+  },
+  expositores: {
+    label: 'Directorio de expositores', category: 'custom', icon: IconExpositores,
+    defaults: { titulo: 'Expositores', subtitulo: 'Las empresas y marcas que estarán en el evento.' },
+    Editor: ExpositoresEditor, Preview: ExpositoresPreview,
+  },
+  mapa_evento: {
+    label: 'Mapa del evento', category: 'custom', icon: IconMapa,
+    defaults: { titulo: 'Mapa del evento', subtitulo: 'Toca un expositor para ver su información.' },
+    Editor: MapaEventoEditor, Preview: MapaEventoPreview,
   },
   cta: {
     label: 'Botón CTA', category: 'custom', icon: IconCTA,

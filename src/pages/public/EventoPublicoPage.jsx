@@ -5,6 +5,7 @@ import { eventosApi } from '../../api/eventos.js';
 import { pagosApi }   from '../../api/pagos.js';
 import { BLOCKS } from '../events/editor/blocks.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/public/Branding.jsx';
+import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import { useT } from '../../lib/i18n.js';
@@ -38,21 +39,51 @@ export default function EventoPublicoPage() {
     return [{ id: 'inicio', nombre: 'Inicio', blocks: [] }];
   }, [evento]);
 
-  /* Favicon y título de pestaña con la marca del evento */
+  /* Favicon, título y metadatos SEO (page_json.seo) en el <head> */
   useEffect(() => {
     if (!evento) return;
-    document.title = brandingEventoTitulo(evento);
+    const seo = evento.page_json?.seo || {};
+    document.title = seo.title?.trim() || brandingEventoTitulo(evento);
+
     const fav = evento.page_json?.branding?.favicon_url;
     if (fav) {
       let link = document.querySelector("link[rel~='icon']");
       if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
       link.href = fav;
     }
+
+    /* Si no hay contenido, se QUITA el tag: al navegar entre eventos (SPA) el
+       <head> es global y si no, quedarían pegados los metadatos del anterior. */
+    const setMeta = (selector, attr, key, content) => {
+      let el = document.head.querySelector(selector);
+      if (!content) { if (el) el.remove(); return; }
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, key); document.head.appendChild(el); }
+      el.setAttribute('content', content);
+    };
+    const desc  = seo.description?.trim() || evento.descripcion || evento.titulo || '';
+    const img   = seo.og_image || evento.cover_url || '';
+    const title = seo.title?.trim() || evento.titulo;
+    const url   = seo.canonical?.trim() || `${window.location.origin}/explorar/${evento.slug}`;
+    setMeta('meta[name="description"]', 'name', 'description', desc);
+    setMeta('meta[name="keywords"]', 'name', 'keywords', seo.keywords);
+    setMeta('meta[property="og:title"]', 'property', 'og:title', title);
+    setMeta('meta[property="og:description"]', 'property', 'og:description', desc);
+    setMeta('meta[property="og:image"]', 'property', 'og:image', img);
+    setMeta('meta[property="og:url"]', 'property', 'og:url', url);
+    setMeta('meta[name="twitter:title"]', 'name', 'twitter:title', title);
+    setMeta('meta[name="twitter:description"]', 'name', 'twitter:description', desc);
+    setMeta('meta[name="twitter:image"]', 'name', 'twitter:image', img);
+
+    let canon = document.head.querySelector("link[rel='canonical']");
+    if (!canon) { canon = document.createElement('link'); canon.rel = 'canonical'; document.head.appendChild(canon); }
+    canon.href = url;
   }, [evento]);
 
   const pageIdx = (() => {
-    const p = Number(params.get('p') || 1);
-    return Math.max(1, Math.min(pages.length, p));
+    /* Blindado contra ?p= no numérico o decimal (NaN dejaba la página en blanco). */
+    const raw = Number(params.get('p'));
+    const p = Number.isFinite(raw) ? Math.floor(raw) : 1;
+    return Math.max(1, Math.min(pages.length || 1, p));
   })();
 
   const activePage = pages[pageIdx - 1];
@@ -76,6 +107,8 @@ export default function EventoPublicoPage() {
   );
 
   const hasCover = Boolean(evento.cover_url);
+  const nav = navbarConfig(evento.page_json);
+  const pillAlign = NAVBAR_ALINEACION[nav.alineacion] || 'justify-center';
   /* White Label del evento (page_json.branding) pisa el branding del
      organizador SOLO en esta página — corazón de eFrame. */
   const brandingEvento = evento.page_json?.branding || {};
@@ -121,7 +154,7 @@ export default function EventoPublicoPage() {
       {/* Barra secundaria: volver + Rueda de Negocios/Torneo/Agenda (si aplican)
           + compartir (oculta "Explorar eventos" en modo standalone) */}
       <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-        {isStandalone ? <span /> : (
+        {(isStandalone || !nav.mostrar_explorar) ? <span /> : (
           <Link to="/explorar"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
                        text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
@@ -132,6 +165,12 @@ export default function EventoPublicoPage() {
           </Link>
         )}
         <div className="flex items-center gap-2 flex-wrap">
+          {nav.enlaces.map((l, i) => (
+            <a key={i} href={l.url || '#'} target={l.url?.startsWith('http') ? '_blank' : undefined} rel="noreferrer noopener"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+              {l.label}
+            </a>
+          ))}
           {evento.tiene_networking && (
             <Link to={`/explorar/${slug}/networking`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30
@@ -146,14 +185,14 @@ export default function EventoPublicoPage() {
               Ver Torneo
             </Link>
           )}
-          {evento.tiene_agenda && (
+          {(evento.tiene_espacio ?? evento.tiene_agenda) && (
             <Link to={`/explorar/${slug}/agenda`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-success/30
                          bg-success/10 text-sm text-success hover:bg-success/20 transition-colors">
-              📅 Ver Agenda
+              📅 Espacio del evento
             </Link>
           )}
-          <ShareButton />
+          {nav.mostrar_compartir && <ShareButton />}
         </div>
       </div>
 
@@ -162,7 +201,7 @@ export default function EventoPublicoPage() {
           se hace scroll por toda la página, no solo mientras se ve la imagen de portada. */}
       <div className="relative">
         {hasCover && (
-          <div className="sticky top-4 z-20 flex justify-center mb-[-1px]">
+          <div className={`sticky top-4 z-20 flex ${pillAlign} mb-[-1px]`}>
             <div className="max-w-[calc(100%-2rem)]">
               {tabsPill}
             </div>
@@ -171,13 +210,24 @@ export default function EventoPublicoPage() {
 
         {hasCover ? (
           <div className="mb-8">
-            {/* Imagen "full-bleed": se sale del ancho máximo de la página y llega
-                de borde a borde de la pantalla, sin los márgenes laterales normales. */}
-            <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen overflow-hidden border-y sm:border border-border sm:rounded-3xl -mt-[52px] pt-[52px]">
-              <div className="aspect-[16/10] sm:aspect-[21/9] w-full bg-surface-2">
-                <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
-              </div>
-            </div>
+            {(() => {
+              /* Tamaño de la portada según el bloque "Portada" (full-bleed o
+                 contenida, con proporción configurable). */
+              const portadaData = (activePage?.blocks || []).find(b => b.type === 'portada')?.data || {};
+              const { contenido, ratio } = coverLayout(portadaData);
+              return contenido ? (
+                <div className="overflow-hidden border border-border rounded-3xl bg-surface-2" style={{ aspectRatio: ratio }}>
+                  <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                /* Full-bleed: se sale del ancho máximo y llega de borde a borde de la pantalla. */
+                <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen overflow-hidden border-y sm:border border-border sm:rounded-3xl -mt-[52px] pt-[52px]">
+                  <div className="w-full bg-surface-2" style={{ aspectRatio: ratio }}>
+                    <img src={evento.cover_url} alt={evento.titulo} className="w-full h-full object-cover" />
+                  </div>
+                </div>
+              );
+            })()}
 
             {nombreOrg && (
               <p className="text-xs text-text-3 text-center mt-3">
@@ -192,7 +242,7 @@ export default function EventoPublicoPage() {
               <BrandHeader organizador={organizador} size="lg" />
             </div>
             {pages.length > 1 && (
-              <nav className="mb-8 flex items-center justify-center gap-1.5 flex-wrap">
+              <nav className={`mb-8 flex items-center ${pillAlign} gap-1.5 flex-wrap`}>
                 {pages.map((p, i) => (
                   <button
                     key={p.id}
@@ -226,9 +276,7 @@ export default function EventoPublicoPage() {
           </div>
         ) : (
         <div className="space-y-8" key={activePage?.id}>
-          {(activePage?.blocks || []).map(block => {
-            if (block.data?.oculto) return null;
-            if (hasCover && block.type === 'portada') return null;
+          {blocksVisibles(activePage, hasCover).map(block => {
             if (block.type === 'lienzo') {
               return (
                 <div key={block.id} className="animate-[fadeUp_0.4s_ease_both] -mx-4 sm:mx-0">
@@ -243,7 +291,7 @@ export default function EventoPublicoPage() {
             const B = BLOCKS[block.type];
             if (!B) return null;
             const Preview = B.Preview;
-            const animCls = { aparecer: 'gk-anim-fade', subir: 'gk-anim-up', zoom: 'gk-anim-zoom', izq: 'gk-anim-left', der: 'gk-anim-right' }[block.data?._anim] || 'animate-[fadeUp_0.4s_ease_both]';
+            const animCls = { aparecer: 'gk-anim-fade', subir: 'gk-anim-up', bajar: 'gk-anim-down', zoom: 'gk-anim-zoom', izq: 'gk-anim-left', der: 'gk-anim-right', rebote: 'gk-anim-bounce', girar: 'gk-anim-rotate', voltear: 'gk-anim-flip', desenfoque: 'gk-anim-blur' }[block.data?._anim] || 'animate-[fadeUp_0.4s_ease_both]';
             const animStyle = block.data?._anim ? { animationDuration: `${block.data?._animDur || 0.8}s`, animationDelay: `${block.data?._animDelay || 0}s` } : undefined;
             const ancho = block.data?._ancho === 'full' ? '' : block.data?._ancho === 'angosto' ? 'max-w-xl mx-auto' : 'max-w-4xl mx-auto';
             return (
@@ -278,7 +326,7 @@ export default function EventoPublicoPage() {
         />
       )}
       {reservaOk && (
-        <ConfirmacionModal ticket={reservaOk} onClose={() => setReservaOk(null)} />
+        <ConfirmacionModal ticket={reservaOk} checkout={evento.page_json?.checkout || {}} onClose={() => setReservaOk(null)} />
       )}
       {waitlistTipo && (
         <WaitlistModal
@@ -454,17 +502,24 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
+  const [acepta, setAcepta] = useState(false);
+  const [confirmaEdad, setConfirmaEdad] = useState(false);
   const hasEarly = tipo.early_bird_precio != null && tipo.early_bird_hasta && new Date(tipo.early_bird_hasta) > new Date();
   const precio = hasEarly ? Number(tipo.early_bird_precio) : Number(tipo.precio);
   const isFree = precio === 0;
   const tienePagoSimple = Boolean(evento?.pago_llave || evento?.pago_qr_url);
-  const camposForm = evento?.campos_formulario || [];
+  /* Campos aplicables a ESTE tipo de boleta: los globales + los propios del tipo. */
+  const camposForm = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
+  const checkout = evento?.page_json?.checkout || {};
 
   const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
 
   const submit = async (e) => {
     e.preventDefault();
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
+    if (checkout.requiere_telefono && !form.telefono.trim()) { setErr('El teléfono es obligatorio.'); return; }
+    if (checkout.edad_minima && !confirmaEdad) { setErr(`Debes confirmar que tienes al menos ${checkout.edad_minima} años.`); return; }
+    if (checkout.terminos_activo && !acepta) { setErr('Debes aceptar los términos para continuar.'); return; }
     for (const c of camposForm) {
       if (c.requerido) {
         const v = respuestas[c.id];
@@ -524,14 +579,32 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
             className="input rounded-2xl py-3 text-base" placeholder="tu@email.com" />
         </div>
         <div className="field">
-          <label className="label">Teléfono <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
-          <input value={form.telefono} onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
+          <label className="label">Teléfono {checkout.requiere_telefono
+            ? <span className="text-danger-light">*</span>
+            : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
+          <input value={form.telefono} required={Boolean(checkout.requiere_telefono)} onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
             className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" />
         </div>
 
         {camposForm.map(c => (
           <CampoDinamico key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={evento?.id} />
         ))}
+
+        {checkout.edad_minima > 0 && (
+          <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
+            <input type="checkbox" checked={confirmaEdad} onChange={e => setConfirmaEdad(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-primary" />
+            <span>Confirmo que tengo al menos <strong className="text-text-1">{checkout.edad_minima}</strong> años.</span>
+          </label>
+        )}
+        {checkout.terminos_activo && (
+          <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
+            <input type="checkbox" checked={acepta} onChange={e => setAcepta(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-primary" />
+            <span>
+              {checkout.terminos_texto || 'He leído y acepto los términos y condiciones.'}
+              {checkout.terminos_url && <> <a href={checkout.terminos_url} target="_blank" rel="noreferrer noopener" className="text-primary-light hover:underline">Ver términos</a></>}
+            </span>
+          </label>
+        )}
         {!isFree && tienePagoSimple && (
           <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3 text-xs text-text-2 leading-relaxed space-y-2">
             <p className="font-semibold text-warning-light">Pago manual vía Mercado Pago</p>
@@ -572,8 +645,15 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   );
 }
 
-function ConfirmacionModal({ ticket, onClose }) {
+function ConfirmacionModal({ ticket, checkout = {}, onClose }) {
   const qrValue = ticket.qr_token || ticket.codigo;
+  const redirectUrl = checkout.redirect_url;
+  useEffect(() => {
+    if (redirectUrl && checkout.redirect_auto) {
+      const t = setTimeout(() => { window.location.href = redirectUrl; }, 5000);
+      return () => clearTimeout(t);
+    }
+  }, [redirectUrl, checkout.redirect_auto]);
   return (
     <ModalShell onClose={onClose}>
       <div className="text-center py-3">
@@ -583,10 +663,10 @@ function ConfirmacionModal({ ticket, onClose }) {
           </svg>
         </div>
         <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight mb-2">
-          {ticket.requierePago ? '¡Boleta apartada!' : '¡Reserva confirmada!'}
+          {checkout.confirmacion_titulo?.trim() || (ticket.requierePago ? '¡Boleta apartada!' : '¡Reserva confirmada!')}
         </h2>
         <p className="text-sm text-text-2 mb-5 leading-relaxed max-w-sm mx-auto">
-          Muestra este QR en la entrada del evento. También puedes mostrar el código.
+          {checkout.confirmacion_texto?.trim() || 'Muestra este QR en la entrada del evento. También puedes mostrar el código.'}
         </p>
         <div className="bg-white rounded-2xl p-4 inline-block mb-4">
           <QRCodeSVG value={qrValue} size={180} level="M" includeMargin={false} />
@@ -601,9 +681,19 @@ function ConfirmacionModal({ ticket, onClose }) {
             {window.location.origin}/mi-ticket/{ticket.codigo}
           </a>
         </p>
-        <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
-          Listo
-        </button>
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+            Listo
+          </button>
+          {redirectUrl && (
+            <a href={redirectUrl} className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all">
+              Continuar →
+            </a>
+          )}
+        </div>
+        {redirectUrl && checkout.redirect_auto && (
+          <p className="text-[11px] text-text-3 mt-3">Te redirigiremos automáticamente en unos segundos…</p>
+        )}
       </div>
     </ModalShell>
   );

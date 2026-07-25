@@ -1,18 +1,24 @@
+import { createPortal } from 'react-dom';
 import { WIDGETS_META, TAMANOS } from '../../hooks/useWidgets.js';
 
 const SIZE_LABEL = { sm: 'S', md: 'M', lg: 'L', full: 'XL' };
 
-/* Panel lateral de personalización del Inicio. */
+/* Panel lateral de personalización del Inicio.
+   Se monta en un PORTAL al body: si se renderiza dentro del árbol de la página,
+   los ancestros con `transform` (la animación fadeUp) crean un bloque contenedor
+   y el `position: fixed` deja de anclarse a la ventana → el panel no llegaba
+   arriba ni abajo de la pantalla. */
 export default function PersonalizarPanel({ open, onClose, layout, toggle, setSize, reset, meta = WIDGETS_META, titulo = 'Personalizar Inicio' }) {
-  return (
+  return createPortal(
     <>
+      {/* Backdrop transparente: solo cierra al hacer clic fuera, SIN oscurecer ni
+          desenfocar — así se ven los cambios de los widgets en vivo mientras se edita. */}
       <div
-        className={`fixed inset-0 z-[70] bg-bg/60 backdrop-blur-sm transition-opacity
-                    ${open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 z-[70] ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}
         onClick={onClose}
       />
       <aside
-        className={`fixed top-0 right-0 z-[80] h-full w-[340px] max-w-[90vw] bg-surface border-l border-border
+        className={`fixed top-0 right-0 z-[80] h-full w-[340px] max-w-[90vw] bg-surface border-l border-border shadow-2xl
                     flex flex-col transform transition-transform duration-300
                     ${open ? 'translate-x-0' : 'translate-x-full invisible'}`}
       >
@@ -77,6 +83,7 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
           </button>
         </footer>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

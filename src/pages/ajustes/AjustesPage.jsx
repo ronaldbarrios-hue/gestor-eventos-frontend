@@ -6,7 +6,7 @@ import { useToast } from '../../context/ToastContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { IDIOMAS, getLang, setLang } from '../../lib/i18n.js';
 import { pantallaInicial, setPantallaInicial } from '../../lib/prefs.js';
-import SettingsPage, { NotificacionesTab, PagosTab, WhiteLabelTab } from '../settings/SettingsPage.jsx';
+import SettingsPage, { NotificacionesTab, PagosTab, WhiteLabelTab, AparienciaCard } from '../settings/SettingsPage.jsx';
 import UsersPage from '../users/UsersPage.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -21,7 +21,8 @@ const I = (d) => ({ className }) => (
   </svg>
 );
 const APARTADOS = [
-  { id: 'perfil',        label: 'Mi Perfil',          icon: I('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
+  /* oculto del menú: el perfil se abre desde el menú de la cuenta (evita duplicarlo) */
+  { id: 'perfil', oculto: true, label: 'Mi Perfil',          icon: I('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
   { id: 'organizacion',  label: 'Organización',       icon: I('M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4') },
   { id: 'espacio',       label: 'Espacio de Trabajo', icon: I('M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z') },
   { id: 'notificaciones',label: 'Notificaciones',     icon: I('M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3C7.7 6.2 6 8.4 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
@@ -32,13 +33,14 @@ const APARTADOS = [
 
 export default function AjustesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const apartado = searchParams.get('a') || 'perfil';
+  const VISIBLES = APARTADOS.filter(a => !a.oculto);
+  const apartado = searchParams.get('a') || VISIBLES[0].id;
 
   return (
     <div className="grid lg:grid-cols-[220px_1fr_260px] gap-6 items-start animate-[fadeUp_0.4s_ease_both]">
       {/* ── Nav de apartados ── */}
       <nav className="lg:sticky lg:top-4 flex lg:flex-col gap-1 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0">
-        {APARTADOS.map(a => (
+        {VISIBLES.map(a => (
           <button
             key={a.id}
             onClick={() => setSearchParams({ a: a.id })}
@@ -237,7 +239,8 @@ function Preferencias() {
   };
 
   return (
-    <Seccion titulo="Preferencias" desc="Idioma, formatos y accesibilidad.">
+    <Seccion titulo="Preferencias" desc="Apariencia, idioma, formatos y accesibilidad.">
+      <AparienciaCard />
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-1 mb-3">Idioma</h3>
         <div className="flex flex-wrap gap-2">

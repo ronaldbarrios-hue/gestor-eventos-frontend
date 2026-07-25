@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
+import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 
 /* Página pública /mi-ticket/:codigo
@@ -87,6 +88,29 @@ export default function MiTicketPage() {
         </span>
       </div>
 
+      {/* Si es una boleta de stand, la empresa edita su ficha de expositor */}
+      {ticket.tipo?.es_expositor && (
+        <Link to={`/expositor/${ticket.codigo}`}
+          className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 hover:bg-accent/10 transition-colors">
+          <span className="text-sm text-text-1">🏢 <strong>Tienes un stand.</strong> Edita tu ficha de expositor.</span>
+          <span className="text-accent-light text-sm font-medium whitespace-nowrap">Editar →</span>
+        </Link>
+      )}
+
+      {/* Tarjeta wallet (diseño del organizador · gamificación) = escarapela digital */}
+      <div className="mt-6">
+        <WalletCard
+          design={walletConfig(ticket.evento?.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre })}
+          evento={ticket.evento || {}} ticket={ticket} puntos={ticket.puntos ?? null} />
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <button onClick={() => window.print()}
+            className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
+            🖨️ Imprimir mi escarapela
+          </button>
+        </div>
+        <p className="text-[11px] text-text-3 text-center mt-1">Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.</p>
+      </div>
+
       {/* QR principal */}
       <div className="mt-8 flex flex-col items-center">
         <div className="bg-white rounded-3xl p-5 inline-block">
@@ -94,6 +118,38 @@ export default function MiTicketPage() {
         </div>
         <p className="font-mono text-2xl font-bold text-text-1 tabular-nums tracking-widest mt-4">{ticket.codigo}</p>
       </div>
+
+      {/* Movimientos de puntos — lo que le fueron marcando en los stands */}
+      {Array.isArray(ticket.interacciones) && ticket.interacciones.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-semibold text-text-1">Tus puntos</h2>
+            <span className="text-lg font-bold font-display tabular-nums text-text-1">{ticket.puntos ?? 0} pts</span>
+          </div>
+          <ul className="rounded-2xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
+            {ticket.interacciones.map(it => {
+              const neg = it.tipo === 'negativo';
+              return (
+                <li key={it.id} className="flex items-center gap-3 px-4 py-3">
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${neg ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
+                    {neg ? '⚠' : '★'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-1 truncate">
+                      {it.motivo_texto || 'Registro'}
+                      {it.lugar && <span className="text-text-3"> · {it.lugar}</span>}
+                    </p>
+                    <p className="text-[11px] text-text-3">{new Date(it.created_at).toLocaleString('es-CO')}</p>
+                  </div>
+                  <span className={`text-sm font-bold tabular-nums flex-shrink-0 ${neg ? 'text-danger' : 'text-success'}`}>
+                    {it.puntos > 0 ? `+${it.puntos}` : it.puntos}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Detalles */}
       <div className="mt-8 space-y-2.5">
@@ -107,12 +163,50 @@ export default function MiTicketPage() {
         )}
       </div>
 
-      <div className="mt-8 text-center">
+      <div className="mt-8 text-center no-print">
         <Link to={`/explorar/${ticket.evento?.slug}`} className="text-sm text-text-2 hover:text-text-1 transition-colors">
           Ver evento →
         </Link>
       </div>
+
+      {/* Escarapela imprimible: oculta en pantalla, aparece SOLO al imprimir.
+         Así el asistente imprime su propia credencial aunque el evento no las
+         imprima centralizadamente. */}
+      <EscarapelaImprimible ticket={ticket} qrValue={qrValue} />
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .escarapela-yo, .escarapela-yo * { visibility: visible; }
+          .escarapela-yo { position: absolute; inset: 0; margin: 0 auto; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
     </section>
+  );
+}
+
+function EscarapelaImprimible({ ticket, qrValue }) {
+  const marca = ticket.evento?.page_json?.branding?.plataforma || ticket.evento?.titulo || 'Evento';
+  const logo = ticket.evento?.page_json?.branding?.logo_url || ticket.evento?.page_json?.credenciales?.logo_url;
+  return (
+    <div className="escarapela-yo hidden print:block" style={{ width: '90mm' }}>
+      <div style={{ border: '1px solid #ddd', borderRadius: 12, overflow: 'hidden', background: '#fff', color: '#0f172a' }}>
+        <div style={{ background: '#0A0F1A', color: '#fff', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {logo && <img src={logo} alt="" style={{ height: 20, objectFit: 'contain' }} />}
+          <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.85 }}>{marca}</span>
+        </div>
+        <div style={{ padding: 14, textAlign: 'center' }}>
+          <div style={{ background: '#fff', display: 'inline-block', padding: 6 }}>
+            <QRCodeSVG value={qrValue} size={120} level="M" includeMargin={false} />
+          </div>
+          <p style={{ fontSize: 16, fontWeight: 700, marginTop: 10 }}>{ticket.guest_nombre || 'Asistente'}</p>
+          <span style={{ display: 'inline-block', marginTop: 6, fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1.5, background: '#0A0F1A', color: '#fff', padding: '3px 10px', borderRadius: 999 }}>
+            {ticket.tipo?.nombre || 'General'}
+          </span>
+          <p style={{ fontSize: 9, fontFamily: 'monospace', color: '#64748b', marginTop: 8 }}>{ticket.codigo}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 

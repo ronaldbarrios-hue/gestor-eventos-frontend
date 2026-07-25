@@ -1,0 +1,34 @@
+# SPA (react-router) + cabeceras — para Apache/cPanel.
+# Este archivo va en public/ y Vite lo copia a dist/ en el build.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  # No reescribir archivos ni carpetas que existan de verdad (assets, imágenes…)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  # Todo lo demás lo maneja la app: servir index.html (rutas como /explorar/:slug)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # CSP general (espejo de vercel.json). Ajusta dominios si cambia el backend.
+  Header always set Content-Security-Policy "default-src 'self'; connect-src 'self' https://gestor-eventos-backend-yx75.onrender.com https://api.gestekeventost.dpdns.org https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.mercadopago.com https://sdk.mercadopago.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' https://www.mercadopago.com https://challenges.cloudflare.com https://www.google.com https://www.youtube.com https://player.vimeo.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self';"
+
+  # eFrame: las rutas /embed/* SÍ se pueden incrustar en cualquier web.
+  <If "%{REQUEST_URI} =~ m#^/embed/#">
+    Header always set Content-Security-Policy "default-src 'self'; connect-src 'self' https://gestor-eventos-backend-yx75.onrender.com https://api.gestekeventost.dpdns.org https://*.supabase.co wss://*.supabase.co; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; frame-src 'self' https://www.google.com https://www.youtube.com https://player.vimeo.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors *;"
+  </If>
+</IfModule>
+
+# El index.html no se cachea (para que los deploys se vean al instante);
+# los assets con hash sí se pueden cachear fuerte.
+<IfModule mod_headers.c>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(js|css|woff2?|png|jpe?g|svg|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

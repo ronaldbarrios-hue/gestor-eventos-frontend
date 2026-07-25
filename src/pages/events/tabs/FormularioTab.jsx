@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
+import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
@@ -54,19 +55,27 @@ function nuevoCampo(preset = {}) {
     etiqueta: preset.etiqueta || '',
     opciones: preset.opciones || [],
     requerido: preset.requerido ?? true,
+    ticket_type_id: preset.ticket_type_id || '', // '' = todas las boletas
   };
 }
 
 export default function FormularioTab({ evento }) {
   const [campos,  setCampos]  = useState([]);
+  const [tipos,   setTipos]   = useState([]); // tipos de boleta del evento
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const { success, error: toastErr } = useToast();
 
   useEffect(() => {
     setLoading(true);
-    eventosApi.getFormulario(evento.id)
-      .then(d => setCampos((d.campos || []).map(c => nuevoCampo({ ...c, opciones: c.opciones || [] }))))
+    Promise.all([
+      eventosApi.getFormulario(evento.id),
+      ticketsApi.list(evento.id).catch(() => ({ tickets: [] })),
+    ])
+      .then(([d, tt]) => {
+        setCampos((d.campos || []).map(c => nuevoCampo({ ...c, opciones: c.opciones || [] })));
+        setTipos(tt.tickets || tt.ticket_types || []);
+      })
       .catch(e => toastErr(e.message))
       .finally(() => setLoading(false));
     /* eslint-disable-next-line */
@@ -93,7 +102,7 @@ export default function FormularioTab({ evento }) {
     }
     setSaving(true);
     try {
-      const payload = campos.map(({ id, tipo, etiqueta, opciones, requerido }) => ({ id, tipo, etiqueta, opciones, requerido }));
+      const payload = campos.map(({ id, tipo, etiqueta, opciones, requerido, ticket_type_id }) => ({ id, tipo, etiqueta, opciones, requerido, ticket_type_id: ticket_type_id || null }));
       const r = await eventosApi.guardarFormulario(evento.id, payload);
       setCampos((r.campos || []).map(c => nuevoCampo({ ...c, opciones: c.opciones || [] })));
       success('Formulario guardado. Ya se aplica en la página de compra.');
@@ -112,7 +121,10 @@ export default function FormularioTab({ evento }) {
         <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Formulario de compra</h2>
         <p className="text-sm text-text-3 leading-relaxed">
           Define qué información le pides a cada persona al comprar o reservar una boleta,
-          además de nombre y email (que siempre se piden). Se aplica a todas las boletas de este evento.
+          además de nombre y email (que siempre se piden).
+          {tipos.length > 1
+            ? ' Cada campo puede pedirse en todas las boletas o solo en un tipo (ej. datos extra para el VIP).'
+            : ' Se aplica a todas las boletas de este evento.'}
         </p>
       </div>
 
@@ -178,6 +190,17 @@ export default function FormularioTab({ evento }) {
                   value={c.opciones.join(', ')}
                   onChange={e => actualizar(c._key, { opciones: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                   className="input rounded-xl py-2.5 text-sm" placeholder="Ej. S, M, L, XL" />
+              </div>
+            )}
+
+            {tipos.length > 1 && (
+              <div className="field">
+                <label className="label text-xs">Se pide en</label>
+                <select value={c.ticket_type_id || ''} onChange={e => actualizar(c._key, { ticket_type_id: e.target.value })}
+                  className="input bg-surface-2 rounded-xl py-2.5 text-sm">
+                  <option value="">Todas las boletas</option>
+                  {tipos.map(t => <option key={t.id} value={t.id}>Solo «{t.nombre}»</option>)}
+                </select>
               </div>
             )}
 

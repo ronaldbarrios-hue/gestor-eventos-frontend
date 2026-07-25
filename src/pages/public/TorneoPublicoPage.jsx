@@ -10,13 +10,24 @@ import GLoader from '../../components/ui/GLoader.jsx';
 export default function TorneoPublicoPage() {
   const { slug } = useParams();
   const [data, setData] = useState(undefined); // undefined = cargando
+  const [torneosLista, setTorneosLista] = useState([]);
+  const [selId, setSelId] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     eventosApi.torneoPublico(slug)
-      .then(d => setData(d))
+      .then(d => { setData(d); setTorneosLista(d.torneos || (d.torneo ? [d.torneo] : [])); setSelId(d.torneo?.id || null); })
       .catch(e => setError(e.message));
   }, [slug]);
+
+  const cambiarTorneo = (torneoId) => {
+    if (torneoId === selId) return;
+    setSelId(torneoId);
+    setData(undefined);
+    eventosApi.torneoPublicoUno(slug, torneoId)
+      .then(d => setData({ ...d, torneos: torneosLista }))
+      .catch(e => setError(e.message));
+  };
 
   if (data === undefined && !error) return (
     <section className="px-5 py-20 max-w-2xl mx-auto"><GLoader message="Cargando torneo..." /></section>
@@ -39,16 +50,33 @@ export default function TorneoPublicoPage() {
 
   const { torneo, equipos, partidos } = data;
   const equipoPorId = new Map(equipos.map(e => [e.id, e]));
+  const nombreFormato = torneo.formato === 'eliminacion' ? 'Eliminación'
+    : torneo.formato === 'liga' ? 'Liga' : 'Grupos + Eliminación';
 
   return (
     <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
       <div className="mb-6">
         <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Torneo</p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">{torneo.nombre}</h1>
-          <span className="badge badge-blue text-[10px]">{torneo.formato === 'eliminacion' ? 'Eliminación' : 'Liga'}</span>
+          {torneo.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-2 py-0.5 rounded">{torneo.disciplina}</span>}
+          <span className="badge badge-blue text-[10px]">{nombreFormato}</span>
         </div>
       </div>
+
+      {/* Selector cuando el evento tiene varios torneos */}
+      {torneosLista.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap mb-6">
+          {torneosLista.map(t => (
+            <button key={t.id} onClick={() => cambiarTorneo(t.id)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors flex items-center gap-1.5
+                ${selId === t.id ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+              🏆 {t.nombre}
+              {t.disciplina && <span className="text-[10px] uppercase tracking-wide opacity-70">{t.disciplina}</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {partidos.length === 0 ? (
         <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">

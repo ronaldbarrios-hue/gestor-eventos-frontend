@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { ELEMENTOS, ElementoRender, ANCHO_DISENO, FUENTES_CANVAS, ANIMACIONES, BLOQUES_INCRUSTABLES } from './elementos.jsx';
+import { ELEMENTOS, ElementoRender, ANCHO_DISENO, FUENTES_CANVAS, ANIMACIONES, BLOQUES_INCRUSTABLES, FIGURAS } from './elementos.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -51,7 +51,11 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
   const onPointerMove = (e) => {
     const d = drag.current;
     if (!d) return;
-    const dx = (e.clientX - d.sx) / d.k, dy = (e.clientY - d.sy) / d.k;
+    /* Escala recalculada en cada movimiento: al seleccionar aparece el panel de
+       propiedades y el lienzo se angosta, así que la escala capturada al iniciar
+       el arrastre quedaba obsoleta y el primer arrastre se descuadraba. */
+    const k = escala() || d.k || 1;
+    const dx = (e.clientX - d.sx) / k, dy = (e.clientY - d.sy) / k;
     if (d.modo === 'mover') updateEl(d.id, { x: Math.max(0, snap(d.ox + dx)), y: Math.max(0, snap(d.oy + dy)) });
     else updateEl(d.id, { w: Math.max(40, snap(d.ow + dx)), h: Math.max(20, snap(d.oh + dy)) });
   };
@@ -111,13 +115,16 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
               <div
                 key={el.id}
                 onPointerDown={(e) => onPointerDown(e, el, 'mover')}
-                className={`absolute cursor-grab active:cursor-grabbing ${activo ? 'ring-2 ring-accent z-40' : 'hover:ring-1 hover:ring-accent/40'}`}
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                className={`absolute cursor-grab active:cursor-grabbing select-none ${activo ? 'ring-2 ring-accent z-40' : 'hover:ring-1 hover:ring-accent/40'}`}
                 style={{
                   left: `${el.x / ANCHO_DISENO * 100}%`,
                   top: `${el.y / alto * 100}%`,
                   width: `${el.w / ANCHO_DISENO * 100}%`,
                   height: `${el.h / alto * 100}%`,
                   borderRadius: 12,
+                  touchAction: 'none',
                 }}
               >
                 <div className="w-full h-full pointer-events-none">
@@ -165,7 +172,7 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
 
       {/* ── Propiedades: SOLO cuando hay selección ── */}
       {sel && (
-        <aside className="flex-shrink-0 w-[280px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[76px] z-20">
+        <aside className="flex-shrink-0 w-[300px] xl:w-[340px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[76px] z-20">
           <header className="flex items-center justify-between px-4 py-3 border-b border-border">
             <h3 className="text-[13px] font-semibold text-text-1">{ELEMENTOS[sel.type].label}</h3>
             <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs">✕</button>
@@ -205,6 +212,31 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
                   </select>
                 </Campo>
               </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <Campo label="Encuadre">
+                  <select className="input" value={sel.props.posicion || 'center'} onChange={e => updateEl(sel.id, { props: { posicion: e.target.value } })}>
+                    <option value="center">Centro</option><option value="top">Arriba</option><option value="bottom">Abajo</option><option value="left">Izquierda</option><option value="right">Derecha</option>
+                  </select>
+                </Campo>
+                <Campo label={`Opacidad · ${Math.round((sel.props.opacidad ?? 1) * 100)}%`}>
+                  <input type="range" min={0.1} max={1} step={0.05} className="w-full accent-[#8B5CF6]" value={sel.props.opacidad ?? 1} onChange={e => updateEl(sel.id, { props: { opacidad: Number(e.target.value) } })} />
+                </Campo>
+              </div>
+              <p className="text-[11px] text-text-3">Arrastra la imagen para moverla y usa la esquina para agrandarla o reducirla.</p>
+            </>)}
+            {sel.type === 'figura' && (<>
+              <Campo label="Forma">
+                <select className="input" value={sel.props.forma || 'circulo'} onChange={e => updateEl(sel.id, { props: { forma: e.target.value } })}>
+                  {FIGURAS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+              </Campo>
+              <div className="grid grid-cols-2 gap-2.5">
+                <ColorMini label="Relleno" value={sel.props.fondo} onChange={v => updateEl(sel.id, { props: { fondo: v } })} />
+                <ColorMini label="Borde" value={sel.props.borde} onChange={v => updateEl(sel.id, { props: { borde: v } })} />
+              </div>
+              <Campo label={`Opacidad · ${Math.round((sel.props.opacidad ?? 1) * 100)}%`}>
+                <input type="range" min={0.1} max={1} step={0.05} className="w-full accent-[#8B5CF6]" value={sel.props.opacidad ?? 1} onChange={e => updateEl(sel.id, { props: { opacidad: Number(e.target.value) } })} />
+              </Campo>
             </>)}
             {sel.type === 'boton' && (<>
               <Campo label="Texto"><input className="input" value={sel.props.texto || ''} onChange={e => updateEl(sel.id, { props: { texto: e.target.value } })} /></Campo>
@@ -221,12 +253,23 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
                 <ColorMini label="Color" value={sel.props.color} onChange={v => updateEl(sel.id, { props: { color: v } })} />
               </div>
             )}
-            {sel.type === 'caja' && (
-              <div className="grid grid-cols-2 gap-2.5">
-                <ColorMini label="Fondo" value={sel.props.fondo} onChange={v => updateEl(sel.id, { props: { fondo: v } })} />
-                <Campo label="Bordes"><input type="number" min={0} max={80} className="input" value={sel.props.radio ?? 24} onChange={e => updateEl(sel.id, { props: { radio: Number(e.target.value) } })} /></Campo>
+            {sel.type === 'caja' && (<>
+              <Campo label="Estilo del recuadro">
+                <select className="input" value={sel.props.estilo || 'relleno'} onChange={e => updateEl(sel.id, { props: { estilo: e.target.value } })}>
+                  <option value="relleno">Relleno</option>
+                  <option value="contorno">Contorno</option>
+                  <option value="degradado">Degradado</option>
+                  <option value="vidrio">Vidrio (blur)</option>
+                  <option value="sombra">Sombra</option>
+                  <option value="punteado">Punteado</option>
+                </select>
+              </Campo>
+              <div className="grid grid-cols-3 gap-2">
+                <ColorMini label="Color" value={sel.props.fondo} onChange={v => updateEl(sel.id, { props: { fondo: v } })} />
+                <ColorMini label="Borde" value={sel.props.borde} onChange={v => updateEl(sel.id, { props: { borde: v } })} />
+                <Campo label="Radio"><input type="number" min={0} max={80} className="input" value={sel.props.radio ?? 24} onChange={e => updateEl(sel.id, { props: { radio: Number(e.target.value) } })} /></Campo>
               </div>
-            )}
+            </>)}
             {sel.type === 'divisor' && <ColorMini label="Color" value={sel.props.color} onChange={v => updateEl(sel.id, { props: { color: v } })} />}
             {sel.type === 'video' && (
               <Campo label="YouTube o Vimeo"><input className="input" value={sel.props.url || ''} onChange={e => updateEl(sel.id, { props: { url: e.target.value } })} placeholder="https://youtube.com/watch?v=…" /></Campo>
@@ -250,15 +293,18 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
                   <button onClick={() => setAnimKey(k => k + 1)} className="text-[11px] text-accent hover:underline">▶ Reproducir</button>
                 )}
               </div>
-              <select className="input" value={sel.props.anim || ''} onChange={e => updateEl(sel.id, { props: { anim: e.target.value } })}>
+              {/* Al cambiar la animación se reproduce sola (antes había que darle a ▶
+                  y parecía que "no hacía nada"). */}
+              <select className="input" value={sel.props.anim || ''}
+                onChange={e => { updateEl(sel.id, { props: { anim: e.target.value } }); setAnimKey(k => k + 1); }}>
                 {ANIMACIONES.filter(a => a.value !== 'maquina' || ['titulo', 'texto'].includes(sel.type)).map(a => (
                   <option key={a.value} value={a.value}>{a.label}</option>
                 ))}
               </select>
               {sel.props.anim && (
                 <div className="grid grid-cols-2 gap-2.5">
-                  <Campo label="Duración (s)"><input type="number" step={0.1} min={0.2} max={8} className="input" value={sel.props.animDur ?? 0.8} onChange={e => updateEl(sel.id, { props: { animDur: Number(e.target.value) } })} /></Campo>
-                  <Campo label="Retraso (s)"><input type="number" step={0.1} min={0} max={10} className="input" value={sel.props.animDelay ?? 0} onChange={e => updateEl(sel.id, { props: { animDelay: Number(e.target.value) } })} /></Campo>
+                  <Campo label="Duración (s)"><input type="number" step={0.1} min={0.2} max={8} className="input" value={sel.props.animDur ?? 0.8} onChange={e => { updateEl(sel.id, { props: { animDur: Number(e.target.value) } }); setAnimKey(k => k + 1); }} /></Campo>
+                  <Campo label="Retraso (s)"><input type="number" step={0.1} min={0} max={10} className="input" value={sel.props.animDelay ?? 0} onChange={e => { updateEl(sel.id, { props: { animDelay: Number(e.target.value) } }); setAnimKey(k => k + 1); }} /></Campo>
                 </div>
               )}
             </div>

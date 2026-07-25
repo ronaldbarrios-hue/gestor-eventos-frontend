@@ -1,0 +1,106 @@
+/* ──────────────────────────────────────────────────────────────────
+   Chrome compartido de la página del evento (Rework · consistencia)
+   Fuente ÚNICA de verdad para:
+     · el branding resuelto (logo + nombre del organizador)
+     · el navbar/píldora de páginas
+     · el orden y filtrado de los bloques (portada hoisted, ocultos)
+   Lo usan TANTO la página pública (EventoPublicoPage) COMO el editor
+   (ExperienceBuilder), para que el editor sea idéntico al público y
+   no se desincronicen el orden ni el navbar.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Resuelve el branding del evento igual en editor y público:
+   el White Label del evento (page_json.branding) pisa el del organizador. */
+export function resolveBranding(evento) {
+  const brandingEvento = evento?.page_json?.branding || {};
+  const organizador = {
+    ...(evento?.organizador || {}),
+    branding: { ...((evento?.organizador || {}).branding || {}), ...brandingEvento },
+    ...(brandingEvento.logo_url ? { empresa_logo_url: brandingEvento.logo_url } : {}),
+  };
+  const logoUrl = organizador?.empresa_logo_url;
+  const nombreOrg =
+    organizador?.branding?.plataforma ||
+    organizador?.empresa ||
+    organizador?.nombre ||
+    evento?.titulo ||
+    'Evento';
+  return { organizador, logoUrl, nombreOrg };
+}
+
+/* Tamaño/forma de la imagen de portada — configurable desde el bloque "Portada".
+   Fuente única usada por el público (EventoPublicoPage) y el editor
+   (EditorTopChrome), para que la portada se vea igual en ambos. */
+export const COVER_ASPECTOS = [
+  { value: '',      label: 'Panorámica (21:9)', ratio: '21 / 9' },
+  { value: '16/9',  label: 'Ancha (16:9)',      ratio: '16 / 9' },
+  { value: '16/10', label: 'Estándar (16:10)',  ratio: '16 / 10' },
+  { value: '3/2',   label: 'Foto (3:2)',        ratio: '3 / 2' },
+  { value: '4/3',   label: 'Compacta (4:3)',    ratio: '4 / 3' },
+];
+export function coverLayout(portadaData) {
+  const contenido = (portadaData?.cover_modo || 'full') === 'contenido';
+  const ratio = COVER_ASPECTOS.find(a => a.value === (portadaData?.cover_aspecto || ''))?.ratio || '21 / 9';
+  return { contenido, ratio };
+}
+
+/* Config editable del navbar (page_json.navbar) — alineación de la píldora,
+   mostrar/ocultar "Explorar eventos" y "Compartir", y enlaces personalizados.
+   La leen igual el editor (EditorTopChrome) y el público (EventoPublicoPage). */
+export function navbarConfig(pageJson) {
+  const n = pageJson?.navbar || {};
+  return {
+    alineacion       : ['left', 'center', 'right'].includes(n.alineacion) ? n.alineacion : 'center',
+    mostrar_explorar : n.mostrar_explorar !== false,
+    mostrar_compartir: n.mostrar_compartir !== false,
+    enlaces          : Array.isArray(n.enlaces) ? n.enlaces.filter(e => e && e.label) : [],
+  };
+}
+export const NAVBAR_ALINEACION = { left: 'justify-start', center: 'justify-center', right: 'justify-end' };
+
+/* Orden + filtrado de bloques idéntico en editor y público.
+   - salta los bloques ocultos
+   - salta el bloque "portada" cuando hay cover_url (se muestra arriba). */
+export function blocksVisibles(page, hasCover) {
+  return (page?.blocks || []).filter(b => {
+    if (!b) return false;
+    if (b?.data?.oculto) return false;
+    if (hasCover && b?.type === 'portada') return false;
+    return true;
+  });
+}
+
+/* Píldora de navegación entre páginas — misma en editor y público.
+   onNav(index) recibe el índice 0-based; si no se pasa, los botones no navegan
+   (útil como representación fiel dentro del editor). */
+export function EventNavbar({ evento, pages, activeIdx = 0, onNav }) {
+  const { logoUrl, nombreOrg } = resolveBranding(evento);
+  const mostrarTabs = pages.length > 1;
+  return (
+    <div className="flex items-center gap-1 bg-surface/80 backdrop-blur-md border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg overflow-x-auto no-scrollbar">
+      <div className="flex-shrink-0 pl-1 pr-1.5">
+        {logoUrl
+          ? <img src={logoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+          : (
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                 style={{ background: 'linear-gradient(135deg, var(--brand-primary, #3B82F6), var(--brand-accent, #8B5CF6))' }}>
+              {(nombreOrg || 'O').charAt(0).toUpperCase()}
+            </div>
+          )}
+      </div>
+      {mostrarTabs && pages.map((p, i) => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => onNav?.(i)}
+          className={`flex-shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
+            ${activeIdx === i ? 'bg-text-1 text-bg' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+          aria-current={activeIdx === i ? 'page' : undefined}
+        >
+          <span className="hidden sm:inline mr-1">{i + 1}.</span>
+          {p.nombre}
+        </button>
+      ))}
+    </div>
+  );
+}

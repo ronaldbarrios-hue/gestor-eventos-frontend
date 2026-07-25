@@ -1,0 +1,510 @@
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { eventosApi } from '../../api/eventos.js';
+import { expositorApi } from '../../api/interacciones.js';
+import ImagePicker from '../../components/ui/ImagePicker.jsx';
+import QrScanner from '../../components/ui/QrScanner.jsx';
+import GLoader from '../../components/ui/GLoader.jsx';
+import Spinner from '../../components/ui/Spinner.jsx';
+
+/* Página pública /expositor/:codigo
+   La empresa que compró una boleta-Stand edita su propia ficha con el código
+   de su boleta (misma idea que /mi-ticket). La ficha aparece luego en el
+   evento. Editar la ficha propia no emite valor, así que el código basta. */
+
+const REDES = [
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'facebook',  label: 'Facebook' },
+  { key: 'linkedin',  label: 'LinkedIn' },
+  { key: 'whatsapp',  label: 'WhatsApp' },
+];
+
+export default function ExpositorPage() {
+  const { codigo } = useParams();
+  const [estado, setEstado] = useState('cargando'); // cargando | ok | error
+  const [data, setData] = useState(null);
+  const [f, setF] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [tab, setTab] = useState('ficha'); // ficha | puntos | premios
+
+  useEffect(() => {
+    eventosApi.fichaExpositor(codigo)
+      .then(d => {
+        setData(d);
+        setF(normaliza(d.ficha));
+        setEstado('ok');
+      })
+      .catch(() => setEstado('error'));
+  }, [codigo]);
+
+  const set = (patch) => setF(x => ({ ...x, ...patch }));
+  const setRed = (k, v) => setF(x => ({ ...x, redes: { ...x.redes, [k]: v } }));
+
+  const guardar = async (marcarCompleta) => {
+    if (!f.nombre.trim()) { setMsg('El nombre es obligatorio.'); return; }
+    setSaving(true); setMsg('');
+    try {
+      const d = await eventosApi.guardarFichaExpositor(codigo, { ...f, marcar_completa: marcarCompleta });
+      setF(normaliza(d.ficha));
+      setMsg(marcarCompleta ? '¡Ficha publicada! Ya aparece en el evento.' : 'Guardado.');
+    } catch (e) { setMsg(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+
+  if (estado === 'cargando') return <section className="px-5 py-20 max-w-lg mx-auto"><GLoader message="Cargando tu ficha…" /></section>;
+
+  if (estado === 'error') return (
+    <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
+      <p className="text-xs uppercase tracking-widest text-danger mb-3">Ficha no encontrada</p>
+      <h1 className="text-2xl font-bold font-display text-text-1 mb-3">El código <span className="font-mono">{codigo}</span> no corresponde a un stand.</h1>
+      <p className="text-sm text-text-2 mb-6">Usa el código de tu boleta de stand. Si acabas de pagar, espera unos segundos y recarga.</p>
+      <Link to="/explorar" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-border-2 text-sm hover:bg-surface">← Explorar eventos</Link>
+    </section>
+  );
+
+  if (!data.pagada) return (
+    <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
+      <h1 className="text-2xl font-bold font-display text-text-1 mb-3">Tu stand aún no está confirmado</h1>
+      <p className="text-sm text-text-2">Cuando se confirme el pago de tu boleta de stand podrás editar tu ficha aquí.</p>
+    </section>
+  );
+
+  const ev = data.evento || {};
+
+  return (
+    <section className="px-5 py-10 max-w-2xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <div className="mb-5">
+        <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Tu stand en {ev.titulo}</p>
+        <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">{f.nombre || 'Tu expositor'}</h1>
+        <p className="text-sm text-text-2 mt-1">Gestiona tu ficha, da puntos a los asistentes y entrega tus premios.</p>
+      </div>
+
+      <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 mb-6 w-fit">
+        {[['ficha', 'Mi ficha'], ['cronograma', 'Cronograma'], ['puntos', 'Dar puntos'], ['premios', 'Mis premios']].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'cronograma' && <CronogramaTab codigo={codigo} />}
+      {tab === 'puntos'  && <PuntosTab codigo={codigo} nombre={f.nombre} />}
+      {tab === 'premios' && <PremiosTab codigo={codigo} />}
+
+      {tab === 'ficha' && (<>
+      {f.estado_ficha !== 'completa' && (
+        <div className="rounded-2xl border border-warning/25 bg-warning/5 px-4 py-3 mb-5 text-sm text-text-2">
+          Tu ficha está en <strong className="text-text-1">borrador</strong> y todavía no es visible. Complétala y pulsa “Publicar”.
+        </div>
+      )}
+
+      <div className="space-y-5">
+        {/* Persona / empresa */}
+        <div className="card">
+          <div className="card-body space-y-4">
+            <div>
+              <label className="label">¿Quién eres?</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[['empresa', 'Empresa'], ['natural', 'Persona natural']].map(([v, l]) => (
+                  <button key={v} onClick={() => set({ tipo_persona: v })}
+                    className={`px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors
+                      ${f.tipo_persona === v ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="field">
+                <label className="label">{f.tipo_persona === 'natural' ? 'Nombre *' : 'Nombre de la empresa *'}</label>
+                <input className="input" value={f.nombre} onChange={e => set({ nombre: e.target.value })} />
+              </div>
+              <div className="field">
+                <label className="label">Número de stand</label>
+                <input className="input" value={f.stand} onChange={e => set({ stand: e.target.value })} placeholder="Ej. A-12" />
+              </div>
+            </div>
+            <div className="field">
+              <label className="label">Logo</label>
+              <ImagePicker value={f.logo_url} onChange={v => set({ logo_url: v })} ownerId={codigo} placeholder="Logo de tu marca" />
+            </div>
+            <div className="field">
+              <label className="label">Descripción</label>
+              <textarea className="input resize-none" rows={3} value={f.descripcion}
+                onChange={e => set({ descripcion: e.target.value })} placeholder="¿Qué ofreces? ¿Por qué visitar tu stand?" />
+            </div>
+            <div className="field">
+              <label className="label">Categoría <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <input className="input" value={f.categoria_negocio} onChange={e => set({ categoria_negocio: e.target.value })} placeholder="Ej. Videojuegos, Comida, Moda" />
+            </div>
+          </div>
+        </div>
+
+        {/* Contacto y redes */}
+        <div className="card">
+          <div className="card-header"><h3 className="text-base font-semibold text-text-1">Contacto</h3></div>
+          <div className="card-body space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="field"><label className="label">Persona de contacto</label>
+                <input className="input" value={f.contacto_nombre} onChange={e => set({ contacto_nombre: e.target.value })} /></div>
+              <div className="field"><label className="label">Email</label>
+                <input className="input" value={f.contacto_email} onChange={e => set({ contacto_email: e.target.value })} /></div>
+              <div className="field"><label className="label">Teléfono</label>
+                <input className="input" value={f.contacto_telefono} onChange={e => set({ contacto_telefono: e.target.value })} /></div>
+              <div className="field"><label className="label">Sitio web</label>
+                <input className="input" value={f.sitio_web} onChange={e => set({ sitio_web: e.target.value })} placeholder="https://" /></div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {REDES.map(r => (
+                <div className="field" key={r.key}>
+                  <label className="label">{r.label}</label>
+                  <input className="input" value={f.redes?.[r.key] || ''} onChange={e => setRed(r.key, e.target.value)} placeholder="usuario o enlace" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {msg && <p className="text-sm text-text-2 mt-4 text-center">{msg}</p>}
+
+      <div className="flex items-center justify-end gap-2 mt-5">
+        <button onClick={() => guardar(false)} disabled={saving} className="btn-secondary">
+          {saving ? <Spinner size="sm" /> : 'Guardar borrador'}
+        </button>
+        <button onClick={() => guardar(true)} disabled={saving} className="btn-primary">
+          {f.estado_ficha === 'completa' ? 'Guardar y mantener publicada' : 'Publicar ficha'}
+        </button>
+      </div>
+      </>)}
+    </section>
+  );
+}
+
+/* ─────────── Dar puntos (escáner del expositor) ─────────── */
+function PuntosTab({ codigo, nombre }) {
+  const [motivos, setMotivos] = useState(null);
+  const [editando, setEditando] = useState(false);
+  const [sel, setSel] = useState(null);
+  const [ultimo, setUltimo] = useState(null);
+  const [working, setWorking] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const cargar = useCallback(() => {
+    expositorApi.panel(codigo).then(d => setMotivos(d.motivos || [])).catch(e => setMsg(e.response?.data?.error || e.message));
+  }, [codigo]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const registrar = useCallback(async (payload) => {
+    if (working || !sel) return;
+    setWorking(true);
+    try {
+      const r = await expositorApi.registrar(codigo, { ...payload, motivo_id: sel.id });
+      setUltimo({ ok: true, ...r });
+    } catch (e) { setUltimo({ ok: false, error: e.response?.data?.error || e.message }); }
+    finally { setTimeout(() => setWorking(false), 600); }
+  }, [codigo, sel, working]);
+
+  const onScan = useCallback((qr) => registrar({ qr_token: qr }), [registrar]);
+
+  if (motivos === null) return <GLoader message="Cargando…" />;
+  if (editando) return <MotivosEditor codigo={codigo} motivos={motivos} onListo={(m) => { setMotivos(m); setEditando(false); }} />;
+
+  const activos = motivos.filter(m => m.activo !== false);
+
+  return (
+    <div className="space-y-4">
+      {activos.length === 0 ? (
+        <div className="rounded-3xl border border-border bg-surface/40 px-6 py-12 text-center">
+          <p className="text-sm text-text-2 mb-4">Crea los motivos por los que darás puntos en tu stand.</p>
+          <button onClick={() => setEditando(true)} className="btn-primary btn-sm">Crear motivos</button>
+        </div>
+      ) : (<>
+        <div className="rounded-3xl border border-border bg-surface/40 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">1 · Elige el motivo</p>
+            <button onClick={() => setEditando(true)} className="btn-ghost btn-sm">Editar motivos</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {activos.map(m => (
+              <button key={m.id} onClick={() => setSel(m)}
+                className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2
+                  ${sel?.id === m.id ? 'border-success bg-success/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+                ★ {m.nombre} <span className="text-[10px] font-mono text-success">+{m.puntos}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-border bg-surface/40 p-5">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-3">2 · Escanea al asistente</p>
+          {!sel ? <p className="text-sm text-text-3">Elige un motivo arriba para habilitar el escáner.</p> : (<>
+            <QrScanner onScan={onScan} containerId="qr-expo-pts"
+              titulo={`${sel.nombre} · apunta al QR`} textoActivar="Escanear en mi stand"
+              descripcion="Escanea la escarapela del asistente para darle tus puntos."
+              overlay={ultimo ? <ResultadoExpo r={ultimo} /> : null} />
+            <CodigoManual onSubmit={(c) => registrar({ codigo: c })} disabled={working} />
+          </>)}
+          {ultimo && <div className="mt-3"><ResultadoExpo r={ultimo} /></div>}
+        </div>
+      </>)}
+      {msg && <p className="text-sm text-danger">{msg}</p>}
+    </div>
+  );
+}
+
+function ResultadoExpo({ r }) {
+  const ok = r.ok;
+  return (
+    <div className={`rounded-2xl border-2 p-4 backdrop-blur-xl bg-surface/90 ${ok ? 'border-success/40' : 'border-danger/40'} animate-[fadeUp_0.3s_ease_both]`}>
+      {ok ? (
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl bg-success text-white flex items-center justify-center text-xl font-bold">✓</span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-text-1 truncate">{r.ticket?.nombre}</p>
+            <p className="text-xs text-text-3">+{r.interaccion?.puntos} pts · saldo contigo: <strong className="text-text-1">{r.total_puntos}</strong></p>
+          </div>
+        </div>
+      ) : <p className="text-sm text-danger">{r.error}</p>}
+    </div>
+  );
+}
+
+function MotivosEditor({ codigo, motivos, onListo }) {
+  const [lista, setLista] = useState(() => motivos.map(m => ({ ...m, _k: m.id })));
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const set = (k, p) => setLista(l => l.map(m => m._k === k ? { ...m, ...p } : m));
+  const guardar = async () => {
+    for (const m of lista) if (!m.nombre?.trim()) { setMsg('Todos necesitan nombre.'); return; }
+    setSaving(true);
+    try {
+      const r = await expositorApi.guardarMotivos(codigo, lista.map(({ id, nombre, puntos, activo }) => ({ id, nombre, puntos: Number(puntos) || 0, activo })));
+      onListo(r.motivos || []);
+    } catch (e) { setMsg(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div className="space-y-3 max-w-xl">
+      <p className="text-sm text-text-3">Tus puntos solo suman. El organizador fija un tope por escaneo.</p>
+      {lista.map(m => (
+        <div key={m._k} className="flex items-center gap-2 rounded-2xl border border-border bg-surface/40 p-3">
+          <input value={m.nombre} onChange={e => set(m._k, { nombre: e.target.value })} placeholder="Ej. Visitó mi stand" className="input flex-1" />
+          <input type="number" min="0" value={Math.abs(Number(m.puntos) || 0)} onChange={e => set(m._k, { puntos: Number(e.target.value) || 0 })} className="input w-20 text-right" />
+          <span className="text-xs text-text-3">pts</span>
+          <button onClick={() => setLista(l => l.filter(x => x._k !== m._k))} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center">✕</button>
+        </div>
+      ))}
+      {msg && <p className="text-sm text-danger">{msg}</p>}
+      <div className="flex items-center justify-between">
+        <button onClick={() => setLista(l => [...l, { _k: Math.random().toString(36).slice(2), id: null, nombre: '', puntos: 10, activo: true }])} className="btn-ghost btn-sm">+ Añadir motivo</button>
+        <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">{saving ? <Spinner size="sm" /> : 'Guardar'}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Mis premios (escanear → entregar + catálogo) ─────────── */
+function PremiosTab({ codigo }) {
+  const [vista, setVista] = useState('entregar'); // entregar | catalogo
+  const [datos, setDatos] = useState(null);
+  const [entregando, setEntregando] = useState(null);
+  const [msg, setMsg] = useState('');
+
+  const buscar = useCallback(async (params) => {
+    setMsg('');
+    try { setDatos(await expositorApi.saldo(codigo, params)); }
+    catch (e) { setDatos(null); setMsg(e.response?.data?.error || e.message); }
+  }, [codigo]);
+  const onScan = useCallback((qr) => buscar({ qr_token: qr }), [buscar]);
+
+  const entregar = async (r) => {
+    setEntregando(r.id);
+    try { await expositorApi.canjear(codigo, { codigo: datos.ticket.codigo, recompensa_id: r.id }); await buscar({ codigo: datos.ticket.codigo }); }
+    catch (e) { setMsg(e.response?.data?.error || e.message); }
+    finally { setEntregando(null); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit">
+        {[['entregar', 'Entregar'], ['catalogo', 'Editar premios']].map(([k, l]) => (
+          <button key={k} onClick={() => setVista(k)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${vista === k ? 'bg-surface-3 text-text-1' : 'text-text-3'}`}>{l}</button>
+        ))}
+      </div>
+
+      {vista === 'catalogo' ? <PremiosEditor codigo={codigo} /> : (<>
+        <div className="rounded-3xl border border-border bg-surface/40 p-5">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-3">Escanea al asistente</p>
+          <QrScanner onScan={onScan} containerId="qr-expo-canje" titulo="Canje · apunta al QR" textoActivar="Escanear para entregar"
+            descripcion="Verás su saldo contigo y qué premios tuyos alcanza." />
+          <CodigoManual onSubmit={(c) => buscar({ codigo: c })} disabled={false} />
+        </div>
+        {msg && <p className="text-sm text-danger">{msg}</p>}
+        {datos && (
+          <div className="rounded-3xl border-2 border-primary/30 bg-primary/5 p-6">
+            <div className="flex items-baseline justify-between">
+              <div><p className="text-lg font-bold font-display text-text-1">{datos.ticket.nombre}</p>
+                <p className="text-xs text-text-3 font-mono">{datos.ticket.codigo}</p></div>
+              <div className="text-right"><p className="text-3xl font-bold font-display tabular-nums">{datos.saldo}</p><p className="text-[11px] text-text-3">pts contigo</p></div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {(datos.recompensas || []).length === 0 && <p className="text-sm text-text-3">No tienes premios activos.</p>}
+              {(datos.recompensas || []).map(r => (
+                <div key={r.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface/60 px-4 py-3">
+                  <div className="flex-1 min-w-0"><p className="text-sm font-medium text-text-1 truncate">{r.titulo}</p>
+                    <p className="text-xs text-text-3">{r.costo_puntos} pts{r.stock != null && ` · quedan ${Math.max(0, r.stock - r.canjeados)}`}</p></div>
+                  <button onClick={() => entregar(r)} disabled={!r.alcanzable || entregando === r.id} className="btn-primary btn-sm disabled:opacity-40">
+                    {entregando === r.id ? <Spinner size="sm" /> : r.agotada ? 'Agotado' : r.alcanzable ? 'Entregar' : 'Sin saldo'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </>)}
+    </div>
+  );
+}
+
+function PremiosEditor({ codigo }) {
+  const [lista, setLista] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  useEffect(() => { expositorApi.recompensas(codigo).then(d => setLista((d.recompensas || []).map(r => ({ ...r, _k: r.id })))).catch(() => setLista([])); }, [codigo]);
+  if (lista === null) return <GLoader message="Cargando…" />;
+  const set = (k, p) => setLista(l => l.map(r => r._k === k ? { ...r, ...p } : r));
+  const guardar = async () => {
+    for (const r of lista) if (!r.titulo?.trim()) { setMsg('Todos necesitan título.'); return; }
+    setSaving(true);
+    try {
+      const d = await expositorApi.guardarRecompensas(codigo, lista.map(({ id, titulo, descripcion, costo_puntos, stock, activo }) => ({ id, titulo, descripcion, costo_puntos, stock, activo })));
+      setLista((d.recompensas || []).map(r => ({ ...r, _k: r.id }))); setMsg('Guardado.');
+    } catch (e) { setMsg(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div className="space-y-3 max-w-xl">
+      {lista.map(r => (
+        <div key={r._k} className="rounded-2xl border border-border bg-surface/40 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <input value={r.titulo} onChange={e => set(r._k, { titulo: e.target.value })} placeholder="Ej. Sticker, Descuento 10%" className="input flex-1" />
+            <input type="number" min="0" value={r.costo_puntos ?? 0} onChange={e => set(r._k, { costo_puntos: Number(e.target.value) || 0 })} className="input w-24 text-right" />
+            <span className="text-xs text-text-3">pts</span>
+            <button onClick={() => setLista(l => l.filter(x => x._k !== r._k))} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center">✕</button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input value={r.descripcion || ''} onChange={e => set(r._k, { descripcion: e.target.value })} placeholder="Descripción (opcional)" className="input flex-1 text-sm" />
+            <input type="number" min="0" value={r.stock ?? ''} onChange={e => set(r._k, { stock: e.target.value })} placeholder="Stock" className="input w-24 text-sm" />
+          </div>
+        </div>
+      ))}
+      {msg && <p className="text-sm text-text-2">{msg}</p>}
+      <div className="flex items-center justify-between">
+        <button onClick={() => setLista(l => [...l, { _k: Math.random().toString(36).slice(2), id: null, titulo: '', costo_puntos: 50, stock: '', activo: true }])} className="btn-ghost btn-sm">+ Añadir premio</button>
+        <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">{saving ? <Spinner size="sm" /> : 'Guardar premios'}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Cronograma: franjas del expositor ─────────── */
+function CronogramaTab({ codigo }) {
+  const [franjas, setFranjas] = useState(null);
+  const [form, setForm] = useState({ titulo: '', descripcion: '', inicio: '', fin: '' });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const cargar = useCallback(() => {
+    expositorApi.franjas(codigo).then(d => setFranjas(d.franjas || [])).catch(e => setMsg(e.response?.data?.error || e.message));
+  }, [codigo]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const crear = async (e) => {
+    e.preventDefault();
+    if (!form.titulo.trim() || !form.inicio) { setMsg('Título y hora de inicio son obligatorios.'); return; }
+    setSaving(true); setMsg('');
+    try {
+      await expositorApi.crearFranja(codigo, {
+        titulo: form.titulo, descripcion: form.descripcion || null,
+        inicio: new Date(form.inicio).toISOString(),
+        fin: form.fin ? new Date(form.fin).toISOString() : null,
+      });
+      setForm({ titulo: '', descripcion: '', inicio: '', fin: '' });
+      cargar();
+    } catch (e) { setMsg(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+
+  const borrar = async (id) => { try { await expositorApi.borrarFranja(codigo, id); cargar(); } catch (e) { setMsg(e.response?.data?.error || e.message); } };
+
+  if (franjas === null) return <GLoader message="Cargando…" />;
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <p className="text-sm text-text-2">Agrega las actividades de tu stand (charlas, demos, sorteos). Aparecen en el cronograma público del evento.</p>
+
+      {franjas.length > 0 && (
+        <div className="rounded-3xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
+          {franjas.map(fr => (
+            <div key={fr.id} className="flex items-center gap-3 px-4 py-3">
+              <span className="text-text-1 font-display font-bold tabular-nums text-sm w-14 flex-shrink-0">
+                {new Date(fr.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-1 truncate">{fr.titulo}</p>
+                <p className="text-[11px] text-text-3">{new Date(fr.inicio).toLocaleDateString('es-CO', { weekday: 'short', day: '2-digit', month: 'short' })}</p>
+              </div>
+              <button onClick={() => borrar(fr.id)} className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={crear} className="rounded-3xl border border-border bg-surface/40 p-4 space-y-3">
+        <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Nueva franja</p>
+        <input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Ej. Demo del producto" className="input" />
+        <input value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} placeholder="Descripción (opcional)" className="input" />
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="field"><label className="label">Inicio</label>
+            <input type="datetime-local" value={form.inicio} onChange={e => setForm(f => ({ ...f, inicio: e.target.value }))} className="input bg-surface-2" /></div>
+          <div className="field"><label className="label">Fin (opcional)</label>
+            <input type="datetime-local" value={form.fin} onChange={e => setForm(f => ({ ...f, fin: e.target.value }))} className="input bg-surface-2" /></div>
+        </div>
+        {msg && <p className="text-sm text-danger">{msg}</p>}
+        <div className="flex justify-end">
+          <button type="submit" disabled={saving} className="btn-primary btn-sm">{saving ? <Spinner size="sm" /> : 'Agregar franja'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function CodigoManual({ onSubmit, disabled }) {
+  const [c, setC] = useState('');
+  return (
+    <form className="flex items-center gap-2 mt-4" onSubmit={e => { e.preventDefault(); if (c.trim()) { onSubmit(c.trim().toUpperCase()); setC(''); } }}>
+      <input value={c} onChange={e => setC(e.target.value.toUpperCase())} placeholder="O escribe el código del asistente" maxLength={12} className="input flex-1 font-mono text-sm" />
+      <button type="submit" disabled={disabled || c.trim().length < 4} className="btn-secondary btn-sm">Ir</button>
+    </form>
+  );
+}
+
+function normaliza(ficha) {
+  return {
+    nombre: ficha?.nombre || '',
+    descripcion: ficha?.descripcion || '',
+    logo_url: ficha?.logo_url || '',
+    stand: ficha?.stand || '',
+    tipo_persona: ficha?.tipo_persona || 'empresa',
+    contacto_nombre: ficha?.contacto_nombre || '',
+    contacto_email: ficha?.contacto_email || '',
+    contacto_telefono: ficha?.contacto_telefono || '',
+    sitio_web: ficha?.sitio_web || '',
+    categoria_negocio: ficha?.categoria_negocio || '',
+    redes: ficha?.redes || {},
+    estado_ficha: ficha?.estado_ficha || 'borrador',
+  };
+}

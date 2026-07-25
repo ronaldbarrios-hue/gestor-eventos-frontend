@@ -165,7 +165,6 @@ export default function SettingsPage() {
             </form>
           </div>
 
-          <AparienciaCard />
         </div>
       )}
 
@@ -181,7 +180,7 @@ export default function SettingsPage() {
 }
 
 /* ──────────── Apariencia (modo oscuro/claro) ──────────── */
-function AparienciaCard() {
+export function AparienciaCard() {
   const { theme, setLight, setDark } = useTheme();
 
   return (

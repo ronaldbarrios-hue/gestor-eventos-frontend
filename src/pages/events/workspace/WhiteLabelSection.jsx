@@ -38,8 +38,30 @@ export default function WhiteLabelSection({ evento, reload }) {
   const base = useMemo(() => ({ ...(evento.page_json?.branding || {}) }), [evento.page_json]);
   const [b, setB] = useState(base);
   const [saving, setSaving] = useState(false);
+  const [paleta, setPaleta] = useState(null);      // [{hex, peso}]
+  const [paletaCargando, setPaletaCargando] = useState(false);
 
   const set = (k, v) => setB(prev => ({ ...prev, [k]: v }));
+
+  /* Toma los colores de una imagen (el logo ya subido o un archivo suelto).
+     Sin IA: se cuantizan los píxeles en el navegador. */
+  const tomarColores = async (origen) => {
+    if (!origen) return;
+    setPaletaCargando(true);
+    try {
+      const { extraerPaleta, sugerirMarca } = await import('../../../lib/paletaImagen.js');
+      const cols = await extraerPaleta(origen, { max: 6 });
+      if (!cols.length) { error('No se pudieron leer colores de esa imagen.'); return; }
+      setPaleta(cols);
+      const sug = sugerirMarca(cols);
+      if (sug) {
+        setB(prev => ({ ...prev, primary: sug.primary, accent: sug.accent, bg: sug.bg }));
+        success('Colores tomados de la imagen. Ajusta lo que quieras y guarda.');
+      }
+    } catch (e) {
+      error(e.message || 'No se pudo procesar la imagen.');
+    } finally { setPaletaCargando(false); }
+  };
 
   const guardar = async () => {
     setSaving(true);
@@ -93,6 +115,42 @@ export default function WhiteLabelSection({ evento, reload }) {
               </button>
             ))}
           </div>
+          {/* Tomar la paleta de una imagen — sin IA, todo en el navegador */}
+          <div className="rounded-2xl border border-border bg-surface-2/30 p-3 mb-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-text-1">🎨 Tomar colores de una imagen</p>
+                <p className="text-[11px] text-text-3 mt-0.5">Saca la paleta de tu logo o de una foto. La imagen no se sube a ningún lado.</p>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {b.logo_url && (
+                  <button onClick={() => tomarColores(b.logo_url)} disabled={paletaCargando} className="btn-ghost btn-sm">
+                    Usar el logo
+                  </button>
+                )}
+                <label className={`btn-secondary btn-sm cursor-pointer ${paletaCargando ? 'opacity-60 pointer-events-none' : ''}`}>
+                  {paletaCargando ? 'Leyendo…' : 'Elegir imagen'}
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; tomarColores(f); }} />
+                </label>
+              </div>
+            </div>
+            {paleta && (
+              <div className="mt-3">
+                <p className="text-[11px] text-text-3 mb-1.5">Tonos encontrados — clic para usar como principal:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {paleta.map(c => (
+                    <button key={c.hex} onClick={() => set('primary', c.hex)} title={`${c.hex} · ${c.peso}%`}
+                      className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-lg border border-border hover:border-border-2 transition-colors">
+                      <i className="w-4 h-4 rounded border border-white/20" style={{ background: c.hex }} />
+                      <span className="text-[10px] font-mono text-text-2">{c.hex}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid sm:grid-cols-3 gap-4">
             <ColorCampo label="Color principal" value={primary} onChange={v => set('primary', v)} />
             <ColorCampo label="Color de acento" value={accent}  onChange={v => set('accent', v)} />

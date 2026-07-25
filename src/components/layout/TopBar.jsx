@@ -257,7 +257,7 @@ export default function TopBar({ onMenu }) {
                   <p className="text-xs text-text-2 truncate">{usuario?.email || ''}</p>
                 </div>
                 <div className="py-1.5">
-                  <MenuItem onClick={() => { setAccountOpen(false); navigate('/ajustes'); }}>
+                  <MenuItem onClick={() => { setAccountOpen(false); navigate('/ajustes?a=perfil'); }}>
                     <UserIcon className="w-4 h-4" /> Mi perfil
                   </MenuItem>
                   <MenuItem onClick={() => { setAccountOpen(false); navigate('/mis-boletas'); }}>

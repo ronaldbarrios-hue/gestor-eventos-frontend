@@ -14,7 +14,15 @@ export const FUENTES_CANVAS = [
   { value: '',        label: 'Del White Label' },
   { value: "'Space Grotesk', sans-serif", label: 'Space Grotesk' },
   { value: "'Inter', sans-serif",         label: 'Inter' },
+  { value: "'Poppins', sans-serif",       label: 'Poppins' },
+  { value: "'Montserrat', sans-serif",    label: 'Montserrat' },
+  { value: "'Oswald', sans-serif",        label: 'Oswald' },
+  { value: "'Bebas Neue', sans-serif",    label: 'Bebas Neue' },
+  { value: "'Playfair Display', serif",   label: 'Playfair Display' },
   { value: "Georgia, serif",              label: 'Georgia' },
+  { value: "'Lobster', cursive",          label: 'Lobster' },
+  { value: "'Pacifico', cursive",         label: 'Pacifico' },
+  { value: "'Caveat', cursive",           label: 'Caveat' },
   { value: "'JetBrains Mono', monospace", label: 'Mono' },
 ];
 
@@ -22,22 +30,56 @@ export const ANIMACIONES = [
   { value: '',         label: 'Sin animación' },
   { value: 'aparecer', label: 'Aparecer (fade)' },
   { value: 'subir',    label: 'Subir suave' },
+  { value: 'bajar',    label: 'Bajar suave' },
   { value: 'zoom',     label: 'Zoom' },
   { value: 'izq',      label: 'Desde la izquierda' },
   { value: 'der',      label: 'Desde la derecha' },
+  { value: 'rebote',   label: 'Rebote' },
+  { value: 'girar',    label: 'Girar al entrar' },
+  { value: 'voltear',  label: 'Voltear (3D)' },
+  { value: 'desenfoque', label: 'Desenfoque a nítido' },
   { value: 'maquina',  label: 'Máquina de escribir (solo texto)' },
   { value: 'flotar',   label: 'Flotar (bucle)' },
   { value: 'pulso',    label: 'Pulso (bucle)' },
+  { value: 'balanceo', label: 'Balanceo (bucle)' },
 ];
 
 const ANIM_CSS = {
   aparecer: 'gk-anim-fade',
   subir   : 'gk-anim-up',
+  bajar   : 'gk-anim-down',
   zoom    : 'gk-anim-zoom',
   izq     : 'gk-anim-left',
   der     : 'gk-anim-right',
+  rebote  : 'gk-anim-bounce',
+  girar   : 'gk-anim-rotate',
+  voltear : 'gk-anim-flip',
+  desenfoque: 'gk-anim-blur',
   flotar  : 'gk-anim-float',
   pulso   : 'gk-anim-pulse',
+  balanceo: 'gk-anim-swing',
+};
+
+/* Figuras disponibles para el elemento "Figura" (clip-path / border-radius) */
+export const FIGURAS = [
+  { value: 'circulo',    label: 'Círculo' },
+  { value: 'rectangulo', label: 'Rectángulo' },
+  { value: 'triangulo',  label: 'Triángulo' },
+  { value: 'rombo',      label: 'Rombo' },
+  { value: 'estrella',   label: 'Estrella' },
+  { value: 'hexagono',   label: 'Hexágono' },
+  { value: 'pentagono',  label: 'Pentágono' },
+  { value: 'flecha',     label: 'Flecha' },
+];
+const FORMAS_CSS = {
+  circulo:    { borderRadius: '50%' },
+  rectangulo: { borderRadius: 10 },
+  triangulo:  { clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' },
+  rombo:      { clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' },
+  estrella:   { clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' },
+  hexagono:   { clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' },
+  pentagono:  { clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' },
+  flecha:     { clipPath: 'polygon(0% 25%, 60% 25%, 60% 0%, 100% 50%, 60% 100%, 60% 75%, 0% 75%)' },
 };
 
 export const ELEMENTOS = {
@@ -51,7 +93,7 @@ export const ELEMENTOS = {
   },
   imagen: {
     label: 'Imagen', icon: IcImagen,
-    defaults: { w: 420, h: 260, props: { url: '', radio: 20, ajuste: 'cover' } },
+    defaults: { w: 420, h: 260, props: { url: '', radio: 20, ajuste: 'cover', posicion: 'center', opacidad: 1 } },
   },
   boton: {
     label: 'Botón', icon: IcBoton,
@@ -62,8 +104,12 @@ export const ELEMENTOS = {
     defaults: { w: 460, h: 110, props: { fontSize: 40, color: '' } },
   },
   caja: {
-    label: 'Caja / Fondo', icon: IcCaja,
-    defaults: { w: 500, h: 300, props: { fondo: 'rgba(139,92,246,0.12)', radio: 24, borde: '' } },
+    label: 'Caja / Recuadro', icon: IcCaja,
+    defaults: { w: 500, h: 300, props: { estilo: 'relleno', fondo: 'rgba(139,92,246,0.12)', radio: 24, borde: '' } },
+  },
+  figura: {
+    label: 'Figura', icon: IcFigura,
+    defaults: { w: 200, h: 200, props: { forma: 'circulo', fondo: 'rgba(139,92,246,0.9)', borde: '', opacidad: 1 } },
   },
   divisor: {
     label: 'Línea', icon: IcLinea,
@@ -119,7 +165,7 @@ function renderInner(el, p, evento, publico, onReservar, activarAnim, animKey) {
     }
     case 'imagen':
       return p.url
-        ? <img src={p.url} alt="" draggable={false} className="w-full h-full select-none" style={{ objectFit: p.ajuste || 'cover', borderRadius: p.radio ?? 20 }} />
+        ? <img src={p.url} alt="" draggable={false} className="w-full h-full select-none" style={{ objectFit: p.ajuste || 'cover', objectPosition: p.posicion || 'center', opacity: p.opacidad ?? 1, borderRadius: p.radio ?? 20 }} />
         : <div className="w-full h-full flex items-center justify-center text-xs text-text-3 border-2 border-dashed border-border-2 rounded-2xl">Sin imagen — edítala a la derecha</div>;
     case 'boton': {
       const inner = (
@@ -134,8 +180,23 @@ function renderInner(el, p, evento, publico, onReservar, activarAnim, animKey) {
     }
     case 'countdown':
       return <Countdown evento={evento} p={p} />;
-    case 'caja':
-      return <div className="w-full h-full" style={{ background: p.fondo, borderRadius: p.radio ?? 24, border: p.borde ? `1px solid ${p.borde}` : undefined }} />;
+    case 'caja': {
+      const estilo = p.estilo || 'relleno';
+      const radio = p.radio ?? 24;
+      const acc = p.borde || p.fondo || 'var(--brand-primary, #8B5CF6)';
+      const st = { width: '100%', height: '100%', borderRadius: radio };
+      if (estilo === 'contorno')      Object.assign(st, { background: 'transparent', border: `2px solid ${acc}` });
+      else if (estilo === 'degradado') Object.assign(st, { background: `linear-gradient(135deg, ${p.fondo || 'rgba(139,92,246,0.35)'}, transparent)` });
+      else if (estilo === 'vidrio')    Object.assign(st, { background: p.fondo || 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.14)' });
+      else if (estilo === 'sombra')    Object.assign(st, { background: p.fondo, boxShadow: '0 24px 60px -12px rgba(0,0,0,0.55)' });
+      else if (estilo === 'punteado')  Object.assign(st, { background: 'transparent', border: `2px dashed ${acc}` });
+      else                             Object.assign(st, { background: p.fondo, border: p.borde ? `1px solid ${p.borde}` : undefined });
+      return <div style={st} />;
+    }
+    case 'figura': {
+      const forma = FORMAS_CSS[p.forma] || FORMAS_CSS.circulo;
+      return <div className="w-full h-full" style={{ background: p.fondo || 'var(--brand-primary, #8B5CF6)', border: p.borde ? `2px solid ${p.borde}` : undefined, opacity: p.opacidad ?? 1, ...forma }} />;
+    }
     case 'divisor':
       return <div className="w-full h-full" style={{ background: p.color || 'var(--brand-primary, #3B82F6)', borderRadius: 999 }} />;
     case 'video': {
@@ -150,7 +211,9 @@ function renderInner(el, p, evento, publico, onReservar, activarAnim, animKey) {
       const Pv = B.Preview;
       return (
         <div className="w-full h-full overflow-y-auto no-scrollbar" style={{ pointerEvents: publico ? 'auto' : 'none' }}>
-          <Pv data={{}} evento={evento} isEditor={!publico} />
+          {/* p.data conserva el contenido propio de la sección al convertirla
+              en elemento del lienzo (hero, speakers, FAQ… no se vacían). */}
+          <Pv data={p.data || {}} evento={evento} isEditor={!publico} />
         </div>
       );
     }
@@ -234,6 +297,7 @@ function IcImagen({ className }) { return <svg className={className} fill="none"
 function IcBoton({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="8" width="18" height="8" rx="4" /><path strokeLinecap="round" d="M8 12h8" /></svg>; }
 function IcReloj({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 7v5l3 2" /></svg>; }
 function IcCaja({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="4" y="4" width="16" height="16" rx="3" /></svg>; }
+function IcFigura({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="8.5" cy="8.5" r="4.5" /><path strokeLinejoin="round" d="M13.5 13.5H21V21h-7.5z" /></svg>; }
 function IcLinea({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M4 12h16" /></svg>; }
 function IcTicket({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>; }
 function IcBloque({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>; }

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
+import MercadoPagoConnect from '../../../../components/ui/MercadoPagoConnect.jsx';
 
 /* Comercial · Pagos del evento — configuración REAL de cobro:
    llave Bre-B + QR + instrucciones (van al checkout público) y
@@ -55,18 +55,10 @@ export default function PagosSection({ evento, reload }) {
       </div>
 
       <div className="space-y-5">
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-base font-semibold text-text-1">Mercado Pago</h3>
-          </div>
-          <div className="card-body space-y-3">
-            <p className="text-sm text-text-2">La cuenta de Mercado Pago se conecta una sola vez a nivel de tu organización y aplica a todos tus eventos con checkout online.</p>
-            <Link to="/ajustes?a=integraciones" className="btn-secondary btn-sm">Conectar / revisar en Ajustes → Integraciones</Link>
-          </div>
-        </div>
+        <MercadoPagoConnect />
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-text-1 mb-1.5">¿Cómo se cobra?</h3>
-          <p className="text-sm text-text-2 leading-relaxed">Con Mercado Pago el pago es online y la boleta se emite sola al confirmarse. Con Bre-B el comprador transfiere directo a tu llave y tú validas la entrada; ideal para eventos que no quieren pasarela.</p>
+          <p className="text-sm text-text-2 leading-relaxed">Con Mercado Pago el pago es online y la boleta se emite sola al confirmarse. Con Bre-B el comprador transfiere directo a tu llave y tú validas la entrada; ideal para eventos que no quieren pasarela. La cuenta MP se conecta una vez y aplica a todos tus eventos.</p>
         </div>
       </div>
     </div>

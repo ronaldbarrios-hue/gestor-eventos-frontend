@@ -232,8 +232,19 @@
 @keyframes gkZoom  { from { opacity: 0; transform: scale(0.82) } to { opacity: 1; transform: none } }
 @keyframes gkLeft  { from { opacity: 0; transform: translateX(-34px) } to { opacity: 1; transform: none } }
 @keyframes gkRight { from { opacity: 0; transform: translateX(34px) } to { opacity: 1; transform: none } }
+/* El navegador arrastra las <img> como archivo por defecto: dentro del editor
+   eso secuestraba el arrastre (parecía que copiabas el archivo en vez de mover
+   el elemento). Se desactiva el drag nativo de imágenes en toda la app. */
+img { -webkit-user-drag: none; user-drag: none; }
+
 @keyframes gkFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
 @keyframes gkPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.045) } }
+@keyframes gkDown  { from { opacity: 0; transform: translateY(-26px) } to { opacity: 1; transform: none } }
+@keyframes gkBounce { 0% { opacity: 0; transform: translateY(-30px) } 60% { opacity: 1; transform: translateY(8px) } 80% { transform: translateY(-4px) } 100% { transform: none } }
+@keyframes gkRotate { from { opacity: 0; transform: rotate(-12deg) scale(0.9) } to { opacity: 1; transform: none } }
+@keyframes gkFlip  { from { opacity: 0; transform: perspective(600px) rotateX(-80deg) } to { opacity: 1; transform: perspective(600px) rotateX(0) } }
+@keyframes gkBlur  { from { opacity: 0; filter: blur(14px) } to { opacity: 1; filter: blur(0) } }
+@keyframes gkSwing { 0%,100% { transform: rotate(-2.5deg) } 50% { transform: rotate(2.5deg) } }
 .gk-anim-fade  { animation: gkFade  0.8s ease both; }
 .gk-anim-up    { animation: gkUp    0.8s cubic-bezier(0.16,1,0.3,1) both; }
 .gk-anim-zoom  { animation: gkZoom  0.8s cubic-bezier(0.16,1,0.3,1) both; }
@@ -241,3 +252,9 @@
 .gk-anim-right { animation: gkRight 0.8s cubic-bezier(0.16,1,0.3,1) both; }
 .gk-anim-float { animation: gkFloat 3.5s ease-in-out infinite; }
 .gk-anim-pulse { animation: gkPulse 2.2s ease-in-out infinite; }
+.gk-anim-down   { animation: gkDown   0.8s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-bounce { animation: gkBounce 0.9s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-rotate { animation: gkRotate 0.8s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-flip   { animation: gkFlip   0.9s cubic-bezier(0.16,1,0.3,1) both; }
+.gk-anim-blur   { animation: gkBlur   0.9s ease both; }
+.gk-anim-swing  { animation: gkSwing  3s ease-in-out infinite; }

@@ -41,6 +41,8 @@ export default function EventCreatePage() {
   const [iaTexto, setIaTexto]     = useState('');
   const [iaCargando, setIaCargando] = useState(false);
   const [iaDisponible, setIaDisponible] = useState(false);
+  const [pdfCargando, setPdfCargando] = useState(false);
+  const [pdfDetectado, setPdfDetectado] = useState(null); // { detectados, aviso, nombre }
 
   useEffect(() => {
     agenteApi.estado().then(r => setIaDisponible(!!r.disponible)).catch(() => {});
@@ -71,6 +73,38 @@ export default function EventCreatePage() {
       success(`Borrador generado${nBoletas ? ` (con ${nBoletas} tipos de boleta sugeridos — créalos en el evento)` : ''}. Revisa y ajusta cada paso.`);
     } catch (x) { error(x.response?.data?.error || x.message); }
     finally { setIaCargando(false); }
+  };
+
+  const importarPDF = async (file) => {
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) { error('Selecciona un archivo PDF.'); return; }
+    if (file.size > 15 * 1024 * 1024) { error('El PDF es muy grande (máx. 15 MB).'); return; }
+    setPdfCargando(true);
+    setPdfDetectado(null);
+    try {
+      const { extraerTextoPDF, parsearEvento } = await import('../../lib/pdfEvento.js');
+      const texto = await extraerTextoPDF(file);
+      const { campos, detectados, aviso } = parsearEvento(texto);
+      const cat = campos.categoria_slug ? cats.find(c => c.slug === campos.categoria_slug) : null;
+      setForm(f => ({
+        ...f,
+        titulo         : campos.titulo || f.titulo,
+        descripcion    : campos.descripcion || f.descripcion,
+        categoria_id   : cat ? String(cat.id) : f.categoria_id,
+        location_nombre: campos.location_nombre || f.location_nombre,
+        aforo_total    : campos.aforo_total ?? f.aforo_total,
+        fecha_inicio   : campos.fecha_inicio ? campos.fecha_inicio.toISOString().slice(0, 16) : f.fecha_inicio,
+        fecha_fin      : campos.fecha_fin ? campos.fecha_fin.toISOString().slice(0, 16) : f.fecha_fin,
+      }));
+      setPdfDetectado({ detectados, aviso, nombre: file.name });
+      setStep(0);
+      if (aviso) error(aviso);
+      else success(`Datos leídos del PDF: revisa y ajusta cada paso.${campos.precios_sugeridos ? ' Los precios detectados créalos como boletas dentro del evento.' : ''}`);
+    } catch (x) {
+      error('No se pudo leer el PDF. ' + (x.message || ''));
+    } finally {
+      setPdfCargando(false);
+    }
   };
 
   const usarPlantilla = async (ev) => {
@@ -135,6 +169,37 @@ export default function EventCreatePage() {
         <ChevronIcon className="w-3 h-3 text-text-3" />
         <span className="text-text-1">Crear evento</span>
       </nav>
+
+      {step === 0 && (
+        <div className="rounded-3xl border border-border bg-surface/40 p-5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-text-1 flex items-center gap-2">📄 Importar desde un PDF</h3>
+              <p className="text-xs text-text-3 mt-0.5">Sube el flyer o la ficha del evento y leemos título, fechas, lugar y aforo. El PDF no sale de tu navegador.</p>
+            </div>
+            <label className={`btn-secondary btn-sm cursor-pointer flex-shrink-0 ${pdfCargando ? 'opacity-60 pointer-events-none' : ''}`}>
+              {pdfCargando ? <><Spinner size="sm" /> Leyendo…</> : 'Elegir PDF'}
+              <input type="file" accept="application/pdf,.pdf" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; importarPDF(f); }} />
+            </label>
+          </div>
+          {pdfDetectado && !pdfDetectado.aviso && (
+            <div className="mt-4 rounded-2xl border border-success/25 bg-success/5 p-3">
+              <p className="text-xs font-semibold text-text-1 mb-2">Leído de «{pdfDetectado.nombre}» — revisa antes de continuar:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {pdfDetectado.detectados.map((d, i) => (
+                  <span key={i} className="text-[11px] px-2 py-1 rounded-lg bg-surface-2 border border-border text-text-2">
+                    <span className="text-text-3">{d.campo}:</span> <span className="text-text-1 font-medium">{d.valor}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {pdfDetectado?.aviso && (
+            <p className="mt-3 text-xs text-warning-light bg-warning/10 border border-warning/20 rounded-xl px-3 py-2">{pdfDetectado.aviso}</p>
+          )}
+        </div>
+      )}
 
       {step === 0 && iaDisponible && (
         <div className="rounded-3xl border border-accent/30 bg-gradient-to-br from-accent/10 to-transparent p-5">

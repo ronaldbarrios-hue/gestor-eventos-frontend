@@ -3,17 +3,16 @@ import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { useAuth } from '../../../context/AuthContext.jsx';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { agendaApi } from '../../../api/agenda.js';
+import { torneosApi } from '../../../api/torneos.js';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } from '../../../lib/espacio.js';
 
-/* Tab Agenda — sesiones + speakers.
-   Sesiones tienen 4 vistas: Lista / Día / Semana / Mes / Salas.
-   "Salas" (calendario en paralelo por track) solo aparece en eventos de
-   categoría Educación, Tecnología, Cultura o Música — debe coincidir con
-   CATEGORIAS_AGENDA en routes/eventos.publicos.js del backend. */
-
-const CATEGORIAS_AGENDA = ['educacion', 'tecnologia', 'cultura', 'musica'];
+/* "Espacio del evento" — el calendario de TODO lo que pasa dentro del evento:
+   charlas, stands, competencias, shows… (antes solo "agenda"). Cada sub-evento
+   tiene un tipo (color) y, si es competitivo, enlaza a las llaves del torneo.
+   Vistas: Lista / Día / Semana / Mes / Salas. Disponible para cualquier evento. */
 
 const DOW_SHORT = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
 const MES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -23,6 +22,7 @@ export default function AgendaTab({ evento }) {
   const { usuario } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [speakers, setSpeakers] = useState([]);
+  const [torneos,  setTorneos]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [view,     setView]     = useState('sessions'); // sessions | speakers
   const [subView,  setSubView]  = useState('lista');    // lista | dia | semana | mes | salas
@@ -30,29 +30,46 @@ export default function AgendaTab({ evento }) {
   const [creating, setCreating] = useState(false);
   const [prefillDate, setPrefillDate] = useState(null);
   const [editing,  setEditing]  = useState(null);
+  const [filtroTipo, setFiltroTipo] = useState('');    // '' = todos
   const { success, error: toastErr } = useToast();
 
-  const permiteSalas = CATEGORIAS_AGENDA.includes(evento.categoria?.slug);
+  /* "Salas" (calendario en paralelo por track) ahora está disponible siempre:
+     un espacio con varios escenarios/salas lo necesita sea cual sea la categoría. */
+  const permiteSalas = true;
 
   const reload = async () => {
     setLoading(true);
     try {
-      const [s, sp] = await Promise.all([
+      const [s, sp, tr] = await Promise.all([
         agendaApi.sessions(evento.id),
         agendaApi.speakers(evento.id),
+        torneosApi.list(evento.id).catch(() => ({ torneos: [] })),
       ]);
       setSessions(s.sessions || []);
       setSpeakers(sp.speakers || []);
+      setTorneos((tr.torneos || []).filter(Boolean));
     } catch (e) { toastErr(e.message); }
     finally    { setLoading(false); }
   };
 
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [evento.id]);
 
-  /* Index de sesiones por día para Mes/Semana */
+  /* Filtro por tipo: se aplica a TODAS las vistas de forma consistente. */
+  const sessionsVista = useMemo(
+    () => filtroTipo ? sessions.filter(s => (s.tipo || TIPO_DEFECTO) === filtroTipo) : sessions,
+    [sessions, filtroTipo],
+  );
+
+  /* Qué tipos hay realmente cargados, para no mostrar filtros vacíos. */
+  const tiposPresentes = useMemo(() => {
+    const set = new Set(sessions.map(s => s.tipo || TIPO_DEFECTO));
+    return TIPOS_ESPACIO.filter(t => set.has(t.id));
+  }, [sessions]);
+
+  /* Index de sesiones por día para Mes/Semana (ya filtrado) */
   const sessionsByDay = useMemo(() => {
     const map = {};
-    for (const s of sessions) {
+    for (const s of sessionsVista) {
       if (!s.inicio) continue;
       const k = ymd(new Date(s.inicio));
       (map[k] = map[k] || []).push(s);
@@ -61,7 +78,7 @@ export default function AgendaTab({ evento }) {
       map[k].sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
     }
     return map;
-  }, [sessions]);
+  }, [sessionsVista]);
 
   const nudge = (delta) => {
     const d = new Date(cursor);
@@ -81,14 +98,14 @@ export default function AgendaTab({ evento }) {
     setCreating(true);
   };
 
-  if (loading) return <GLoader message="Cargando agenda..." />;
+  if (loading) return <GLoader message="Cargando el espacio del evento..." />;
 
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Agenda</h2>
-          <p className="text-sm text-text-2 mt-1">Sesiones del evento y speakers asignados.</p>
+          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Espacio del evento</h2>
+          <p className="text-sm text-text-2 mt-1">Todo lo que pasa dentro: charlas, stands, competencias, shows… y sus speakers.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
@@ -101,7 +118,7 @@ export default function AgendaTab({ evento }) {
           </div>
           <button onClick={() => openCreate()} className="btn-gradient btn-sm">
             <PlusIcon className="w-3.5 h-3.5" />
-            {view === 'sessions' ? 'Nueva sesión' : 'Nuevo speaker'}
+            {view === 'sessions' ? 'Nuevo sub-evento' : 'Nuevo speaker'}
           </button>
         </div>
       </div>
@@ -154,12 +171,13 @@ export default function AgendaTab({ evento }) {
       {creating && view === 'sessions' && (
         <SessionForm
           speakers={speakers}
+          torneos={torneos}
           prefillDate={prefillDate}
           onCancel={() => { setCreating(false); setPrefillDate(null); }}
           onSave={async (payload) => {
             try {
               await agendaApi.crearSession(evento.id, payload);
-              success('Sesión creada.');
+              success('Sub-evento creado.');
               setCreating(false);
               setPrefillDate(null);
               reload();
@@ -183,17 +201,37 @@ export default function AgendaTab({ evento }) {
         />
       )}
 
+      {/* Filtro por tipo de sub-evento (todas las vistas) */}
+      {view === 'sessions' && tiposPresentes.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button onClick={() => setFiltroTipo('')}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
+              ${filtroTipo === '' ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+            Todos
+          </button>
+          {tiposPresentes.map(t => (
+            <button key={t.id} onClick={() => setFiltroTipo(filtroTipo === t.id ? '' : t.id)}
+              style={filtroTipo === t.id ? tipoEstilo(t.id) : undefined}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
+                ${filtroTipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
+              <span>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Sesiones — vistas */}
       {view === 'sessions' && subView === 'lista' && (
-        sessions.length === 0
-          ? <EmptyState title="Sin sesiones" desc="Crea tu primera sesión con título, hora y opcionalmente un speaker." />
+        sessionsVista.length === 0
+          ? <EmptyState title={filtroTipo ? 'Nada de este tipo' : 'Espacio vacío'} desc={filtroTipo ? 'No hay sub-eventos de este tipo todavía.' : 'Crea tu primer sub-evento: una charla, un stand, una competencia…'} />
           : <SessionsList
-              sessions={sessions}
+              sessions={sessionsVista}
               editing={editing}
               speakers={speakers}
+              torneos={torneos}
               onEdit={setEditing}
               onSave={async (id, payload) => {
-                try { await agendaApi.editarSession(evento.id, id, payload); success('Sesión actualizada.'); setEditing(null); reload(); }
+                try { await agendaApi.editarSession(evento.id, id, payload); success('Sub-evento actualizado.'); setEditing(null); reload(); }
                 catch (e) { toastErr(e.message); }
               }}
               onDelete={async (s) => {
@@ -309,8 +347,10 @@ function SalasGrid({ cursor, sesiones, onCrearAt, onEditar }) {
                 <div key={t} className="flex-1 min-w-[220px] border-l border-border px-2 py-2 space-y-1.5 group/cell">
                   {items.map(s => (
                     <button key={s.id} onClick={() => onEditar(s)}
-                      className="w-full text-left rounded-xl border border-primary/25 bg-primary/10 hover:border-primary/45 hover:bg-primary/15 transition-colors px-2.5 py-2">
-                      <p className="text-[11px] font-mono tabular-nums text-primary-light">
+                      style={{ ...tipoEstilo(s.tipo), borderStyle: 'solid', borderWidth: 1 }}
+                      className="w-full text-left rounded-xl transition-colors px-2.5 py-2 hover:brightness-110">
+                      <p className="text-[11px] font-mono tabular-nums opacity-80">
+                        {tipoEspacio(s.tipo).icon}{' '}
                         {new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                         {s.fin ? ` – ${new Date(s.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}` : ''}
                       </p>
@@ -336,7 +376,7 @@ function SalasGrid({ cursor, sesiones, onCrearAt, onEditar }) {
 
 /* ─────────── Vista Lista ─────────── */
 
-function SessionsList({ sessions, editing, speakers, onEdit, onSave, onDelete }) {
+function SessionsList({ sessions, editing, speakers, torneos, onEdit, onSave, onDelete }) {
   const grupos = sessions.reduce((acc, s) => {
     const d = new Date(s.inicio).toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     (acc[d] = acc[d] || []).push(s);
@@ -350,7 +390,7 @@ function SessionsList({ sessions, editing, speakers, onEdit, onSave, onDelete })
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">{dia}</p>
           <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
             {items.map((s, i) => editing === s.id
-              ? <SessionForm key={s.id} initial={s} speakers={speakers} onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
+              ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
               : <SessionRow key={s.id} session={s} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s)} isLast={i === items.length - 1} />
             )}
           </div>
@@ -363,17 +403,25 @@ function SessionsList({ sessions, editing, speakers, onEdit, onSave, onDelete })
 function SessionRow({ session, onEdit, onDelete, isLast }) {
   const hi = new Date(session.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   const hf = session.fin ? new Date(session.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
+  const tip = tipoEspacio(session.tipo);
   return (
-    <div className={`flex items-start gap-4 px-5 py-4 ${!isLast ? 'border-b border-border' : ''} hover:bg-surface-2/30 transition-colors group`}>
+    <div className={`flex items-start gap-4 px-5 py-4 ${!isLast ? 'border-b border-border' : ''} hover:bg-surface-2/30 transition-colors group`}
+      style={{ boxShadow: `inset 3px 0 0 ${tip.color}` }}>
       <div className="text-text-1 font-display font-bold tabular-nums text-base w-20 flex-shrink-0 leading-tight">
         {hi}
         {hf && <span className="block text-xs text-text-3 font-sans font-normal mt-0.5">— {hf}</span>}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1" style={tipoEstilo(session.tipo)}>
+            <span>{tip.icon}</span>{tip.label}
+          </span>
           <h3 className="text-base font-semibold text-text-1">{session.titulo}</h3>
           {session.track && session.track !== 'principal' && (
             <span className="text-xs uppercase tracking-widest text-primary-light bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{session.track}</span>
+          )}
+          {session.torneo_id && (
+            <span className="text-[10px] uppercase tracking-wide text-text-3 border border-border px-2 py-0.5 rounded-full">🏆 con llaves</span>
           )}
         </div>
         {session.descripcion && <p className="text-sm text-text-2 mt-1 leading-relaxed">{session.descripcion}</p>}
@@ -602,7 +650,7 @@ function SessionChip({ session, detailed }) {
 
 /* ─────────── Form sesión ─────────── */
 
-function SessionForm({ initial, speakers, prefillDate, onSave, onCancel }) {
+function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onCancel }) {
   const [form, setForm] = useState({
     titulo     : initial?.titulo || '',
     descripcion: initial?.descripcion || '',
@@ -611,8 +659,11 @@ function SessionForm({ initial, speakers, prefillDate, onSave, onCancel }) {
     track      : initial?.track || 'principal',
     ubicacion  : initial?.ubicacion || '',
     speaker_id : initial?.speaker_id || '',
+    tipo       : initial?.tipo || TIPO_DEFECTO,
+    torneo_id  : initial?.torneo_id || '',
   });
   const [saving, setSaving] = useState(false);
+  const competitivo = esCompetitivo(form.tipo);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -626,13 +677,46 @@ function SessionForm({ initial, speakers, prefillDate, onSave, onCancel }) {
       track      : form.track,
       ubicacion  : form.ubicacion || null,
       speaker_id : form.speaker_id || null,
+      tipo       : form.tipo,
+      torneo_id  : competitivo ? (form.torneo_id || null) : null,
     });
     setSaving(false);
   };
 
   return (
     <form onSubmit={submit} className="rounded-3xl border border-primary/25 bg-surface/40 p-5 space-y-3 animate-[fadeUp_0.3s_ease_both]">
-      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">{initial ? 'Editar sesión' : 'Nueva sesión'}</p>
+      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">{initial ? 'Editar sub-evento' : 'Nuevo sub-evento'}</p>
+
+      {/* Tipo de sub-evento */}
+      <div className="field">
+        <label className="label">Tipo</label>
+        <div className="flex flex-wrap gap-1.5">
+          {TIPOS_ESPACIO.map(t => (
+            <button type="button" key={t.id} onClick={() => setForm(f => ({...f, tipo: t.id}))}
+              style={form.tipo === t.id ? tipoEstilo(t.id) : undefined}
+              className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
+                ${form.tipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
+              <span>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {competitivo && (
+        <div className="field">
+          <label className="label">Llaves del torneo <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+          {torneos.length > 0 ? (
+            <select value={form.torneo_id} onChange={e => setForm(f => ({...f, torneo_id: e.target.value}))}
+              className="input bg-surface-2 rounded-2xl py-3 text-base">
+              <option value="">Sin llaves vinculadas</option>
+              {torneos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+          ) : (
+            <p className="text-[11px] text-text-3">Crea un torneo en la pestaña «Torneo» y podrás vincular sus llaves aquí para que aparezcan en la página pública.</p>
+          )}
+        </div>
+      )}
+
       <input value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))}
         placeholder="Título" required autoFocus
         className="input rounded-2xl py-3 text-base font-medium" />

@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { Html5Qrcode } from 'html5-qrcode';
+import QrScanner from '../../../components/ui/QrScanner.jsx';
 import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
@@ -16,6 +15,18 @@ export default function CheckinTab({ evento }) {
   const [historial, setHistorial] = useState([]); // últimos check-ins de esta sesión
   const { error: toastErr } = useToast();
 
+  /* Puertas configuradas (page_json.accesos). El escáner recuerda la suya en
+     localStorage; se envía en cada check-in para validar y registrar. */
+  const accesos = Array.isArray(evento.page_json?.accesos) ? evento.page_json.accesos : [];
+  const [puertaId, setPuertaId] = useState(() => {
+    try { return localStorage.getItem(`gestek-puerta:${evento.id}`) || ''; } catch { return ''; }
+  });
+  const puertaRef = useRef(puertaId);
+  const elegirPuerta = (id) => {
+    setPuertaId(id); puertaRef.current = id;
+    try { localStorage.setItem(`gestek-puerta:${evento.id}`, id); } catch { /* noop */ }
+  };
+
   const { ingresados, total: totalAsistentes, bumpOptimista } = useAsistenciaEnVivo(evento.id);
 
   const handleCheckin = useCallback(async (payload) => {
@@ -23,7 +34,7 @@ export default function CheckinTab({ evento }) {
     setWorking(true);
     setLast(null);
     try {
-      const r = await clientesApi.checkin(evento.id, payload);
+      const r = await clientesApi.checkin(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
       setLast({ ok: true, ...r });
       setHistorial(h => [{ ...r.ticket, at: new Date(), ok: true }, ...h].slice(0, 10));
       bumpOptimista();
@@ -39,7 +50,7 @@ export default function CheckinTab({ evento }) {
     }
   }, [evento.id, working, bumpOptimista]);
 
-  /* onScan estable (misma identidad siempre): CameraScanner la guarda en un ref
+  /* onScan estable (misma identidad siempre): QrScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
   const onScanQr = useCallback((qr) => handleCheckin({ qr_token: qr }), [handleCheckin]);
 
@@ -49,6 +60,16 @@ export default function CheckinTab({ evento }) {
         <div>
           <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Check-in</h2>
           <p className="text-sm text-text-2 mt-1">Escanea el QR de cada asistente o ingresa el código manualmente.</p>
+          {accesos.length > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-text-3">Tu puerta:</span>
+              <select value={puertaId} onChange={e => elegirPuerta(e.target.value)}
+                className="input !h-8 !py-1 text-sm w-auto">
+                <option value="">Sin especificar</option>
+                {accesos.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <AsistenciaContador ingresados={ingresados} total={totalAsistentes} compact />
@@ -67,7 +88,8 @@ export default function CheckinTab({ evento }) {
         {/* Scanner / input */}
         <div className="space-y-4">
           {mode === 'camara'
-            ? <CameraScanner onScan={onScanQr} disabled={working} lastResult={last} />
+            ? <QrScanner onScan={onScanQr}
+                overlay={last ? <ResultadoCard result={last} compact /> : null} />
             : <ManualInput onSubmit={(codigo) => handleCheckin({ codigo })} disabled={working} />
           }
 
@@ -127,132 +149,6 @@ function ManualInput({ onSubmit, disabled }) {
         </button>
       </div>
     </form>
-  );
-}
-
-/* ─────────── Cámara — pantalla completa vía portal ─────────── */
-
-/* Tamaño de la caja de escaneo: proporcional al lado más chico de la pantalla
-   (80%), con un máximo razonable — a pantalla completa se puede dar mucho
-   más espacio que dentro del layout normal de la app. */
-function calcularQrBox() {
-  if (typeof window === 'undefined') return { width: 280, height: 280 };
-  const ladoCorto = Math.min(window.innerWidth, window.innerHeight);
-  const tamano = Math.max(240, Math.min(Math.round(ladoCorto * 0.8), 420));
-  return { width: tamano, height: tamano };
-}
-
-function CameraScanner({ onScan, disabled, lastResult }) {
-  const containerId = 'qr-reader';
-  const scannerRef = useRef(null);
-  const [active, setActive] = useState(false);
-  const [err, setErr] = useState('');
-  const lastScanRef = useRef({ value: '', at: 0 });
-
-  /* Guardamos la última versión de onScan en un ref. Así el efecto de abajo
-     puede llamar siempre a la función más reciente SIN tener que declararla
-     como dependencia — evita que la cámara se reinicie (y se duplique
-     visualmente mientras la vieja instancia todavía se está cerrando) cada
-     vez que el componente padre se re-renderiza. */
-  const onScanRef = useRef(onScan);
-  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
-
-  /* Bloquea el scroll del body mientras la cámara está en pantalla completa,
-     para que no se pueda desplazar el fondo detrás del overlay. */
-  useEffect(() => {
-    if (!active) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prevOverflow; };
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) return;
-    let cancelado = false;
-    const scanner = new Html5Qrcode(containerId);
-    scannerRef.current = scanner;
-
-    scanner.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: calcularQrBox(), aspectRatio: 1 },
-      (decoded) => {
-        /* Dedupe: ignorar el mismo código dentro de 3 segundos */
-        const now = Date.now();
-        if (lastScanRef.current.value === decoded && now - lastScanRef.current.at < 3000) return;
-        lastScanRef.current = { value: decoded, at: now };
-        onScanRef.current(decoded);
-      },
-      () => { /* errores de scan silenciosos */ }
-    ).catch(e => {
-      if (!cancelado) setErr(e.message || 'No se pudo iniciar la cámara.');
-    });
-
-    return () => {
-      cancelado = true;
-      try {
-        scanner.stop().then(() => scanner.clear()).catch(() => {
-          try { scanner.clear(); } catch {}
-        });
-      } catch {}
-    };
-  }, [active]);
-
-  if (!active) return (
-    <div className="rounded-3xl border border-border bg-surface/40 p-10 text-center">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-surface-2 border border-border mb-4">
-        <CameraIcon />
-      </div>
-      <h3 className="text-lg font-bold font-display text-text-1 mb-2">Activar cámara</h3>
-      <p className="text-sm text-text-2 max-w-sm mx-auto mb-5">Se abrirá la cámara a pantalla completa para hacer más fácil apuntar al QR del asistente. Tu navegador pedirá permisos la primera vez.</p>
-      <button onClick={() => { setErr(''); setActive(true); }} className="btn-gradient">
-        Activar cámara
-      </button>
-      {err && (
-        <p className="text-sm text-danger mt-4">{err}</p>
-      )}
-    </div>
-  );
-
-  /* Modo pantalla completa: renderizado vía portal directo en document.body,
-     para escapar de cualquier ancestro con transform/animación que rompería
-     el position:fixed (el mismo problema que tuvimos con los menús de
-     Clientes y Lista de espera). */
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col animate-[fadeIn_0.2s_ease_both]">
-      {/* Barra superior flotante */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-b from-black/70 to-transparent">
-        <span className="text-sm text-white/90 font-medium">Escaneando... apunta al QR</span>
-        <button
-          onClick={() => setActive(false)}
-          className="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md active:scale-95 transition-all"
-          aria-label="Cerrar cámara"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Video de la cámara, ocupando toda la pantalla */}
-      <div id={containerId} className="flex-1 w-full h-full [&>video]:!w-full [&>video]:!h-full [&>video]:!object-cover" />
-
-      {err && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/90 px-6">
-          <div className="text-center max-w-sm">
-            <p className="text-base text-danger mb-4">{err}</p>
-            <button onClick={() => { setErr(''); setActive(false); }} className="btn-secondary btn-sm">Volver</button>
-          </div>
-        </div>
-      )}
-
-      {/* Resultado del último escaneo, flotando sobre la cámara */}
-      {lastResult && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <ResultadoCard result={lastResult} compact />
-        </div>
-      )}
-    </div>,
-    document.body
   );
 }
 
@@ -320,9 +216,3 @@ function HistorialRow({ item }) {
   );
 }
 
-function CameraIcon() {
-  return <svg className="w-7 h-7 text-text-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>;
-}

@@ -1,6 +1,11 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import GestekMark from './GestekMark.jsx';
 import Criatura from '../agente/Criatura.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { useAccesosDirectos, DESTINOS_ACCESO, SECCIONES_EVENTO,
+  CATEGORIAS_GENERAL, CATEGORIAS_EVENTO, filtrarYAgrupar } from '../../hooks/useAccesosDirectos.js';
+import { eventosApi } from '../../api/eventos.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Sidebar — Rework 2026
@@ -20,11 +25,31 @@ const NAV_ITEMS = [
   { to: '/ajustes',    icon: SettingsIcon,  label: 'Ajustes'    },
 ];
 
-/* Accesos rápidos: en Fase 1 se leerán de la preferencia del usuario
-   (Ajustes > Espacio de Trabajo) y se sugerirán según su rol. */
-const ACCESOS_RAPIDOS = [];
-
 export default function Sidebar({ mobile = false, onClose }) {
+  const { usuario } = useAuth();
+  const { accesos, agregar, quitar } = useAccesosDirectos(usuario?.id);
+  const [picker, setPicker] = useState(false);
+  const [modo, setModo] = useState('general');      // general | evento
+  const [eventos, setEventos] = useState(null);      // lazy: solo al abrir "de un evento"
+  const [eventoSel, setEventoSel] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
+  const disponibles = DESTINOS_ACCESO.filter(d => !accesos.some(a => a.to === d.to));
+
+  /* Resultados agrupados por categoría según la vista y el buscador. */
+  const gruposGeneral = filtrarYAgrupar(disponibles, busqueda, CATEGORIAS_GENERAL);
+  const gruposEvento  = filtrarYAgrupar(SECCIONES_EVENTO, busqueda, CATEGORIAS_EVENTO);
+
+  const verEventos = async () => {
+    setModo('evento'); setEventoSel(null);
+    if (eventos) return;
+    try { const d = await eventosApi.list({ limit: 30 }); setEventos(d.eventos || []); }
+    catch { setEventos([]); }
+  };
+  const cerrarPicker = () => { setPicker(false); setModo('general'); setEventoSel(null); setBusqueda(''); };
+  const fijarSeccion = (sec) => {
+    agregar({ to: `/eventos/${eventoSel.id}${sec.q}`, label: `${sec.label} · ${eventoSel.titulo}` });
+    cerrarPicker();
+  };
   return (
     <aside
       className={`${mobile ? 'w-full' : 'w-[var(--sidebar-w)]'} h-full flex-shrink-0
@@ -53,8 +78,14 @@ export default function Sidebar({ mobile = false, onClose }) {
         )}
       </div>
 
+      {/* Separador entre marca y navegación */}
+      <div className="mx-4 border-t border-white/10" />
+
       {/* ── Navegación principal ── */}
-      <nav className="flex-1 overflow-y-auto no-scrollbar px-3 py-2 space-y-1">
+      <nav className="flex-1 overflow-y-auto no-scrollbar px-3 py-3 space-y-1">
+        <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+          Principal
+        </p>
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -72,28 +103,98 @@ export default function Sidebar({ mobile = false, onClose }) {
           </NavLink>
         ))}
 
-        {/* ── Accesos rápidos (personalizables) ── */}
-        {ACCESOS_RAPIDOS.length > 0 && (
-          <div className="pt-5">
-            <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              Accesos rápidos
-            </p>
-            {ACCESOS_RAPIDOS.map(({ to, icon: Icon, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                onClick={mobile ? onClose : undefined}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors
-                   ${isActive ? 'bg-sidebar-3 text-white' : 'text-slate-400 hover:text-white hover:bg-sidebar-2'}`
-                }
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                {label}
-              </NavLink>
-            ))}
+        {/* ── Accesos directos (personales) ── */}
+        <div className="pt-5">
+          <div className="flex items-center justify-between px-3 pb-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Accesos directos</p>
+            <div className="relative">
+              <button onClick={() => setPicker(p => !p)} title="Agregar acceso directo"
+                className="w-5 h-5 rounded-md text-slate-400 hover:text-white hover:bg-sidebar-2 flex items-center justify-center transition-colors leading-none">+</button>
+              {picker && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={cerrarPicker} />
+                  <div className="absolute right-0 top-6 z-40 w-72 rounded-xl bg-sidebar-2 border border-white/10 shadow-xl overflow-hidden">
+                    {/* Dos orígenes: funciones generales o una sección de un evento */}
+                    <div className="flex border-b border-white/10">
+                      {[['general', 'General'], ['evento', 'De un evento']].map(([v, l]) => (
+                        <button key={v} onClick={() => { setBusqueda(''); v === 'evento' ? verEventos() : (setModo('general'), setEventoSel(null)); }}
+                          className={`flex-1 py-2 text-[11px] font-semibold transition-colors
+                                      ${modo === v ? 'text-white bg-sidebar-3' : 'text-slate-400 hover:text-white'}`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Buscador: aparece en General y al estar dentro de un evento */}
+                    {(modo === 'general' || (modo === 'evento' && eventoSel)) && (
+                      <div className="p-2 border-b border-white/10">
+                        <input autoFocus value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                          placeholder="Buscar función…"
+                          className="w-full bg-sidebar-3 border border-white/10 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-white/25" />
+                      </div>
+                    )}
+
+                    <div className="max-h-80 overflow-y-auto no-scrollbar py-1.5">
+                      {modo === 'general' && (
+                        gruposGeneral.length === 0
+                          ? <p className="px-3 py-2 text-xs text-slate-500">{disponibles.length === 0 ? 'Ya agregaste todas las funciones generales.' : 'Sin resultados.'}</p>
+                          : gruposGeneral.map(g => (
+                            <GrupoPicker key={g.cat} titulo={g.cat}>
+                              {g.items.map(d => (
+                                <ItemPicker key={d.to} label={d.label} onClick={() => { agregar(d); cerrarPicker(); }} />
+                              ))}
+                            </GrupoPicker>
+                          ))
+                      )}
+
+                      {modo === 'evento' && !eventoSel && (
+                        eventos === null
+                          ? <p className="px-3 py-2 text-xs text-slate-500">Cargando eventos…</p>
+                          : eventos.length === 0
+                            ? <p className="px-3 py-2 text-xs text-slate-500">Aún no tienes eventos.</p>
+                            : eventos.map(ev => (
+                              <button key={ev.id} onClick={() => setEventoSel(ev)}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-sidebar-3 transition-colors truncate">
+                                {ev.titulo} →
+                              </button>
+                            ))
+                      )}
+
+                      {modo === 'evento' && eventoSel && (<>
+                        <button onClick={() => { setEventoSel(null); setBusqueda(''); }}
+                          className="w-full text-left px-3 py-1.5 text-[11px] text-slate-400 hover:text-white">← {eventoSel.titulo}</button>
+                        {gruposEvento.length === 0
+                          ? <p className="px-3 py-2 text-xs text-slate-500">Sin resultados.</p>
+                          : gruposEvento.map(g => (
+                            <GrupoPicker key={g.cat} titulo={g.cat}>
+                              {g.items.map(s => (
+                                <ItemPicker key={s.q} label={s.label} onClick={() => fijarSeccion(s)} />
+                              ))}
+                            </GrupoPicker>
+                          ))}
+                      </>)}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        )}
+          {accesos.length === 0 ? (
+            <p className="px-3 text-[11px] text-slate-500 leading-snug">Fija aquí lo que más usas (Chats, Explorar, Gestbot…) con el +.</p>
+          ) : accesos.map(({ to, label }) => (
+            <div key={to} className="group/acc flex items-center">
+              <NavLink to={to} onClick={mobile ? onClose : undefined}
+                className={({ isActive }) =>
+                  `flex-1 flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors min-w-0
+                   ${isActive ? 'bg-sidebar-3 text-white' : 'text-slate-400 hover:text-white hover:bg-sidebar-2'}`}>
+                <DotIcon className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+                <span className="truncate">{label}</span>
+              </NavLink>
+              <button onClick={() => quitar(to)} title="Quitar"
+                className="opacity-0 group-hover/acc:opacity-100 w-6 h-6 mr-1 rounded-md text-slate-500 hover:text-danger flex items-center justify-center flex-shrink-0 transition-opacity">×</button>
+            </div>
+          ))}
+        </div>
       </nav>
 
       {/* ── Hotspot Gestbot ── */}
@@ -117,6 +218,24 @@ export default function Sidebar({ mobile = false, onClose }) {
   );
 }
 
+/* ── Picker: grupo por categoría e ítem ── */
+function GrupoPicker({ titulo, children }) {
+  return (
+    <div className="pb-1">
+      <p className="px-3 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-widest text-slate-500">{titulo}</p>
+      {children}
+    </div>
+  );
+}
+function ItemPicker({ label, onClick }) {
+  return (
+    <button onClick={onClick}
+      className="w-full text-left px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-sidebar-3 transition-colors">
+      + {label}
+    </button>
+  );
+}
+
 /* ── Icons ─────────────────────────────────────────────────────── */
 function HomeIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -132,4 +251,7 @@ function SettingsIcon({ className }) {
 }
 function SparkIcon({ className }) {
   return <svg className={className} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9L12 2zm7 12l.95 2.85L22.8 17.8l-2.85.95L19 21.6l-.95-2.85-2.85-.95 2.85-.95L19 14z"/></svg>;
+}
+function DotIcon({ className }) {
+  return <svg className={className} viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5" /></svg>;
 }

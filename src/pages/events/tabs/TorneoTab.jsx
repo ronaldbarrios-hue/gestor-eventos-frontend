@@ -5,52 +5,107 @@ import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 
-/* Tab Torneo — categoría Deportes. Un torneo por evento.
-   Formatos: eliminación directa (bracket), liga (tabla de posiciones), o
-   grupos + eliminación (fase de grupos, luego bracket con clasificados).
-   Cada partido se puede PROGRAMAR (fecha/hora/cancha) de forma independiente
-   a registrar su resultado. Al programar, se avisa por push/email al
-   contacto de cada equipo. */
+/* Tab Torneo — VARIOS torneos por evento (Smash, Tekken, boxeo, fútbol…),
+   cada uno con su disciplina. Disponible para cualquier evento (ya no solo
+   Deportes). Formatos: eliminación directa (bracket), liga (tabla) o grupos +
+   eliminación. Cada partido se puede PROGRAMAR (fecha/hora/cancha) aparte de
+   registrar su resultado; al programar se avisa al contacto de cada equipo. */
 
 export default function TorneoTab({ evento, soyOwner }) {
-  const [torneo, setTorneo] = useState(undefined);
-  const [equipos, setEquipos] = useState([]);
-  const [partidos, setPartidos] = useState([]);
+  const [torneos, setTorneos] = useState(undefined); // undefined = cargando
+  const [selId, setSelId] = useState(null);
+  const [detalle, setDetalle] = useState(null);      // { torneo, equipos, partidos }
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const [creando, setCreando] = useState(false);
   const { error: toastErr } = useToast();
 
-  const cargar = () => {
-    torneosApi.get(evento.id)
-      .then(d => { setTorneo(d.torneo); setEquipos(d.equipos || []); setPartidos(d.partidos || []); })
-      .catch(e => toastErr(e.response?.data?.error || e.message));
+  /* Refresca la lista y deja seleccionado `preferId` (o el actual, o el 1º). */
+  const refrescar = async (preferId) => {
+    try {
+      const { torneos: lista } = await torneosApi.list(evento.id);
+      const arr = lista || [];
+      setTorneos(arr);
+      const target = [preferId, selId].find(id => id && arr.some(t => t.id === id)) || arr[0]?.id || null;
+      setSelId(target);
+      if (target) await cargarDetalle(target);
+      else setDetalle(null);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); setTorneos([]); }
   };
-  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [evento.id]);
 
-  if (torneo === undefined) return <GLoader message="Cargando torneo..." />;
+  const cargarDetalle = async (torneoId) => {
+    setCargandoDetalle(true);
+    try {
+      const d = await torneosApi.getOne(evento.id, torneoId);
+      setDetalle({ torneo: d.torneo, equipos: d.equipos || [], partidos: d.partidos || [] });
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setCargandoDetalle(false); }
+  };
 
-  if (!torneo) {
+  useEffect(() => { refrescar(); /* eslint-disable-next-line */ }, [evento.id]);
+
+  const seleccionar = (id) => { setCreando(false); setSelId(id); cargarDetalle(id); };
+
+  if (torneos === undefined) return <GLoader message="Cargando torneos..." />;
+
+  /* Sin torneos: owner ve el creador directo; visitante, un vacío. */
+  if (torneos.length === 0 && !creando) {
     return soyOwner
-      ? <CrearTorneo eventoId={evento.id} onCreado={cargar} />
+      ? <CrearTorneo eventoId={evento.id} onCreado={(t) => refrescar(t?.id)} onCancelar={null} />
       : (
         <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
-          <p className="text-sm text-text-3">El organizador todavía no configuró el torneo de este evento.</p>
+          <p className="text-sm text-text-3">El organizador todavía no configuró torneos en este evento.</p>
         </div>
       );
   }
 
   return (
-    <TorneoView
-      evento={evento}
-      torneo={torneo}
-      equipos={equipos}
-      partidos={partidos}
-      soyOwner={soyOwner}
-      onReload={cargar}
-    />
+    <div className="space-y-5">
+      {/* Selector de torneos + crear */}
+      {(torneos.length > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {torneos.map(t => (
+            <button key={t.id} onClick={() => seleccionar(t.id)}
+              className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors text-left
+                ${!creando && selId === t.id ? 'border-primary/50 bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+              <span className="flex items-center gap-2">
+                🏆 {t.nombre}
+                {t.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-1.5 py-0.5 rounded">{t.disciplina}</span>}
+              </span>
+            </button>
+          ))}
+          {soyOwner && (
+            <button onClick={() => setCreando(true)}
+              className={`px-3 py-2 rounded-xl text-sm font-medium border border-dashed transition-colors
+                ${creando ? 'border-primary/50 bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1 hover:border-primary/40'}`}>
+              + Nuevo torneo
+            </button>
+          )}
+        </div>
+      )}
+
+      {creando ? (
+        <CrearTorneo eventoId={evento.id}
+          onCreado={(t) => { setCreando(false); refrescar(t?.id); }}
+          onCancelar={torneos.length > 0 ? () => setCreando(false) : null} />
+      ) : cargandoDetalle || !detalle ? (
+        <GLoader message="Cargando torneo..." />
+      ) : (
+        <TorneoView
+          evento={evento}
+          torneo={detalle.torneo}
+          equipos={detalle.equipos}
+          partidos={detalle.partidos}
+          soyOwner={soyOwner}
+          onReload={() => refrescar(selId)}
+        />
+      )}
+    </div>
   );
 }
 
-function CrearTorneo({ eventoId, onCreado }) {
+function CrearTorneo({ eventoId, onCreado, onCancelar }) {
   const [nombre, setNombre] = useState('');
+  const [disciplina, setDisciplina] = useState('');
   const [formato, setFormato] = useState('eliminacion');
   const [numGrupos, setNumGrupos] = useState(2);
   const [avanzanPorGrupo, setAvanzanPorGrupo] = useState(2);
@@ -62,13 +117,13 @@ function CrearTorneo({ eventoId, onCreado }) {
     if (!nombre.trim()) { toastErr('El nombre del torneo es requerido.'); return; }
     setWorking(true);
     try {
-      const body = { nombre: nombre.trim(), formato };
+      const body = { nombre: nombre.trim(), formato, disciplina: disciplina.trim() || null };
       if (formato === 'grupos_eliminacion') {
         body.num_grupos = Number(numGrupos);
         body.avanzan_por_grupo = Number(avanzanPorGrupo);
       }
-      await torneosApi.crear(eventoId, body);
-      onCreado();
+      const { torneo } = await torneosApi.crear(eventoId, body);
+      onCreado?.(torneo);
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
     } finally {
@@ -79,15 +134,22 @@ function CrearTorneo({ eventoId, onCreado }) {
   return (
     <div className="max-w-lg mx-auto">
       <div className="rounded-3xl border border-border bg-surface/40 p-6">
-        <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Configura tu torneo</h2>
+        <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Nuevo torneo</h2>
         <p className="text-sm text-text-3 mb-6 leading-relaxed">
-          Elige un formato para organizar los partidos. Una vez elijas, podrás agregar los equipos participantes.
+          Un evento puede tener varios torneos (por ejemplo un torneo por videojuego). Elige un formato; luego agregas los equipos participantes.
         </p>
         <form onSubmit={submit} className="space-y-5">
-          <div className="field">
-            <label className="label">Nombre del torneo</label>
-            <input value={nombre} onChange={e => setNombre(e.target.value)}
-              className="input rounded-2xl py-3" placeholder="Ej. Copa GESTEK 2026" required autoFocus />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="field">
+              <label className="label">Nombre del torneo</label>
+              <input value={nombre} onChange={e => setNombre(e.target.value)}
+                className="input rounded-2xl py-3" placeholder="Ej. Copa Smash 2026" required autoFocus />
+            </div>
+            <div className="field">
+              <label className="label">Disciplina <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <input value={disciplina} onChange={e => setDisciplina(e.target.value)}
+                className="input rounded-2xl py-3" placeholder="Ej. Smash Bros, Boxeo, Fútbol" />
+            </div>
           </div>
 
           <div>
@@ -129,10 +191,17 @@ function CrearTorneo({ eventoId, onCreado }) {
             </div>
           )}
 
-          <button type="submit" disabled={working}
-            className="w-full py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
-            {working ? <><Spinner size="sm" /> Creando...</> : 'Crear torneo'}
-          </button>
+          <div className="flex items-center gap-2">
+            {onCancelar && (
+              <button type="button" onClick={onCancelar} className="px-4 py-3.5 rounded-2xl text-base font-medium border border-border text-text-2 hover:text-text-1">
+                Cancelar
+              </button>
+            )}
+            <button type="submit" disabled={working}
+              className="flex-1 py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
+              {working ? <><Spinner size="sm" /> Creando...</> : 'Crear torneo'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

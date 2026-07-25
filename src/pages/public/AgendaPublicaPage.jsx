@@ -4,10 +4,12 @@ import { eventosApi } from '../../api/eventos.js';
 import { agendaApi } from '../../api/agenda.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
+import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo } from '../../lib/espacio.js';
 
-/* Página pública /explorar/:slug/agenda — agenda completa de solo lectura
-   (visible para cualquiera), con itinerario personal opcional (marcar
-   favoritos) para quien tenga boleta y haya iniciado sesión. */
+/* Página pública /explorar/:slug/agenda — "Espacio del evento": el calendario
+   público de todo lo que pasa dentro (charlas, stands, competencias, shows…),
+   de solo lectura, con itinerario personal opcional (favoritos) para quien
+   tenga boleta e inicie sesión, y enlace a las llaves de las competencias. */
 export default function AgendaPublicaPage() {
   const { slug } = useParams();
   const location = useLocation();
@@ -42,6 +44,20 @@ export default function AgendaPublicaPage() {
   }, [sessions]);
 
   const [diaActivo, setDiaActivo] = useState(0);
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [filtroExpo, setFiltroExpo] = useState('');
+
+  const tiposPresentes = useMemo(() => {
+    const set = new Set(sessions.map(s => s.tipo || TIPO_DEFECTO));
+    return TIPOS_ESPACIO.filter(t => set.has(t.id));
+  }, [sessions]);
+
+  /* Expositores que tienen franjas en el cronograma. */
+  const expositoresPresentes = useMemo(() => {
+    const map = new Map();
+    for (const s of sessions) if (s.expositor?.id) map.set(s.expositor.id, s.expositor);
+    return [...map.values()];
+  }, [sessions]);
 
   const toggleFavorito = async (sessionId) => {
     if (!usuario) return;
@@ -87,18 +103,56 @@ export default function AgendaPublicaPage() {
   const esMultiSala = tracks.length > 1;
 
   const diaMostrado = dias[diaActivo];
-  const sesionesDelDia = soloFavoritos
-    ? (diaMostrado?.sesiones || []).filter(s => favoritos.has(s.id))
-    : (diaMostrado?.sesiones || []);
+  const sesionesDelDia = (diaMostrado?.sesiones || [])
+    .filter(s => !soloFavoritos || favoritos.has(s.id))
+    .filter(s => !filtroTipo || (s.tipo || TIPO_DEFECTO) === filtroTipo)
+    .filter(s => !filtroExpo || s.expositor?.id === filtroExpo);
 
   return (
     <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
       <div className="mb-6">
-        <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Agenda</p>
+        <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Espacio del evento</p>
         <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">
-          {esMultiSala ? 'Programa completo' : 'Agenda del evento'}
+          {esMultiSala ? 'Programa completo' : 'Todo lo que pasa dentro'}
         </h1>
       </div>
+
+      {tiposPresentes.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-5">
+          <button onClick={() => setFiltroTipo('')}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
+              ${filtroTipo === '' ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+            Todo
+          </button>
+          {tiposPresentes.map(t => (
+            <button key={t.id} onClick={() => setFiltroTipo(filtroTipo === t.id ? '' : t.id)}
+              style={filtroTipo === t.id ? tipoEstilo(t.id) : undefined}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
+                ${filtroTipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
+              <span>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {expositoresPresentes.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-5">
+          <span className="text-[11px] text-text-3 mr-1">Expositores:</span>
+          <button onClick={() => setFiltroExpo('')}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
+              ${filtroExpo === '' ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+            Todos
+          </button>
+          {expositoresPresentes.map(x => (
+            <button key={x.id} onClick={() => setFiltroExpo(filtroExpo === x.id ? '' : x.id)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5
+                ${filtroExpo === x.id ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+              {x.logo_url && <img src={x.logo_url} alt="" className="w-4 h-4 rounded object-cover" />}
+              🏢 {x.nombre}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
         {dias.length > 1 && (
@@ -140,29 +194,29 @@ export default function AgendaPublicaPage() {
       ) : esMultiSala ? (
         <AgendaGridSalas
           sesiones={sesionesDelDia} tracks={tracks} favoritos={favoritos}
-          puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito}
+          puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito} slug={slug}
         />
       ) : (
         <AgendaLista
           sesiones={sesionesDelDia} favoritos={favoritos}
-          puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito}
+          puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito} slug={slug}
         />
       )}
     </section>
   );
 }
 
-function AgendaLista({ sesiones, favoritos, puedeMarcar, onToggle }) {
+function AgendaLista({ sesiones, favoritos, puedeMarcar, onToggle, slug }) {
   return (
     <div className="rounded-3xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
       {sesiones.map(s => (
-        <SesionRow key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} />
+        <SesionRow key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug} />
       ))}
     </div>
   );
 }
 
-function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle }) {
+function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle, slug }) {
   const horas = [...new Set(sesiones.map(s => new Date(s.inicio).getHours()))].sort((a, b) => a - b);
 
   return (
@@ -186,7 +240,7 @@ function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle })
               return (
                 <div key={t} className="flex-1 min-w-[220px] border-l border-border px-2 py-2 space-y-1.5">
                   {items.map(s => (
-                    <SesionChipPublica key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} />
+                    <SesionChipPublica key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug} />
                   ))}
                 </div>
               );
@@ -198,17 +252,21 @@ function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle })
   );
 }
 
-function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle }) {
+function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug }) {
   const hi = new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   const hf = sesion.fin ? new Date(sesion.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
+  const tip = tipoEspacio(sesion.tipo);
   return (
-    <div className="flex items-start gap-4 px-5 py-4">
+    <div className="flex items-start gap-4 px-5 py-4" style={{ boxShadow: `inset 3px 0 0 ${tip.color}` }}>
       <div className="text-text-1 font-display font-bold tabular-nums text-base w-20 flex-shrink-0 leading-tight">
         {hi}
         {hf && <span className="block text-xs text-text-3 font-sans font-normal mt-0.5">— {hf}</span>}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1" style={tipoEstilo(sesion.tipo)}>
+            <span>{tip.icon}</span>{tip.label}
+          </span>
           <h3 className="text-base font-semibold text-text-1">{sesion.titulo}</h3>
           {sesion.track && sesion.track !== 'principal' && (
             <span className="text-xs uppercase tracking-widest text-primary-light bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{sesion.track}</span>
@@ -225,6 +283,11 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle }) {
               <span>{sesion.speaker.nombre}{sesion.speaker.empresa ? ` · ${sesion.speaker.empresa}` : ''}</span>
             </span>
           )}
+          {sesion.torneo_id && slug && (
+            <Link to={`/explorar/${slug}/torneo`} className="inline-flex items-center gap-1 text-primary-light hover:underline font-medium">
+              🏆 Ver llaves
+            </Link>
+          )}
         </div>
       </div>
       {puedeMarcar && (
@@ -239,14 +302,19 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle }) {
   );
 }
 
-function SesionChipPublica({ sesion, esFavorita, puedeMarcar, onToggle }) {
+function SesionChipPublica({ sesion, esFavorita, puedeMarcar, onToggle, slug }) {
+  const tip = tipoEspacio(sesion.tipo);
   return (
-    <div className={`rounded-xl border px-2.5 py-2 relative ${esFavorita ? 'border-warning/40 bg-warning/10' : 'border-primary/25 bg-primary/10'}`}>
-      <p className="text-[11px] font-mono tabular-nums text-primary-light pr-6">
-        {new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+    <div className="rounded-xl border px-2.5 py-2 relative"
+      style={esFavorita ? { borderColor: 'rgba(234,179,8,0.4)', background: 'rgba(234,179,8,0.1)' } : tipoEstilo(sesion.tipo)}>
+      <p className="text-[11px] font-mono tabular-nums opacity-80 pr-6">
+        {tip.icon} {new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
       </p>
       <p className="text-sm font-semibold text-text-1 truncate pr-6">{sesion.titulo}</p>
       {sesion.speaker?.nombre && <p className="text-xs text-text-3 truncate">{sesion.speaker.nombre}</p>}
+      {sesion.torneo_id && slug && (
+        <Link to={`/explorar/${slug}/torneo`} className="text-[11px] text-primary-light hover:underline font-medium">🏆 Ver llaves</Link>
+      )}
       {puedeMarcar && (
         <button onClick={() => onToggle(sesion.id)} aria-label="Marcar favorita"
           className={`absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center ${esFavorita ? 'text-warning' : 'text-text-3 hover:text-warning'}`}>

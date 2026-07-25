@@ -3,3 +3,6 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Config local del agente (no deploy)
+.claude/

@@ -13,15 +13,23 @@ import TopBar from '../../../components/layout/TopBar.jsx';
 import ResumenSection    from './ResumenSection.jsx';
 import WhiteLabelSection from './WhiteLabelSection.jsx';
 import PagosSection        from './comercial/PagosSection.jsx';
+import CheckoutSection      from './comercial/CheckoutSection.jsx';
+import SeoSection           from './comercial/SeoSection.jsx';
+import EmailsSection        from './comercial/EmailsSection.jsx';
 import FacturacionSection  from './comercial/FacturacionSection.jsx';
 import PromocionesSection  from './comercial/PromocionesSection.jsx';
 import CredencialesSection from './asistentes/CredencialesSection.jsx';
+import AccesosSection     from './asistentes/AccesosSection.jsx';
+import InvitacionesSection from './asistentes/InvitacionesSection.jsx';
+import DocumentosSection    from './DocumentosSection.jsx';
+import TarjetaSection       from './asistentes/TarjetaSection.jsx';
 import PaginaPublicaTab  from '../tabs/PaginaPublicaTab.jsx';
 import FormularioTab     from '../tabs/FormularioTab.jsx';
 import EquipoTab         from '../tabs/EquipoTab.jsx';
 import TareasTab         from '../tabs/TareasTab.jsx';
 import SolicitudesTab    from '../tabs/SolicitudesTab.jsx';
 import AgendaTab         from '../tabs/AgendaTab.jsx';
+import StandsTab         from '../tabs/StandsTab.jsx';
 import RankingTab        from '../tabs/RankingTab.jsx';
 import TicketsTab        from '../tabs/TicketsTab.jsx';
 import AnalyticsTab      from '../tabs/AnalyticsTab.jsx';
@@ -30,6 +38,7 @@ import CheckinTab        from '../tabs/CheckinTab.jsx';
 import WaitlistTab       from '../tabs/WaitlistTab.jsx';
 import NetworkingTab     from '../tabs/NetworkingTab.jsx';
 import TorneoTab         from '../tabs/TorneoTab.jsx';
+import MapaSection       from './MapaSection.jsx';
 import ChatTab           from '../tabs/ChatTab.jsx';
 import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
@@ -42,7 +51,6 @@ import BroadcastModal    from '../BroadcastModal.jsx';
    ────────────────────────────────────────────────────────────────── */
 
 const CATEGORIAS_NETWORKING = ['negocios', 'marketing', 'tecnologia'];
-const CATEGORIAS_TORNEO     = ['deportes'];
 
 /* Secciones y sub-tabs. perm: permiso requerido para miembros (owner ve todo).
    null = todo el equipo. 'placeholder' marca módulos aún en construcción. */
@@ -51,18 +59,17 @@ const SECCIONES = [
     { id: 'general', label: 'Resumen', perm: null },
   ]},
   { id: 'experience', label: 'Event Experience', icon: SparkIcon, tabs: [
-    { id: 'landing',    label: 'Landing',     perm: 'editar_pagina_publica' },
-    { id: 'formularios', label: 'Formularios', perm: 'gestionar_tickets' },
-    { id: 'whitelabel', label: 'White Label', perm: 'editar_pagina_publica' },
-    { id: 'checkout',   label: 'Checkout',    perm: 'gestionar_tickets',    placeholder: ['Checkout', 'Pasos de compra, métodos de pago, confirmaciones, campos y validaciones.'] },
-    { id: 'emails',     label: 'Emails',      perm: 'editar_pagina_publica', placeholder: ['Emails', 'Personaliza confirmación, QR, recordatorios, cancelaciones y bienvenida.'] },
-    { id: 'seo',        label: 'SEO',         perm: 'editar_pagina_publica', placeholder: ['SEO', 'Meta tags, Open Graph, analytics, pixel y scripts del sitio público.'] },
+    { id: 'landing',    label: 'Landing',            perm: 'editar_pagina_publica' },
+    { id: 'checkout',   label: 'Proceso de compra',  perm: 'gestionar_tickets' },
+    { id: 'emails',     label: 'Emails',             perm: 'editar_pagina_publica' },
+    { id: 'seo',        label: 'SEO',                perm: 'editar_pagina_publica' },
   ]},
   { id: 'organizacion', label: 'Organización', icon: UsersIcon, tabs: [
     { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
     { id: 'tareas',      label: 'Tareas',      perm: null },
     { id: 'solicitudes', label: 'Sugerencias', perm: null },
     { id: 'agenda',      label: 'Agenda',      perm: null },
+    { id: 'documentos',  label: 'Documentos',  perm: null },
     { id: 'ranking',     label: 'Ranking',     perm: null },
   ]},
   { id: 'comercial', label: 'Comercial', icon: WalletIcon, tabs: [
@@ -74,14 +81,18 @@ const SECCIONES = [
   ]},
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
     { id: 'clientes',     label: 'Clientes',        perm: 'ver_clientes' },
-    { id: 'checkin',      label: 'Check-in',        perm: 'checkin' },
+    { id: 'checkin',      label: 'Control de ingreso', perm: 'checkin' },
+    { id: 'accesos',      label: 'Accesos e ingresos', perm: '__solo_owner__' },
+    { id: 'stands',       label: 'Stands y puntos',  perm: 'checkin' },
     { id: 'waitlist',     label: 'Lista de espera', perm: '__solo_owner__' },
-    { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes', placeholder: ['Invitaciones', 'Invitados especiales: VIP, prensa, speakers y patrocinadores.'] },
+    { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes' },
     { id: 'credenciales', label: 'Credenciales',    perm: 'checkin' },
+    { id: 'tarjeta',      label: 'Tarjeta',         perm: 'ver_clientes' },
   ]},
   { id: 'dinamicas', label: 'Dinámicas', icon: TrophyIcon, tabs: [
     { id: 'networking', label: 'Rueda de negocios', perm: null },
     { id: 'torneo',     label: 'Torneo',            perm: ['gestionar_torneo'] },
+    { id: 'mapa',       label: 'Mapa del evento',   perm: 'editar_evento' },
   ]},
   { id: 'comunicacion', label: 'Comunicación', icon: ChatIcon, tabs: [
     { id: 'chat',     label: 'Chats',    perm: null },
@@ -143,14 +154,14 @@ export default function EventWorkspace() {
   const secciones = useMemo(() => {
     if (!evento) return [];
     const permiteNetworking = CATEGORIAS_NETWORKING.includes(evento.categoria?.slug);
-    const permiteTorneo     = CATEGORIAS_TORNEO.includes(evento.categoria?.slug);
+    /* Torneos disponibles para CUALQUIER evento: una convención de videojuegos
+       o una feria también organiza torneos (parte del "Espacio del evento"). */
     return SECCIONES
       .map(s => ({
         ...s,
         tabs: s.tabs
           .filter(t => puedeVer(t.perm, soyOwner, permisos))
-          .filter(t => t.id !== 'networking' || permiteNetworking)
-          .filter(t => t.id !== 'torneo' || permiteTorneo),
+          .filter(t => t.id !== 'networking' || permiteNetworking),
       }))
       .filter(s => s.tabs.length > 0);
   }, [evento, soyOwner, permisos]);
@@ -262,16 +273,22 @@ export default function EventWorkspace() {
         </div>
       </div>
 
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <TopBar onMenu={() => setDrawer(true)} />
-        <main className="relative flex-1 overflow-y-auto">
+        <main className="relative flex-1 overflow-y-auto overflow-x-hidden">
           <div className="relative z-10 p-4 sm:p-6 w-full space-y-5">
 
             {/* Header de sección */}
             <header className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-xs text-text-3 mb-0.5">{evento.titulo}</p>
-                <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{seccion?.label}</h1>
+              <div className="flex items-center gap-3 min-w-0">
+                <button onClick={() => navigate('/eventos')} title="Volver a Eventos"
+                  className="flex-shrink-0 w-9 h-9 rounded-xl border border-border text-text-2 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" /></svg>
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs text-text-3 mb-0.5 truncate">{evento.titulo}</p>
+                  <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{seccion?.label}</h1>
+                </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <a href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm">
@@ -279,16 +296,6 @@ export default function EventWorkspace() {
                 </a>
                 {soyOwner && ['borrador', 'configuracion'].includes(evento.estado) && (
                   <button onClick={publicar} disabled={working} className="btn-gradient btn-sm">Publicar evento</button>
-                )}
-                {soyOwner && (
-                  <div className="relative group/menu">
-                    <MenuHeader
-                      evento={evento}
-                      onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
-                      onAnuncio={() => setBroadcastOpen(true)}
-                      onEliminar={eliminar}
-                    />
-                  </div>
                 )}
               </div>
             </header>
@@ -312,7 +319,10 @@ export default function EventWorkspace() {
 
             {/* Contenido */}
             <div key={`${seccion?.id}-${tabActivo?.id}`} className="animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
-              <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload} onAnuncio={() => setBroadcastOpen(true)} />
+              <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
+                onAnuncio={() => setBroadcastOpen(true)}
+                onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
+                onEliminar={eliminar} />
             </div>
           </div>
         </main>
@@ -323,20 +333,24 @@ export default function EventWorkspace() {
   );
 }
 
-function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio }) {
+function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar, onEliminar }) {
   if (!seccion || !tab) return null;
   if (tab.placeholder) return <PlaceholderTab title={tab.placeholder[0]} desc={tab.placeholder[1]} icon="spark" />;
 
   const k = `${seccion.id}/${tab.id}`;
   switch (k) {
-    case 'resumen/general'          : return <ResumenSection evento={evento} soyOwner={soyOwner} reload={reload} />;
+    case 'resumen/general'          : return <ResumenSection evento={evento} soyOwner={soyOwner} reload={reload} onEditar={onEditar} onAnuncio={onAnuncio} onEliminar={onEliminar} />;
     case 'experience/landing'       : return <PaginaPublicaTab evento={evento} />;
     case 'experience/formularios'   : return <FormularioTab evento={evento} />;
+    case 'experience/checkout'      : return <CheckoutSection evento={evento} />;
+    case 'experience/seo'           : return <SeoSection evento={evento} />;
+    case 'experience/emails'        : return <EmailsSection evento={evento} />;
     case 'experience/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
     case 'organizacion/equipo'      : return <EquipoTab evento={evento} />;
     case 'organizacion/tareas'      : return <TareasTab evento={evento} />;
     case 'organizacion/solicitudes' : return <SolicitudesTab evento={evento} />;
     case 'organizacion/agenda'      : return <AgendaTab evento={evento} />;
+    case 'organizacion/documentos'  : return <DocumentosSection evento={evento} />;
     case 'organizacion/ranking'     : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
@@ -345,10 +359,15 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio }) {
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
+    case 'asistentes/accesos'       : return <AccesosSection evento={evento} />;
+    case 'asistentes/stands'        : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
     case 'asistentes/credenciales'  : return <CredencialesSection evento={evento} />;
+    case 'asistentes/invitaciones'  : return <InvitacionesSection evento={evento} />;
+    case 'asistentes/tarjeta'       : return <TarjetaSection evento={evento} />;
     case 'dinamicas/networking'     : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
     case 'dinamicas/torneo'         : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
+    case 'dinamicas/mapa'           : return <MapaSection evento={evento} />;
     case 'comunicacion/chat'        : return <ChatTab evento={evento} />;
     case 'comunicacion/anuncios'    : return (
       <div className="card p-8 text-center max-w-lg mx-auto">

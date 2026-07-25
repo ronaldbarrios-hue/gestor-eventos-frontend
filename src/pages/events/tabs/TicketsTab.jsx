@@ -222,6 +222,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
     early_bird_precio: initial?.early_bird_precio ?? '',
     early_bird_hasta : toLocalInput(initial?.early_bird_hasta),
     venta_hasta      : toLocalInput(initial?.venta_hasta),
+    es_expositor     : initial?.es_expositor || false,
   });
   const [saving, setSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(
@@ -243,6 +244,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
       early_bird_precio: form.early_bird_precio === '' ? null : Number(form.early_bird_precio),
       early_bird_hasta : form.early_bird_hasta ? new Date(form.early_bird_hasta).toISOString() : null,
       venta_hasta      : form.venta_hasta      ? new Date(form.venta_hasta).toISOString()      : null,
+      es_expositor     : form.es_expositor,
     };
     await onSubmit(payload);
     setSaving(false);
@@ -261,7 +263,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
           <label className="label">Nombre *</label>
           <input
             value={form.nombre} onChange={e => update('nombre', e.target.value)}
-            placeholder="Ej: General, VIP, Early Bird"
+            placeholder={form.es_expositor ? 'Ej: Stand comercial, Stand VIP' : 'Ej: General, VIP, Early Bird'}
             className="input rounded-2xl py-3 text-base" required autoFocus
           />
         </div>
@@ -297,7 +299,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
       </div>
 
       <div className="field">
-        <label className="label">Cupo</label>
+        <label className="label">{form.es_expositor ? 'Número de stands' : 'Cupo'}</label>
         <input
           type="number" min="0"
           value={form.cupo} onChange={e => update('cupo', e.target.value)}
@@ -305,6 +307,17 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
           className="input rounded-2xl py-3 text-base tabular-nums"
         />
       </div>
+
+      {/* Boleta de expositor: cada compra genera una ficha de stand editable */}
+      <label className={`flex items-start gap-3 rounded-2xl border p-3 cursor-pointer transition-colors
+        ${form.es_expositor ? 'border-accent/50 bg-accent/5' : 'border-border hover:bg-surface-2'}`}>
+        <input type="checkbox" checked={form.es_expositor}
+          onChange={e => update('es_expositor', e.target.checked)} className="mt-0.5 accent-[#8B5CF6]" />
+        <span className="text-sm">
+          <span className="font-medium text-text-1 block">🏢 Es una boleta de stand / expositor</span>
+          <span className="text-text-3 text-xs">Cada empresa que la compra recibe su propia ficha de expositor (logo, descripción, contacto) que edita ella misma y aparece en el evento. Con el toggle persona / empresa.</span>
+        </span>
+      </label>
 
       {/* Avanzado */}
       <button
