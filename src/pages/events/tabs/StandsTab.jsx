@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { interaccionesApi } from '../../../api/interacciones.js';
+import { networkingApi } from '../../../api/networking.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
+import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 
@@ -29,7 +31,7 @@ export default function StandsTab({ evento, soyOwner }) {
   const { success, error: toastErr } = useToast();
   const [motivos, setMotivos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [vista, setVista] = useState('escanear');   // escanear | motivos | historial
+  const [vista, setVista] = useState('stands');   // stands | escanear | canjear | motivos | historial
   const [motivoSel, setMotivoSel] = useState(null);
   const [lugar, setLugar] = useState('');
   const [ultimo, setUltimo] = useState(null);
@@ -82,18 +84,20 @@ export default function StandsTab({ evento, soyOwner }) {
     <div className="space-y-5">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Stands</h2>
-          <p className="text-sm text-text-2 mt-1">Escanea la escarapela en un stand y registra el motivo: puntos o una novedad.</p>
+          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Stands y puntos</h2>
+          <p className="text-sm text-text-2 mt-1">Gestiona los stands del evento y, con la misma escarapela, registra puntos y entrega premios.</p>
         </div>
-        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-          {[['escanear', 'Dar puntos'], ['canjear', 'Canjear'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
+        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+          {[['stands', 'Stands'], ['escanear', 'Dar puntos'], ['canjear', 'Canjear'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
             <button key={k} onClick={() => setVista(k)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${vista === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${vista === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               {l}
             </button>
           ))}
         </div>
       </div>
+
+      {vista === 'stands' && <StandsEditor evento={evento} soyOwner={soyOwner} />}
 
       {vista === 'escanear' && (
         activos.length === 0 ? (
@@ -177,6 +181,160 @@ export default function StandsTab({ evento, soyOwner }) {
 
       {vista === 'historial' && (
         <Historial evento={evento} items={historial} soyOwner={soyOwner} onCambio={cargarHistorial} />
+      )}
+    </div>
+  );
+}
+
+/* ─────────── Stands del evento (lista + alta manual) ─────────── */
+
+function StandsEditor({ evento, soyOwner }) {
+  const { success, error: toastErr } = useToast();
+  const [stands, setStands] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editando, setEditando] = useState(null);   // null | 'nuevo' | <id>
+  const [form, setForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const d = await networkingApi.expositoresAdmin(evento.id);
+      setStands(d.expositores || []);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setLoading(false); }
+  }, [evento.id, toastErr]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const abrirNuevo   = () => { setEditando('nuevo'); setForm({ nombre: '', stand: '', descripcion: '', logo_url: '', sitio_web: '' }); };
+  const abrirEdicion = (s) => { setEditando(s.id); setForm({ nombre: s.nombre || '', stand: s.stand || '', descripcion: s.descripcion || '', logo_url: s.logo_url || '', sitio_web: s.sitio_web || '' }); };
+  const cerrar       = () => { setEditando(null); setForm(null); };
+  const set          = (patch) => setForm(f => ({ ...f, ...patch }));
+
+  const guardar = async () => {
+    if (!form.nombre.trim()) { toastErr('El stand necesita un nombre.'); return; }
+    setSaving(true);
+    try {
+      if (editando === 'nuevo') { await networkingApi.crearStand(evento.id, form); success('Stand agregado.'); }
+      else { await networkingApi.editarStand(evento.id, editando, form); success('Stand actualizado.'); }
+      cerrar();
+      await cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+
+  const borrar = async (s) => {
+    if (!(await confirmDialog({ message: `¿Eliminar el stand "${s.nombre}"? Si vino de una boleta-stand se quita del directorio, pero la boleta sigue existiendo.`, danger: true }))) return;
+    try { await networkingApi.borrarStand(evento.id, s.id); success('Stand eliminado.'); await cargar(); }
+    catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
+  if (!soyOwner) return (
+    <div className="rounded-3xl border border-border bg-surface/40 px-6 py-14 text-center">
+      <p className="text-sm text-text-3">Solo el organizador puede gestionar los stands.</p>
+    </div>
+  );
+
+  if (loading) return <GLoader message="Cargando stands..." />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-text-3 leading-relaxed max-w-2xl">
+          Estos son los stands/expositores del evento. Se crean solos cuando alguien compra una
+          <strong className="text-text-2"> boleta de stand</strong>, y también puedes agregarlos aquí a mano
+          (patrocinadores, aliados). Aparecen en el <strong className="text-text-2">directorio</strong> y en el
+          <strong className="text-text-2"> mapa</strong> del evento.
+        </p>
+        {editando === null && (
+          <button onClick={abrirNuevo} className="btn-primary btn-sm flex-shrink-0">+ Agregar stand</button>
+        )}
+      </div>
+
+      {/* Formulario de alta/edición */}
+      {editando !== null && form && (
+        <div className="rounded-3xl border-2 border-primary/30 bg-primary/5 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-text-1">{editando === 'nuevo' ? 'Nuevo stand' : 'Editar stand'}</p>
+            <button onClick={cerrar} className="text-text-3 hover:text-text-1 text-sm">✕</button>
+          </div>
+          <div className="grid sm:grid-cols-[1fr_180px] gap-3">
+            <div className="field">
+              <label className="label text-xs">Nombre *</label>
+              <input value={form.nombre} onChange={e => set({ nombre: e.target.value })}
+                className="input rounded-xl py-2.5 text-sm" placeholder="Ej. Nintendo, Café del Valle" autoFocus />
+            </div>
+            <div className="field">
+              <label className="label text-xs">Stand / ubicación</label>
+              <input value={form.stand} onChange={e => set({ stand: e.target.value })}
+                className="input rounded-xl py-2.5 text-sm" placeholder="Ej. A-12" />
+            </div>
+          </div>
+          <div className="field">
+            <label className="label text-xs">Descripción</label>
+            <textarea value={form.descripcion} onChange={e => set({ descripcion: e.target.value })}
+              rows={2} className="input rounded-xl py-2.5 text-sm resize-none" placeholder="Qué ofrece este stand (opcional)" />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="field">
+              <label className="label text-xs">Logo</label>
+              <ImagePicker value={form.logo_url} onChange={(url) => set({ logo_url: url })} ownerId={evento.id} placeholder="URL del logo o subir" />
+            </div>
+            <div className="field">
+              <label className="label text-xs">Sitio web</label>
+              <input value={form.sitio_web} onChange={e => set({ sitio_web: e.target.value })}
+                className="input rounded-xl py-2.5 text-sm" placeholder="https://…" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={cerrar} className="btn-ghost btn-sm">Cancelar</button>
+            <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">
+              {saving ? <><Spinner size="sm" /> Guardando…</> : (editando === 'nuevo' ? 'Agregar stand' : 'Guardar cambios')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de stands */}
+      {stands.length === 0 && editando === null ? (
+        <div className="rounded-3xl border border-border bg-surface/40 px-6 py-14 text-center">
+          <p className="text-sm text-text-2 mb-4">Todavía no hay stands en este evento.</p>
+          <button onClick={abrirNuevo} className="btn-primary btn-sm">Agregar el primero</button>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {stands.map(s => {
+            const manual = !s.ticket_id;
+            const borrador = s.estado_ficha === 'borrador';
+            return (
+              <div key={s.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3 group">
+                {s.logo_url
+                  ? <img src={s.logo_url} alt="" className="w-11 h-11 rounded-xl object-cover border border-border flex-shrink-0" />
+                  : <div className="w-11 h-11 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-base font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-text-1 truncate">{s.nombre}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {s.stand && <span className="text-[10px] font-mono bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">{s.stand}</span>}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${manual ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-light'}`}>{manual ? 'Manual' : 'Boleta'}</span>
+                    {borrador && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">Borrador</span>}
+                  </div>
+                  {s.descripcion && <p className="text-xs text-text-3 mt-1.5 line-clamp-2">{s.descripcion}</p>}
+                </div>
+                <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => abrirEdicion(s)} title="Editar"
+                    className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                  </button>
+                  <button onClick={() => borrar(s)} title="Eliminar"
+                    className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

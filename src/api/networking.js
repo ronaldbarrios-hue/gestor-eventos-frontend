@@ -9,6 +9,9 @@ export const networkingApi = {
 
   /* Vista del organizador */
   expositoresAdmin: (eventoId) => client.get(`/eventos/${eventoId}/expositores`).then(r => r.data),
+  crearStand      : (eventoId, body) => client.post(`/eventos/${eventoId}/expositores`, body).then(r => r.data),
+  editarStand     : (eventoId, id, body) => client.patch(`/eventos/${eventoId}/expositores/${id}`, body).then(r => r.data),
+  borrarStand     : (eventoId, id) => client.delete(`/eventos/${eventoId}/expositores/${id}`).then(r => r.data),
   admin           : (eventoId) => client.get(`/eventos/${eventoId}/networking/admin`).then(r => r.data),
   crearExpositor  : (eventoId, body) => client.post(`/eventos/${eventoId}/networking/expositores`, body).then(r => r.data),
   borrarExpositor : (eventoId, expositorId) => client.delete(`/eventos/${eventoId}/networking/expositores/${expositorId}`).then(r => r.data),
