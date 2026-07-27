@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { meApi } from '../../api/me.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useWidgets } from '../../hooks/useWidgets.js';
 import { EspacioDataProvider, useEspacioData } from '../../components/widgets/espacio/EspacioData.jsx';
@@ -50,11 +52,20 @@ const COMPONENTES = {
 export default function MiEspacioPage() {
   const [vista, setVista] = useState('panel');
 
+  const [expositores, setExpositores] = useState([]);
+  useEffect(() => { meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {}); }, []);
+
+  const TABS = [
+    ['panel', 'Mi panel'], ['colaborador', 'Colaborador'],
+    ['talento', 'Perfil de talento'], ['organizador', 'Perfil de organizador'],
+    ...(expositores.length ? [['expositor', 'Mis stands']] : []),
+  ];
+
   return (
     <div className="space-y-6 animate-[fadeUp_0.4s_ease_both]">
-      {/* Las tres facetas de tu cuenta en GESTEK + tu panel personal. */}
+      {/* Las facetas de tu cuenta en GESTEK + tu panel personal. */}
       <div className="flex items-center gap-1 border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
-        {[['panel', 'Mi panel'], ['colaborador', 'Colaborador'], ['talento', 'Perfil de talento'], ['organizador', 'Perfil de organizador']].map(([v, label]) => (
+        {TABS.map(([v, label]) => (
           <button
             key={v}
             onClick={() => setVista(v)}
@@ -90,6 +101,34 @@ export default function MiEspacioPage() {
           <PerfilOrganizador />
         </div>
       )}
+      {vista === 'expositor' && <MisStands expositores={expositores} />}
+    </div>
+  );
+}
+
+function MisStands({ expositores }) {
+  const navigate = useNavigate();
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">Mis stands</h1>
+        <p className="text-sm text-text-2 mt-1">Los stands donde eres expositor. Abre el panel para editar tu ficha, dar puntos y ver tu cronograma.</p>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {expositores.map(e => (
+          <div key={e.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-center gap-3">
+            {e.logo_url
+              ? <img src={e.logo_url} alt="" className="w-11 h-11 rounded-xl object-cover flex-shrink-0" />
+              : <div className="w-11 h-11 rounded-xl bg-surface-2 flex items-center justify-center text-text-3 font-bold flex-shrink-0">{(e.nombre || '?').charAt(0).toUpperCase()}</div>}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-text-1 truncate">{e.nombre}</p>
+              <p className="text-xs text-text-3 truncate">{e.evento?.titulo}{e.stand ? ` · ${e.stand}` : ''}</p>
+              {e.estado_ficha === 'borrador' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">Ficha en borrador</span>}
+            </div>
+            <button onClick={() => navigate(`/expositor/${e.codigo}`)} disabled={!e.codigo} className="btn-secondary btn-sm flex-shrink-0">Abrir panel</button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
