@@ -106,6 +106,17 @@ export default function AgendaTab({ evento }) {
     return con;
   }, [sessions]);
 
+  /* Franjas que propuso un expositor y esperan aprobación del organizador. */
+  const pendientes = useMemo(() => sessions.filter(s => s.moderacion === 'pendiente'), [sessions]);
+
+  const moderar = async (s, estado) => {
+    try {
+      await agendaApi.editarSession(evento.id, s.id, { moderacion: estado });
+      success(estado === 'aprobado' ? 'Franja aprobada — ya es pública.' : 'Franja rechazada.');
+      reload();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
   const nudge = (delta) => {
     const d = new Date(cursor);
     if (subView === 'mes') { d.setMonth(d.getMonth() + delta); setCursor(startOfMonth(d)); }
@@ -172,6 +183,28 @@ export default function AgendaTab({ evento }) {
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* Moderación — franjas propuestas por expositores que esperan aprobación */}
+      {view === 'sessions' && pendientes.length > 0 && (
+        <div className="rounded-2xl border border-accent/40 bg-accent/5 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-accent/20">
+            <p className="text-sm font-semibold text-text-1">{pendientes.length} franja{pendientes.length !== 1 ? 's' : ''} por aprobar</p>
+            <p className="text-xs text-text-3">Sub-eventos que propusieron los expositores. No son públicos hasta que los apruebes.</p>
+          </div>
+          <ul className="divide-y divide-accent/15">
+            {pendientes.map(s => (
+              <li key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-text-1 truncate">{s.titulo}</p>
+                  <p className="text-xs text-text-3 truncate">{s.track ? `${s.track} · ` : ''}{horaCorta(s.inicio)}{s.fin ? `–${horaCorta(s.fin)}` : ''}</p>
+                </div>
+                <button onClick={() => moderar(s, 'aprobado')} className="btn-primary btn-sm flex-shrink-0">Aprobar</button>
+                <button onClick={() => moderar(s, 'rechazado')} className="btn-ghost btn-sm text-text-3 flex-shrink-0">Rechazar</button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
