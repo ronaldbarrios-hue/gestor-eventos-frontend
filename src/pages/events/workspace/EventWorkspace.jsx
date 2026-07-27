@@ -30,6 +30,7 @@ import TareasTab         from '../tabs/TareasTab.jsx';
 import SolicitudesTab    from '../tabs/SolicitudesTab.jsx';
 import AgendaTab         from '../tabs/AgendaTab.jsx';
 import StandsTab         from '../tabs/StandsTab.jsx';
+import VacantesTab       from '../tabs/VacantesTab.jsx';
 import RankingTab        from '../tabs/RankingTab.jsx';
 import TicketsTab        from '../tabs/TicketsTab.jsx';
 import AnalyticsTab      from '../tabs/AnalyticsTab.jsx';
@@ -66,6 +67,7 @@ const SECCIONES = [
   ]},
   { id: 'organizacion', label: 'Organización', icon: UsersIcon, tabs: [
     { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
+    { id: 'vacantes',    label: 'Vacantes',    perm: 'editar_evento' },
     { id: 'tareas',      label: 'Tareas',      perm: null },
     { id: 'solicitudes', label: 'Sugerencias', perm: null },
     { id: 'agenda',      label: 'Agenda',      perm: null },
@@ -347,6 +349,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'experience/emails'        : return <EmailsSection evento={evento} />;
     case 'experience/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
     case 'organizacion/equipo'      : return <EquipoTab evento={evento} />;
+    case 'organizacion/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
     case 'organizacion/tareas'      : return <TareasTab evento={evento} />;
     case 'organizacion/solicitudes' : return <SolicitudesTab evento={evento} />;
     case 'organizacion/agenda'      : return <AgendaTab evento={evento} />;
