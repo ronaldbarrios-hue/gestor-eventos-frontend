@@ -14,6 +14,8 @@ import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } f
    tiene un tipo (color) y, si es competitivo, enlaza a las llaves del torneo.
    Vistas: Lista / Día / Semana / Mes / Salas. Disponible para cualquier evento. */
 
+const horaCorta = (d) => d ? new Date(d).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '';
+
 const DOW_SHORT = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
 const MES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIA_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
@@ -31,6 +33,7 @@ export default function AgendaTab({ evento }) {
   const [prefillDate, setPrefillDate] = useState(null);
   const [editing,  setEditing]  = useState(null);
   const [filtroTipo, setFiltroTipo] = useState('');    // '' = todos
+  const [verChoques, setVerChoques] = useState(false);
   const { success, error: toastErr } = useToast();
 
   /* "Salas" (calendario en paralelo por track) ahora está disponible siempre:
@@ -80,6 +83,29 @@ export default function AgendaTab({ evento }) {
     return map;
   }, [sessionsVista]);
 
+  /* Cronograma maestro: choques de horario = dos sub-eventos en la MISMA sala
+     (track) cuyos intervalos [inicio, fin) se solapan. Se calcula sobre TODAS
+     las sesiones (no el filtro por tipo) para no ocultar conflictos. */
+  const conflictos = useMemo(() => {
+    const con = [];
+    const porTrack = {};
+    for (const s of sessions) {
+      if (!s.inicio || !s.fin || !(s.track || '').trim()) continue;
+      const k = s.track.trim().toLowerCase();
+      (porTrack[k] = porTrack[k] || []).push(s);
+    }
+    for (const arr of Object.values(porTrack)) {
+      arr.sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          if (new Date(arr[j].inicio) < new Date(arr[i].fin)) con.push({ a: arr[i], b: arr[j] });
+          else break;   // ordenado por inicio: los siguientes tampoco solapan con arr[i]
+        }
+      }
+    }
+    return con;
+  }, [sessions]);
+
   const nudge = (delta) => {
     const d = new Date(cursor);
     if (subView === 'mes') { d.setMonth(d.getMonth() + delta); setCursor(startOfMonth(d)); }
@@ -122,6 +148,32 @@ export default function AgendaTab({ evento }) {
           </button>
         </div>
       </div>
+
+      {/* Cronograma maestro — aviso de choques de horario por sala */}
+      {view === 'sessions' && conflictos.length > 0 && (
+        <div className="rounded-2xl border border-warning/40 bg-warning/10 overflow-hidden">
+          <button onClick={() => setVerChoques(v => !v)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+            <svg className="w-5 h-5 text-warning flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-text-1">{conflictos.length} choque{conflictos.length !== 1 ? 's' : ''} de horario</p>
+              <p className="text-xs text-text-3">Sub-eventos que se solapan en la misma sala. Toca para ver el detalle.</p>
+            </div>
+            <span className="text-text-3 text-xs flex-shrink-0">{verChoques ? '▲' : '▼'}</span>
+          </button>
+          {verChoques && (
+            <ul className="divide-y divide-warning/20 border-t border-warning/20">
+              {conflictos.map(({ a, b }, i) => (
+                <li key={i} className="px-4 py-2.5 text-xs">
+                  <p className="text-text-2">
+                    <span className="font-medium text-text-1">{a.track}</span> · {horaCorta(a.inicio)}–{horaCorta(a.fin)} vs {horaCorta(b.inicio)}–{horaCorta(b.fin)}
+                  </p>
+                  <p className="text-text-3 truncate">«{a.titulo}» choca con «{b.titulo}»</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Switcher de vista (solo en sesiones) */}
       {view === 'sessions' && (
