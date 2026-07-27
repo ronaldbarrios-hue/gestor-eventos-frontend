@@ -153,7 +153,7 @@ export default function TarjetaSection({ evento }) {
             <div className="card-body space-y-4">
               <div>
                 <label className="label">Plantilla</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {ESTILOS.map(e => (
                     <button key={e.value} onClick={() => setV({ estilo: e.value })}
                       className={`px-2 py-2 rounded-xl text-xs font-medium border transition-colors ${v.estilo === e.value ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>{e.label}</button>

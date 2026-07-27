@@ -221,6 +221,12 @@ export default function ExperienceBuilder({ evento, onClose }) {
         </div>
       </div>
 
+      {/* En móvil los paneles de secciones/propiedades se ocultan por espacio.
+          Un aviso honesto evita que "tocar una sección no hace nada" confunda. */}
+      <div className="lg:hidden rounded-xl border border-border bg-surface/70 px-4 py-3 text-xs text-text-2 leading-relaxed">
+        El editor por secciones se ve completo en pantalla grande. En el móvil puedes previsualizar la página y editar <b className="text-text-1">Marca</b> y <b className="text-text-1">Navbar</b> desde los botones de arriba.
+      </div>
+
       {/* ── Páginas del sitio (los "tabs" que verá el visitante en el navbar) ── */}
       <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-surface/70 px-2.5 py-2 overflow-x-auto no-scrollbar">
         <span className="text-[11px] font-semibold uppercase tracking-widest text-text-3 pl-1 pr-1 flex-shrink-0">Páginas</span>

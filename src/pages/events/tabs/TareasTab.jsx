@@ -119,7 +119,7 @@ export default function TareasTab({ evento }) {
       </header>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {ESTADOS.map(e => (
           <div key={e.id} className="rounded-2xl border border-border bg-surface/40 px-4 py-3 transition-all hover:bg-surface/60">
             <div className="flex items-center gap-2 mb-1">
