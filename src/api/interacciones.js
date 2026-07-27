@@ -14,6 +14,9 @@ export const interaccionesApi = {
   /* Canje con el MISMO QR de la escarapela. */
   saldo         : (eventoId, params)  => client.get(`/eventos/${eventoId}/canje/saldo`, { params }).then(r => r.data),
   canjear       : (eventoId, body)    => client.post(`/eventos/${eventoId}/canje`, body).then(r => r.data),
+
+  /* Ranking de expositores por puntos otorgados e interacciones. */
+  rankingExpositores: (eventoId) => client.get(`/eventos/${eventoId}/expositores/ranking`).then(r => r.data),
 };
 
 /* Panel del EXPOSITOR — autenticado por el código de su boleta-Stand.
