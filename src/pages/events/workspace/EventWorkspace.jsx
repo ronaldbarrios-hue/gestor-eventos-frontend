@@ -31,6 +31,7 @@ import SolicitudesTab    from '../tabs/SolicitudesTab.jsx';
 import AgendaTab         from '../tabs/AgendaTab.jsx';
 import StandsTab         from '../tabs/StandsTab.jsx';
 import VacantesTab       from '../tabs/VacantesTab.jsx';
+import ReporteTab        from '../tabs/ReporteTab.jsx';
 import RankingTab        from '../tabs/RankingTab.jsx';
 import TicketsTab        from '../tabs/TicketsTab.jsx';
 import AnalyticsTab      from '../tabs/AnalyticsTab.jsx';
@@ -73,6 +74,7 @@ const SECCIONES = [
     { id: 'agenda',      label: 'Agenda',      perm: null },
     { id: 'documentos',  label: 'Documentos',  perm: null },
     { id: 'ranking',     label: 'Ranking',     perm: null },
+    { id: 'reporte',     label: 'Reporte',     perm: 'ver_analytics' },
   ]},
   { id: 'comercial', label: 'Comercial', icon: WalletIcon, tabs: [
     { id: 'boletas',      label: 'Boletas',      perm: 'gestionar_tickets' },
@@ -355,6 +357,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'organizacion/agenda'      : return <AgendaTab evento={evento} />;
     case 'organizacion/documentos'  : return <DocumentosSection evento={evento} />;
     case 'organizacion/ranking'     : return <RankingTab evento={evento} />;
+    case 'organizacion/reporte'     : return <ReporteTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
     case 'comercial/analytics'      : return <AnalyticsTab evento={evento} />;
