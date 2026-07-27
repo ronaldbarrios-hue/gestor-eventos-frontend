@@ -6,6 +6,9 @@ import WidgetGrid from '../../components/widgets/WidgetGrid.jsx';
 import WidgetShell from '../../components/widgets/WidgetShell.jsx';
 import PersonalizarPanel from '../../components/widgets/PersonalizarPanel.jsx';
 import MiTrabajoPage from '../equipo/MiTrabajoPage.jsx';
+import PerfilTalentoEditor from '../vacantes/PerfilTalentoEditor.jsx';
+import PerfilOrganizador from './PerfilOrganizador.jsx';
+import { Link } from 'react-router-dom';
 import {
   MisTareasWidget, MisSolicitudesWidget, MiCalendarioWidget, MisRecursosWidget,
   MisNotasWidget, MisLogrosWidget, MisBoletasWidget, MiActividadWidget,
@@ -49,13 +52,13 @@ export default function MiEspacioPage() {
 
   return (
     <div className="space-y-6 animate-[fadeUp_0.4s_ease_both]">
-      {/* Selector Panel / Tareas por evento */}
-      <div className="flex items-center gap-1 border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0">
-        {[['panel', 'Mi panel'], ['trabajo', 'Trabajo por evento']].map(([v, label]) => (
+      {/* Las tres facetas de tu cuenta en GESTEK + tu panel personal. */}
+      <div className="flex items-center gap-1 border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
+        {[['panel', 'Mi panel'], ['colaborador', 'Colaborador'], ['talento', 'Perfil de talento'], ['organizador', 'Perfil de organizador']].map(([v, label]) => (
           <button
             key={v}
             onClick={() => setVista(v)}
-            className={`relative px-4 py-2.5 text-[14px] font-medium transition-colors
+            className={`relative px-4 py-2.5 text-[14px] font-medium whitespace-nowrap transition-colors
                         ${vista === v ? 'text-text-1' : 'text-text-3 hover:text-text-2'}`}
           >
             {label}
@@ -64,13 +67,29 @@ export default function MiEspacioPage() {
         ))}
       </div>
 
-      {vista === 'trabajo'
-        ? <MiTrabajoPage />
-        : (
-          <EspacioDataProvider>
-            <PanelEspacio />
-          </EspacioDataProvider>
-        )}
+      {vista === 'panel' && <EspacioDataProvider><PanelEspacio /></EspacioDataProvider>}
+      {vista === 'colaborador' && <MiTrabajoPage />}
+      {vista === 'talento' && (
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">Perfil de talento</h1>
+              <p className="text-sm text-text-2 mt-1">Tu CV para trabajar en eventos. Con él te postulas a vacantes.</p>
+            </div>
+            <Link to="/vacantes" className="btn-secondary btn-sm flex-shrink-0">Explorar vacantes →</Link>
+          </div>
+          <PerfilTalentoEditor />
+        </div>
+      )}
+      {vista === 'organizador' && (
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">Perfil de organizador</h1>
+            <p className="text-sm text-text-2 mt-1">Tu identidad pública y tu reputación cuando organizas eventos y contratas personal.</p>
+          </div>
+          <PerfilOrganizador />
+        </div>
+      )}
     </div>
   );
 }

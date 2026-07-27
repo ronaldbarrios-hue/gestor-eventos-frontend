@@ -20,6 +20,7 @@ export const vacantesApi = {
   retirar         : (id)         => client.delete(`/me/postulaciones/${id}`).then(r => r.data),
   resenarOrganizador: (postId, body) => client.post(`/me/postulaciones/${postId}/resena`, body).then(r => r.data),
   perfilPublico   : (userId)     => client.get(`/perfil-talento/${userId}`).then(r => r.data),
+  miReputacionOrganizador: ()    => client.get('/me/organizador/reputacion').then(r => r.data),
 
   /* ── Organizador (dentro del evento) ── */
   listar        : (eventoId)          => client.get(`/eventos/${eventoId}/vacantes`).then(r => r.data),
