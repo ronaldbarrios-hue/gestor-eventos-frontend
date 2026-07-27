@@ -7,6 +7,7 @@ import GLoader from './components/ui/GLoader.jsx';
 import { pantallaInicial } from './lib/prefs.js';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import AppLayout from './components/layout/AppLayout.jsx';
+import CommandPalette from './components/layout/CommandPalette.jsx';
 import LandingHomePage from './pages/public/LandingHomePage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 
@@ -142,6 +143,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
+          <CommandPalette />
           <ConfirmHost />
         </AuthProvider>
       </ToastProvider>

@@ -19,6 +19,7 @@ export const DESTINOS_ACCESO = [
   { to: '/eventos',     label: 'Eventos',     cat: 'Navegación' },
   { to: '/explorar',    label: 'Explorar',    cat: 'Navegación' },
   { to: '/mi-espacio',  label: 'Mi Espacio',  cat: 'Navegación' },
+  { to: '/vacantes',    label: 'Vacantes',    cat: 'Navegación', kw: 'empleo trabajo talento postular bolsa' },
   { to: '/chat',        label: 'Chats',       cat: 'Herramientas' },
   { to: '/gestbot',     label: 'Gestbot',     cat: 'Herramientas' },
   { to: '/mis-boletas', label: 'Mis boletas', cat: 'Herramientas' },
@@ -55,6 +56,7 @@ export const SECCIONES_EVENTO = [
   { q: '?s=asistentes&t=clientes',       label: 'Clientes',           cat: 'Personas', kw: 'asistentes registrados' },
   { q: '?s=asistentes&t=invitaciones',   label: 'Invitaciones',       cat: 'Personas' },
   { q: '?s=organizacion&t=equipo',       label: 'Equipo y roles',     cat: 'Personas', kw: 'staff permisos colaboradores' },
+  { q: '?s=organizacion&t=vacantes',     label: 'Vacantes',           cat: 'Personas', kw: 'empleo trabajo contratar personal talento pipeline' },
 
   { q: '?s=experience&t=emails',         label: 'Emails',             cat: 'Comunicación', kw: 'correos campañas' },
   { q: '?s=comunicacion&t=chat',         label: 'Chats del evento',   cat: 'Comunicación', kw: 'mensajes' },
