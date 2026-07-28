@@ -388,6 +388,21 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
 }
 
 function ConfigGeneral({ evento }) {
+  const { success, error: toastErr } = useToast();
+  const [esPlantilla, setEsPlantilla] = useState(Boolean(evento.page_json?.plantilla));
+  const [guardando, setGuardando] = useState(false);
+
+  const togglePlantilla = async () => {
+    const nuevo = !esPlantilla;
+    setGuardando(true);
+    try {
+      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), plantilla: nuevo } });
+      setEsPlantilla(nuevo);
+      success(nuevo ? 'Marcado como plantilla. Aparecerá al crear un evento nuevo.' : 'Quitado de plantillas.');
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setGuardando(false); }
+  };
+
   return (
     <div className="max-w-2xl space-y-4">
       <div className="card">
@@ -398,10 +413,14 @@ function ConfigGeneral({ evento }) {
           <Fila k="Estado"    v={<EstadoBadge estado={evento.estado} />} />
           <Fila k="Zona horaria" v={evento.timezone || 'America/Bogota'} />
         </div>
-        <div className="card-body border-t border-border">
+        <div className="card-body border-t border-border flex flex-wrap gap-2">
           <Link to={`/eventos/${evento.id}/editar`} className="btn-secondary btn-sm">Editar información completa</Link>
+          <button onClick={togglePlantilla} disabled={guardando} className={`btn-sm ${esPlantilla ? 'btn-secondary' : 'btn-ghost'}`}>
+            {guardando ? 'Guardando…' : esPlantilla ? '✓ Es plantilla — quitar' : 'Usar como plantilla'}
+          </button>
         </div>
       </div>
+      <p className="text-xs text-text-3">Al marcarlo como plantilla, este evento aparece al crear uno nuevo para reutilizar su configuración (landing, marca, checkout, SEO y boletas) — sin copiar asistentes ni ventas.</p>
     </div>
   );
 }
