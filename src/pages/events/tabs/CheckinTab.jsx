@@ -10,6 +10,7 @@ import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 
 export default function CheckinTab({ evento }) {
   const [mode, setMode]       = useState('manual'); // manual | camara
+  const [accion, setAccion]   = useState('checkin'); // checkin | reingreso
   const [working, setWorking] = useState(false);
   const [last, setLast]       = useState(null); // { ok, ticket, error, sound }
   const [historial, setHistorial] = useState([]); // últimos check-ins de esta sesión
@@ -50,9 +51,28 @@ export default function CheckinTab({ evento }) {
     }
   }, [evento.id, working, bumpOptimista]);
 
+  const handleReingreso = useCallback(async (payload) => {
+    if (working) return;
+    setWorking(true);
+    setLast(null);
+    try {
+      const r = await clientesApi.reingreso(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+      setLast({ reingresoMode: true, ok: true, dentro: r.dentro, ticket: r.ticket });
+      setHistorial(h => [{ guest_nombre: r.ticket?.nombre, codigo: r.ticket?.codigo, at: new Date(), ok: true, reingreso: r.dentro ? 'entró' : 'salió' }, ...h].slice(0, 10));
+    } catch (e) {
+      setLast({ reingresoMode: true, ok: false, error: e.response?.data?.error || e.message });
+    } finally {
+      setTimeout(() => setWorking(false), 600);
+    }
+  }, [evento.id, working]);
+
   /* onScan estable (misma identidad siempre): QrScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
-  const onScanQr = useCallback((qr) => handleCheckin({ qr_token: qr }), [handleCheckin]);
+  const onScanQr = useCallback((qr) =>
+    (accion === 'reingreso' ? handleReingreso({ qr_token: qr }) : handleCheckin({ qr_token: qr })),
+    [accion, handleCheckin, handleReingreso]);
+  const onSubmitCodigo = (codigo) =>
+    (accion === 'reingreso' ? handleReingreso({ codigo }) : handleCheckin({ codigo }));
 
   return (
     <div className="space-y-5">
@@ -71,8 +91,16 @@ export default function CheckinTab({ evento }) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <AsistenciaContador ingresados={ingresados} total={totalAsistentes} compact />
+          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
+            {[['checkin', 'Check-in'], ['reingreso', 'Reingreso']].map(([k, l]) => (
+              <button key={k} onClick={() => { setAccion(k); setLast(null); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${accion === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
             {[['manual', 'Código'], ['camara', 'Cámara']].map(([k, l]) => (
               <button key={k} onClick={() => setMode(k)}
@@ -84,18 +112,24 @@ export default function CheckinTab({ evento }) {
         </div>
       </div>
 
+      {accion === 'reingreso' && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <p className="text-xs text-text-2">Modo <b className="text-text-1">reingreso</b>: al escanear se alterna entre <b>salida</b> y <b>entrada</b> sin invalidar la boleta. Útil para quien sale y vuelve.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* Scanner / input */}
         <div className="space-y-4">
           {mode === 'camara'
             ? <QrScanner onScan={onScanQr}
-                overlay={last ? <ResultadoCard result={last} compact /> : null} />
-            : <ManualInput onSubmit={(codigo) => handleCheckin({ codigo })} disabled={working} />
+                overlay={last ? (last.reingresoMode ? <ReingresoCard result={last} compact /> : <ResultadoCard result={last} compact />) : null} />
+            : <ManualInput onSubmit={onSubmitCodigo} disabled={working} />
           }
 
           {/* Resultado del último scan (solo se muestra aquí fuera de pantalla completa,
               ya que en modo cámara el resultado aparece flotando sobre el video) */}
-          {mode !== 'camara' && last && <ResultadoCard result={last} />}
+          {mode !== 'camara' && last && (last.reingresoMode ? <ReingresoCard result={last} /> : <ResultadoCard result={last} />)}
         </div>
 
         {/* Historial */}
@@ -198,6 +232,36 @@ function ResultadoCard({ result, compact }) {
   );
 }
 
+/* ─────────── Resultado de reingreso ─────────── */
+
+function ReingresoCard({ result, compact }) {
+  const ok = result.ok;
+  const dentro = result.dentro;
+  const cls = !ok ? 'border-danger/40 bg-danger/10' : dentro ? 'border-success/40 bg-success/10' : 'border-warning/40 bg-warning/10';
+  const icon = !ok ? '✕' : dentro ? '↳' : '↰';
+  const iconCls = !ok ? 'bg-danger text-white' : dentro ? 'bg-success text-white' : 'bg-warning text-white';
+  const title = !ok ? 'No se pudo registrar' : dentro ? 'Reingreso registrado' : 'Salida registrada';
+  const ticket = result.ticket;
+  return (
+    <div className={`rounded-3xl border-2 ${cls} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+      <div className="flex items-start gap-4">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 ${iconCls}`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-xl font-bold font-display text-text-1 mb-1">{title}</h3>
+          {result.error && <p className="text-sm text-text-2">{result.error}</p>}
+          {ticket && (
+            <div className="mt-2">
+              <p className="text-base font-medium text-text-1">{ticket.nombre || 'Asistente'}</p>
+              <p className="text-xs text-text-3">{ticket.tipo} · <span className="font-mono">{ticket.codigo}</span></p>
+              {ok && <p className={`text-sm font-semibold mt-2 ${dentro ? 'text-success' : 'text-warning'}`}>{dentro ? 'Ahora está DENTRO' : 'Ahora está FUERA'}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── Historial ─────────── */
 
 function HistorialRow({ item }) {
@@ -209,7 +273,7 @@ function HistorialRow({ item }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-text-1 truncate">{item.guest_nombre || item.guest_email || 'Sin nombre'}</p>
-        <p className="text-[11px] text-text-3 truncate font-mono">{item.codigo}{item.error ? ` · ${item.error}` : ''}</p>
+        <p className="text-[11px] text-text-3 truncate font-mono">{item.codigo}{item.reingreso ? ` · ${item.reingreso}` : ''}{item.error ? ` · ${item.error}` : ''}</p>
       </div>
       <span className="text-[11px] text-text-3 tabular-nums flex-shrink-0">{hora}</span>
     </div>
