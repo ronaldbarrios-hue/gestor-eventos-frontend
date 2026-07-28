@@ -1219,6 +1219,60 @@ function CTAPreview({ data }) {
   );
 }
 
+/* ─── SÉ EXPOSITOR (registro público de stands) ───
+   Invitación para que una empresa registre su stand. El botón apunta a donde
+   viva el registro (la sección de Boletas con la boleta-Stand, o un formulario
+   de contacto). Al pagar la boleta-Stand se crea su ficha, que edita en
+   /expositor/<código> y alimenta el mapa y el directorio. */
+function RegistrarStandEditor({ data, onChange }) {
+  const beneficios = Array.isArray(data.beneficios) ? data.beneficios : [];
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })}
+        placeholder="Título" className="w-full bg-transparent text-xl font-bold font-display text-text-1 placeholder:text-text-3 outline-none" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })}
+        placeholder="Descripción" rows={2} className="input rounded-xl py-2 text-sm resize-none" />
+      <div>
+        <label className="label text-xs">Beneficios (uno por línea)</label>
+        <textarea value={beneficios.join('\n')} onChange={e => onChange({ ...data, beneficios: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
+          rows={3} className="input rounded-xl py-2 text-sm resize-none" placeholder="Apareces en el mapa&#10;Das puntos desde tu stand" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input value={data.texto_boton || ''} onChange={e => onChange({ ...data, texto_boton: e.target.value })}
+          placeholder="Texto del botón" className="input rounded-xl py-2 text-sm" />
+        <input value={data.url || ''} onChange={e => onChange({ ...data, url: e.target.value })}
+          placeholder="URL (boletas o contacto)" className="input rounded-xl py-2 text-sm" />
+      </div>
+      <p className="text-[11px] text-text-3">Apunta el botón a tu sección de Boletas (donde esté la boleta de Stand) o a un formulario de contacto. Al comprarla, la empresa recibe su ficha para llenar, que aparece en el mapa y el directorio.</p>
+    </div>
+  );
+}
+
+function RegistrarStandPreview({ data }) {
+  const beneficios = Array.isArray(data.beneficios) ? data.beneficios : [];
+  return (
+    <div className="rounded-3xl border border-border-2 bg-surface/40 p-8 text-center max-w-2xl mx-auto">
+      {data.titulo && <h3 className="text-2xl font-bold font-display text-text-1 tracking-tight">{data.titulo}</h3>}
+      {data.subtitulo && <p className="text-sm text-text-2 mt-2 max-w-lg mx-auto">{data.subtitulo}</p>}
+      {beneficios.length > 0 && (
+        <ul className="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-5">
+          {beneficios.map((b, i) => (
+            <li key={i} className="flex items-center gap-1.5 text-sm text-text-2">
+              <span className="text-success">✓</span> {b}
+            </li>
+          ))}
+        </ul>
+      )}
+      {data.texto_boton && data.url && (
+        <a href={data.url} target="_blank" rel="noreferrer noopener"
+          className="inline-flex items-center gap-2 px-7 py-3.5 mt-6 rounded-full text-base font-semibold bg-text-1 text-bg hover:bg-white transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(241,245,249,0.2)]">
+          {data.texto_boton} →
+        </a>
+      )}
+    </div>
+  );
+}
+
 /* ─── SEPARADOR ─── */
 function SeparadorEditor({ data, onChange }) {
   return (
@@ -1379,6 +1433,16 @@ export const BLOCKS = {
     label: 'Directorio de expositores', category: 'custom', icon: IconExpositores,
     defaults: { titulo: 'Expositores', subtitulo: 'Las empresas y marcas que estarán en el evento.' },
     Editor: ExpositoresEditor, Preview: ExpositoresPreview,
+  },
+  registrar_stand: {
+    label: 'Sé expositor (registro)', category: 'custom', icon: IconExpositores,
+    defaults: {
+      titulo: '¿Quieres un stand en el evento?',
+      subtitulo: 'Registra tu empresa como expositor: aparece en el mapa y el directorio, da puntos y premios a los asistentes desde tu stand y arma tu propio cronograma.',
+      beneficios: ['Apareces en el mapa y el directorio', 'Das puntos y premios desde tu stand', 'Tu propio cronograma de actividades'],
+      texto_boton: 'Registrar mi stand', url: '',
+    },
+    Editor: RegistrarStandEditor, Preview: RegistrarStandPreview,
   },
   mapa_evento: {
     label: 'Mapa del evento', category: 'custom', icon: IconMapa,
