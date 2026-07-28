@@ -119,6 +119,9 @@ export default function MiTicketPage() {
         <p className="font-mono text-2xl font-bold text-text-1 tabular-nums tracking-widest mt-4">{ticket.codigo}</p>
       </div>
 
+      {/* Pasaporte gamificado */}
+      {ticket.pasaporte?.activo && <PasaporteCard p={ticket.pasaporte} />}
+
       {/* Movimientos de puntos — lo que le fueron marcando en los stands */}
       {Array.isArray(ticket.interacciones) && ticket.interacciones.length > 0 && (
         <div className="mt-8">
@@ -182,6 +185,47 @@ export default function MiTicketPage() {
         }
       `}</style>
     </section>
+  );
+}
+
+function PasaporteCard({ p }) {
+  const visitados = p.expositores_visitados || [];
+  const meta = p.meta || Math.max(visitados.length, 1);
+  const pct = Math.min(100, Math.round((p.visitados / meta) * 100));
+  const vacios = Math.max(0, meta - visitados.length);
+
+  return (
+    <div className={`mt-8 rounded-3xl border p-5 ${p.completo ? 'border-success/40 bg-success/5' : 'border-border bg-surface/40'}`}>
+      <div className="flex items-baseline justify-between gap-3 mb-1">
+        <h2 className="text-sm font-semibold text-text-1">{p.titulo}</h2>
+        <span className="text-sm font-bold font-display tabular-nums text-text-1">{p.visitados}/{meta}</span>
+      </div>
+      {p.descripcion && <p className="text-xs text-text-3 mb-3">{p.descripcion}</p>}
+
+      <div className="h-2 rounded-full bg-surface-2 overflow-hidden mb-4">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: p.completo ? 'var(--success, #10B981)' : 'var(--brand-primary, #3B82F6)' }} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {visitados.map(e => (
+          <div key={e.id} title={e.nombre} className="w-11 h-11 rounded-xl overflow-hidden border-2 border-success/50 flex-shrink-0">
+            {e.logo_url
+              ? <img src={e.logo_url} alt={e.nombre} className="w-full h-full object-cover" />
+              : <div className="w-full h-full bg-success/15 text-success flex items-center justify-center text-sm font-bold">{(e.nombre || '?').charAt(0).toUpperCase()}</div>}
+          </div>
+        ))}
+        {Array.from({ length: vacios }).map((_, i) => (
+          <div key={`v${i}`} className="w-11 h-11 rounded-xl border-2 border-dashed border-border flex items-center justify-center text-text-3 flex-shrink-0">?</div>
+        ))}
+      </div>
+
+      {p.completo && (
+        <div className="mt-4 rounded-2xl border border-success/30 bg-success/10 px-4 py-3">
+          <p className="text-sm font-semibold text-text-1">¡Pasaporte completo! 🎉</p>
+          {p.premio_texto && <p className="text-xs text-text-2 mt-0.5">{p.premio_texto}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { interaccionesApi } from '../../../api/interacciones.js';
 import { networkingApi } from '../../../api/networking.js';
+import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
@@ -88,7 +89,7 @@ export default function StandsTab({ evento, soyOwner }) {
           <p className="text-sm text-text-2 mt-1">Gestiona los stands del evento y, con la misma escarapela, registra puntos y entrega premios.</p>
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
-          {[['stands', 'Stands'], ['escanear', 'Dar puntos'], ['canjear', 'Canjear'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
+          {[['stands', 'Stands'], ['escanear', 'Dar puntos'], ['canjear', 'Canjear'], ['pasaporte', 'Pasaporte'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
             <button key={k} onClick={() => setVista(k)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${vista === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               {l}
@@ -98,6 +99,7 @@ export default function StandsTab({ evento, soyOwner }) {
       </div>
 
       {vista === 'stands' && <StandsEditor evento={evento} soyOwner={soyOwner} />}
+      {vista === 'pasaporte' && <PasaporteConfig evento={evento} soyOwner={soyOwner} />}
 
       {vista === 'escanear' && (
         activos.length === 0 ? (
@@ -336,6 +338,84 @@ function StandsEditor({ evento, soyOwner }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────── Pasaporte gamificado (config) ─────────── */
+
+function PasaporteConfig({ evento, soyOwner }) {
+  const { success, error: toastErr } = useToast();
+  const inicial = evento.page_json?.pasaporte || {};
+  const [form, setForm] = useState({
+    activo: Boolean(inicial.activo),
+    titulo: inicial.titulo || 'Pasaporte del evento',
+    descripcion: inicial.descripcion || 'Visita los stands y reúne sellos para reclamar tu premio.',
+    meta: inicial.meta || 5,
+    premio_texto: inicial.premio_texto || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (patch) => setForm(f => ({ ...f, ...patch }));
+
+  const guardar = async () => {
+    setSaving(true);
+    try {
+      await eventosApi.update(evento.id, {
+        page_json: { ...(evento.page_json || {}), pasaporte: { ...form, meta: Number(form.meta) || 0 } },
+      });
+      success('Pasaporte guardado.');
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+
+  if (!soyOwner) return (
+    <div className="rounded-3xl border border-border bg-surface/40 px-6 py-14 text-center">
+      <p className="text-sm text-text-3">Solo el organizador puede configurar el pasaporte.</p>
+    </div>
+  );
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      <p className="text-sm text-text-3 leading-relaxed">
+        El pasaporte convierte los stands en un juego: cada stand que le marque la escarapela al asistente
+        es un <strong className="text-text-2">sello</strong>. Al reunir la meta, desbloquea el premio. El
+        asistente ve su progreso en <span className="font-mono">/mi-ticket</span>.
+      </p>
+
+      <div className="rounded-3xl border border-border bg-surface/40 p-5 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-text-1">Pasaporte activo</p>
+          <p className="text-xs text-text-3">Actívalo para que los asistentes vean su progreso.</p>
+        </div>
+        <button onClick={() => set({ activo: !form.activo })}
+          className={`relative w-12 h-7 rounded-full transition-colors flex-shrink-0 ${form.activo ? 'bg-accent' : 'bg-surface-3'}`}>
+          <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-transform ${form.activo ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      </div>
+
+      <div className="rounded-3xl border border-border bg-surface/40 p-5 space-y-4">
+        <div className="field">
+          <label className="label text-xs">Título</label>
+          <input value={form.titulo} onChange={e => set({ titulo: e.target.value })} className="input rounded-xl py-2.5 text-sm" />
+        </div>
+        <div className="field">
+          <label className="label text-xs">Descripción</label>
+          <textarea value={form.descripcion} onChange={e => set({ descripcion: e.target.value })} rows={2} className="input rounded-xl py-2.5 text-sm resize-none" />
+        </div>
+        <div className="grid sm:grid-cols-[140px_1fr] gap-3">
+          <div className="field">
+            <label className="label text-xs">Sellos para completar</label>
+            <input type="number" min="1" value={form.meta} onChange={e => set({ meta: e.target.value })} className="input rounded-xl py-2.5 text-sm" />
+          </div>
+          <div className="field">
+            <label className="label text-xs">Premio al completar</label>
+            <input value={form.premio_texto} onChange={e => set({ premio_texto: e.target.value })} className="input rounded-xl py-2.5 text-sm" placeholder="Ej. Reclama una camiseta en el stand de información" />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">{saving ? <><Spinner size="sm" /> Guardando…</> : 'Guardar pasaporte'}</button>
+        </div>
+      </div>
     </div>
   );
 }
