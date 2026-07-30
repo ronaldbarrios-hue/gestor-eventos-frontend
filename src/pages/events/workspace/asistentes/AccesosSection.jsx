@@ -19,6 +19,8 @@ export default function AccesosSection({ evento }) {
   const [accesos, setAccesos] = useState(() => (evento.page_json?.accesos || []).map(a => ({ ...a, _k: a.id })));
   const [zonas, setZonas] = useState(() => (evento.page_json?.zonas || []).map(z => ({ ...z, _k: z.id })));
   const [aforo, setAforo] = useState([]);
+  const [alertas, setAlertas] = useState([]);
+  const [nuevaAlerta, setNuevaAlerta] = useState('');
   const [tipos, setTipos] = useState([]);
   const [miembros, setMiembros] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -40,14 +42,30 @@ export default function AccesosSection({ evento }) {
     }).finally(() => setLoading(false));
   }, [evento.id]);
 
-  /* Aforo por zona en vivo (poll cada 8s). */
+  /* Aforo por zona + alertas en vivo (poll cada 8s). */
   useEffect(() => {
     let vivo = true;
-    const tick = () => clientesApi.aforoZonas(evento.id).then(d => { if (vivo) setAforo(d.zonas || []); }).catch(() => {});
+    const tick = () => {
+      clientesApi.aforoZonas(evento.id).then(d => { if (vivo) setAforo(d.zonas || []); }).catch(() => {});
+      clientesApi.alertas(evento.id).then(d => { if (vivo) setAlertas(d.alertas || []); }).catch(() => {});
+    };
     tick();
     const iv = setInterval(tick, 8000);
     return () => { vivo = false; clearInterval(iv); };
   }, [evento.id]);
+
+  const reportar = async () => {
+    if (!nuevaAlerta.trim()) return;
+    try {
+      await clientesApi.reportarAlerta(evento.id, { mensaje: nuevaAlerta.trim(), tipo: 'incidente', nivel: 'warning' });
+      setNuevaAlerta('');
+      const d = await clientesApi.alertas(evento.id); setAlertas(d.alertas || []);
+    } catch (e) { error(e.response?.data?.error || e.message); }
+  };
+  const resolver = async (id) => {
+    try { await clientesApi.resolverAlerta(evento.id, id); setAlertas(a => a.map(x => x.id === id ? { ...x, resuelta: true } : x)); }
+    catch (e) { error(e.response?.data?.error || e.message); }
+  };
 
   const setZona = (k, patch) => setZonas(l => l.map(z => z._k === k ? { ...z, ...patch } : z));
   const agregarZona = () => setZonas(l => [...l, { _k: uid(), id: uid(), nombre: '', aforo_max: '' }]);
@@ -94,6 +112,41 @@ export default function AccesosSection({ evento }) {
           <p className="text-sm text-text-2 mt-1">Define las entradas del evento, qué boletas admite cada una y quién registra.</p>
         </div>
         <button onClick={guardar} disabled={saving} className="btn-primary">{saving ? 'Guardando…' : 'Guardar accesos'}</button>
+      </div>
+
+      {/* ── Alertas en vivo ── */}
+      <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Alertas en vivo</p>
+          {alertas.filter(a => !a.resuelta).length > 0 && (
+            <span className="text-[11px] font-mono bg-danger/15 text-danger px-2 py-0.5 rounded-full">{alertas.filter(a => !a.resuelta).length} activas</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input value={nuevaAlerta} onChange={e => setNuevaAlerta(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') reportar(); }}
+            placeholder="Reportar algo: cola en la puerta, incidente…" className="input flex-1 text-sm" />
+          <button onClick={reportar} disabled={!nuevaAlerta.trim()} className="btn-secondary btn-sm flex-shrink-0">Reportar</button>
+        </div>
+        {alertas.length === 0 ? (
+          <p className="text-xs text-text-3">Sin alertas. Las de aforo lleno aparecen solas; el staff puede reportar aquí.</p>
+        ) : (
+          <ul className="space-y-1.5 max-h-64 overflow-y-auto">
+            {alertas.map(a => {
+              const c = a.nivel === 'critico' ? 'border-danger/40 bg-danger/5' : a.nivel === 'warning' ? 'border-warning/40 bg-warning/5' : 'border-border bg-surface-2/40';
+              return (
+                <li key={a.id} className={`flex items-start gap-2 rounded-xl border px-3 py-2 ${a.resuelta ? 'opacity-50' : ''} ${c}`}>
+                  <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 ${a.nivel === 'critico' ? 'bg-danger/15 text-danger' : a.nivel === 'warning' ? 'bg-warning/15 text-warning' : 'bg-surface-2 text-text-3'}`}>{a.tipo}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-1">{a.mensaje}</p>
+                    <p className="text-[11px] text-text-3">{a.autor?.nombre ? `${a.autor.nombre} · ` : ''}{new Date(a.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                  {!a.resuelta && <button onClick={() => resolver(a.id)} className="btn-ghost btn-sm text-xs flex-shrink-0">Resolver</button>}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Tablero de ingresos por puerta */}
