@@ -5,6 +5,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
+import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
 
 /* Tab Check-in — escanea boletas con cámara o ingresa código manual. */
 
@@ -36,8 +37,20 @@ export default function CheckinTab({ evento }) {
 
   const { ingresados, total: totalAsistentes, bumpOptimista } = useAsistenciaEnVivo(evento.id);
 
+  /* Estado de conexión + cola offline. */
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  const [cola, setCola] = useState(() => cantidadCola(evento.id));
+  const [sincronizando, setSincronizando] = useState(false);
+
   const handleCheckin = useCallback(async (payload) => {
     if (working) return;
+    /* Sin conexión → guardar en la cola offline (optimista). */
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const n = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+      setCola(n);
+      setLast({ ok: true, offlineGuardado: true });
+      return;
+    }
     setWorking(true);
     setLast(null);
     try {
@@ -46,16 +59,57 @@ export default function CheckinTab({ evento }) {
       setHistorial(h => [{ ...r.ticket, at: new Date(), ok: true }, ...h].slice(0, 10));
       bumpOptimista();
     } catch (e) {
-      const detail = e.response?.data || {};
-      setLast({ ok: false, error: e.message, ...detail });
-      if (detail.ticket) {
-        setHistorial(h => [{ ...detail.ticket, at: new Date(), ok: false, error: e.message }, ...h].slice(0, 10));
+      /* Error de RED (sin respuesta del servidor) → encolar, no perder el escaneo. */
+      if (!e.response) {
+        const n = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+        setCola(n);
+        setLast({ ok: true, offlineGuardado: true });
+      } else {
+        const detail = e.response?.data || {};
+        setLast({ ok: false, error: e.message, ...detail });
+        if (detail.ticket) {
+          setHistorial(h => [{ ...detail.ticket, at: new Date(), ok: false, error: e.message }, ...h].slice(0, 10));
+        }
       }
     } finally {
-      /* Pequeño cooldown para que el operador alcance a leer el resultado */
       setTimeout(() => setWorking(false), 600);
     }
   }, [evento.id, working, bumpOptimista]);
+
+  /* Sincroniza la cola offline contra el servidor. */
+  const sincronizar = useCallback(async () => {
+    if (sincronizando) return;
+    const pend = leerCola(evento.id);
+    if (!pend.length) return;
+    setSincronizando(true);
+    let ok = 0, fallidas = 0;
+    for (const item of pend) {
+      try {
+        const { offline_id, ...payload } = item;
+        await clientesApi.checkin(evento.id, payload);  // payload incluye `at` (hora real) y acceso_id
+        quitar(evento.id, offline_id);
+        ok++;
+      } catch (e) {
+        if (e.response) { quitar(evento.id, item.offline_id); fallidas++; }  // el server la rechazó (ya usada/ inválida): se descarta
+        /* sin respuesta = sigue sin red: se deja en la cola para el próximo intento */
+      }
+    }
+    setCola(cantidadCola(evento.id));
+    setSincronizando(false);
+    if (ok || fallidas) {
+      setLast({ ok: true, syncResumen: { ok, fallidas } });
+      bumpOptimista();
+    }
+  }, [evento.id, sincronizando, bumpOptimista]);
+
+  /* Detecta cambios de conexión; al volver, sincroniza solo. */
+  useEffect(() => {
+    const irOnline = () => { setOnline(true); sincronizar(); };
+    const irOffline = () => setOnline(false);
+    window.addEventListener('online', irOnline);
+    window.addEventListener('offline', irOffline);
+    return () => { window.removeEventListener('online', irOnline); window.removeEventListener('offline', irOffline); };
+  }, [sincronizar]);
 
   const handleReingreso = useCallback(async (payload) => {
     if (working) return;
@@ -117,6 +171,21 @@ export default function CheckinTab({ evento }) {
           </div>
         </div>
       </div>
+
+      {(!online || cola > 0) && (
+        <div className={`rounded-2xl border px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 ${online ? 'border-warning/40 bg-warning/10' : 'border-danger/40 bg-danger/10'}`}>
+          <p className="text-xs text-text-2">
+            {!online
+              ? <><b className="text-text-1">Sin conexión.</b> Los check-ins se guardan y se sincronizan solos al reconectar.</>
+              : <><b className="text-text-1">{cola}</b> escaneo{cola !== 1 ? 's' : ''} sin sincronizar.</>}
+          </p>
+          {cola > 0 && online && (
+            <button onClick={sincronizar} disabled={sincronizando} className="btn-secondary btn-sm flex-shrink-0">
+              {sincronizando ? 'Sincronizando…' : `Sincronizar ${cola}`}
+            </button>
+          )}
+        </div>
+      )}
 
       {accion === 'reingreso' && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
@@ -204,6 +273,22 @@ function ManualInput({ onSubmit, disabled }) {
 /* ─────────── Resultado del último scan ─────────── */
 
 function ResultadoCard({ result, compact }) {
+  if (result.offlineGuardado) return (
+    <div className={`rounded-3xl border-2 border-primary/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-primary/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">⤓</div>
+        <div><h3 className="text-xl font-bold font-display text-text-1">Guardado sin conexión</h3><p className="text-sm text-text-2">Se registrará al volver el internet.</p></div>
+      </div>
+    </div>
+  );
+  if (result.syncResumen) return (
+    <div className={`rounded-3xl border-2 border-success/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-success/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-success text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">✓</div>
+        <div><h3 className="text-xl font-bold font-display text-text-1">Sincronizado</h3><p className="text-sm text-text-2">{result.syncResumen.ok} registrados{result.syncResumen.fallidas ? ` · ${result.syncResumen.fallidas} rechazados (ya usados o inválidos)` : ''}.</p></div>
+      </div>
+    </div>
+  );
   const ok = result.ok && !result.ya_usada;
   const yaUsada = result.ya_usada;
   const cls = ok
