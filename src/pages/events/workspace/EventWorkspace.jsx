@@ -32,6 +32,7 @@ import AgendaTab         from '../tabs/AgendaTab.jsx';
 import StandsTab         from '../tabs/StandsTab.jsx';
 import VacantesTab       from '../tabs/VacantesTab.jsx';
 import ReporteTab        from '../tabs/ReporteTab.jsx';
+import AutomatizacionesSection from './AutomatizacionesSection.jsx';
 import RankingTab        from '../tabs/RankingTab.jsx';
 import TicketsTab        from '../tabs/TicketsTab.jsx';
 import AnalyticsTab      from '../tabs/AnalyticsTab.jsx';
@@ -105,7 +106,7 @@ const SECCIONES = [
   { id: 'configuracion', label: 'Configuración', icon: CogIcon, tabs: [
     { id: 'general',          label: 'General',          perm: '__solo_owner__' },
     { id: 'integraciones',    label: 'Integraciones',    perm: '__solo_owner__', placeholder: ['Integraciones', 'Mercado Pago, llave Bre-B, Google, Meta, Zapier y webhooks del evento.'] },
-    { id: 'automatizaciones', label: 'Automatizaciones', perm: '__solo_owner__', placeholder: ['Automatizaciones', 'Reglas tipo: compra realizada → enviar email → generar QR → wallet.'] },
+    { id: 'automatizaciones', label: 'Automatizaciones', perm: '__solo_owner__' },
     { id: 'api',              label: 'API',              perm: '__solo_owner__', placeholder: ['API', 'Tokens, webhooks y SDK para integraciones externas.'] },
     { id: 'seguridad',        label: 'Seguridad',        perm: '__solo_owner__', placeholder: ['Seguridad', 'Dominios permitidos, CORS, accesos y auditoría técnica.'] },
   ]},
@@ -383,6 +384,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
       </div>
     );
     case 'configuracion/general'    : return <ConfigGeneral evento={evento} />;
+    case 'configuracion/automatizaciones': return <AutomatizacionesSection evento={evento} />;
     default: return <PlaceholderTab title={tab.label} desc="Módulo en construcción dentro del rework." icon="spark" />;
   }
 }
