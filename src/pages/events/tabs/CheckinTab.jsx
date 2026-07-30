@@ -28,6 +28,12 @@ export default function CheckinTab({ evento }) {
     try { localStorage.setItem(`gestek-puerta:${evento.id}`, id); } catch { /* noop */ }
   };
 
+  /* Zonas (page_json.zonas) — solo aplican en modo Reingreso, para el aforo por zona. */
+  const zonas = Array.isArray(evento.page_json?.zonas) ? evento.page_json.zonas : [];
+  const [zonaId, setZonaId] = useState('');
+  const zonaRef = useRef('');
+  const elegirZona = (id) => { setZonaId(id); zonaRef.current = id; };
+
   const { ingresados, total: totalAsistentes, bumpOptimista } = useAsistenciaEnVivo(evento.id);
 
   const handleCheckin = useCallback(async (payload) => {
@@ -56,7 +62,7 @@ export default function CheckinTab({ evento }) {
     setWorking(true);
     setLast(null);
     try {
-      const r = await clientesApi.reingreso(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+      const r = await clientesApi.reingreso(evento.id, { ...payload, acceso_id: puertaRef.current || undefined, zona_id: zonaRef.current || undefined });
       setLast({ reingresoMode: true, ok: true, dentro: r.dentro, ticket: r.ticket });
       setHistorial(h => [{ guest_nombre: r.ticket?.nombre, codigo: r.ticket?.codigo, at: new Date(), ok: true, reingreso: r.dentro ? 'entró' : 'salió' }, ...h].slice(0, 10));
     } catch (e) {
@@ -113,8 +119,17 @@ export default function CheckinTab({ evento }) {
       </div>
 
       {accion === 'reingreso' && (
-        <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5">
-          <p className="text-xs text-text-2">Modo <b className="text-text-1">reingreso</b>: al escanear se alterna entre <b>salida</b> y <b>entrada</b> sin invalidar la boleta. Útil para quien sale y vuelve.</p>
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-text-2">Modo <b className="text-text-1">reingreso</b>: al escanear se alterna entre <b>salida</b> y <b>entrada</b> sin invalidar la boleta.{zonas.length > 0 ? ' Elige una zona para el aforo por zona.' : ''}</p>
+          {zonas.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-3">Zona:</span>
+              <select value={zonaId} onChange={e => elegirZona(e.target.value)} className="input !h-8 !py-1 text-sm w-auto">
+                <option value="">Recinto (general)</option>
+                {zonas.map(z => <option key={z.id} value={z.id}>{z.nombre}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
