@@ -7,4 +7,5 @@ export const chatApi = {
   borrarChannel  : (eventoId, channelId)             => client.delete(`/eventos/${eventoId}/chat/channels/${channelId}`).then(r => r.data),
   messages       : (eventoId, channelId, params={})  => client.get(`/eventos/${eventoId}/chat/channels/${channelId}/messages`, { params }).then(r => r.data),
   enviar         : (eventoId, channelId, body)       => client.post(`/eventos/${eventoId}/chat/channels/${channelId}/messages`, body).then(r => r.data),
+  abrirDM        : (eventoId, user_id)               => client.post(`/eventos/${eventoId}/chat/dm`, { user_id }).then(r => r.data),
 };

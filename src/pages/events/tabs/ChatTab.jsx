@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { chatApi } from '../../../api/chat.js';
 import { rolesApi } from '../../../api/roles.js';
+import { equipoApi } from '../../../api/equipo.js';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -27,21 +28,42 @@ export default function ChatTab({ evento }) {
   const [creating, setCreating] = useState(null); // null | 'root' | parentId
   const [puedeCrear, setPuedeCrear] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [miembros, setMiembros] = useState([]);
+  const [dmPicker, setDmPicker] = useState(false);
 
-  /* Cargar canales + roles al montar */
+  /* Cargar canales + roles + miembros al montar */
   useEffect(() => {
-    Promise.all([chatApi.channels(evento.id), rolesApi.list(evento.id).catch(() => ({ roles: [] }))])
-      .then(([d, r]) => {
+    Promise.all([
+      chatApi.channels(evento.id),
+      rolesApi.list(evento.id).catch(() => ({ roles: [] })),
+      equipoApi.list(evento.id).catch(() => ({ miembros: [], owner: null })),
+    ])
+      .then(([d, r, eq]) => {
         const list = d.channels || [];
         setChannels(list);
         setPuedeCrear(Boolean(d.puedeCrear));
         setRoles(r.roles || []);
-        if (list.length && !activeId) setActiveId(list[0].id);
+        const staff = [
+          ...(eq.owner ? [{ id: eq.owner.id, nombre: eq.owner.nombre || 'Organizador', avatar: eq.owner.avatar_url }] : []),
+          ...(eq.miembros || []).map(m => ({ id: m.profile?.id || m.user_id, nombre: m.profile?.nombre || m.nombre_invitado || m.email, avatar: m.profile?.avatar_url })),
+        ].filter(s => s.id && s.id !== usuario?.id);
+        setMiembros(staff);
+        const primerNoDM = list.find(c => c.tipo !== 'dm');
+        if (primerNoDM && !activeId) setActiveId(primerNoDM.id);
       })
       .catch(e => toastErr(e.message))
       .finally(() => setLoadingChannels(false));
     /* eslint-disable-next-line */
   }, [evento.id]);
+
+  const abrirDM = async (userId) => {
+    setDmPicker(false);
+    try {
+      const d = await chatApi.abrirDM(evento.id, userId);
+      setChannels(c => c.some(x => x.id === d.channel.id) ? c.map(x => x.id === d.channel.id ? { ...x, ...d.channel } : x) : [...c, d.channel]);
+      setActiveId(d.channel.id);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
 
   const onCrearCanal = async (nombre, parentId = null, rolIds = []) => {
     try {
@@ -55,9 +77,10 @@ export default function ChatTab({ evento }) {
 
   const activeChannel = channels.find(c => c.id === activeId);
 
-  /* Construye el árbol: padres con sus hijos */
-  const padres = channels.filter(c => !c.parent_id);
+  /* Construye el árbol: padres con sus hijos (los DM van aparte) */
+  const padres = channels.filter(c => !c.parent_id && c.tipo !== 'dm');
   const hijosDe = (pid) => channels.filter(c => c.parent_id === pid);
+  const dms = channels.filter(c => c.tipo === 'dm');
 
   if (loadingChannels) return (
     <GLoader message="Cargando canales..." />
@@ -113,6 +136,39 @@ export default function ChatTab({ evento }) {
         {creating === 'root' && (
           <CrearCanalForm roles={roles} onSubmit={(n, rolIds) => onCrearCanal(n, null, rolIds)} onCancel={() => setCreating(null)} />
         )}
+
+        {/* Mensajes directos 1:1 */}
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="flex items-center justify-between px-2 py-1 mb-1 relative">
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Directos</p>
+            {miembros.length > 0 && (
+              <button onClick={() => setDmPicker(v => !v)} aria-label="Nuevo mensaje directo"
+                className="w-6 h-6 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
+                <PlusIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {dmPicker && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setDmPicker(false)} />
+                <div className="absolute right-0 top-8 z-30 w-52 card-glass rounded-xl p-1 max-h-64 overflow-y-auto no-scrollbar">
+                  {miembros.map(m => (
+                    <button key={m.id} onClick={() => abrirDM(m.id)}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+                      {m.avatar ? <img src={m.avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-surface-3 text-text-3 text-[10px] flex items-center justify-center">{(m.nombre || '?').charAt(0).toUpperCase()}</span>}
+                      <span className="truncate">{m.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="space-y-0.5">
+            {dms.length === 0 && <p className="px-2 text-[11px] text-text-3">Escribe en privado a un miembro con el +.</p>}
+            {dms.map(dm => (
+              <ChannelButton key={dm.id} channel={dm} active={activeId === dm.id} onClick={() => setActiveId(dm.id)} />
+            ))}
+          </div>
+        </div>
       </aside>
 
       {/* Mensajes */}
@@ -137,6 +193,9 @@ function ChannelView({ evento, channel, usuario }) {
   const scrollRef = useRef(null);
   const fileRef   = useRef(null);
   const { error: toastErr } = useToast();
+
+  const esDM = channel.tipo === 'dm';
+  const nombreCanal = esDM ? (channel.dm_nombre || 'Directo') : channel.nombre;
 
   /* Scroll al fondo */
   const scrollToBottom = useCallback(() => {
@@ -230,13 +289,17 @@ function ChannelView({ evento, channel, usuario }) {
     <>
       {/* Header */}
       <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-        <HashIcon className="w-4 h-4 text-text-3" />
-        <h3 className="text-base font-semibold text-text-1">{channel.nombre}</h3>
-        {channel.tipo !== 'general' && (
-          <span className="text-[10px] uppercase tracking-widest text-text-3 px-2 py-0.5 rounded-full border border-border ml-1">
-            {TIPO_LABEL[channel.tipo] || channel.tipo}
-          </span>
-        )}
+        {esDM
+          ? (channel.dm_avatar ? <img src={channel.dm_avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-surface-3 text-text-3 text-[10px] flex items-center justify-center">{(nombreCanal || '?').charAt(0).toUpperCase()}</span>)
+          : <HashIcon className="w-4 h-4 text-text-3" />}
+        <h3 className="text-base font-semibold text-text-1">{nombreCanal}</h3>
+        {esDM
+          ? <span className="text-[10px] uppercase tracking-widest text-text-3 px-2 py-0.5 rounded-full border border-border ml-1">directo</span>
+          : channel.tipo !== 'general' && (
+            <span className="text-[10px] uppercase tracking-widest text-text-3 px-2 py-0.5 rounded-full border border-border ml-1">
+              {TIPO_LABEL[channel.tipo] || channel.tipo}
+            </span>
+          )}
       </div>
 
       {/* Mensajes */}
@@ -246,7 +309,7 @@ function ChannelView({ evento, channel, usuario }) {
         ) : messages.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-sm text-text-2 mb-1">Aún no hay mensajes</p>
-            <p className="text-xs text-text-3">Sé el primero en escribir en #{channel.nombre}.</p>
+            <p className="text-xs text-text-3">Sé el primero en escribir{esDM ? ` a ${nombreCanal}` : ` en #${channel.nombre}`}.</p>
           </div>
         ) : (
           messages.map((m, i) => {
@@ -290,7 +353,7 @@ function ChannelView({ evento, channel, usuario }) {
           onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onEnviar(e); }
           }}
-          placeholder={`Escribe en #${channel.nombre}...`}
+          placeholder={esDM ? `Escribe a ${nombreCanal}...` : `Escribe en #${channel.nombre}...`}
           rows={1}
           className="input rounded-2xl py-2.5 text-sm resize-none flex-1 max-h-32"
         />
@@ -432,7 +495,9 @@ function MicIcon({ className }) {
 /* ─────────── Crear canal inline form ─────────── */
 
 function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
+  const esDM = channel.tipo === 'dm';
   const restringido = channel.rol_ids?.length > 0;
+  const nombre = esDM ? (channel.dm_nombre || 'Directo') : channel.nombre;
   return (
     <div className={`group flex items-center ${indent ? 'pl-5' : ''}`}>
       <button
@@ -441,13 +506,17 @@ function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
           ${active ? 'bg-surface-2 text-text-1' : 'text-text-2 hover:text-text-1 hover:bg-surface-2/50'}
         `}
       >
-        {indent
-          ? <span className="w-3.5 h-3.5 flex items-center justify-center text-text-3 text-xs">↳</span>
-          : restringido
-            ? <LockIcon className="w-3.5 h-3.5 text-warning flex-shrink-0" />
-            : <HashIcon className="w-3.5 h-3.5 text-text-3 flex-shrink-0" />}
-        <span className="text-sm font-medium truncate">{channel.nombre}</span>
-        {channel.tipo !== 'general' && !restringido && (
+        {esDM
+          ? (channel.dm_avatar
+              ? <img src={channel.dm_avatar} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+              : <span className="w-4 h-4 rounded-full bg-surface-3 text-text-3 text-[9px] flex items-center justify-center flex-shrink-0">{(nombre || '?').charAt(0).toUpperCase()}</span>)
+          : indent
+            ? <span className="w-3.5 h-3.5 flex items-center justify-center text-text-3 text-xs">↳</span>
+            : restringido
+              ? <LockIcon className="w-3.5 h-3.5 text-warning flex-shrink-0" />
+              : <HashIcon className="w-3.5 h-3.5 text-text-3 flex-shrink-0" />}
+        <span className="text-sm font-medium truncate">{nombre}</span>
+        {!esDM && channel.tipo !== 'general' && !restringido && (
           <span className="ml-auto text-[10px] uppercase tracking-widest text-text-3">{TIPO_LABEL[channel.tipo] || channel.tipo}</span>
         )}
         {restringido && (
