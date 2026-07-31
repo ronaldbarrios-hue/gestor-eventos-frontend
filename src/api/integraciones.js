@@ -12,4 +12,9 @@ export const integracionesApi = {
   editarWebhook:(id, body)     => client.patch(`/me/integraciones/webhooks/${id}`, body).then(r => r.data),
   borrarWebhook:(id)           => client.delete(`/me/integraciones/webhooks/${id}`).then(r => r.data),
   deliveries  : (id)           => client.get(`/me/integraciones/webhooks/${id}/deliveries`).then(r => r.data),
+
+  /* Google Calendar (OAuth) */
+  googleEstado     : () => client.get('/me/google').then(r => r.data),
+  googleConectar   : () => client.get('/me/google/conectar').then(r => r.data),
+  googleDesconectar: () => client.delete('/me/google').then(r => r.data),
 };
