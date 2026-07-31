@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
+import { googleCalendarUrl } from '../../lib/calendario.js';
 
 /* Página pública /mi-ticket/:codigo
    Cualquiera con el código puede ver su QR. */
@@ -165,6 +166,17 @@ export default function MiTicketPage() {
           <Row label="Check-in" value={new Date(ticket.checked_in_at).toLocaleString('es-CO')} />
         )}
       </div>
+
+      {ticket.evento?.fecha_inicio && (
+        <div className="mt-6 no-print">
+          <a href={googleCalendarUrl({ titulo: ticket.evento?.titulo, inicio: ticket.evento?.fecha_inicio, fin: ticket.evento?.fecha_fin, lugar: ticket.evento?.location_nombre })}
+            target="_blank" rel="noreferrer noopener"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border border-border bg-surface/60 text-sm font-medium text-text-1 hover:bg-surface-2 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            Añadir a Google Calendar
+          </a>
+        </div>
+      )}
 
       <div className="mt-8 text-center no-print">
         <Link to={`/explorar/${ticket.evento?.slug}`} className="text-sm text-text-2 hover:text-text-1 transition-colors">
