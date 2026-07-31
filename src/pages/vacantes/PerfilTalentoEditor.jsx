@@ -53,8 +53,12 @@ export default function PerfilTalentoEditor() {
   };
 
   const verificar = async () => {
-    try { const d = await vacantesApi.verificar(); setPerfil(d.perfil); success(d.mensaje || 'Verificación iniciada.'); }
-    catch (e) { toastErr(e.response?.data?.error || e.message); }
+    try {
+      const d = await vacantesApi.verificar();
+      setPerfil(d.perfil);
+      if (d.url) window.open(d.url, '_blank', 'noopener');
+      success(d.mensaje || 'Verificación iniciada.');
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
   if (loading || !form) return <GLoader message="Cargando tu perfil…" />;
