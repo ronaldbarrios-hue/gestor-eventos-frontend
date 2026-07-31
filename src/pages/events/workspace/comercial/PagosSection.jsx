@@ -3,6 +3,7 @@ import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
 import MercadoPagoConnect from '../../../../components/ui/MercadoPagoConnect.jsx';
+import WompiConnect from '../../../../components/ui/WompiConnect.jsx';
 
 /* Comercial · Pagos del evento — configuración REAL de cobro:
    llave Bre-B + QR + instrucciones (van al checkout público) y
@@ -55,6 +56,7 @@ export default function PagosSection({ evento, reload }) {
       </div>
 
       <div className="space-y-5">
+        <WompiConnect />
         <MercadoPagoConnect />
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-text-1 mb-1.5">¿Cómo se cobra?</h3>
