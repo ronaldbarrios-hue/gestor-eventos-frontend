@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
@@ -508,6 +508,9 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   const precio = hasEarly ? Number(tipo.early_bird_precio) : Number(tipo.precio);
   const isFree = precio === 0;
   const tienePagoSimple = Boolean(evento?.pago_llave || evento?.pago_qr_url);
+  const pagoWompi = Boolean(evento?.pago_wompi);
+  const pagoMp = Boolean(evento?.pago_mp);
+  const gatewayRef = useRef(pagoWompi ? 'wompi' : 'mp');
   /* Campos aplicables a ESTE tipo de boleta: los globales + los propios del tipo. */
   const camposForm = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
   const checkout = evento?.page_json?.checkout || {};
@@ -539,14 +542,18 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
         });
         onSuccess({ ...res.ticket, requierePago: !isFree, tipo, pagoSimple: tienePagoSimple && !isFree });
       } else {
-        const res = await pagosApi.comprar(slug, {
-          ticket_type_id: tipo.id,
-          nombre: form.nombre, email: form.email, telefono: form.telefono,
-          captcha_token: captcha, respuestas,
-        });
-        const url = res.checkout?.init_point || res.checkout?.sandbox_init_point;
-        if (!url) throw new Error('Mercado Pago no devolvió el link de pago.');
-        window.location.href = url;
+        const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas };
+        if (gatewayRef.current === 'wompi') {
+          const res = await pagosApi.comprarWompi(slug, body);
+          const url = res.checkout?.url;
+          if (!url) throw new Error('Wompi no devolvió el link de pago.');
+          window.location.href = url;
+        } else {
+          const res = await pagosApi.comprar(slug, body);
+          const url = res.checkout?.init_point || res.checkout?.sandbox_init_point;
+          if (!url) throw new Error('Mercado Pago no devolvió el link de pago.');
+          window.location.href = url;
+        }
       }
     } catch (e) { setErr(e.response?.data?.error || e.message); }
     finally    { setWorking(false); }
@@ -625,20 +632,38 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
             </p>
           </div>
         )}
-        {!isFree && !tienePagoSimple && (
+        {!isFree && !tienePagoSimple && (pagoWompi || pagoMp) && (
           <div className="rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 text-xs text-text-2 leading-relaxed">
-            Al continuar serás redirigido a <strong className="text-text-1">Mercado Pago</strong> para completar el pago de forma segura. Al volver verás tu boleta con QR.
+            Al continuar serás redirigido a la pasarela para completar el pago de forma segura. Al volver verás tu boleta con QR.
+          </div>
+        )}
+        {!isFree && !tienePagoSimple && !pagoWompi && !pagoMp && (
+          <div className="rounded-2xl bg-danger/10 border border-danger/20 px-4 py-3 text-xs text-danger-light leading-relaxed">
+            El organizador aún no configuró un método de pago online para este evento.
           </div>
         )}
         <Turnstile onToken={setCaptcha} />
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
           <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">Cancelar</button>
-          <button type="submit" disabled={working}
-            className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold disabled:opacity-60 transition-all">
-            {working
-              ? (isFree ? 'Reservando...' : (tienePagoSimple ? 'Reservando...' : 'Redirigiendo a MP...'))
-              : (isFree ? 'Confirmar reserva' : (tienePagoSimple ? 'Apartar boleta' : 'Pagar con Mercado Pago'))}
-          </button>
+          {(isFree || tienePagoSimple) ? (
+            <button type="submit" disabled={working}
+              className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold disabled:opacity-60 transition-all">
+              {working ? 'Reservando...' : (isFree ? 'Confirmar reserva' : 'Apartar boleta')}
+            </button>
+          ) : (<>
+            {pagoWompi && (
+              <button type="submit" disabled={working} onClick={() => { gatewayRef.current = 'wompi'; }}
+                className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold disabled:opacity-60 transition-all">
+                {working ? 'Redirigiendo…' : 'Pagar con Wompi'}
+              </button>
+            )}
+            {pagoMp && (
+              <button type="submit" disabled={working} onClick={() => { gatewayRef.current = 'mp'; }}
+                className={`px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 transition-all ${pagoWompi ? 'border border-border-2 text-text-1 hover:bg-surface-2' : 'bg-text-1 text-bg hover:bg-white'}`}>
+                {working ? 'Redirigiendo…' : 'Pagar con Mercado Pago'}
+              </button>
+            )}
+          </>)}
         </div>
       </form>
     </ModalShell>
