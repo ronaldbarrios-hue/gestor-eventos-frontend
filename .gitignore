@@ -6,3 +6,8 @@ dist/
 
 # Config local del agente (no deploy)
 .claude/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
