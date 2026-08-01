@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase.js';
    TopBar — Rework 2026
    Izquierda : hamburger (mobile) + volver + breadcrumb
    Centro    : buscador contextual/global (⌘K — paleta en Fase 1)
-   Derecha   : switch Organizador/Asistente · notificaciones · cuenta
+   Derecha   : switch Organizador/Explorar · notificaciones · cuenta
    ────────────────────────────────────────────────────────────────── */
 
 const ROOT_PATHS = new Set(['/inicio', '/eventos', '/mi-espacio', '/ajustes']);
@@ -120,16 +120,20 @@ export default function TopBar({ onMenu }) {
 
   const handleLogout = () => { setAccountOpen(false); logout(); navigate('/login'); };
 
-  /* Switch Organizador/Asistente — estilo píldora tipo Airbnb (Viajar/Anfitrión).
+  /* Switch Organizador/Explorar — estilo píldora tipo Airbnb (Viajar/Anfitrión).
      Persiste en los metadatos del usuario vía cambiarModo() (AuthContext),
-     así que se recuerda entre sesiones. No fuerza navegación: cada pantalla
-     puede decidir cómo reaccionar a usuario.modoActivo si lo necesita. */
+     y navega al lugar correcto de cada modo (Sidebar también reacciona a
+     usuario.modoActivo, mostrando distinta navegación en cada caso). */
   const modoActivo = usuario?.modoActivo || 'organizador';
   const cambiarAModo = async (modo) => {
     if (modo === modoActivo || cambiandoModo) return;
     setCambiandoModo(true);
-    try { await cambiarModo(modo); }
-    finally { setCambiandoModo(false); }
+    try {
+      await cambiarModo(modo);
+      navigate(modo === 'asistente' ? '/eventos?tab=explorar' : '/inicio');
+    } finally {
+      setCambiandoModo(false);
+    }
   };
 
   const showBack = !ROOT_PATHS.has(pathname);
@@ -198,7 +202,7 @@ export default function TopBar({ onMenu }) {
       {/* Right side */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
 
-        {/* Switch Organizador / Asistente */}
+        {/* Switch Organizador / Explorar */}
         <div className="hidden sm:flex items-center bg-surface-2 border border-border rounded-full p-0.5 mr-1">
           <button
             onClick={() => cambiarAModo('organizador')}
