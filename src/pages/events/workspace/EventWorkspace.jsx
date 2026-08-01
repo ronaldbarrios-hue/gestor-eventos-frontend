@@ -6,6 +6,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { EstadoBadge } from '../../../components/ui/Badge.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import ErrorBoundary from '../../../components/ui/ErrorBoundary.jsx';
 import GestekMark from '../../../components/layout/GestekMark.jsx';
 import Criatura from '../../../components/agente/Criatura.jsx';
 import TopBar from '../../../components/layout/TopBar.jsx';
@@ -323,12 +324,15 @@ export default function EventWorkspace() {
               </div>
             )}
 
-            {/* Contenido */}
+            {/* Contenido — con red de seguridad: si una sección falla, se ve
+                un error acotado y el sidebar sigue usable (no se cae toda la app). */}
             <div key={`${seccion?.id}-${tabActivo?.id}`} className="animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
-              <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
-                onAnuncio={() => setBroadcastOpen(true)}
-                onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
-                onEliminar={eliminar} />
+              <ErrorBoundary key={`eb-${seccion?.id}-${tabActivo?.id}`} compact>
+                <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
+                  onAnuncio={() => setBroadcastOpen(true)}
+                  onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
+                  onEliminar={eliminar} />
+              </ErrorBoundary>
             </div>
           </div>
         </main>

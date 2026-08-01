@@ -8,6 +8,7 @@ import { pantallaInicial } from './lib/prefs.js';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import AppLayout from './components/layout/AppLayout.jsx';
 import CommandPalette from './components/layout/CommandPalette.jsx';
+import ErrorBoundary from './components/ui/ErrorBoundary.jsx';
 import LandingHomePage from './pages/public/LandingHomePage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
 
@@ -82,6 +83,7 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
+          <ErrorBoundary>
           <Suspense fallback={<AuthLoader />}>
             <Routes>
               <Route element={<PublicLayout />}>
@@ -143,6 +145,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
+          </ErrorBoundary>
           <CommandPalette />
           <ConfirmHost />
         </AuthProvider>

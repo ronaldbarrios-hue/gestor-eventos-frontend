@@ -17,8 +17,9 @@ export default function FacturacionSection({ evento }) {
       .finally(() => setLoading(false));
   }, [evento.id]);
 
-  const filas = useMemo(() => clientes.map(c => {
-    const tipo = tipos.find(t => t.id === c.ticket_id || t.id === c.tipo_id || t.nombre === c.tipo);
+  const filas = useMemo(() => (Array.isArray(clientes) ? clientes : []).map(c => {
+    const lista = Array.isArray(tipos) ? tipos : [];
+    const tipo = lista.find(t => t.id === c.ticket_id || t.id === c.tipo_id || t.nombre === c.tipo);
     return {
       nombre : c.nombre || c.cliente_nombre || '—',
       email  : c.email || c.cliente_email || '—',
