@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Criatura from '../../components/agente/Criatura.jsx';
+import VolverAlEvento from '../../components/layout/VolverAlEvento.jsx';
 import { agenteApi } from '../../api/agente.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { alertDialog } from '../../components/ui/Confirm.jsx';
@@ -189,7 +190,9 @@ export default function GestbotPage() {
   }
 
   return (
-    <div className="max-w-[1500px] mx-auto flex gap-4 h-[calc(100vh-7rem)]">
+    <div className="max-w-[1500px] mx-auto">
+      <VolverAlEvento />
+      <div className="flex gap-4 h-[calc(100vh-8.5rem)]">
       <aside className="hidden md:flex w-[220px] flex-shrink-0 flex-col rounded-3xl border border-border-2 bg-surface/70 overflow-hidden">
         <div className="p-3 border-b border-border">
           <button onClick={crearConv}
@@ -345,6 +348,7 @@ export default function GestbotPage() {
           )}
         </div>
       </aside>
+      </div>
     </div>
   );
 }

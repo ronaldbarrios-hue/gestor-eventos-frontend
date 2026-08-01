@@ -212,7 +212,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
                 </li>
               ))}
             </ul>
-            <Link to="/gestbot" className="block text-center text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-xl py-2.5 transition-colors">
+            <Link to={`/gestbot?evento=${evento.id}&nom=${encodeURIComponent(evento.titulo || '')}`} className="block text-center text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-xl py-2.5 transition-colors">
               Revisar ahora
             </Link>
           </div>

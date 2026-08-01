@@ -256,7 +256,7 @@ export default function EventWorkspace() {
             <div className="flex-shrink-0 -my-1"><Criatura mood="happy" size={44} /></div>
             <p className="text-[13px] font-semibold text-white leading-tight">¿Necesitas ayuda?</p>
           </div>
-          <Link to="/gestbot" className="block w-full text-center px-3 py-2 rounded-xl bg-accent hover:bg-accent-dark text-white text-[13px] font-medium transition-colors">
+          <Link to={`/gestbot?evento=${evento.id}&nom=${encodeURIComponent(evento.titulo || '')}`} className="block w-full text-center px-3 py-2 rounded-xl bg-accent hover:bg-accent-dark text-white text-[13px] font-medium transition-colors">
             Abrir Gestbot
           </Link>
         </div>
