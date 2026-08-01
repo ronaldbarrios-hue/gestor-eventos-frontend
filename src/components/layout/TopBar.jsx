@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase.js';
    TopBar — Rework 2026
    Izquierda : hamburger (mobile) + volver + breadcrumb
    Centro    : buscador contextual/global (⌘K — paleta en Fase 1)
-   Derecha   : notificaciones · cuenta del usuario (menú)
+   Derecha   : switch Organizador/Asistente · notificaciones · cuenta
    ────────────────────────────────────────────────────────────────── */
 
 const ROOT_PATHS = new Set(['/inicio', '/eventos', '/mi-espacio', '/ajustes']);
@@ -34,7 +34,7 @@ function tiempoRelativo(iso) {
 
 export default function TopBar({ onMenu }) {
   const { pathname }  = useLocation();
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, cambiarModo } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate      = useNavigate();
   const [notifOpen,   setNotifOpen]   = useState(false);
@@ -42,6 +42,7 @@ export default function TopBar({ onMenu }) {
   const [busqueda,    setBusqueda]    = useState('');
   const [notifs,      setNotifs]      = useState([]);
   const [unread,      setUnread]      = useState(0);
+  const [cambiandoModo, setCambiandoModo] = useState(false);
   const loadedRef     = useRef(false);
   const searchRef     = useRef(null);
 
@@ -119,6 +120,18 @@ export default function TopBar({ onMenu }) {
 
   const handleLogout = () => { setAccountOpen(false); logout(); navigate('/login'); };
 
+  /* Switch Organizador/Asistente — estilo píldora tipo Airbnb (Viajar/Anfitrión).
+     Persiste en los metadatos del usuario vía cambiarModo() (AuthContext),
+     así que se recuerda entre sesiones. No fuerza navegación: cada pantalla
+     puede decidir cómo reaccionar a usuario.modoActivo si lo necesita. */
+  const modoActivo = usuario?.modoActivo || 'organizador';
+  const cambiarAModo = async (modo) => {
+    if (modo === modoActivo || cambiandoModo) return;
+    setCambiandoModo(true);
+    try { await cambiarModo(modo); }
+    finally { setCambiandoModo(false); }
+  };
+
   const showBack = !ROOT_PATHS.has(pathname);
   const initials = usuario?.nombre
     ?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
@@ -184,6 +197,31 @@ export default function TopBar({ onMenu }) {
 
       {/* Right side */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
+
+        {/* Switch Organizador / Asistente */}
+        <div className="hidden sm:flex items-center bg-surface-2 border border-border rounded-full p-0.5 mr-1">
+          <button
+            onClick={() => cambiarAModo('organizador')}
+            disabled={cambiandoModo}
+            className={`px-3 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
+              ${modoActivo === 'organizador'
+                ? 'bg-gradient-primary text-white shadow-glow-sm'
+                : 'text-text-3 hover:text-text-1'}`}
+          >
+            Organizar
+          </button>
+          <button
+            onClick={() => cambiarAModo('asistente')}
+            disabled={cambiandoModo}
+            className={`px-3 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
+              ${modoActivo === 'asistente'
+                ? 'bg-gradient-primary text-white shadow-glow-sm'
+                : 'text-text-3 hover:text-text-1'}`}
+          >
+            Explorar
+          </button>
+        </div>
+
         {/* Notifications */}
         <div className="relative">
           <button onClick={() => setNotifOpen(v => !v)} aria-label="Notificaciones" className="btn-icon btn-ghost relative">
@@ -256,6 +294,29 @@ export default function TopBar({ onMenu }) {
                   <p className="text-sm font-semibold text-text-1 truncate">{usuario?.nombre || 'Usuario'}</p>
                   <p className="text-xs text-text-2 truncate">{usuario?.email || ''}</p>
                 </div>
+
+                {/* Switch también aquí, visible en mobile donde el de arriba está oculto */}
+                <div className="sm:hidden px-4 py-2.5 border-b border-border">
+                  <div className="flex items-center bg-surface-2 border border-border rounded-full p-0.5">
+                    <button
+                      onClick={() => cambiarAModo('organizador')}
+                      disabled={cambiandoModo}
+                      className={`flex-1 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
+                        ${modoActivo === 'organizador' ? 'bg-gradient-primary text-white' : 'text-text-3'}`}
+                    >
+                      Organizar
+                    </button>
+                    <button
+                      onClick={() => cambiarAModo('asistente')}
+                      disabled={cambiandoModo}
+                      className={`flex-1 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
+                        ${modoActivo === 'asistente' ? 'bg-gradient-primary text-white' : 'text-text-3'}`}
+                    >
+                      Explorar
+                    </button>
+                  </div>
+                </div>
+
                 <div className="py-1.5">
                   <MenuItem onClick={() => { setAccountOpen(false); navigate('/ajustes?a=perfil'); }}>
                     <UserIcon className="w-4 h-4" /> Mi perfil
