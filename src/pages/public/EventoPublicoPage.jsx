@@ -612,6 +612,11 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
             </span>
           </label>
         )}
+        <p className="text-[11px] text-text-3 leading-relaxed">
+          Al continuar aceptas los{' '}
+          <a href="/terminos" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">términos y condiciones</a> y la{' '}
+          <a href="/privacidad" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">política de privacidad</a> de GESTEK.
+        </p>
         {!isFree && tienePagoSimple && (
           <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3 text-xs text-text-2 leading-relaxed space-y-2">
             <p className="font-semibold text-warning-light">Pago manual vía Mercado Pago</p>

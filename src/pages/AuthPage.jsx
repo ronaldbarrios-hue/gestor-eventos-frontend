@@ -272,7 +272,9 @@ function LoginForm() {
       </form>
 
       <p className={`${staggerClass} text-center text-xs text-text-3 mt-8`} style={staggerStyle(5)}>
-        Al iniciar sesión aceptas nuestros términos de uso y política de privacidad.
+        Al iniciar sesión aceptas nuestros{' '}
+        <a href="/terminos" target="_blank" rel="noreferrer" className="underline text-text-2 hover:text-text-1">términos de uso</a> y la{' '}
+        <a href="/privacidad" target="_blank" rel="noreferrer" className="underline text-text-2 hover:text-text-1">política de privacidad</a>.
       </p>
     </div>
   );
@@ -670,8 +672,8 @@ function RegisterForm() {
 
             <p className="text-[11px] text-text-3 leading-relaxed">
               Al continuar aceptas nuestros{' '}
-              <a className="underline text-text-2 hover:text-text-1" href="#">términos</a> y{' '}
-              <a className="underline text-text-2 hover:text-text-1" href="#">política de privacidad</a>.
+              <a className="underline text-text-2 hover:text-text-1" href="/terminos" target="_blank" rel="noreferrer">términos y condiciones</a> y la{' '}
+              <a className="underline text-text-2 hover:text-text-1" href="/privacidad" target="_blank" rel="noreferrer">política de privacidad</a>.
             </p>
 
             <button
@@ -746,7 +748,8 @@ function RegisterForm() {
               <input type="checkbox" name="aceptar" checked={paso2.aceptar} onChange={onChange2}
                 className="mt-0.5 w-5 h-5 rounded border-border bg-surface-2 accent-primary shrink-0" />
               <span className="text-xs text-text-2 leading-relaxed">
-                Acepto recibir comunicaciones por correo de GESTEK. Puedo darme de baja cuando quiera.
+                Acepto los <a href="/terminos" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="underline text-text-1 hover:text-primary-light">términos y condiciones</a> y la{' '}
+                <a href="/privacidad" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="underline text-text-1 hover:text-primary-light">política de privacidad</a>, y recibir comunicaciones por correo de GESTEK (puedo darme de baja cuando quiera).
               </span>
             </label>
 

@@ -190,6 +190,11 @@ function DetalleModal({ id, onClose, onPostulado }) {
               {enviando ? <><Spinner size="sm" /> Enviando…</> : 'Postularme'}
             </button>
             <p className="text-[11px] text-text-3 mt-2 text-center">Necesitas un perfil de talento. Si no lo tienes, créalo en «Mi perfil».</p>
+            <p className="text-[11px] text-text-3 mt-1.5 text-center leading-relaxed">
+              Al postularte compartes tu perfil con el organizador y aceptas los{' '}
+              <a href="/terminos" target="_blank" rel="noreferrer" className="underline hover:text-text-2">términos</a> y la{' '}
+              <a href="/privacidad" target="_blank" rel="noreferrer" className="underline hover:text-text-2">política de privacidad</a>.
+            </p>
           </>)}
         </>)}
       </div>
