@@ -294,8 +294,8 @@ export default function ExperienceBuilder({ evento, onClose }) {
                     </span>
                     <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${activo ? 'text-accent' : 'text-text-3'}`} />
                     <span className={`flex-1 py-2 text-[12.5px] truncate ${activo ? 'text-text-1 font-medium' : 'text-text-2'}`}>{b.data?.titulo?.trim() || labelDe(b.type)}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setEmbedId(b.id); }} aria-label="Exportar como iframe (eFrame)" title="Exportar esta sección como iframe"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-text-3 hover:text-accent transition-opacity font-mono text-[10px] leading-none">{'</>'}</button>
+                    <button onClick={(e) => { e.stopPropagation(); setEmbedId(b.id); }} aria-label="Exportar como iframe (eFrame)" title="Exportar esta sección como iframe (eFrame)"
+                      className="px-1.5 py-1 rounded-md text-text-3 hover:text-accent hover:bg-accent/10 transition-colors font-mono text-[10px] leading-none flex-shrink-0">{'</>'}</button>
                     <button onClick={(e) => { e.stopPropagation(); removeBlock(b.id); }} aria-label="Quitar"
                       className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-text-3 hover:text-danger transition-opacity">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
