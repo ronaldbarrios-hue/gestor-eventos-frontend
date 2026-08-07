@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { QRCodeCanvas } from 'qrcode.react';
 import { clientesApi } from '../../../api/clientes.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -279,11 +280,29 @@ function ClienteRow({ cliente, currency, onCambiarEstado, onVerDetalle, style })
   );
 }
 
-/* ─────────── Detalle de un asistente (incluye formulario que diligenció) ─────────── */
+/* ─────────── Detalle de un asistente (incluye QR + formulario que diligenció) ─────────── */
 function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
   const nombre = cliente.usuario?.nombre || cliente.guest_nombre || cliente.guest_email;
   const email  = cliente.usuario?.email || cliente.guest_email;
   const initials = (nombre || 'U').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const qrCanvasRef = useRef(null);
+  /* El QR codifica lo mismo que usa el escáner de Check-in: el qr_token
+     firmado si existe, o el código de la boleta como respaldo. */
+  const qrValue = cliente.qr_token || cliente.codigo;
+
+  const descargarQR = () => {
+    const canvasWrap = qrCanvasRef.current;
+    if (!canvasWrap) return;
+    const canvas = canvasWrap.querySelector('canvas');
+    if (!canvas) return;
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qr-${cliente.codigo}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   /* respuestas se guarda como { "<id_del_campo>": valor }. Usamos el id
      para buscar la etiqueta real en camposFormulario (ej. "Cédula", "Edad")
@@ -331,6 +350,18 @@ function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
         </div>
 
         <div className="p-5 space-y-5">
+          {/* QR de la boleta + descarga */}
+          <div className="flex flex-col items-center gap-3 py-2">
+            <div ref={qrCanvasRef} className="bg-white rounded-2xl p-4 inline-block">
+              <QRCodeCanvas value={qrValue} size={160} level="M" includeMargin={false} />
+            </div>
+            <p className="font-mono text-sm font-bold text-text-1 tabular-nums tracking-widest">{cliente.codigo}</p>
+            <button onClick={descargarQR}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-2 text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+              <DownloadIcon className="w-3.5 h-3.5" /> Descargar QR
+            </button>
+          </div>
+
           <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-2.5">
             <DetalleRow label="Email" value={email} />
             <DetalleRow label="Código" value={cliente.codigo} mono />
@@ -584,7 +615,6 @@ function ImportModal({ eventoId, onClose, onDone }) {
 }
 
 function parseCSV(text) {
-  /* Parser simple. Soporta separador "," o ";", comillas dobles, encabezado opcional con nombre/email/telefono. */
   const sep = (text.match(/;/g)?.length || 0) > (text.match(/,/g)?.length || 0) ? ';' : ',';
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (lines.length === 0) return [];
@@ -605,7 +635,6 @@ function parseCSV(text) {
     return out.map(c => c.trim());
   };
 
-  /* Detectar encabezado: si la primera línea contiene "email" o "@", la tratamos como header */
   const firstCells = parseLine(lines[0]).map(c => c.toLowerCase());
   const hasHeader = firstCells.some(c => c.includes('email') || c.includes('nombre') || c.includes('correo'));
   let nombreIdx = 0, emailIdx = 1, telIdx = 2;
@@ -643,7 +672,6 @@ function downloadTemplate() {
 function exportarCSV(clientes, evento) {
   if (!clientes?.length) return;
 
-  /* Headers + filas. Quote-escape básico (envolvemos siempre en comillas, escapamos las internas). */
   const headers = ['nombre', 'email', 'codigo', 'estado', 'tipo', 'precio_pagado', 'created_at', 'checked_in_at'];
   const escape = (v) => {
     if (v == null) return '';
@@ -661,7 +689,6 @@ function exportarCSV(clientes, evento) {
     c.checked_in_at || '',
   ].map(escape).join(','));
 
-  /* BOM para que Excel respete UTF-8 */
   const csv = '﻿' + headers.join(',') + '\n' + rows.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
 
@@ -676,10 +703,6 @@ function exportarCSV(clientes, evento) {
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
 }
 
-/* PDF de asistentes — tabla simple pensada para imprimir y llevar a la
-   entrada del evento (nombre, email, tipo, código, estado). El detalle
-   completo (incluyendo respuestas del formulario) vive en pantalla,
-   dentro del modal de cada asistente — el PDF se mantiene liviano. */
 function exportarPDF(clientes, evento) {
   if (!clientes?.length) return;
 
