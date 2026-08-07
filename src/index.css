@@ -245,6 +245,32 @@ img { -webkit-user-drag: none; user-drag: none; }
 @keyframes gkFlip  { from { opacity: 0; transform: perspective(600px) rotateX(-80deg) } to { opacity: 1; transform: perspective(600px) rotateX(0) } }
 @keyframes gkBlur  { from { opacity: 0; filter: blur(14px) } to { opacity: 1; filter: blur(0) } }
 @keyframes gkSwing { 0%,100% { transform: rotate(-2.5deg) } 50% { transform: rotate(2.5deg) } }
+
+/* ── Cargador de marca: una luz recorre el nudo ──
+   El logo es una figura sólida, así que el "flujo" se logra recortando
+   (mask) un degradado que barre en diagonal, siguiendo el sentido del tejido. */
+.gk-nudo {
+  background: var(--gk-oro, #E0B12B);
+  -webkit-mask: url('/marca.svg') center / contain no-repeat;
+  mask: url('/marca.svg') center / contain no-repeat;
+  position: relative;
+  overflow: hidden;
+}
+.gk-nudo::after {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  background: linear-gradient(115deg,
+    transparent 38%, rgba(255,244,203,.95) 50%, transparent 62%);
+  animation: gkFlujo 1.9s cubic-bezier(.55,0,.45,1) infinite;
+}
+@keyframes gkFlujo { from { transform: translateX(-85%) } to { transform: translateX(85%) } }
+/* Latido suave del halo detrás del nudo */
+@keyframes gkHalo { 0%,100% { opacity: .28; transform: scale(.92) } 50% { opacity: .5; transform: scale(1.06) } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gk-nudo::after { animation: none; opacity: .35 }
+}
 .gk-anim-fade  { animation: gkFade  0.8s ease both; }
 .gk-anim-up    { animation: gkUp    0.8s cubic-bezier(0.16,1,0.3,1) both; }
 .gk-anim-zoom  { animation: gkZoom  0.8s cubic-bezier(0.16,1,0.3,1) both; }

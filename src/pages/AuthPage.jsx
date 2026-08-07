@@ -113,7 +113,7 @@ function LoginText() {
         className={`${staggerClass} inline-flex items-center gap-3 group`}
         style={staggerStyle(0)}
       >
-        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(59,130,246,0.45)] animate-[float_5s_ease-in-out_infinite]" />
+        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(224,177,43,0.5)] animate-[float_5s_ease-in-out_infinite]" />
         <span className="text-2xl font-bold font-display tracking-tight">GESTEK</span>
       </Link>
       <h2
@@ -289,7 +289,7 @@ function RegisterText() {
         className={`${staggerClass} inline-flex items-center gap-3 group`}
         style={staggerStyle(0)}
       >
-        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(139,92,246,0.45)] animate-[float_5s_ease-in-out_infinite]" />
+        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(224,177,43,0.5)] animate-[float_5s_ease-in-out_infinite]" />
         <span className="text-2xl font-bold font-display tracking-tight">GESTEK</span>
       </Link>
       <p

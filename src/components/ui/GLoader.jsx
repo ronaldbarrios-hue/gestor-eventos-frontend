@@ -1,7 +1,6 @@
-import logoG from '../../assets/logo-g.svg';
-
-/* Loader animado con el logo G girando + glow.
-   Reemplaza spinners de pantalla completa para mantener identidad de marca. */
+/* Cargador de marca — el nudo de GESTEK con una luz recorriéndolo.
+   Reemplaza los spinners genéricos: el usuario ve la marca decenas de
+   veces al día, así que es el sitio donde más rinde. */
 
 export default function GLoader({ size = 'md', message, fullscreen = false }) {
   const px = size === 'xl' ? 88 : size === 'lg' ? 64 : size === 'sm' ? 32 : 48;
@@ -9,15 +8,15 @@ export default function GLoader({ size = 'md', message, fullscreen = false }) {
   const inner = (
     <div className="flex flex-col items-center gap-4">
       <div className="relative" style={{ width: px, height: px }}>
+        {/* halo cálido detrás */}
         <div
-          className="absolute inset-0 rounded-full blur-2xl opacity-60 animate-[glowPulse_2s_ease-in-out_infinite]"
-          style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.6), transparent 70%)' }}
+          className="absolute inset-0 rounded-full blur-2xl"
+          style={{
+            background: 'radial-gradient(circle, rgba(224,177,43,.55), transparent 70%)',
+            animation: 'gkHalo 2.4s ease-in-out infinite',
+          }}
         />
-        <img
-          src={logoG}
-          alt="Cargando"
-          className="relative w-full h-full animate-[wheelSpin_1.6s_cubic-bezier(0.6,-0.05,0.2,1.05)_infinite] drop-shadow-[0_0_18px_rgba(59,130,246,0.55)]"
-        />
+        <div className="gk-nudo relative w-full h-full" role="img" aria-label="Cargando" />
       </div>
       {message && (
         <p className="text-sm text-text-2 font-medium animate-[pulseSoft_2s_ease-in-out_infinite]">
@@ -35,9 +34,5 @@ export default function GLoader({ size = 'md', message, fullscreen = false }) {
     );
   }
 
-  return (
-    <div className="flex items-center justify-center py-12">
-      {inner}
-    </div>
-  );
+  return <div className="flex items-center justify-center py-12">{inner}</div>;
 }

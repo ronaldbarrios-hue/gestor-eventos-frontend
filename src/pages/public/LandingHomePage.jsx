@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Criatura from '../../components/agente/Criatura.jsx';
+import GestekMark from '../../components/layout/GestekMark.jsx';
 
 function useReveal(threshold = 0.15) {
   const ref = useRef(null);
@@ -46,7 +47,7 @@ export default function LandingHomePage() {
       <Pillars />
       <FeatureSplit
         side="left"
-        kicker="QR + Gamificación · Gratis"
+        kicker="QR y gamificación"
         title="Asistencia con QR y misiones para tus asistentes"
         desc="Genera un QR único por inscrito. Escanea para check-in y check-out. Premia con puntos, badges y ranking para subir la participación de tus eventos."
         bullets={[
@@ -59,9 +60,9 @@ export default function LandingHomePage() {
       />
       <FeatureSplit
         side="right"
-        kicker="Pagos BRE-B · Gratis"
+        kicker="Pagos con Bre-B"
         title="Cobra tus boletas con BRE-B en menos de un minuto"
-        desc="Pega tu llave BRE-B o sube tu código QR — el dinero va directo a tu cuenta. GESTEK no toca ese flujo."
+        desc="Pega tu llave BRE-B o sube tu código QR. El dinero llega directo a tu cuenta y GESTEK no toca ese flujo."
         bullets={[
           'Llave o QR del organizador (tu cobras, tu recibes)',
           'Pago en línea desde la página pública del evento',
@@ -72,7 +73,7 @@ export default function LandingHomePage() {
       />
       <FeatureSplit
         side="left"
-        kicker="Equipo y comunicación · Gratis"
+        kicker="Equipo y comunicación"
         title="Tu equipo, con roles, tareas y voz propia"
         desc="Define roles con permisos granulares por evento. Cada miembro entra a su vista 'Mi trabajo', ve sus tareas, chatea por canales y te envía sugerencias o solicitudes que tú gestionas."
         bullets={[
@@ -86,7 +87,7 @@ export default function LandingHomePage() {
       />
       <FeatureSplit
         side="right"
-        kicker="Agenda, fidelidad y analítica · Gratis"
+        kicker="Agenda y fidelidad"
         title="Programa el evento y premia a tu gente"
         desc="Arma la agenda con vistas Lista, Día (timeline por horas), Semana y Mes, con speakers y patrocinadores. Suma un programa de puntos y recompensas, ranking del equipo y analítica real."
         bullets={[
@@ -151,6 +152,11 @@ function Hero() {
       </div>
 
       <div className="relative max-w-5xl mx-auto text-center" ref={ref}>
+        {/* La marca preside el hero, encima del nombre */}
+        <div className={`flex justify-center mb-6 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <GestekMark size={104} className="drop-shadow-[0_0_34px_rgba(224,177,43,0.45)]" />
+        </div>
+
         <h1 className={`text-7xl sm:text-8xl lg:text-[8.5rem] font-bold font-display tracking-tight leading-none text-text-1 transition-all duration-700 delay-100 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <span className="bg-gradient-to-br from-text-1 via-primary-light to-accent-light bg-clip-text text-transparent animate-[shimmer_8s_linear_infinite]" style={{ backgroundSize: '200% 100%', animationDirection: 'reverse' }}>
             GESTEK
@@ -158,20 +164,20 @@ function Hero() {
         </h1>
 
         <p className={`mt-4 text-base sm:text-lg text-primary-light font-semibold tracking-[0.3em] uppercase transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          Manage · Automate · Scale
+          Organiza, automatiza y crece
         </p>
 
         <div className={`mt-6 flex justify-center transition-all duration-700 delay-250 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/40
                            bg-accent/10 text-accent-light text-xs sm:text-sm font-semibold">
-Primera plataforma de gestión de eventos con IA integrada para automatizarlos
+            La primera plataforma de eventos con inteligencia artificial integrada
           </span>
         </div>
 
         <p className={`mt-8 text-lg sm:text-2xl text-text-2 max-w-3xl mx-auto leading-relaxed transition-all duration-700 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          La plataforma de gestión de eventos que reemplaza tu stack actual.
-          Creación, ventas, asistencia, pagos y comunidad — todo el
-          ecosistema de tu evento en un solo lugar.
+          Crea y vende boletas, monta stands, controla el ingreso y arma
+          el cronograma. Sirve para un evento único o para una convención
+          con decenas de actividades adentro. Todo en un solo lugar.
         </p>
 
         <div className={`mt-12 flex flex-col sm:flex-row items-center justify-center gap-3 transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
@@ -312,7 +318,7 @@ function Pillars() {
   const [ref, visible] = useReveal();
   const items = [
     { title: 'Todo incluido', desc: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad, chat y página pública.' },
-    { title: 'Pagos sin fricción', desc: 'Conecta tu llave o QR de BRE-B y vende boletas. El dinero va directo a tu cuenta — GESTEK no se queda con comisión.' },
+    { title: 'Pagos sin fricción', desc: 'Conecta tu llave o QR de BRE-B y vende boletas. El dinero llega directo a tu cuenta y GESTEK no se queda con comisión.' },
     { title: 'IA que trabaja contigo', desc: 'Gestbot crea y opera eventos, arma boletas y analiza documentos hablando en lenguaje natural.' },
   ];
   return (
@@ -423,11 +429,11 @@ function PayMockup() {
   return (
     <div className="rounded-3xl border border-border-2 bg-surface/60 backdrop-blur p-7">
       <div className="flex items-center justify-between mb-5">
-        <span className="text-xs uppercase tracking-widest text-text-3">Boleta · Pago</span>
+        <span className="text-xs uppercase tracking-widest text-text-3">Boleta y pago</span>
         <span className="px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary-light text-xs font-semibold">BRE-B</span>
       </div>
       <p className="text-3xl font-bold font-display text-text-1 mb-1">$ 80.000</p>
-      <p className="text-xs text-text-3 mb-5">UX Workshop Bogotá · 22 Sep 2026</p>
+      <p className="text-xs text-text-3 mb-5">UX Workshop Bogotá, 22 de septiembre</p>
 
       <div className="rounded-2xl bg-bg/60 border border-border p-4 mb-4 grid grid-cols-[auto_1fr] gap-4 items-center">
         <div className="w-16 h-16 rounded-xl bg-text-1 p-1.5">
@@ -505,7 +511,7 @@ function BrandMock() {
       <div className="p-5 space-y-3">
         <div className="aspect-video rounded-2xl bg-gradient-to-br from-primary/40 to-accent/25" />
         <p className="text-base font-semibold text-white">Tu evento, con tu marca</p>
-        <p className="text-sm text-white/60">Colores, tipografía y fondo propios — sin “GESTEK”.</p>
+        <p className="text-sm text-white/60">Colores, tipografía y fondo propios, sin la marca GESTEK.</p>
         <span className="inline-flex h-8 px-4 items-center rounded-full text-xs font-semibold text-white bg-primary">
           Reservar
         </span>
@@ -576,7 +582,7 @@ function AIPro() {
           <p className="text-base sm:text-xl text-text-2 max-w-2xl mx-auto leading-relaxed">
             Gestbot no se limita a sugerir: <strong className="text-text-1">ejecuta</strong>. Crea y
             publica eventos, arma boletas, registra check-ins, envía recordatorios y gestiona el
-            equipo — <strong className="text-text-1">más de 50 acciones reales</strong>. Solicita
+            equipo, con <strong className="text-text-1">más de 50 acciones reales</strong>. Solicita
             los datos faltantes mediante formularios y puede analizar un PDF o imágenes para crear
             el evento.
           </p>
@@ -619,7 +625,7 @@ function AIPro() {
             <div className="flex items-start gap-3 flex-row-reverse">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold">G</div>
               <div className="flex-1 px-4 py-3 rounded-2xl rounded-tr-sm bg-accent/10 border border-accent/20 text-sm text-text-1">
-                Hecho. Evento publicado y boleta <span className="font-semibold">VIP · $50.000</span> creada.
+                Hecho. Evento publicado y boleta <span className="font-semibold">VIP por $50.000</span> creada.
               </div>
             </div>
           </div>

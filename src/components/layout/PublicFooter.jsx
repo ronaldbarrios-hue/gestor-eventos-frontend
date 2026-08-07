@@ -50,7 +50,7 @@ export default function PublicFooter() {
 
       <div className="border-t border-border">
         <div className="max-w-6xl mx-auto px-5 sm:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-text-3">© {new Date().getFullYear()} GESTEK · Manage. Automate. Scale.</p>
+          <p className="text-xs text-text-3">© {new Date().getFullYear()} GESTEK. Organiza, automatiza y crece.</p>
           <p className="text-xs text-text-3">Hecho en Ibagué, Colombia.</p>
         </div>
       </div>

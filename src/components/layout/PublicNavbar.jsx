@@ -50,7 +50,7 @@ export default function PublicNavbar() {
             <img
               src={logoG}
               alt="GESTEK"
-              className="h-12 sm:h-14 w-12 sm:w-14 transition-transform duration-500 group-hover:scale-110 drop-shadow-[0_0_18px_rgba(59,130,246,0.45)]"
+              className="h-12 sm:h-14 w-12 sm:w-14 transition-transform duration-500 group-hover:scale-110 drop-shadow-[0_0_18px_rgba(224,177,43,0.5)]"
             />
           </span>
         </Link>

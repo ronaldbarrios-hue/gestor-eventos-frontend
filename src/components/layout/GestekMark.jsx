@@ -1,43 +1,24 @@
-/* Marca GESTEK — lettermark "G".
-   - Free: gradiente de marca (azul→violeta).
-   - Pro : gradiente DORADO + glow (destacable). */
+/* Marca GESTEK — el hilo unificado.
+   El trazado viene del archivo original del logo (public/marca.svg), no es
+   una reconstrucción: mismo nudo, mismas curvas. Pinta con `currentColor`,
+   así que hereda el color de donde se ponga. */
 
-export default function GestekMark({ size = 42, pro = false }) {
-  const grad = pro ? 'gk-g-gold' : 'gk-g-brand';
+const NUDO = 'M7375 8728 c150 -23 331 -103 475 -212 77 -58 591 -572 2301 -2301 588 -596 703 -716 755 -791 146 -210 204 -395 204 -643 -1 -203 -48 -372 -154 -548 -61 -102 -173 -224 -536 -586 -320 -319 -418 -385 -679 -454 -82 -22 -118 -26 -251 -26 -210 -1 -352 33 -518 124 -185 101 -258 170 -1090 1024 -279 285 -587 598 -685 694 l-178 175 313 313 c172 172 316 313 320 313 3 0 420 -414 925 -919 960 -962 966 -967 1140 -1055 119 -60 208 -79 339 -74 101 4 118 7 177 36 160 79 237 222 237 442 0 173 -50 322 -168 505 -32 48 -156 182 -407 435 -199 201 -496 502 -661 670 -164 168 -697 705 -1184 1193 -940 943 -962 964 -1133 1041 -247 113 -504 77 -628 -88 -122 -162 -121 -463 2 -708 73 -146 129 -219 301 -394 92 -94 168 -177 168 -185 0 -8 -141 -155 -313 -327 l-312 -312 -166 167 c-218 222 -293 329 -358 517 -58 166 -73 322 -47 496 29 188 103 367 217 520 83 112 672 706 762 768 251 173 528 237 832 190z m2289 1 c151 -20 345 -104 491 -214 118 -89 685 -672 755 -777 138 -206 200 -399 200 -629 0 -242 -51 -410 -186 -615 -52 -79 -368 -414 -391 -414 -7 0 -534 521 -632 625 -2 2 72 83 165 180 185 193 253 283 318 420 66 137 90 237 90 375 1 133 -22 218 -80 306 -118 178 -397 215 -659 89 -132 -64 -206 -123 -428 -344 l-218 -216 -321 323 -321 324 139 139 c199 200 332 297 504 366 186 75 344 92 574 62z m-1766 -1770 c169 -170 309 -315 310 -320 2 -5 -398 -415 -890 -910 -491 -496 -912 -928 -935 -961 -168 -241 -230 -523 -161 -733 39 -120 101 -190 215 -242 50 -24 74 -28 174 -31 137 -5 204 9 327 68 132 63 204 120 428 343 l212 209 283 -283 c156 -156 299 -301 318 -322 l34 -38 -149 -150 c-214 -215 -329 -298 -502 -362 -215 -80 -472 -88 -691 -21 -111 34 -256 108 -352 181 -41 32 -220 204 -396 383 -250 254 -333 344 -377 413 -188 287 -237 567 -155 884 25 97 111 275 177 366 27 37 159 179 293 315 1209 1225 1504 1522 1516 1522 7 0 152 -140 321 -311z m1742 -1774 c0 -6 -126 -136 -280 -290 l-279 -279 -311 309 c-170 170 -310 314 -310 321 0 6 126 139 280 295 l280 284 310 -315 c170 -173 310 -320 310 -325z';
+
+/* Dorado de marca. Se puede pisar con la prop `color` o con una clase
+   de texto (ej. text-white) cuando la marca vaya sobre un fondo dorado. */
+export const ORO = '#E0B12B';
+
+export default function GestekMark({ size = 42, className = '', color = ORO }) {
   return (
     <svg
-      width={size} height={size} viewBox="0 0 64 64" aria-label="GESTEK"
-      style={pro ? { filter: 'drop-shadow(0 0 11px rgba(233,178,60,0.55))' } : undefined}
+      width={size} height={size} viewBox="543 57 576 576"
+      className={className} role="img" aria-label="GESTEK"
+      style={{ color }}
     >
-      <defs>
-        <linearGradient id="gk-g-brand" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%"  stopColor="#60A5FA" />
-          <stop offset="55%" stopColor="#3B82F6" />
-          <stop offset="100%" stopColor="#8B5CF6" />
-        </linearGradient>
-        <linearGradient id="gk-g-gold" x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0%"  stopColor="#FCEFA1" />
-          <stop offset="45%" stopColor="#E9B23C" />
-          <stop offset="100%" stopColor="#A6731B" />
-        </linearGradient>
-        <radialGradient id="gk-sheen" cx="32%" cy="26%" r="72%">
-          <stop offset="0%"  stopColor="#FFFFFF" stopOpacity="0.55" />
-          <stop offset="55%" stopColor="#FFFFFF" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-
-      {/* tile redondeado con gradiente */}
-      <rect x="4" y="4" width="56" height="56" rx="16"
-            fill={`url(#${grad})`}
-            stroke={pro ? '#7A5212' : '#1E3A8A'} strokeOpacity="0.35" strokeWidth="1.5" />
-      <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#gk-sheen)" />
-
-      {/* "G" geométrica */}
-      <path d="M44 23
-               A 14 14 0 1 0 44 41
-               L 44 33 L 33 33"
-            fill="none" stroke="#FFFFFF" strokeWidth="6"
-            strokeLinecap="round" strokeLinejoin="round" />
+      <g transform="translate(0,941) scale(0.1,-0.1)" fill="currentColor">
+        <path d={NUDO} />
+      </g>
     </svg>
   );
 }
