@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useI18n } from '../../context/I18nContext.jsx';
 import VistaColaborador from '../../components/inicio/VistaColaborador.jsx';
 import { EspacioDataProvider } from '../../components/widgets/espacio/EspacioData.jsx';
 import { useWidgets } from '../../hooks/useWidgets.js';
@@ -46,6 +47,7 @@ export default function InicioPage() {
 
 function InicioContent() {
   const { usuario } = useAuth();
+  const { t, lang } = useI18n();
   const VISTA_KEY = `gestek-inicio-vista:${usuario?.id || 'anon'}`;
   const [vistaRol, setVistaRol] = useState(() => { try { return localStorage.getItem(VISTA_KEY) || 'organizador'; } catch { return 'organizador'; } });
   const cambiarVista = (v) => { setVistaRol(v); try { localStorage.setItem(VISTA_KEY, v); } catch { /* noop */ } };
@@ -54,8 +56,8 @@ function InicioContent() {
   const { eventos, notifs, solicitudes, loading } = useInicioData();
 
   const hora   = new Date().getHours();
-  const saludo = hora < 12 ? 'Buenos días' : hora < 18 ? 'Buenas tardes' : 'Buenas noches';
-  const nombre = usuario?.nombre?.split(' ')[0] || 'Usuario';
+  const saludo = hora < 12 ? t('Buenos días') : hora < 18 ? t('Buenas tardes') : t('Buenas noches');
+  const nombre = usuario?.nombre?.split(' ')[0] || t('Usuario');
 
   const activos    = eventos.filter(e => ['publicado', 'en_curso'].includes(e.estado)).length;
   const vendidos   = eventos.reduce((s, e) => s + (e.aforo_vendido || 0), 0);
@@ -71,19 +73,23 @@ function InicioContent() {
             {saludo}, {nombre}
           </h1>
           <p className="text-sm text-text-2 mt-1">
-            {loading ? 'Cargando tu actividad…'
-              : `Tienes ${activos} evento${activos !== 1 ? 's' : ''} activo${activos !== 1 ? 's' : ''}, ${pendientes} pendiente${pendientes !== 1 ? 's' : ''} y ${sinLeer} notificación${sinLeer !== 1 ? 'es' : ''} sin leer.`}
+            {loading ? t('Cargando tu actividad…')
+              : t('Tienes {a}, {b} y {c} sin leer.', {
+                  a: plural(activos,    t('{n} evento activo'),      t('{n} eventos activos')),
+                  b: plural(pendientes, t('{n} pendiente'),          t('{n} pendientes')),
+                  c: plural(sinLeer,    t('{n} notificación'),       t('{n} notificaciones')),
+                })}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Vista: lo que administro vs. donde colaboro */}
           <div className="flex rounded-xl border border-border bg-surface overflow-hidden">
-            {[['organizador', 'Organizador'], ['colaborador', 'Colaborador']].map(([v, label]) => (
+            {[['organizador', t('Organizador')], ['colaborador', t('Colaborador')]].map(([v, label]) => (
               <button
                 key={v}
                 onClick={() => cambiarVista(v)}
                 className={`px-3.5 h-10 text-sm font-medium transition-colors
-                            ${vistaRol === v ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+                            ${vistaRol === v ? 'bg-accent text-[#15171C]' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
               >
                 {label}
               </button>
@@ -91,7 +97,7 @@ function InicioContent() {
           </div>
           <button onClick={() => setPanelOpen(true)} className="btn-secondary">
             <SlidersIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">Personalizar</span>
+            <span className="hidden sm:inline">{t('Personalizar')}</span>
           </button>
           <QuickActions />
         </div>
@@ -105,10 +111,10 @@ function InicioContent() {
 
       {/* KPIs rápidos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Kpi label="Eventos activos"       valor={loading ? '—' : activos} />
-        <Kpi label="Boletas vendidas"      valor={loading ? '—' : vendidos.toLocaleString('es-CO')} />
-        <Kpi label="Pendientes de trabajo" valor={loading ? '—' : pendientes} />
-        <Kpi label="Notificaciones"        valor={loading ? '—' : sinLeer} />
+        <Kpi label={t('Eventos activos')}       valor={loading ? '—' : activos} />
+        <Kpi label={t('Boletas vendidas')}      valor={loading ? '—' : vendidos.toLocaleString(lang === 'en' ? 'en-US' : 'es-CO')} />
+        <Kpi label={t('Pendientes de trabajo')} valor={loading ? '—' : pendientes} />
+        <Kpi label={t('Notificaciones')}        valor={loading ? '—' : sinLeer} />
       </div>
 
       {/* Widgets */}
@@ -121,7 +127,7 @@ function InicioContent() {
             <WidgetShell
               key={id}
               id={id}
-              titulo={meta.titulo}
+              titulo={t(meta.titulo)}
               size={layout.config[id]?.size || meta.defaultSize}
               onSize={(t) => setSize(id, t)}
               onHide={() => toggle(id)}
@@ -134,8 +140,8 @@ function InicioContent() {
 
       {visibles.length === 0 && (
         <div className="text-center py-16 rounded-3xl border border-dashed border-border-2">
-          <p className="text-text-2 mb-3">Tu Inicio está vacío.</p>
-          <button onClick={() => setPanelOpen(true)} className="btn-primary">Agregar widgets</button>
+          <p className="text-text-2 mb-3">{t('Tu Inicio está vacío.')}</p>
+          <button onClick={() => setPanelOpen(true)} className="btn-primary">{t('Agregar widgets')}</button>
         </div>
       )}
 
@@ -151,6 +157,12 @@ function InicioContent() {
       />
     </div>
   );
+}
+
+/* Singular o plural según el número. El español y el inglés coinciden en la
+   regla (1 = singular), así que basta con elegir la frase y sustituir {n}. */
+function plural(n, singular, plural_) {
+  return (n === 1 ? singular : plural_).replace('{n}', n);
 }
 
 function Kpi({ label, valor }) {

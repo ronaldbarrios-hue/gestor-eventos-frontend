@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { supabase } from '../../lib/supabase.js';
-import { IDIOMAS, getLang, setLang } from '../../lib/i18n.js';
+import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 import { pantallaInicial, setPantallaInicial } from '../../lib/prefs.js';
 import SettingsPage, { NotificacionesTab, PagosTab, WhiteLabelTab, AparienciaCard } from '../settings/SettingsPage.jsx';
 import UsersPage from '../users/UsersPage.jsx';
@@ -32,6 +32,7 @@ const APARTADOS = [
 ];
 
 export default function AjustesPage() {
+  const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const VISIBLES = APARTADOS.filter(a => !a.oculto);
   const apartado = searchParams.get('a') || VISIBLES[0].id;
@@ -45,10 +46,10 @@ export default function AjustesPage() {
             key={a.id}
             onClick={() => setSearchParams({ a: a.id })}
             className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors text-left
-                        ${apartado === a.id ? 'bg-accent text-white shadow-glow-sm' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+                        ${apartado === a.id ? 'bg-accent text-[#15171C] shadow-glow-sm' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
           >
             <a.icon className="w-[17px] h-[17px] flex-shrink-0" />
-            {a.label}
+            {t(a.label)}
           </button>
         ))}
       </nav>
@@ -58,7 +59,7 @@ export default function AjustesPage() {
         {apartado === 'perfil'         && <SettingsPage />}
         {apartado === 'organizacion'   && <Organizacion />}
         {apartado === 'espacio'        && <EspacioTrabajo />}
-        {apartado === 'notificaciones' && <Seccion titulo="Notificaciones" desc="Canales, avisos y push de la plataforma."><NotificacionesTab /></Seccion>}
+        {apartado === 'notificaciones' && <Seccion titulo={t('Notificaciones')} desc={t('Canales, avisos y push de la plataforma.')}><NotificacionesTab /></Seccion>}
         {apartado === 'seguridad'      && <Seguridad />}
         {apartado === 'integraciones'  && <Integraciones />}
         {apartado === 'preferencias'   && <Preferencias />}
@@ -71,11 +72,12 @@ export default function AjustesPage() {
 }
 
 function Seccion({ titulo, desc, children }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold font-display text-text-1">{titulo}</h1>
-        {desc && <p className="text-sm text-text-2 mt-0.5">{desc}</p>}
+        <h1 className="text-xl font-bold font-display text-text-1">{t(titulo)}</h1>
+        {desc && <p className="text-sm text-text-2 mt-0.5">{t(desc)}</p>}
       </div>
       {children}
     </div>
@@ -224,30 +226,31 @@ function Integraciones() {
 /* ── 7. Preferencias ── */
 function Preferencias() {
   const { success } = useToast();
-  const [lang, setLangState] = useState(getLang());
+  const { t, lang, setLang } = useI18n();
   const [reducir, setReducir] = useState(() => { try { return localStorage.getItem('gestek-reducir-animaciones') === '1'; } catch { return false; } });
 
   const cambiarIdioma = (code) => {
-    setLang(code); setLangState(code);
-    success('Idioma actualizado. Algunas pantallas lo aplican al recargar.');
+    if (code === lang) return;
+    setLang(code);
+    success(code === 'en' ? 'Language updated.' : 'Idioma actualizado.');
   };
   const toggleAnimaciones = () => {
     const next = !reducir;
     setReducir(next);
     try { localStorage.setItem('gestek-reducir-animaciones', next ? '1' : '0'); } catch { /* noop */ }
-    success(next ? 'Animaciones reducidas.' : 'Animaciones normales.');
+    success(next ? t('Animaciones reducidas.') : t('Animaciones normales.'));
   };
 
   return (
-    <Seccion titulo="Preferencias" desc="Apariencia, idioma, formatos y accesibilidad.">
+    <Seccion titulo={t('Preferencias')} desc={t('Apariencia, idioma, formatos y accesibilidad.')}>
       <AparienciaCard />
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-3">Idioma</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-3">{t('Idioma')}</h3>
         <div className="flex flex-wrap gap-2">
           {IDIOMAS.map(i => (
             <button key={i.code} onClick={() => cambiarIdioma(i.code)}
               className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-colors
-                          ${lang === i.code ? 'bg-accent text-white' : 'bg-surface-2 text-text-2 hover:text-text-1'}`}>
+                          ${lang === i.code ? 'bg-accent text-[#15171C]' : 'bg-surface-2 text-text-2 hover:text-text-1'}`}>
               {i.label}
             </button>
           ))}
@@ -255,18 +258,18 @@ function Preferencias() {
       </div>
 
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-1.5">Accesibilidad</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-1.5">{t('Accesibilidad')}</h3>
         <label className="flex items-center gap-3 cursor-pointer select-none">
           <button type="button" role="switch" aria-checked={reducir} onClick={toggleAnimaciones}
             className={`relative w-9 h-5 rounded-full transition-colors ${reducir ? 'bg-accent' : 'bg-surface-3'}`}>
             <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${reducir ? 'left-[18px]' : 'left-0.5'}`} />
           </button>
-          <span className="text-sm text-text-1">Reducir animaciones</span>
+          <span className="text-sm text-text-1">{t('Reducir animaciones')}</span>
         </label>
       </div>
 
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-1.5">Experimental</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-1.5">{t('Experimental')}</h3>
         <p className="text-sm text-text-2">El laboratorio de funciones beta se habilita al final del rework.</p>
       </div>
     </Seccion>

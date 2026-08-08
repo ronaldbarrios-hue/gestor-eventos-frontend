@@ -11,3 +11,6 @@ dist/
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# salida del auditor de traducción
+faltantes.txt

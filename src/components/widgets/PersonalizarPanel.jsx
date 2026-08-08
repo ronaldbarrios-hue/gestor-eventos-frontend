@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { useI18n } from '../../context/I18nContext.jsx';
 import { WIDGETS_META, TAMANOS } from '../../hooks/useWidgets.js';
 
 const SIZE_LABEL = { sm: 'S', md: 'M', lg: 'L', full: 'XL' };
@@ -9,6 +10,7 @@ const SIZE_LABEL = { sm: 'S', md: 'M', lg: 'L', full: 'XL' };
    y el `position: fixed` deja de anclarse a la ventana → el panel no llegaba
    arriba ni abajo de la pantalla. */
 export default function PersonalizarPanel({ open, onClose, layout, toggle, setSize, reset, meta = WIDGETS_META, titulo = 'Personalizar Inicio' }) {
+  const { t } = useI18n();
   return createPortal(
     <>
       {/* Backdrop transparente: solo cierra al hacer clic fuera, SIN oscurecer ni
@@ -24,8 +26,8 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 className="text-base font-semibold text-text-1">{titulo}</h2>
-            <p className="text-xs text-text-3 mt-0.5">Activa, oculta y dimensiona tus widgets.</p>
+            <h2 className="text-base font-semibold text-text-1">{t(titulo)}</h2>
+            <p className="text-xs text-text-3 mt-0.5">{t('Activa, oculta y dimensiona tus widgets.')}</p>
           </div>
           <button
             onClick={onClose}
@@ -45,8 +47,8 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
               <div key={w.id} className={`rounded-2xl border p-3.5 transition-colors ${cfg.visible ? 'border-accent/30 bg-accent/5' : 'border-border'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-1">{w.titulo}</p>
-                    <p className="text-xs text-text-3 leading-snug mt-0.5">{w.descripcion}</p>
+                    <p className="text-sm font-medium text-text-1">{t(w.titulo)}</p>
+                    <p className="text-xs text-text-3 leading-snug mt-0.5">{t(w.descripcion)}</p>
                   </div>
                   <button
                     onClick={() => toggle(w.id)}
@@ -79,7 +81,7 @@ export default function PersonalizarPanel({ open, onClose, layout, toggle, setSi
 
         <footer className="px-5 py-4 border-t border-border">
           <button onClick={reset} className="btn-secondary w-full justify-center text-sm">
-            Restablecer layout
+            {t('Restablecer layout')}
           </button>
         </footer>
       </aside>

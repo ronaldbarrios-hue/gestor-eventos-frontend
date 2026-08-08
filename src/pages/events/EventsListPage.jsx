@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useI18n, tEstatico } from '../../context/I18nContext.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { confirmDialog } from '../../components/ui/Confirm.jsx';
 import { eventosApi } from '../../api/eventos.js';
@@ -64,6 +65,7 @@ function pasaFiltroFecha(e, filtro) {
 }
 
 export default function EventsListPage() {
+  const { t } = useI18n();
   const { success, error: err } = useToast();
   const { usuario } = useAuth();
   const navigate = useNavigate();
@@ -198,22 +200,24 @@ export default function EventsListPage() {
       {/* ── Header con conteos ── */}
       <header className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">Eventos</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">{t('Eventos')}</h1>
           <p className="text-sm text-text-2 mt-1.5 flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-text-1">{conteos.total} evento{conteos.total !== 1 ? 's' : ''}</span>
-            <Dot /> {conteos.publicados} publicados
-            <Dot /> {conteos.borradores} borradores
-            <Dot /> {conteos.finalizados} finalizados
+            <span className="font-medium text-text-1">
+              {conteos.total === 1 ? t('{n} evento', { n: 1 }) : t('{n} eventos', { n: conteos.total })}
+            </span>
+            <Dot /> {t('{n} publicados',  { n: conteos.publicados })}
+            <Dot /> {t('{n} borradores',  { n: conteos.borradores })}
+            <Dot /> {t('{n} finalizados', { n: conteos.finalizados })}
           </p>
         </div>
         <Link to="/eventos/nuevo" className="btn-gradient">
-          <PlusIcon className="w-4 h-4" /> Crear evento
+          <PlusIcon className="w-4 h-4" /> {t('Crear evento')}
         </Link>
       </header>
 
       {/* ── Pestañas: mis eventos / explorar para inspirarse ── */}
       <div className="flex items-center gap-1 border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0">
-        {[['mios', 'Mis eventos'], ['explorar', 'Explorar GESTEK']].map(([v, label]) => (
+        {[['mios', t('Mis eventos')], ['explorar', t('Explorar GESTEK')]].map(([v, label]) => (
           <button
             key={v}
             onClick={() => setPestana(v)}
@@ -226,7 +230,7 @@ export default function EventsListPage() {
         ))}
         {pestana === 'explorar' && (
           <span className="ml-auto hidden sm:inline text-xs text-text-3 pr-1">
-            Páginas públicas de eventos en GESTEK — inspírate para el tuyo.
+            {t('Páginas públicas de eventos en GESTEK — inspírate para el tuyo.')}
           </span>
         )}
       </div>
@@ -241,7 +245,7 @@ export default function EventsListPage() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Buscar por nombre, ciudad, categoría, estado…"
+            placeholder={t('Buscar por nombre, ciudad, categoría, estado…')}
             className="w-full h-10 pl-10 pr-4 rounded-xl bg-surface border border-border text-sm text-text-1
                        placeholder:text-text-3 focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/20"
           />
@@ -253,15 +257,15 @@ export default function EventsListPage() {
           <Select value={filtros.modalidad} onChange={v => setFiltros(f => ({ ...f, modalidad: v }))} opciones={FILTRO_MODALIDAD} />
           {categorias.length > 0 && (
             <Select value={filtros.categoria} onChange={v => setFiltros(f => ({ ...f, categoria: v }))}
-              opciones={[{ value: '', label: 'Categoría' }, ...categorias.map(c => ({ value: String(c.id), label: c.nombre }))]} />
+              opciones={[{ value: '', label: t('Categoría') }, ...categorias.map(c => ({ value: String(c.id), label: c.nombre }))]} />
           )}
           <div className="flex rounded-xl border border-border bg-surface overflow-hidden">
             {[['grid', GridIcon], ['lista', ListIcon], ['calendario', CalIcon]].map(([v, Icon]) => (
               <button
                 key={v}
                 onClick={() => setVista(v)}
-                aria-label={`Vista ${v}`}
-                className={`px-3 h-10 transition-colors ${vista === v ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1 hover:bg-surface-2'}`}
+                aria-label={t('Vista {v}', { v })}
+                className={`px-3 h-10 transition-colors ${vista === v ? 'bg-accent text-[#15171C]' : 'text-text-3 hover:text-text-1 hover:bg-surface-2'}`}
               >
                 <Icon className="w-4 h-4" />
               </button>
@@ -275,9 +279,9 @@ export default function EventsListPage() {
         <div className="flex justify-center py-24"><Spinner size="lg" /></div>
       ) : ordenados.length === 0 ? (
         <EmptyState
-          titulo={q || filtros.estado || filtros.fecha ? 'Sin resultados' : 'Aún no tienes eventos'}
-          descripcion={q || filtros.estado || filtros.fecha ? 'Prueba ajustando la búsqueda o los filtros.' : 'Crea tu primer evento y empieza a organizarlo todo desde aquí.'}
-          accion={!q && !filtros.estado ? <Link to="/eventos/nuevo" className="btn-primary">Crear evento</Link> : null}
+          titulo={q || filtros.estado || filtros.fecha ? t('Sin resultados') : t('Aún no tienes eventos')}
+          descripcion={q || filtros.estado || filtros.fecha ? t('Prueba ajustando la búsqueda o los filtros.') : t('Crea tu primer evento y empieza a organizarlo todo desde aquí.')}
+          accion={!q && !filtros.estado ? <Link to="/eventos/nuevo" className="btn-primary">{t('Crear evento')}</Link> : null}
         />
       ) : vista === 'lista' ? (
         <VistaLista eventos={ordenados} favoritos={favoritos} acciones={acciones} accionando={accionando} />
@@ -546,7 +550,7 @@ function Select({ value, onChange, opciones }) {
       className="h-10 px-3 rounded-xl bg-surface border border-border text-sm text-text-1
                  focus:outline-none focus:border-accent/50 cursor-pointer"
     >
-      {opciones.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {opciones.map(o => <option key={o.value} value={o.value}>{tEstatico(o.label)}</option>)}
     </select>
   );
 }

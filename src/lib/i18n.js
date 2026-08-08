@@ -1,16 +1,17 @@
-/* GESTEK — i18n mínimo y extensible.
-   - Idioma por defecto: 'es'. Persistido en localStorage.
-   - t('clave', { var }) busca en el diccionario del idioma activo;
-     si falta, cae al español; si tampoco, devuelve la clave.
-   - useT() re-renderiza cuando cambia el idioma.
+/* GESTEK — diccionario por CLAVE, para textos de la página pública de un
+   evento (marca blanca).
 
-   Migración incremental: ir reemplazando textos por t('...') y
-   sumando entradas a DICT. Sin esto, la app sigue 100% funcional. */
+   Convive con el contexto de idioma de la app (context/I18nContext.jsx),
+   que usa la frase en español como clave. Son dos formas de escribir lo
+   mismo, pero comparten UN solo estado: la misma llave de localStorage y
+   el mismo evento de cambio, así que cambiar el idioma en cualquiera de
+   los dos lados mueve al otro. */
 
 import { useEffect, useState } from 'react';
 
-const KEY = 'gestek:lang';
-const EVT = 'gestek:lang-changed';
+/* Misma llave que I18nContext: un solo idioma para toda la app. */
+export const KEY = 'gestek-lang';
+export const EVT = 'gestek:lang-changed';
 
 export const IDIOMAS = [
   { code: 'es', label: 'Español' },

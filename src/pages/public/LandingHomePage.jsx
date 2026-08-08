@@ -210,6 +210,7 @@ function Hero() {
 
 /* ─────────── MARQUEE infinito ─────────── */
 function Marquee() {
+  const { t } = useI18n();
   const items = [
     'CREAR EVENTOS',
     'QR DE ASISTENCIA',
@@ -229,10 +230,10 @@ function Marquee() {
       <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-bg to-transparent z-10 pointer-events-none" />
       <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-bg to-transparent z-10 pointer-events-none" />
       <div className="flex items-center gap-14 animate-marquee" style={{ width: 'max-content', animationDirection: 'reverse' }}>
-        {[...items, ...items].map((t, i) => (
+        {[...items, ...items].map((etiqueta, i) => (
           <div key={i} className="flex items-center gap-14 flex-shrink-0">
             <span className="text-sm font-semibold tracking-[0.25em] text-text-2 whitespace-nowrap hover:text-text-1 transition-colors">
-              {t}
+              {t(etiqueta)}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0" />
           </div>
@@ -244,6 +245,7 @@ function Marquee() {
 
 /* ─────────── VALUE PROPS ─────────── */
 function Stats() {
+  const { t } = useI18n();
   const props = [
     {
       kicker: 'Velocidad',
@@ -284,12 +286,12 @@ function Stats() {
             style={{ animationDelay: `${i * 100}ms` }}
           >
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/8 rounded-full blur-2xl group-hover:bg-primary/15 transition-colors" />
-            <p className="relative text-[10px] uppercase tracking-widest text-primary-light font-bold mb-4">{p.kicker}</p>
-            <h3 className="relative text-xl font-bold font-display text-text-1 leading-tight mb-1">{p.title}</h3>
+            <p className="relative text-[10px] uppercase tracking-widest text-primary-light font-bold mb-4">{t(p.kicker)}</p>
+            <h3 className="relative text-xl font-bold font-display text-text-1 leading-tight mb-1">{t(p.title)}</h3>
             <p className="relative text-2xl font-bold font-display bg-gradient-to-br from-primary-light to-accent-light bg-clip-text text-transparent mb-3">
-              {p.highlight}
+              {t(p.highlight)}
             </p>
-            <p className="relative text-sm text-text-2 leading-relaxed">{p.desc}</p>
+            <p className="relative text-sm text-text-2 leading-relaxed">{t(p.desc)}</p>
           </div>
         ))}
       </div>
@@ -299,20 +301,19 @@ function Stats() {
 
 /* ─────────── PILLARS ─────────── */
 function FreeIntro() {
+  const { t } = useI18n();
   const [ref, visible] = useReveal();
   return (
     <section className="px-5 sm:px-8 pt-24 pb-6">
       <div ref={ref} className={`max-w-3xl mx-auto text-center transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
         <p className="text-xs uppercase tracking-widest text-primary-light font-bold mb-4">
-          Plan gratuito
+          {t('Plan gratuito')}
         </p>
         <h2 className="text-4xl sm:text-5xl font-bold font-display text-text-1 tracking-tight leading-tight mb-5">
-          El plan gratuito incluye lo esencial para operar tus eventos.
+          {t('El plan gratuito incluye lo esencial para operar tus eventos.')}
         </h2>
         <p className="text-base sm:text-lg text-text-2 leading-relaxed">
-          Asistentes ilimitados, QR de check-in, agenda con vista por día,
-          equipo con roles y chat, programa de fidelidad con puntos y ranking, pagos
-          BRE-B sin comisión y página pública con tu marca. Sin costo.
+          {t('Asistentes ilimitados, QR de check-in, agenda con vista por día, equipo con roles y chat, programa de fidelidad con puntos y ranking, pagos BRE-B sin comisión y página pública con tu marca. Sin costo.')}
         </p>
       </div>
     </section>
@@ -320,6 +321,7 @@ function FreeIntro() {
 }
 
 function Pillars() {
+  const { t } = useI18n();
   const [ref, visible] = useReveal();
   const items = [
     { title: 'Todo incluido', desc: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad, chat y página pública.' },
@@ -330,9 +332,9 @@ function Pillars() {
     <section className="px-5 sm:px-8 py-24 sm:py-28">
       <div className="max-w-5xl mx-auto" ref={ref}>
         <div className={`text-center mb-16 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-          <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Por qué GESTEK</p>
+          <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('Por qué GESTEK')}</p>
           <h2 className="text-4xl sm:text-5xl font-bold font-display text-text-1 tracking-tight leading-tight">
-            Todo lo que tu evento necesita,<br />en una sola plataforma.
+            {t('Todo lo que tu evento necesita,')}<br />{t('en una sola plataforma.')}
           </h2>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
@@ -348,8 +350,8 @@ function Pillars() {
                 <div className="w-12 h-12 rounded-2xl bg-primary/15 border border-primary/25 mb-5 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <span className="text-primary-light text-lg font-bold">{i + 1}</span>
                 </div>
-                <h3 className="text-xl font-semibold text-text-1 mb-3">{it.title}</h3>
-                <p className="text-base text-text-2 leading-relaxed">{it.desc}</p>
+                <h3 className="text-xl font-semibold text-text-1 mb-3">{t(it.title)}</h3>
+                <p className="text-base text-text-2 leading-relaxed">{t(it.desc)}</p>
               </div>
             </div>
           ))}
@@ -361,22 +363,23 @@ function Pillars() {
 
 /* ─────────── FEATURE SPLIT (reutilizable) ─────────── */
 function FeatureSplit({ side, kicker, title, desc, bullets, visual }) {
+  const { t } = useI18n();
   const [ref, visible] = useReveal();
   const isLeft = side === 'left';
   return (
     <section className="px-5 sm:px-8 py-20 sm:py-24">
       <div ref={ref} className={`max-w-5xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center`}>
         <div className={`${isLeft ? 'lg:order-1' : 'lg:order-2'} transition-all duration-700 ${visible ? 'opacity-100 translate-x-0' : `opacity-0 ${isLeft ? '-translate-x-6' : 'translate-x-6'}`}`}>
-          <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mb-4">{kicker}</p>
-          <h2 className="text-3xl sm:text-4xl font-bold font-display text-text-1 tracking-tight leading-tight mb-5">{title}</h2>
-          <p className="text-base sm:text-lg text-text-2 leading-relaxed mb-7">{desc}</p>
+          <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mb-4">{t(kicker)}</p>
+          <h2 className="text-3xl sm:text-4xl font-bold font-display text-text-1 tracking-tight leading-tight mb-5">{t(title)}</h2>
+          <p className="text-base sm:text-lg text-text-2 leading-relaxed mb-7">{t(desc)}</p>
           <ul className="space-y-3">
             {bullets.map(b => (
               <li key={b} className="flex items-start gap-3 text-base text-text-1">
                 <svg className="w-5 h-5 mt-0.5 text-primary-light flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                {b}
+                {t(b)}
               </li>
             ))}
           </ul>
@@ -391,11 +394,12 @@ function FeatureSplit({ side, kicker, title, desc, bullets, visual }) {
 }
 
 function QRMockup() {
+  const { t } = useI18n();
   return (
     <div className="rounded-3xl border border-border-2 bg-surface/60 backdrop-blur p-7">
       <div className="flex items-center justify-between mb-5">
-        <span className="text-xs uppercase tracking-widest text-text-3">Check-in</span>
-        <span className="px-3 py-1 rounded-full bg-success/15 border border-success/30 text-success text-xs font-semibold">En vivo</span>
+        <span className="text-xs uppercase tracking-widest text-text-3">{t('Check-in')}</span>
+        <span className="px-3 py-1 rounded-full bg-success/15 border border-success/30 text-success text-xs font-semibold">{t('En vivo')}</span>
       </div>
       <div className="grid grid-cols-[auto_1fr] gap-5 items-center mb-5">
         <div className="w-28 h-28 rounded-2xl bg-text-1 p-2.5">
@@ -431,14 +435,15 @@ function QRMockup() {
 }
 
 function PayMockup() {
+  const { t } = useI18n();
   return (
     <div className="rounded-3xl border border-border-2 bg-surface/60 backdrop-blur p-7">
       <div className="flex items-center justify-between mb-5">
-        <span className="text-xs uppercase tracking-widest text-text-3">Boleta y pago</span>
+        <span className="text-xs uppercase tracking-widest text-text-3">{t('Boleta y pago')}</span>
         <span className="px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary-light text-xs font-semibold">BRE-B</span>
       </div>
       <p className="text-3xl font-bold font-display text-text-1 mb-1">$ 80.000</p>
-      <p className="text-xs text-text-3 mb-5">UX Workshop Bogotá, 22 de septiembre</p>
+      <p className="text-xs text-text-3 mb-5">{t('UX Workshop Bogotá, 22 de septiembre')}</p>
 
       <div className="rounded-2xl bg-bg/60 border border-border p-4 mb-4 grid grid-cols-[auto_1fr] gap-4 items-center">
         <div className="w-16 h-16 rounded-xl bg-text-1 p-1.5">
@@ -452,17 +457,18 @@ function PayMockup() {
           </svg>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-text-3 mb-1">Llave BRE-B del organizador</p>
+          <p className="text-[10px] uppercase tracking-widest text-text-3 mb-1">{t('Llave BRE-B del organizador')}</p>
           <p className="text-sm font-mono text-text-1 truncate">@gestek-events</p>
         </div>
       </div>
 
-      <button className="w-full py-3 rounded-2xl bg-text-1 text-bg text-sm font-semibold">Pagar con BRE-B</button>
+      <button className="w-full py-3 rounded-2xl bg-text-1 text-bg text-sm font-semibold">{t('Pagar con BRE-B')}</button>
     </div>
   );
 }
 
 function TeamMockup() {
+  const { t } = useI18n();
   const team = [
     { name: 'Juan Medina',    role: 'Admin',  color: 'from-primary to-accent' },
     { name: 'Laura Sánchez',  role: 'Editor', color: 'from-accent to-success' },
@@ -472,7 +478,7 @@ function TeamMockup() {
   return (
     <div className="rounded-3xl border border-border-2 bg-surface/60 backdrop-blur p-7">
       <div className="flex items-center justify-between mb-5">
-        <span className="text-xs uppercase tracking-widest text-text-3">Equipo del evento</span>
+        <span className="text-xs uppercase tracking-widest text-text-3">{t('Equipo del evento')}</span>
         <span className="px-3 py-1 rounded-full bg-success/15 border border-success/30 text-success text-xs font-semibold">4 activos</span>
       </div>
       <div className="space-y-3">
@@ -499,6 +505,7 @@ function TeamMockup() {
 }
 
 function BrandMock() {
+  const { t } = useI18n();
   return (
     <div className="rounded-3xl border border-border-2 overflow-hidden"
          style={{ background: '#0E1630', fontFamily: "'Space Grotesk', sans-serif" }}>
@@ -506,7 +513,7 @@ function BrandMock() {
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FCEFA1] to-[#A6731B]" />
         <div>
           <span className="block text-sm font-bold text-white">Tu Empresa</span>
-          <span className="block text-[11px] text-white/60">Experiencias inolvidables</span>
+          <span className="block text-[11px] text-white/60">{t('Experiencias inolvidables')}</span>
         </div>
         <div className="ml-auto flex gap-1.5">
           <span className="w-7 h-7 rounded-lg border border-white/15" />
@@ -515,8 +522,8 @@ function BrandMock() {
       </div>
       <div className="p-5 space-y-3">
         <div className="aspect-video rounded-2xl bg-gradient-to-br from-primary/40 to-accent/25" />
-        <p className="text-base font-semibold text-white">Tu evento, con tu marca</p>
-        <p className="text-sm text-white/60">Colores, tipografía y fondo propios, sin la marca GESTEK.</p>
+        <p className="text-base font-semibold text-white">{t('Tu evento, con tu marca')}</p>
+        <p className="text-sm text-white/60">{t('Colores, tipografía y fondo propios, sin la marca GESTEK.')}</p>
         <span className="inline-flex h-8 px-4 items-center rounded-full text-xs font-semibold text-white bg-primary">
           Reservar
         </span>
@@ -558,6 +565,7 @@ function CodeMockup() {
 
 /* ─────────── AI Pro callout ─────────── */
 function AIPro() {
+  const { t } = useI18n();
   const [ref, visible] = useReveal();
   const MOODS = ['idle', 'thinking', 'talking', 'happy'];
   const [mi, setMi] = useState(0);
@@ -579,17 +587,13 @@ function AIPro() {
         {/* Claim de protagonismo */}
         <div className="text-center mb-12">
           <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/40 bg-accent/10 text-accent-light text-xs font-semibold uppercase tracking-widest mb-6">
-            Asistente de IA integrado
+            {t('Asistente de IA integrado')}
           </span>
           <h2 className="text-4xl sm:text-6xl font-bold font-display tracking-tight text-text-1 leading-[1.05] mb-5">
-            <span className="bg-gradient-to-br from-primary-light to-accent-light bg-clip-text text-transparent">Gestbot</span>, el asistente que opera tu evento
+            <span className="bg-gradient-to-br from-primary-light to-accent-light bg-clip-text text-transparent">Gestbot</span>{t(', el asistente que opera tu evento')}
           </h2>
           <p className="text-base sm:text-xl text-text-2 max-w-2xl mx-auto leading-relaxed">
-            Gestbot no se limita a sugerir: <strong className="text-text-1">ejecuta</strong>. Crea y
-            publica eventos, arma boletas, registra check-ins, envía recordatorios y gestiona el
-            equipo, con <strong className="text-text-1">más de 50 acciones reales</strong>. Solicita
-            los datos faltantes mediante formularios y puede analizar un PDF o imágenes para crear
-            el evento.
+            {t('Gestbot no se limita a sugerir:')} <strong className="text-text-1">{t('ejecuta')}</strong>{t('. Crea y publica eventos, arma boletas, registra check-ins, envía recordatorios y gestiona el equipo, con')} <strong className="text-text-1">{t('más de 50 acciones reales')}</strong>{t('. Solicita los datos faltantes mediante formularios y puede analizar un PDF o imágenes para crear el evento.')}
           </p>
         </div>
 
@@ -602,7 +606,7 @@ function AIPro() {
             </div>
             <div className="absolute bottom-2 px-4 py-1.5 rounded-full bg-surface/80 backdrop-blur
                             border border-border-2 text-xs text-text-2">
-              {MOODS[mi] === 'thinking' ? 'Procesando' : MOODS[mi] === 'happy' ? 'Listo' : 'Disponible'}
+              {MOODS[mi] === 'thinking' ? t('Procesando') : MOODS[mi] === 'happy' ? t('Listo') : t('Disponible')}
             </div>
           </div>
 
@@ -611,26 +615,25 @@ function AIPro() {
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-text-1/90 flex-shrink-0" />
               <div className="flex-1 px-4 py-3 rounded-2xl rounded-tl-sm bg-bg/60 border border-border text-sm text-text-1">
-                Crea un summit de tecnología para 200 personas el 15 de agosto en Ibagué, híbrido, entrada gratis.
+                {t('Crea un summit de tecnología para 200 personas el 15 de agosto en Ibagué, híbrido, entrada gratis.')}
               </div>
             </div>
             <div className="flex items-start gap-3 flex-row-reverse">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold">G</div>
               <div className="flex-1 px-4 py-3 rounded-2xl rounded-tr-sm bg-accent/10 border border-accent/20 text-sm text-text-1">
-                Listo. Creé <span className="font-semibold">Summit Tech Ibagué 2026</span> (200 cupos, 15 ago,
-                híbrido), agenda base, página pública y QR. ¿Lo publico?
+                {t('Listo. Creé')} <span className="font-semibold">Summit Tech Ibagué 2026</span> {t('(200 cupos, 15 ago, híbrido), agenda base, página pública y QR. ¿Lo publico?')}
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-full bg-text-1/90 flex-shrink-0" />
               <div className="flex-1 px-4 py-3 rounded-2xl rounded-tl-sm bg-bg/60 border border-border text-sm text-text-1">
-                Publícalo y crea una boleta VIP a 50.000.
+                {t('Publícalo y crea una boleta VIP a 50.000.')}
               </div>
             </div>
             <div className="flex items-start gap-3 flex-row-reverse">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold">G</div>
               <div className="flex-1 px-4 py-3 rounded-2xl rounded-tr-sm bg-accent/10 border border-accent/20 text-sm text-text-1">
-                Hecho. Evento publicado y boleta <span className="font-semibold">VIP por $50.000</span> creada.
+                {t('Hecho. Evento publicado y boleta')} <span className="font-semibold">{t('VIP por $50.000')}</span> {t('creada.')}
               </div>
             </div>
           </div>
@@ -640,7 +643,7 @@ function AIPro() {
           <Link to="/register?plan=pro"
             className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-r from-primary to-accent
                        text-white text-sm font-semibold hover:opacity-90 transition-all shadow-glow-accent">
-            Conocer a Gestbot
+            {t('Conocer a Gestbot')}
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
           </Link>
         </div>
@@ -652,6 +655,7 @@ function AIPro() {
 
 /* ─────────── FAQ teaser ─────────── */
 function FAQTeaser() {
+  const { t } = useI18n();
   const items = [
     { q: '¿Qué incluye GESTEK?', a: 'Asistentes ilimitados, QR de check-in, agenda, equipo con roles, fidelidad, IA y página pública con tu marca.' },
     { q: '¿Cobran comisión por las ventas con BRE-B?', a: 'No. El dinero va directo del asistente a tu cuenta vía BRE-B. GESTEK no toca ese flujo.' },
@@ -661,9 +665,9 @@ function FAQTeaser() {
     <section className="px-5 sm:px-8 py-24">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-10">
-          <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Preguntas frecuentes</p>
+          <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('Preguntas frecuentes')}</p>
           <h2 className="text-3xl sm:text-4xl font-bold font-display text-text-1 tracking-tight">
-            Lo que más nos preguntan
+            {t('Lo que más nos preguntan')}
           </h2>
         </div>
         <div className="space-y-3">
@@ -672,20 +676,20 @@ function FAQTeaser() {
             return (
               <div key={f.q} className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
                 <button onClick={() => setOpen(isOpen ? -1 : i)} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-surface/60 transition-colors">
-                  <span className="text-base font-medium text-text-1">{f.q}</span>
+                  <span className="text-base font-medium text-text-1">{t(f.q)}</span>
                   <svg className={`w-4 h-4 text-text-2 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}>
-                  <p className="px-5 pb-5 text-base text-text-2 leading-relaxed">{f.a}</p>
+                  <p className="px-5 pb-5 text-base text-text-2 leading-relaxed">{t(f.a)}</p>
                 </div>
               </div>
             );
           })}
         </div>
         <p className="text-center text-sm text-text-3 mt-6">
-          <Link to="/faq" className="underline underline-offset-2 hover:text-text-1 transition-colors">Ver todas las preguntas</Link>
+          <Link to="/faq" className="underline underline-offset-2 hover:text-text-1 transition-colors">{t('Ver todas las preguntas')}</Link>
         </p>
       </div>
     </section>
@@ -694,6 +698,7 @@ function FAQTeaser() {
 
 /* ─────────── CTA final ─────────── */
 function CTASection() {
+  const { t } = useI18n();
   return (
     <section className="px-5 sm:px-8 py-28">
       <div className="relative max-w-3xl mx-auto text-center rounded-3xl border border-border-2 bg-gradient-to-br from-surface/80 to-surface/30 p-12 sm:p-16 overflow-hidden">
@@ -701,17 +706,17 @@ function CTASection() {
           <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/15 blur-[120px] rounded-full" />
         </div>
         <h2 className="relative text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight mb-5">
-          Tu próximo evento empieza hoy
+          {t('Tu próximo evento empieza hoy')}
         </h2>
         <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-10">
-          Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy.
+          {t('Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy.')}
         </p>
         <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link to="/register" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow hover:scale-[1.02]">
-            Crear cuenta gratis
+            {t('Crear cuenta gratis')}
           </Link>
           <Link to="/como-funciona" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
-            Cómo funciona
+            {t('Cómo funciona')}
           </Link>
         </div>
       </div>

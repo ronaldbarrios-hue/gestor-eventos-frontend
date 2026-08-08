@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useI18n } from '../../context/I18nContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { meApi } from '../../api/me.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -50,15 +51,16 @@ const COMPONENTES = {
 };
 
 export default function MiEspacioPage() {
+  const { t } = useI18n();
   const [vista, setVista] = useState('panel');
 
   const [expositores, setExpositores] = useState([]);
   useEffect(() => { meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {}); }, []);
 
   const TABS = [
-    ['panel', 'Mi panel'], ['colaborador', 'Colaborador'],
-    ['talento', 'Perfil de talento'], ['organizador', 'Perfil de organizador'],
-    ...(expositores.length ? [['expositor', 'Mis stands']] : []),
+    ['panel', t('Mi panel')], ['colaborador', t('Colaborador')],
+    ['talento', t('Perfil de talento')], ['organizador', t('Perfil de organizador')],
+    ...(expositores.length ? [['expositor', t('Mis stands')]] : []),
   ];
 
   return (
@@ -84,10 +86,10 @@ export default function MiEspacioPage() {
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">Perfil de talento</h1>
-              <p className="text-sm text-text-2 mt-1">Tu CV para trabajar en eventos. Con él te postulas a vacantes.</p>
+              <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{t('Perfil de talento')}</h1>
+              <p className="text-sm text-text-2 mt-1">{t('Tu CV para trabajar en eventos. Con él te postulas a vacantes.')}</p>
             </div>
-            <Link to="/vacantes" className="btn-secondary btn-sm flex-shrink-0">Explorar vacantes →</Link>
+            <Link to="/vacantes" className="btn-secondary btn-sm flex-shrink-0">{t('Explorar vacantes →')}</Link>
           </div>
           <PerfilTalentoEditor />
         </div>
@@ -95,8 +97,8 @@ export default function MiEspacioPage() {
       {vista === 'organizador' && (
         <div className="space-y-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">Perfil de organizador</h1>
-            <p className="text-sm text-text-2 mt-1">Tu identidad pública y tu reputación cuando organizas eventos y contratas personal.</p>
+            <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{t('Perfil de organizador')}</h1>
+            <p className="text-sm text-text-2 mt-1">{t('Tu identidad pública y tu reputación cuando organizas eventos y contratas personal.')}</p>
           </div>
           <PerfilOrganizador />
         </div>
@@ -107,12 +109,13 @@ export default function MiEspacioPage() {
 }
 
 function MisStands({ expositores }) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">Mis stands</h1>
-        <p className="text-sm text-text-2 mt-1">Los stands donde eres expositor. Abre el panel para editar tu ficha, dar puntos y ver tu cronograma.</p>
+        <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{t('Mis stands')}</h1>
+        <p className="text-sm text-text-2 mt-1">{t('Los stands donde eres expositor. Abre el panel para editar tu ficha, dar puntos y ver tu cronograma.')}</p>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         {expositores.map(e => (
@@ -123,9 +126,9 @@ function MisStands({ expositores }) {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-text-1 truncate">{e.nombre}</p>
               <p className="text-xs text-text-3 truncate">{e.evento?.titulo}{e.stand ? ` · ${e.stand}` : ''}</p>
-              {e.estado_ficha === 'borrador' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">Ficha en borrador</span>}
+              {e.estado_ficha === 'borrador' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">{t('Ficha en borrador')}</span>}
             </div>
-            <button onClick={() => navigate(`/expositor/${e.codigo}`)} disabled={!e.codigo} className="btn-secondary btn-sm flex-shrink-0">Abrir panel</button>
+            <button onClick={() => navigate(`/expositor/${e.codigo}`)} disabled={!e.codigo} className="btn-secondary btn-sm flex-shrink-0">{t('Abrir panel')}</button>
           </div>
         ))}
       </div>
@@ -134,6 +137,7 @@ function MisStands({ expositores }) {
 }
 
 function PanelEspacio({ embebido = false }) {
+  const { t } = useI18n();
   const { usuario } = useAuth();
   const { layout, visibles, toggle, setSize, mover, reset } = useWidgets('mi-espacio', ESPACIO_WIDGETS);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -141,23 +145,25 @@ function PanelEspacio({ embebido = false }) {
 
   const pendientes = tareas.filter(t => t.estado !== 'hecho').length;
   const vencidas   = tareas.filter(t => t.estado !== 'hecho' && t.vence_at && new Date(t.vence_at) < new Date()).length;
-  const nombre = usuario?.nombre?.split(' ')[0] || 'Usuario';
+  const nombre = usuario?.nombre?.split(' ')[0] || t('Usuario');
 
   return (
     <div className="space-y-6">
       <header className={`flex items-start justify-between gap-4 flex-wrap ${embebido ? 'hidden' : ''}`}>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">Mi Espacio</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">{t('Mi Espacio')}</h1>
           <p className="text-sm text-text-2 mt-1">
-            {loading ? 'Reuniendo tu trabajo…'
+            {loading ? t('Reuniendo tu trabajo…')
               : vencidas > 0
-                ? `${nombre}, tienes ${pendientes} tareas abiertas y ${vencidas} vencidas.`
-                : `${nombre}, tienes ${pendientes} tarea${pendientes !== 1 ? 's' : ''} abierta${pendientes !== 1 ? 's' : ''}. Organiza tu espacio como prefieras.`}
+                ? t('{nombre}, tienes {p} tareas abiertas y {v} vencidas.', { nombre, p: pendientes, v: vencidas })
+                : pendientes === 1
+                  ? t('{nombre}, tienes 1 tarea abierta. Organiza tu espacio como prefieras.', { nombre })
+                  : t('{nombre}, tienes {p} tareas abiertas. Organiza tu espacio como prefieras.', { nombre, p: pendientes })}
           </p>
         </div>
         <button onClick={() => setPanelOpen(true)} className="btn-secondary">
           <SlidersIcon className="w-4 h-4" />
-          <span className="hidden sm:inline">Personalizar</span>
+          <span className="hidden sm:inline">{t('Personalizar')}</span>
         </button>
       </header>
 
@@ -170,7 +176,7 @@ function PanelEspacio({ embebido = false }) {
             <WidgetShell
               key={id}
               id={id}
-              titulo={meta.titulo}
+              titulo={t(meta.titulo)}
               size={layout.config[id]?.size || meta.defaultSize}
               onSize={(t) => setSize(id, t)}
               onHide={() => toggle(id)}
@@ -183,8 +189,8 @@ function PanelEspacio({ embebido = false }) {
 
       {visibles.length === 0 && (
         <div className="text-center py-16 rounded-3xl border border-dashed border-border-2">
-          <p className="text-text-2 mb-3">Tu espacio está vacío.</p>
-          <button onClick={() => setPanelOpen(true)} className="btn-primary">Agregar widgets</button>
+          <p className="text-text-2 mb-3">{t('Tu espacio está vacío.')}</p>
+          <button onClick={() => setPanelOpen(true)} className="btn-primary">{t('Agregar widgets')}</button>
         </div>
       )}
 

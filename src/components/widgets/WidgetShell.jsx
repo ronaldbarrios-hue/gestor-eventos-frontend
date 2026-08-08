@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useI18n } from '../../context/I18nContext.jsx';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TAMANOS } from '../../hooks/useWidgets.js';
@@ -9,6 +10,7 @@ const SIZE_LABEL = { sm: 'Pequeño', md: 'Mediano', lg: 'Grande', full: 'Pantall
 /* Carcasa común de todo widget: header con título, handle de arrastre
    y menú (tamaño / ocultar). El contenido lo pone cada widget. */
 export default function WidgetShell({ id, titulo, size, onSize, onHide, accion, children }) {
+  const { t: tr } = useI18n();
   const [menu, setMenu] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
@@ -23,7 +25,7 @@ export default function WidgetShell({ id, titulo, size, onSize, onHide, accion, 
       <header className="flex items-center gap-2 px-5 py-3.5 border-b border-border flex-shrink-0">
         <button
           {...attributes} {...listeners}
-          aria-label="Mover widget"
+          aria-label={tr('Mover widget')}
           className="cursor-grab active:cursor-grabbing text-text-3 hover:text-text-1 transition-colors -ml-1 p-1"
         >
           <GripIcon className="w-3.5 h-3.5" />
@@ -33,7 +35,7 @@ export default function WidgetShell({ id, titulo, size, onSize, onHide, accion, 
         <div className="relative">
           <button
             onClick={() => setMenu(v => !v)}
-            aria-label="Opciones del widget"
+            aria-label={tr('Opciones del widget')}
             className="p-1 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 transition-colors"
           >
             <DotsIcon className="w-4 h-4" />
@@ -42,7 +44,7 @@ export default function WidgetShell({ id, titulo, size, onSize, onHide, accion, 
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
               <div className="absolute right-0 top-8 z-20 w-48 card-glass rounded-xl overflow-hidden py-1.5">
-                <p className="px-3.5 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-3">Tamaño</p>
+                <p className="px-3.5 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-3">{tr('Tamaño')}</p>
                 {TAMANOS.map(t => (
                   <button
                     key={t}
@@ -50,7 +52,7 @@ export default function WidgetShell({ id, titulo, size, onSize, onHide, accion, 
                     className={`w-full text-left px-3.5 py-1.5 text-sm transition-colors
                                 ${t === size ? 'text-accent font-medium' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
                   >
-                    {SIZE_LABEL[t]}
+                    {tr(SIZE_LABEL[t])}
                   </button>
                 ))}
                 <div className="border-t border-border mt-1.5 pt-1.5">
@@ -58,7 +60,7 @@ export default function WidgetShell({ id, titulo, size, onSize, onHide, accion, 
                     onClick={() => { onHide(); setMenu(false); }}
                     className="w-full text-left px-3.5 py-1.5 text-sm text-text-2 hover:text-danger hover:bg-danger/5 transition-colors"
                   >
-                    Ocultar widget
+                    {tr('Ocultar widget')}
                   </button>
                 </div>
               </div>

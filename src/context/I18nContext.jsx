@@ -13,6 +13,9 @@ import en from '../i18n/en.js';
 
 const I18nContext = createContext(null);
 const STORAGE_KEY = 'gestek-lang';
+/* Evento compartido con lib/i18n.js (el diccionario por clave de las
+   páginas públicas de evento) para que ambos lados se enteren. */
+const EVENTO_CAMBIO = 'gestek:lang-changed';
 const DICCIONARIOS = { es: null, en };
 export const IDIOMAS = [
   { code: 'es', label: 'Español', corto: 'ES' },
@@ -37,7 +40,24 @@ export function I18nProvider({ children }) {
   useEffect(() => {
     document.documentElement.lang = lang;
     localStorage.setItem(STORAGE_KEY, lang);
+    window.dispatchEvent(new Event(EVENTO_CAMBIO));
   }, [lang]);
+
+  /* Si el idioma cambia desde el otro lado (o desde otra pestaña), este
+     provider se pone al día. Al comparar contra el estado actual, el
+     evento que nosotros mismos emitimos no provoca un ciclo. */
+  useEffect(() => {
+    const sincronizar = () => {
+      const guardado = localStorage.getItem(STORAGE_KEY) === 'en' ? 'en' : 'es';
+      setLangState((actual) => (actual === guardado ? actual : guardado));
+    };
+    window.addEventListener(EVENTO_CAMBIO, sincronizar);
+    window.addEventListener('storage', sincronizar);
+    return () => {
+      window.removeEventListener(EVENTO_CAMBIO, sincronizar);
+      window.removeEventListener('storage', sincronizar);
+    };
+  }, []);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 

@@ -7,20 +7,21 @@
    Montar <ConfirmHost /> una sola vez (en App, junto a los providers). */
 
 import { useEffect, useState, useCallback } from 'react';
+import { tEstatico as t } from '../../context/I18nContext.jsx';
 
 let _open = null; // setter registrado por el host
 
 export function confirmDialog(opts = {}) {
   return new Promise((resolve) => {
     if (!_open) { // fallback si el host no está montado
-      resolve(typeof window !== 'undefined' ? window.confirm(opts.message || '¿Confirmar?') : false);
+      resolve(typeof window !== 'undefined' ? window.confirm(opts.message || t('¿Confirmar?')) : false);
       return;
     }
     _open({
-      title: opts.title || (opts.okOnly ? 'Aviso' : 'Confirmar'),
+      title: opts.title || (opts.okOnly ? t('Aviso') : t('Confirmar')),
       message: opts.message || '',
-      confirmLabel: opts.confirmLabel || (opts.okOnly ? 'Entendido' : 'Aceptar'),
-      cancelLabel: opts.cancelLabel || 'Cancelar',
+      confirmLabel: opts.confirmLabel || (opts.okOnly ? t('Entendido') : t('Aceptar')),
+      cancelLabel: opts.cancelLabel || t('Cancelar'),
       danger: !!opts.danger,
       okOnly: !!opts.okOnly,
       resolve,
