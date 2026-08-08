@@ -138,10 +138,11 @@ function ListaVacantes({ t }) {
     vacantesApi.explorar({})
       .then((d) => { setVacantes(d.vacantes || []); setEstado('ok'); })
       .catch((e) => {
-        /* El listado todavía exige sesión en el backend. Mientras eso
-           cambie, se dice claro en vez de mostrar un error crudo. */
-        if (e?.response?.status === 401 || e?.response?.status === 403) { setEstado('sesion'); return; }
-        setError(e?.response?.data?.error || e.message);
+        /* El listado ya es público, pero si el backend de turno todavía no
+           tiene el cambio se cae con 401. En vez de un error crudo (o de
+           echar al visitante a /login) se le ofrece entrar. */
+        if (e?.status === 401 || e?.status === 403) { setEstado('sesion'); return; }
+        setError(e?.message || String(e));
         setEstado('error');
       });
   }, []);
