@@ -540,6 +540,30 @@ export default {
   'API de lectura y webhooks firmados': 'Read API and signed webhooks',
   'Auditoría de acciones del equipo': 'Audit trail of team actions',
 
+  /* ── Explorar · vitrina pública ─────────────────────────────── */
+  'Eventos públicos': 'Public events',
+  'Descubre qué se está organizando con GESTEK ahora mismo. Reserva tu cupo o compra tu boleta desde la página pública de cada evento.':
+    'See what is being organized with GESTEK right now. Book your spot or buy your ticket from each event public page.',
+  'Trabaja en eventos': 'Work at events',
+  'Los organizadores publican aquí el personal que necesitan: logística, ingreso, sonido, cocina, guías. Arma tu perfil una vez y postúlate a lo que te sirva.':
+    'Organizers post the staff they need here: logistics, door, sound, catering, guides. Build your profile once and apply to whatever fits.',
+  'Vacantes para eventos': 'Event jobs',
+  'Aún no hay eventos públicos. Vuelve pronto.': 'No public events yet. Check back soon.',
+  'Todavía no hay vacantes abiertas. Vuelve pronto.': 'No open positions yet. Check back soon.',
+  'Entra para ver las vacantes': 'Sign in to see the openings',
+  'Necesitas una cuenta para ver las ofertas y postularte. Crearla toma menos de un minuto y también te sirve para comprar boletas.':
+    'You need an account to browse openings and apply. It takes under a minute and also works for buying tickets.',
+  'Evento': 'Event',
+  'Ver': 'View',
+
+  /* ── Configuración del sitio ────────────────────────────────── */
+  'Configuración': 'Settings',
+  'Apariencia': 'Appearance',
+  'Claro': 'Light',
+  'Oscuro': 'Dark',
+  'Ocultar': 'Hide',
+  'El asistente de GESTEK en su escritorio': 'The GESTEK assistant at their desk',
+
   /* ── Panel interno · chrome ─────────────────────────────────── */
   'Inicio': 'Home',
   'Eventos': 'Events',

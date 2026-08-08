@@ -12,7 +12,7 @@
    - recargando : la cara (que es una pantalla) se reinicia — barrido,
                   parpadeo y barra de progreso. Se usa al cambiar de idioma. */
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NUDO_PATH, NUDO_VIEWBOX, NUDO_TRANSFORM } from '../layout/GestekMark';
 
 const STYLE_ID = 'gestbot-anim-v4';
@@ -90,8 +90,28 @@ const AURA = {
 const LATON      = '#C9A227';
 const LATON_CLARO = '#F2D66B';
 
-export default function Criatura({ mood = 'idle', size = 96 }) {
+export default function Criatura({ mood = 'idle', size = 96, seguirCursor = false, conPortatil = true }) {
   useInjectCss();
+  /* La mirada persigue el puntero un par de píxeles. Es lo que separa un
+     dibujo de algo que parece estar mirándote. */
+  const raiz = useRef(null);
+  const [mirada, setMirada] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    if (!seguirCursor) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const mover = (e) => {
+      const el = raiz.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height * 0.38);
+      const d = Math.hypot(dx, dy) || 1;
+      const alcance = 2.6;                       // en unidades del viewBox
+      setMirada({ x: (dx / d) * alcance, y: (dy / d) * alcance * 0.7 });
+    };
+    window.addEventListener('pointermove', mover, { passive: true });
+    return () => window.removeEventListener('pointermove', mover);
+  }, [seguirCursor]);
   const m = AURA[mood] ? mood : 'idle';
   const aura = AURA[m];
   const working  = m === 'thinking';
@@ -101,7 +121,7 @@ export default function Criatura({ mood = 'idle', size = 96 }) {
   const eyeY = working ? 56 : 53;
 
   return (
-    <div className={`gb-wrap gb-${m}`} style={{ width: size, height: size }}>
+    <div ref={raiz} className={`gb-wrap gb-${m}`} style={{ width: size, height: size }}>
       <svg viewBox="0 0 140 150" width={size} height={size * (150 / 140)} aria-hidden="true">
         <defs>
           {/* Carcasa: grafito cálido, no gris azulado */}
@@ -134,14 +154,6 @@ export default function Criatura({ mood = 'idle', size = 96 }) {
         {/* aura + sombra */}
         <ellipse className="gb-aura" cx="70" cy="68" rx="52" ry="52" fill={aura} opacity="0.4" />
         <ellipse cx="70" cy="142" rx="30" ry="6.5" fill="#000" opacity="0.25" />
-
-        {/* El cordón que cuelga desde arriba — solo cuando lo va a jalar */}
-        {jalando && (
-          <>
-            <line x1="114" y1="0" x2="114" y2="26" stroke="#6B6355" strokeWidth="1.6" strokeLinecap="round" />
-            <circle cx="114" cy="28" r="3.2" fill={LATON} />
-          </>
-        )}
 
         <g className="gb-body">
           {/* antena */}
@@ -259,13 +271,15 @@ export default function Criatura({ mood = 'idle', size = 96 }) {
                 </>
               ) : (
                 <>
-                  <g>
-                    <ellipse className="gb-eyelid" cx="58" cy={eyeY} rx="6" ry="8" fill={eye} />
-                    <circle cx="60" cy={eyeY - 2} r="2" fill="#FFF8E1" opacity="0.9" />
-                  </g>
-                  <g>
-                    <ellipse className="gb-eyelid" cx="82" cy={eyeY} rx="6" ry="8" fill={eye} />
-                    <circle cx="84" cy={eyeY - 2} r="2" fill="#FFF8E1" opacity="0.9" />
+                  <g style={{ transform: `translate(${mirada.x}px, ${mirada.y}px)`, transition: 'transform .18s ease-out' }}>
+                    <g>
+                      <ellipse className="gb-eyelid" cx="58" cy={eyeY} rx="6" ry="8" fill={eye} />
+                      <circle cx="60" cy={eyeY - 2} r="2" fill="#FFF8E1" opacity="0.9" />
+                    </g>
+                    <g>
+                      <ellipse className="gb-eyelid" cx="82" cy={eyeY} rx="6" ry="8" fill={eye} />
+                      <circle cx="84" cy={eyeY - 2} r="2" fill="#FFF8E1" opacity="0.9" />
+                    </g>
                   </g>
                 </>
               )}
@@ -287,7 +301,7 @@ export default function Criatura({ mood = 'idle', size = 96 }) {
         </g>
 
         {/* MODO TRABAJANDO: portátil */}
-        {working && (
+        {working && conPortatil && (
           <g>
             <path d="M40 132 L100 132 L108 144 L32 144 Z" fill="#2A303B" stroke={LATON} strokeWidth="1.1" strokeOpacity="0.4" />
             <rect x="46" y="104" width="48" height="30" rx="4" fill="#0B0E12" stroke={LATON} strokeWidth="1.1" strokeOpacity="0.4" />

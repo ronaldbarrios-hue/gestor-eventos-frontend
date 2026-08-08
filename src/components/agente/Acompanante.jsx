@@ -1,47 +1,51 @@
-/* El acompañante — vive fijo abajo a la derecha en todo el sitio público.
+/* El acompañante — el bot trabajando en su escritorio, abajo a la izquierda.
 
-   Lo que hace:
-   - Cuelga de una lámpara. Al jalar el cordón (clic en el cordón, en la
-     lámpara o en el propio bot) se enciende o se apaga la luz, y eso ES el
-     cambio de tema claro/oscuro. La animación va primero, el tema cambia a
-     mitad del tirón: se siente causal, no simultáneo.
-   - Cuando el usuario cambia de idioma, su cara —que es una pantalla— se
-     reinicia con un barrido y una barra de progreso.
+   Qué cambió y por qué:
+   - Antes el cordón colgaba del BOMBILLO. En una lámpara real el interruptor
+     de cadena está en el cuello, no en el vidrio. Ahora sale de una cajita de
+     interruptor en la junta del brazo, y el bombillo queda ~16px a la
+     izquierda: no se tocan ni se cruzan, que era lo que confundía.
+   - Antes era una lámpara flotando sobre un bot en el aire. Ahora hay
+     escritorio, portátil encendido y una lámpara de trabajo: el bot está
+     trabajando, y por eso tiene una luz que apagar.
+   - El idioma salió de aquí. Estaba también en la navbar — dos controles
+     para lo mismo. Vive en el botón de configuración, abajo a la derecha.
+   - La escena se fue a la izquierda para no chocar con ese botón.
 
-   Nota de coordenadas: la lámpara se dibuja en un SVG que cubre el mismo
-   recuadro que el contenedor (150×212 px, viewBox 1:1), así que las
-   coordenadas del SVG SON píxeles del contenedor. Eso permite hacer que la
-   punta del cordón caiga exactamente donde queda la mano levantada del bot:
-   con size=118 la mano vive en (114/140·118, 32/140·118) ≈ (96, 27) desde
-   su esquina, y el bot arranca en (16, 86). */
+   Geometría: el SVG cubre el mismo recuadro que el contenedor con viewBox
+   1:1, así que sus unidades SON píxeles del contenedor. Eso deja clavar la
+   punta del cordón donde queda la mano levantada del bot: con size=112 la
+   mano vive en (114/140·112, 32/140·112) = (91.2, 25.6) desde su esquina,
+   y el bot arranca en (18, 42) → mano en (109, 68). */
 
 import { useEffect, useRef, useState } from 'react';
 import Criatura from './Criatura.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
-const ANCHO = 150;
-const ALTO  = 212;
-const BOT   = 118;          // tamaño del bot
-const BOT_X = 16;           // desplazamiento del bot dentro del contenedor
-const BOT_Y = 86;
-const MANO_X = BOT_X + (114 / 140) * BOT;   // ≈ 112
-const MANO_Y = BOT_Y + (32 / 140) * BOT;    // ≈ 113
+const ANCHO = 250;
+const ALTO  = 190;
+const BOT   = 112;
+const BOT_X = 18;
+const BOT_Y = 42;
+const MANO_X = Math.round(BOT_X + (114 / 140) * BOT);   // 109
+const MANO_Y = Math.round(BOT_Y + (32 / 140) * BOT);    // 68
+
+const MESA_Y = 158;   // superficie del escritorio
+const CUELLO = 20;    // altura de la junta brazo–pantalla
 
 const LATON       = '#C9A227';
 const LATON_CLARO = '#F2D66B';
 
-const STYLE_ID = 'gestek-acompanante';
+const STYLE_ID = 'gestek-acompanante-v3';
 const CSS = `
-@keyframes ac-entrar {from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
-@keyframes ac-cordon {0%,100%{transform:translateY(0)}22%{transform:translateY(7px)}40%{transform:translateY(-2px)}62%{transform:translateY(5px)}82%{transform:translateY(1px)}}
-@keyframes ac-lampara{0%,100%{transform:rotate(0)}25%{transform:rotate(2.2deg)}60%{transform:rotate(-1.6deg)}}
-@keyframes ac-globo  {from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes ac-entrar {from{opacity:0;transform:translateY(20px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes ac-cordon {0%,100%{transform:translateY(0)}22%{transform:translateY(8px)}42%{transform:translateY(-2px)}64%{transform:translateY(5px)}84%{transform:translateY(1px)}}
+@keyframes ac-lampara{0%,100%{transform:rotate(0)}24%{transform:rotate(1.6deg)}58%{transform:rotate(-1.1deg)}}
 .ac-raiz{animation:ac-entrar .6s cubic-bezier(.16,1,.3,1) both}
 .ac-tirando .ac-cordon{animation:ac-cordon 1.15s cubic-bezier(.36,.07,.19,.97)}
-.ac-tirando .ac-lampara{animation:ac-lampara 1.6s cubic-bezier(.36,.07,.19,.97)}
-.ac-lampara{transform-box:view-box;transform-origin:${MANO_X}px 0px}
-.ac-globo{animation:ac-globo .3s cubic-bezier(.16,1,.3,1) both}
+.ac-tirando .ac-lampara{animation:ac-lampara 1.7s cubic-bezier(.36,.07,.19,.97)}
+.ac-lampara{transform-box:view-box;transform-origin:210px ${MESA_Y}px}
 .ac-cono{transition:opacity .55s ease}
 @media (prefers-reduced-motion:reduce){.ac-raiz,.ac-raiz *{animation:none!important}}
 `;
@@ -59,10 +63,9 @@ function useCss() {
 export default function Acompanante() {
   useCss();
   const { theme, toggle } = useTheme();
-  const { t, lang, setLang, recargando } = useI18n();
-  const [tirando, setTirando]   = useState(false);
-  const [abierto, setAbierto]   = useState(false);
-  const [oculto,  setOculto]    = useState(false);
+  const { t, recargando } = useI18n();
+  const [tirando, setTirando] = useState(false);
+  const [oculto, setOculto]   = useState(false);
   const temporizadores = useRef([]);
 
   const encendida = theme === 'light';
@@ -77,71 +80,37 @@ export default function Acompanante() {
     temporizadores.current.push(setTimeout(() => setTirando(false), 1160));
   }
 
-  /* Prioridad de gesto: jalar el cordón manda sobre recargar el idioma,
-     porque el tirón es lo que el usuario acaba de hacer con la mano. */
-  const mood = tirando ? 'cordon' : recargando ? 'recargando' : abierto ? 'happy' : 'idle';
+  /* Jalar manda sobre recargar el idioma: es lo que el usuario acaba de
+     hacer con la mano. En reposo el bot teclea en su portátil. */
+  const mood = tirando ? 'cordon' : recargando ? 'recargando' : 'thinking';
 
   if (oculto) {
     return (
       <button
         onClick={() => setOculto(false)}
         aria-label={t('Mostrar el acompañante')}
-        className="fixed bottom-5 right-5 z-40 h-11 w-11 rounded-full border border-primary/40
-                   bg-surface/90 backdrop-blur shadow-card flex items-center justify-center
+        className="hidden lg:flex fixed bottom-5 left-5 z-40 h-10 w-10 rounded-full border border-primary/40
+                   bg-surface/90 backdrop-blur shadow-card items-center justify-center
                    hover:border-primary transition-colors"
       >
-        <span className="block h-2.5 w-2.5 rounded-full bg-primary" />
+        <span className="block h-2 w-2 rounded-full bg-primary" />
       </button>
     );
   }
 
   return (
     <div
-      className={`ac-raiz ${tirando ? 'ac-tirando' : ''} fixed z-40 select-none pointer-events-none`}
-      style={{ right: 12, bottom: 12, width: ANCHO, height: ALTO }}
+      className={`ac-raiz ${tirando ? 'ac-tirando' : ''} hidden lg:block fixed z-40 select-none pointer-events-none`}
+      style={{ left: 12, bottom: 10, width: ANCHO, height: ALTO }}
     >
-      {/* ── Globo de ayuda ───────────────────────────────────────── */}
-      {abierto && (
-        <div className="ac-globo pointer-events-auto absolute bottom-[calc(100%-8px)] right-0 w-[248px]
-                        rounded-2xl border border-border bg-surface/95 backdrop-blur-xl shadow-card-hover p-3.5">
-          <p className="text-[13px] leading-snug text-text-2">
-            {t('Jala el cordón para cambiar la luz')}
-          </p>
-          <div className="mt-3 flex items-center gap-1.5">
-            <span className="text-[11px] uppercase tracking-widest text-text-3 mr-auto">
-              {t('Cambiar idioma')}
-            </span>
-            {[['es', 'ES'], ['en', 'EN']].map(([code, corto]) => (
-              <button
-                key={code}
-                onClick={() => setLang(code)}
-                className={`px-2.5 py-1 rounded-lg text-[12px] font-semibold border transition-colors ${
-                  lang === code
-                    ? 'bg-primary text-white border-primary'
-                    : 'border-border text-text-2 hover:text-text-1 hover:bg-surface-2'
-                }`}
-              >
-                {corto}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => { setAbierto(false); setOculto(true); }}
-            className="mt-3 text-[11px] text-text-3 hover:text-text-2 transition-colors"
-          >
-            {t('Ocultar acompañante')}
-          </button>
-        </div>
-      )}
-
-      {/* ── Lámpara + cordón ─────────────────────────────────────── */}
       <svg
         viewBox={`0 0 ${ANCHO} ${ALTO}`} width={ANCHO} height={ALTO}
         className="absolute inset-0 overflow-visible"
-        aria-hidden="true"
+        role="img"
+        aria-label={t('El asistente de GESTEK en su escritorio')}
       >
         <defs>
-          <linearGradient id="ac-pantalla" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="ac-pantallaLampara" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor="#E9D485" />
             <stop offset="45%"  stopColor={LATON} />
             <stop offset="100%" stopColor="#8A6E19" />
@@ -151,71 +120,101 @@ export default function Acompanante() {
             <stop offset="60%"  stopColor="#FFE08A" />
             <stop offset="100%" stopColor="#E0B12B" />
           </radialGradient>
-          <linearGradient id="ac-cono" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="#FFE9A8" stopOpacity="0.55" />
-            <stop offset="55%"  stopColor="#FFE9A8" stopOpacity="0.14" />
+          <linearGradient id="ac-luz" x1="0.5" y1="0" x2="0.35" y2="1">
+            <stop offset="0%"   stopColor="#FFE9A8" stopOpacity="0.45" />
+            <stop offset="60%"  stopColor="#FFE9A8" stopOpacity="0.11" />
             <stop offset="100%" stopColor="#FFE9A8" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="ac-mesa" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#3A414E" />
+            <stop offset="100%" stopColor="#232935" />
           </linearGradient>
         </defs>
 
-        {/* El cono de luz: solo cuando la lámpara está encendida */}
+        {/* ── El haz cae de la boca de la pantalla sobre el bot y la mesa ── */}
         <path
           className="ac-cono"
-          d={`M${MANO_X - 22} 74 L${MANO_X + 22} 74 L${MANO_X + 62} ${ALTO} L${MANO_X - 62} ${ALTO} Z`}
-          fill="url(#ac-cono)"
+          d={`M78 38 L106 50 L146 ${MESA_Y} L34 ${MESA_Y} Z`}
+          fill="url(#ac-luz)"
           opacity={encendida ? 1 : 0}
         />
 
+        {/* ── La lámpara ─────────────────────────────────────────────
+             Orden de dibujo: primero brazo y poste, luego la pantalla,
+             y el interruptor de último para que quede por encima. */}
         <g className="ac-lampara">
-          {/* cable de suspensión — sube más allá del recuadro, como si
-              colgara del techo de la página */}
-          <line x1={MANO_X} y1={-260} x2={MANO_X} y2={34} stroke="#6B6355" strokeWidth="2" strokeLinecap="round" />
+          {/* base sobre la mesa */}
+          <ellipse cx="210" cy={MESA_Y - 1} rx="18" ry="4.8" fill="#2A303B" />
+          <ellipse cx="210" cy={MESA_Y - 3} rx="18" ry="4.8" fill="url(#ac-pantallaLampara)" opacity="0.85" />
 
-          {/* pantalla cónica de latón */}
-          <path d={`M${MANO_X} 32 L${MANO_X - 21} 68 L${MANO_X + 21} 68 Z`} fill="url(#ac-pantalla)" />
-          <ellipse cx={MANO_X} cy="68" rx="21" ry="5.2" fill="#8A6E19" />
-          <ellipse cx={MANO_X} cy="67" rx="21" ry="5.2" fill="none" stroke={LATON_CLARO} strokeWidth="1" strokeOpacity="0.5" />
+          {/* poste y brazo articulado, en arco hasta el cuello */}
+          <path d={`M210 ${MESA_Y - 5} L210 86`} stroke="#4A5260" strokeWidth="4.5" strokeLinecap="round" />
+          <circle cx="210" cy="86" r="4.5" fill={LATON} />
+          <path d={`M210 86 Q206 34 ${MANO_X + 8} ${CUELLO + 4}`}
+                stroke="#4A5260" strokeWidth="4.5" fill="none" strokeLinecap="round" />
 
-          {/* bombillo */}
+          {/* pantalla cónica, apuntando abajo-izquierda sobre el bot */}
+          <path d={`M${MANO_X + 6} ${CUELLO - 2} L78 38 L106 50 Z`} fill="url(#ac-pantallaLampara)" />
+          <path d="M78 38 L106 50" stroke="#8A6E19" strokeWidth="2.6" strokeLinecap="round" />
+
+          {/* bombillo asomando por la boca — a 16px del cordón, sin cruzarse */}
           <circle
-            cx={MANO_X} cy="72" r="6.5"
+            cx="90" cy="43" r="5.5"
             fill={encendida ? 'url(#ac-bombillo)' : '#3A3526'}
             style={{ transition: 'fill .45s ease' }}
           />
           {encendida && (
-            <circle cx={MANO_X} cy="72" r="13" fill="#FFE9A8" opacity="0.35">
-              <animate attributeName="opacity" values="0.28;0.45;0.28" dur="3.2s" repeatCount="indefinite" />
+            <circle cx="90" cy="43" r="11" fill="#FFE9A8" opacity="0.3">
+              <animate attributeName="opacity" values="0.22;0.4;0.22" dur="3.2s" repeatCount="indefinite" />
             </circle>
           )}
+
+          {/* junta del brazo y CAJA DEL INTERRUPTOR: de aquí sale el cordón */}
+          <circle cx={MANO_X + 8} cy={CUELLO + 4} r="4.5" fill={LATON} />
+          <rect x={MANO_X - 4.5} y={CUELLO + 2} width="9" height="13" rx="2.5"
+                fill="#3A414E" stroke={LATON} strokeWidth="1" strokeOpacity="0.7" />
+          <line x1={MANO_X - 2} y1={CUELLO + 6} x2={MANO_X + 2} y2={CUELLO + 6}
+                stroke={LATON_CLARO} strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
         </g>
 
-        {/* cordón que el bot agarra */}
+        {/* ── El cordón, desde la caja del interruptor ── */}
         <g className="ac-cordon">
-          <line x1={MANO_X} y1="74" x2={MANO_X} y2={MANO_Y - 4} stroke="#6B6355" strokeWidth="1.7" strokeLinecap="round" />
+          <line x1={MANO_X} y1={CUELLO + 15} x2={MANO_X} y2={MANO_Y - 4}
+                stroke="#6B6355" strokeWidth="1.7" strokeLinecap="round" />
           <circle cx={MANO_X} cy={MANO_Y} r="4" fill={LATON} />
         </g>
 
         {/* zona de clic del cordón — invisible y generosa */}
         <rect
           className="pointer-events-auto cursor-pointer"
-          x={MANO_X - 16} y="30" width="32" height={MANO_Y - 20}
+          x={MANO_X - 15} y={CUELLO + 2} width="30" height={MANO_Y - CUELLO + 4}
           fill="transparent"
           onClick={jalarCordon}
         >
           <title>{encendida ? t('Cambiar a modo oscuro') : t('Cambiar a modo claro')}</title>
         </rect>
+
+        {/* ── El escritorio, por encima de las patas del bot ── */}
+        <rect x="0" y={MESA_Y} width={ANCHO} height="7" rx="2" fill="url(#ac-mesa)" />
+        <rect x="0" y={MESA_Y + 7} width={ANCHO} height="3" fill="#12161C" opacity="0.5" />
       </svg>
 
-      {/* ── El bot ───────────────────────────────────────────────── */}
-      <button
-        type="button"
-        onClick={() => setAbierto((v) => !v)}
-        aria-label={t('Abrir el acompañante')}
-        aria-expanded={abierto}
-        className="pointer-events-auto absolute cursor-pointer bg-transparent border-0 p-0"
+      {/* ── El bot, tecleando en su portátil sobre la mesa ── */}
+      <div
+        className="pointer-events-auto absolute"
         style={{ left: BOT_X, top: BOT_Y, width: BOT, height: BOT * (150 / 140) }}
       >
-        <Criatura mood={mood} size={BOT} />
+        <Criatura mood={mood} size={BOT} seguirCursor />
+      </div>
+
+      {/* Salida discreta, por si estorba */}
+      <button
+        onClick={() => setOculto(true)}
+        aria-label={t('Ocultar acompañante')}
+        className="pointer-events-auto absolute bottom-0 left-0 text-[10px] text-text-3 hover:text-text-2
+                   transition-colors px-1"
+      >
+        {t('Ocultar')}
       </button>
     </div>
   );

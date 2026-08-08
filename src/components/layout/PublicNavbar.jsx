@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import logoG from '../../assets/logo-g.svg';
-import SelectorIdioma from '../ui/SelectorIdioma.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
 /* Las etiquetas se guardan en español: son las claves del diccionario, y
@@ -78,9 +77,8 @@ export default function PublicNavbar() {
           ))}
         </ul>
 
-        {/* Right side: idioma + auth */}
+        {/* Right side: auth */}
         <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-          <SelectorIdioma />
           <Link to="/login" className="px-4 py-2.5 text-base text-text-2 hover:text-text-1 transition-colors rounded-full">
             {t('Iniciar sesión')}
           </Link>
@@ -128,10 +126,6 @@ export default function PublicNavbar() {
               </li>
             ))}
           </ul>
-          <div className="border-t border-border my-3" />
-          <div className="px-2 pb-2">
-            <SelectorIdioma variante="lista" />
-          </div>
           <div className="border-t border-border my-3" />
           <div className="flex flex-col gap-2 px-1 pb-1">
             <Link to="/login" className="block w-full text-center py-3 rounded-2xl text-base text-text-2 hover:bg-surface-2 transition-colors">
