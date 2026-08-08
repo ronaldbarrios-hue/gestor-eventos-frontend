@@ -4,6 +4,7 @@
    Cada uno expone: label, icon, defaults, Editor, Preview, category. */
 
 import { useState, useEffect } from 'react';
+import { Seccion, ControlesPresentacion, Grupo, Opciones, Interruptor } from './presentacion.jsx';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -129,57 +130,234 @@ function PortadaPreview({ data, evento, isEditor }) {
 }
 
 /* TITULO — categoria + titulo grande */
-function TituloPreview({ data, evento }) {
+const TAMANOS_TITULO = {
+  m:  'text-2xl sm:text-3xl',
+  l:  'text-3xl sm:text-4xl',
+  xl: 'text-4xl sm:text-6xl',
+};
+
+function TituloPreview({ data = {}, evento }) {
+  const tamano = TAMANOS_TITULO[data.tamano] || TAMANOS_TITULO.l;
+  const verCategoria = data.mostrar_categoria !== false;
   return (
-    <div>
-      <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mb-2">
-        {evento.categoria?.nombre || 'Evento'}
-      </p>
-      <h1 className="text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1">{evento.titulo}</h1>
-    </div>
+    <Seccion data={data}>
+      {verCategoria && (
+        <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">
+          {data.antetitulo || evento.categoria?.nombre || 'Evento'}
+        </p>
+      )}
+      <h1 className={`${tamano} font-bold font-display tracking-tight text-text-1 leading-[1.05]`}>
+        {evento.titulo}
+      </h1>
+      {data.subtitulo && (
+        <p className="mt-3 text-lg text-text-2 leading-relaxed">{data.subtitulo}</p>
+      )}
+    </Seccion>
+  );
+}
+
+function TituloEditor({ data = {}, onChange, evento }) {
+  return (
+    <EditorSistema data={data} onChange={onChange} evento={evento} Preview={TituloPreview} label="Título">
+      <Grupo label="Tamaño">
+        <Opciones valor={data.tamano || 'l'} onChange={(v) => onChange({ ...data, tamano: v })}
+          opciones={[['m', 'Mediano'], ['l', 'Grande'], ['xl', 'Enorme']]} />
+      </Grupo>
+      <Grupo label="Antetítulo">
+        <input value={data.antetitulo || ''} onChange={(e) => onChange({ ...data, antetitulo: e.target.value })}
+          placeholder={evento.categoria?.nombre || 'Evento'} className="input rounded-xl py-2 text-sm" />
+      </Grupo>
+      <Grupo label="Subtítulo">
+        <input value={data.subtitulo || ''} onChange={(e) => onChange({ ...data, subtitulo: e.target.value })}
+          placeholder="Opcional — una línea que acompañe al título" className="input rounded-xl py-2 text-sm" />
+      </Grupo>
+      <Interruptor label="Mostrar el antetítulo" valor={data.mostrar_categoria !== false}
+        onChange={(v) => onChange({ ...data, mostrar_categoria: v })} />
+    </EditorSistema>
   );
 }
 
 /* DESCRIPCION */
-function DescripcionPreview({ data, evento, isEditor }) {
+function DescripcionPreview({ data = {}, evento, isEditor }) {
   if (!evento.descripcion) {
     if (!isEditor) return null;
     return <p className="text-sm text-text-3 italic">Sin descripción · agrégala en Editar info administrativa.</p>;
   }
-  return <p className="text-base text-text-2 leading-relaxed">{evento.descripcion}</p>;
+  const tamano = { s: 'text-sm', m: 'text-base', l: 'text-lg' }[data.tamano] || 'text-base';
+  const dosColumnas = data.columnas === 2;
+  return (
+    <Seccion data={data}>
+      <p className={`${tamano} text-text-2 leading-relaxed whitespace-pre-line ${dosColumnas ? 'sm:columns-2 sm:gap-10' : ''}`}>
+        {evento.descripcion}
+      </p>
+    </Seccion>
+  );
+}
+
+function DescripcionEditor({ data = {}, onChange, evento }) {
+  return (
+    <EditorSistema data={data} onChange={onChange} evento={evento} Preview={DescripcionPreview} label="Descripción">
+      <Grupo label="Tamaño del texto">
+        <Opciones valor={data.tamano || 'm'} onChange={(v) => onChange({ ...data, tamano: v })}
+          opciones={[['s', 'Pequeño'], ['m', 'Normal'], ['l', 'Grande']]} />
+      </Grupo>
+      <Grupo label="Columnas">
+        <Opciones valor={data.columnas || 1} onChange={(v) => onChange({ ...data, columnas: v })}
+          opciones={[[1, 'Una'], [2, 'Dos']]} />
+      </Grupo>
+    </EditorSistema>
+  );
 }
 
 /* INFO — grid */
-function InfoPreview({ data, evento }) {
+const CAMPOS_INFO = [
+  ['fecha',      'Fecha'],
+  ['lugar',      'Lugar'],
+  ['modalidad',  'Modalidad'],
+  ['organiza',   'Organiza'],
+  ['aforo',      'Cupos disponibles'],
+];
+
+function InfoPreview({ data = {}, evento }) {
   const fecha = evento.fecha_fin
     ? `${fmtFecha(evento.fecha_inicio)} — ${fmtFecha(evento.fecha_fin)}`
     : `${fmtFecha(evento.fecha_inicio)} · ${fmtHora(evento.fecha_inicio)}`;
   const modalidad = { fisico: 'Físico', virtual: 'Virtual', hibrido: 'Híbrido' }[evento.modalidad] || evento.modalidad;
+  /* Por defecto se muestran los cuatro de siempre; aforo entra solo si se pide. */
+  const activos = data.campos || ['fecha', 'lugar', 'modalidad', 'organiza'];
+  const libres = Math.max(0, (evento.aforo_total || 0) - (evento.aforo_vendido || 0));
+
+  const celdas = [
+    ['fecha',     'Fecha',     evento.fecha_inicio ? fecha : null],
+    ['lugar',     'Lugar',     evento.location_nombre],
+    ['modalidad', 'Modalidad', modalidad],
+    ['organiza',  'Organiza',  evento.organizador?.empresa || evento.organizador?.nombre],
+    ['aforo',     'Cupos',     evento.aforo_total ? `${libres} de ${evento.aforo_total}` : null],
+  ].filter(([id, , valor]) => activos.includes(id) && valor);
+
+  const disposicion = data.disposicion || 'rejilla';
+  const clase = disposicion === 'lista' ? 'flex flex-col gap-2'
+    : disposicion === 'fila' ? 'flex flex-wrap gap-3'
+    : 'grid sm:grid-cols-2 gap-3';
+
   return (
-    <div className="grid sm:grid-cols-2 gap-3">
-      {evento.fecha_inicio  && <InfoCell label="Fecha"     value={fecha} />}
-      {evento.location_nombre && <InfoCell label="Lugar"   value={evento.location_nombre} />}
-      <InfoCell label="Modalidad" value={modalidad} />
-      {evento.organizador?.nombre && <InfoCell label="Organiza" value={evento.organizador.empresa || evento.organizador.nombre} />}
-    </div>
+    <Seccion data={data}>
+      <div className={clase}>
+        {celdas.map(([id, label, valor]) => (
+          <InfoCell key={id} label={label} value={valor} plano={data.sin_caja} />
+        ))}
+      </div>
+    </Seccion>
   );
 }
-function InfoCell({ label, value }) {
+
+function InfoEditor({ data = {}, onChange, evento }) {
+  const activos = data.campos || ['fecha', 'lugar', 'modalidad', 'organiza'];
+  const alternar = (id) => {
+    const siguiente = activos.includes(id) ? activos.filter(x => x !== id) : [...activos, id];
+    onChange({ ...data, campos: siguiente });
+  };
+  return (
+    <EditorSistema data={data} onChange={onChange} evento={evento} Preview={InfoPreview} label="Información">
+      <Grupo label="Qué se muestra">
+        <div className="grid grid-cols-2 gap-1.5">
+          {CAMPOS_INFO.map(([id, label]) => (
+            <button key={id} onClick={() => alternar(id)} aria-pressed={activos.includes(id)}
+              className={`px-2.5 py-2 rounded-xl text-[12px] font-medium border transition-colors ${
+                activos.includes(id) ? 'border-accent bg-accent/12 text-text-1'
+                                     : 'border-border text-text-3 hover:text-text-1 hover:bg-surface-2'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </Grupo>
+      <Grupo label="Disposición">
+        <Opciones valor={data.disposicion || 'rejilla'} onChange={(v) => onChange({ ...data, disposicion: v })}
+          opciones={[['rejilla', 'Rejilla'], ['lista', 'Lista'], ['fila', 'En fila']]} />
+      </Grupo>
+      <Interruptor label="Sin recuadro" nota="Los datos se ven sueltos, sin tarjeta detrás."
+        valor={!!data.sin_caja} onChange={(v) => onChange({ ...data, sin_caja: v })} />
+    </EditorSistema>
+  );
+}
+function InfoCell({ label, value, plano = false }) {
+  if (plano) {
+    return (
+      <div>
+        <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">{label}</p>
+        <p className="text-sm text-text-1 mt-0.5">{value}</p>
+      </div>
+    );
+  }
   return (
     <div className="rounded-2xl border border-border bg-surface/40 px-4 py-3">
-      <p className="text-[10px] uppercase tracking-widest text-text-3 mb-1">{label}</p>
-      <p className="text-sm text-text-1 font-medium">{value}</p>
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">{label}</p>
+      <p className="text-sm text-text-1 mt-0.5">{value}</p>
     </div>
   );
 }
 
 /* DIRECCION */
-function DireccionPreview({ data, evento, isEditor }) {
+function DireccionPreview({ data = {}, evento, isEditor }) {
   if (!evento.location_direccion) {
     if (!isEditor) return null;
     return <p className="text-sm text-text-3 italic">Sin dirección configurada.</p>;
   }
-  return <p className="text-sm text-text-3">{evento.location_direccion}</p>;
+  const consulta = encodeURIComponent(
+    [evento.location_nombre, evento.location_direccion].filter(Boolean).join(', ')
+  );
+  return (
+    <Seccion data={data}>
+      {evento.location_nombre && (
+        <p className="text-base font-semibold text-text-1 mb-1">{evento.location_nombre}</p>
+      )}
+      <p className="text-sm text-text-2">{evento.location_direccion}</p>
+      {data.boton_como_llegar !== false && (
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${consulta}`}
+          target="_blank" rel="noreferrer noopener"
+          className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-primary hover:underline"
+        >
+          {data.texto_boton || 'Cómo llegar'} →
+        </a>
+      )}
+    </Seccion>
+  );
+}
+
+function DireccionEditor({ data = {}, onChange, evento }) {
+  return (
+    <EditorSistema data={data} onChange={onChange} evento={evento} Preview={DireccionPreview} label="Dirección">
+      <Interruptor label='Botón "Cómo llegar"' nota="Abre la dirección en Google Maps."
+        valor={data.boton_como_llegar !== false}
+        onChange={(v) => onChange({ ...data, boton_como_llegar: v })} />
+      {data.boton_como_llegar !== false && (
+        <Grupo label="Texto del botón">
+          <input value={data.texto_boton || ''} onChange={(e) => onChange({ ...data, texto_boton: e.target.value })}
+            placeholder="Cómo llegar" className="input rounded-xl py-2 text-sm" />
+        </Grupo>
+      )}
+    </EditorSistema>
+  );
+}
+
+function TicketsEditor({ data = {}, onChange, evento }) {
+  return (
+    <EditorSistema data={data} onChange={onChange} evento={evento} Preview={TicketsPreview} label="Boletas">
+      <Grupo label="Encabezado">
+        <input value={data.encabezado || ''} onChange={(e) => onChange({ ...data, encabezado: e.target.value })}
+          placeholder="Boletas disponibles" className="input rounded-xl py-2 text-sm" />
+      </Grupo>
+      <Grupo label="Disposicion">
+        <Opciones valor={data.columnas || 1} onChange={(v) => onChange({ ...data, columnas: v })}
+          opciones={[[1, 'Una columna'], [2, 'Dos columnas']]} />
+      </Grupo>
+      <Grupo label="Texto del boton">
+        <input value={data.texto_boton || ''} onChange={(e) => onChange({ ...data, texto_boton: e.target.value })}
+          placeholder="Reservar" className="input rounded-xl py-2 text-sm" />
+      </Grupo>
+    </EditorSistema>
+  );
 }
 
 /* LINKS */
@@ -245,9 +423,14 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
       </div>
     );
   }
+  const dosColumnas = data?.columnas === 2;
   return (
-    <div className="rounded-3xl border border-border-2 bg-surface/60 p-5 space-y-3">
-      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Boletas disponibles</p>
+    <Seccion data={data}>
+      <div className="rounded-3xl border border-border-2 bg-surface/60 p-5 space-y-3">
+      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">
+        {data?.encabezado || 'Boletas disponibles'}
+      </p>
+      <div className={dosColumnas ? 'grid sm:grid-cols-2 gap-3' : 'space-y-3'}>
       {tickets.map(t => {
         const hasEarly = t.early_bird_precio != null && t.early_bird_hasta && new Date(t.early_bird_hasta) > new Date();
         const precio = hasEarly ? Number(t.early_bird_precio) : Number(t.precio);
@@ -290,7 +473,11 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
                   onClick={onReservar ? () => onReservar(t) : undefined}
                   className="px-4 py-2 rounded-full text-xs font-semibold bg-text-1 text-bg hover:bg-white transition-all disabled:bg-surface-3 disabled:text-text-3 disabled:cursor-not-allowed"
                 >
-                  {agotado ? 'Agotado' : ventaCerr ? 'Cerrado' : isFree ? 'Reservar' : 'Comprar'}
+                  {/* Agotado y Cerrado son ESTADO, no etiqueta: el texto
+                      personalizado no debe taparlos. */}
+                  {agotado ? 'Agotado'
+                    : ventaCerr ? 'Cerrado'
+                    : (data?.texto_boton || (isFree ? 'Reservar' : 'Comprar'))}
                 </button>
               )}
             </div>
@@ -298,25 +485,50 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
         );
       })}
     </div>
+      </div>
+    </Seccion>
   );
 }
 
 /* Editor genérico para bloques sistema: solo toggle de visibilidad + preview WYSIWYG */
-function SystemEditor({ data, onChange, evento, Preview, label }) {
+/* Editor base de las secciones que se alimentan de los datos del evento.
+
+   Antes esto era todo lo que tenian: una vista previa y un interruptor de
+   visibilidad. Nada configurable. Ahora trae ademas la presentacion
+   compartida, y cada bloque le cuelga sus propias opciones por children. */
+function EditorSistema({ data = {}, onChange, evento, Preview, label, children }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Vista previa</p>
         <VisibilityToggle data={data} onChange={onChange} />
       </div>
-      {data.oculto
-        ? <HiddenNotice label={label} />
-        : <div className="rounded-2xl border border-border bg-surface/20 p-5 pointer-events-none select-none opacity-90">
+
+      {data.oculto ? <HiddenNotice label={label} /> : (
+        <>
+          <div className="rounded-2xl border border-border bg-surface/20 p-5 pointer-events-none select-none opacity-90">
             <Preview data={data} evento={evento} isEditor />
-          </div>}
+          </div>
+
+          {children && (
+            <div className="rounded-2xl border border-border bg-surface/30 p-4 space-y-3.5">
+              <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Esta seccion</p>
+              {children}
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-border bg-surface/30 p-4">
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-3">Presentacion</p>
+            <ControlesPresentacion data={data} onChange={onChange} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
+
+/* Nombre anterior, por si algo externo lo importaba. */
+const SystemEditor = EditorSistema;
 
 /* Editor de Portada — además de la visibilidad, controla el TAMAÑO de la
    imagen de portada (pantalla completa vs contenida, y su proporción/altura).
@@ -1334,43 +1546,43 @@ export const BLOCKS = {
     label: 'Galería del evento', category: 'sistema', icon: IconGaleria,
     defaults: {},
     Preview: GaleriaEventoPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={GaleriaEventoPreview} label="Galería del evento" />,
+    Editor: (props) => <EditorSistema {...props} Preview={GaleriaEventoPreview} label="Galería del evento" />,
   },
   titulo: {
     label: 'Título del evento', category: 'sistema', icon: IconTitulo,
     defaults: {},
     Preview: TituloPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={TituloPreview} label="Título" />,
+    Editor: TituloEditor,
   },
   descripcion: {
     label: 'Descripción', category: 'sistema', icon: IconDesc,
     defaults: {},
     Preview: DescripcionPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={DescripcionPreview} label="Descripción" />,
+    Editor: DescripcionEditor,
   },
   info: {
     label: 'Información (fecha, lugar...)', category: 'sistema', icon: IconInfo,
     defaults: {},
     Preview: InfoPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={InfoPreview} label="Info" />,
+    Editor: InfoEditor,
   },
   direccion: {
     label: 'Dirección', category: 'sistema', icon: IconDir,
     defaults: {},
     Preview: DireccionPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={DireccionPreview} label="Dirección" />,
+    Editor: DireccionEditor,
   },
   links: {
     label: 'Links / redes sociales', category: 'sistema', icon: IconLinks,
     defaults: {},
     Preview: LinksPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={LinksPreview} label="Links" />,
+    Editor: (props) => <EditorSistema {...props} Preview={LinksPreview} label="Links" />,
   },
   tickets: {
     label: 'Boletas / tickets', category: 'sistema', icon: IconTickets,
     defaults: {},
     Preview: TicketsPreview,
-    Editor: (props) => <SystemEditor {...props} Preview={TicketsPreview} label="Tickets" />,
+    Editor: TicketsEditor,
   },
 
   /* CUSTOM */
