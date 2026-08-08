@@ -160,42 +160,86 @@ function Flow() {
       <div className="text-center mb-14">
         <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('El flujo, paso a paso')}</p>
         <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight">
-          {t('7 pasos. Ninguno opcional, todos importan.')}
+          {t('Siete eslabones. Si falta uno, la cadena se rompe.')}
         </h2>
       </div>
 
-      <div className="space-y-5">
-        {STEPS.map((s, i) => <FlowStep key={s.n} step={s} index={i} />)}
+      <div>
+        {STEPS.map((s, i) => <FlowStep key={s.n} step={s} index={i} ultimo={i === STEPS.length - 1} />)}
       </div>
     </section>
   );
 }
 
-function FlowStep({ step, index }) {
+/* Un eslabón de la cadena.
+
+   El logo son dos lazadas entrelazadas, así que los siete pasos se dibujan
+   como los eslabones de una cadena: cada uno es un anillo, el hilo pasa por
+   su hueco, y la orientación alterna vertical/horizontal — que es como se ve
+   una cadena de verdad y no una pila de aros iguales.
+
+   El anillo es solo trazo (sin relleno), así que el hilo se ve a través del
+   hueco sin necesidad de máscaras: por eso sobrevive a que los pasos tengan
+   alturas distintas, que es lo que rompía cualquier intento de dibujar la
+   cadena entera en un SVG de tamaño fijo. */
+function Eslabon({ n, vertical, primero, ultimo }) {
+  const w = vertical ? 44 : 62;
+  const h = vertical ? 62 : 44;
+  return (
+    <div className="relative hidden lg:flex justify-center w-[72px] flex-shrink-0" aria-hidden="true">
+      {/* el hilo: sube al eslabón anterior y baja al siguiente */}
+      <span
+        className="absolute left-1/2 -translate-x-1/2 w-[3px] rounded-full bg-gradient-to-b from-primary/45 via-primary/30 to-primary/45"
+        style={{ top: primero ? '34px' : 0, bottom: ultimo ? 'calc(100% - 34px)' : 0 }}
+      />
+      {/* el eslabón, por encima del hilo */}
+      <svg
+        width={w} height={h} viewBox={`0 0 ${w} ${h}`}
+        className="relative z-10 mt-[3px] drop-shadow-[0_2px_3px_rgba(43,35,18,0.25)]"
+      >
+        <rect
+          x="4" y="4" width={w - 8} height={h - 8}
+          rx={Math.min(w, h) / 2 - 4}
+          fill="none" stroke="currentColor" strokeWidth="7"
+          className="text-primary"
+        />
+        <text
+          x={w / 2} y={h / 2} textAnchor="middle" dominantBaseline="central"
+          className="fill-text-1 font-bold" style={{ fontSize: 15 }}
+        >
+          {n}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function FlowStep({ step, index, ultimo }) {
   const { t } = useI18n();
   const [ref, visible] = useReveal(0.2);
   return (
     <div
       ref={ref}
       style={{ transitionDelay: `${index * 50}ms` }}
-      className={`relative rounded-3xl border border-border bg-surface/40 hover:bg-surface/70 hover:border-border-2 transition-all duration-700 overflow-hidden
+      className={`flex gap-5 transition-all duration-700
         ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
     >
-      <div className="grid lg:grid-cols-[auto_1fr_auto] gap-6 lg:gap-10 p-6 sm:p-8 items-start">
-        <div className="flex items-center gap-4 lg:flex-col lg:items-start lg:gap-3 flex-shrink-0">
-          <div className="text-5xl sm:text-6xl font-bold font-display bg-gradient-to-br from-primary-light to-accent-light bg-clip-text text-transparent leading-none">
-            {step.n}
+      <Eslabon n={step.n} vertical={index % 2 === 0} primero={index === 0} ultimo={ultimo} />
+
+      <div className="flex-1 min-w-0 rounded-3xl border border-border bg-surface/40 hover:bg-surface/70
+                      hover:border-primary/30 transition-colors p-6 sm:p-7 mb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <span className="lg:hidden inline-block text-xs font-mono text-primary tracking-widest mb-2">{step.n}</span>
+            <h3 className="text-xl sm:text-2xl font-bold font-display text-text-1 mb-3">{t(step.title)}</h3>
+            <p className="text-base text-text-2 leading-relaxed mb-3">{t(step.desc)}</p>
+            <p className="text-sm text-text-3 leading-relaxed">{t(step.detail)}</p>
           </div>
-          <div className="hidden lg:block w-10 h-px bg-border-2" />
+          <span className="hidden lg:inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20
+                           text-xs font-semibold text-primary tracking-wider uppercase whitespace-nowrap flex-shrink-0">
+            {t('Incluido')}
+          </span>
         </div>
-        <div>
-          <h3 className="text-2xl font-bold font-display text-text-1 mb-3">{t(step.title)}</h3>
-          <p className="text-base text-text-2 leading-relaxed mb-3">{t(step.desc)}</p>
-          <p className="text-sm text-text-3 leading-relaxed">{t(step.detail)}</p>
-        </div>
-        <span className="hidden lg:inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary-light tracking-wider uppercase whitespace-nowrap self-center">
-          {t('Incluido')}
-        </span>
       </div>
     </div>
   );

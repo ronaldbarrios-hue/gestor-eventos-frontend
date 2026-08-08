@@ -290,7 +290,7 @@ export default {
   'Probar GESTEK': 'Try GESTEK',
   'Ver todas las funciones': 'See every feature',
   'El flujo, paso a paso': 'The flow, step by step',
-  '7 pasos. Ninguno opcional, todos importan.': '7 steps. None optional, all of them matter.',
+  'Siete eslabones. Si falta uno, la cadena se rompe.': 'Seven links. Drop one and the chain breaks.',
   'Incluido': 'Included',
 
   'Crea tu cuenta': 'Create your account',
@@ -613,6 +613,80 @@ export default {
   'Tu perfil ya no es visible.': 'Your profile is no longer visible.',
   'A qué vacantes te presentaste y en qué va cada una.':
     'Which jobs you applied to and where each one stands.',
+
+  /* ══ FAQ · grupos, preguntas y buzón ═════════════════════════ */
+  'Empezar': 'Getting started',
+  'Dinero': 'Money',
+  'Mi página y mi marca': 'My page and my brand',
+  'El día del evento': 'On event day',
+  'Cuenta y técnico': 'Account and technical',
+
+  'Todo lo necesario para operar un evento: creación con asistente paso a paso, página pública propia, asistentes ilimitados, boletas con QR, control de ingreso desde el celular, escarapelas, mapa del recinto, agenda, equipo con roles, chat, vacantes y reportes. Son más de treinta funciones y todas están construidas, no anunciadas.':
+    'Everything you need to run an event: a step-by-step creation wizard, your own public page, unlimited attendees, QR tickets, check-in from a phone, badges, venue map, agenda, a team with roles, chat, job posts and reports. Over thirty features, all of them built rather than announced.',
+  'No. Crear la cuenta y montar tu primer evento no pide tarjeta ni datos de facturación. Solo pedimos medio de pago cuando tú decidas cobrar boletas, y ahí el dinero va a tu cuenta, no a la nuestra.':
+    'No. Creating your account and setting up your first event asks for no card and no billing details. We only ask for a payment method when you decide to sell tickets, and then the money goes to your account, not ours.',
+  '¿Cuánto tarda montar un evento desde cero?': 'How long does it take to set up an event from scratch?',
+  'Entre cinco y diez minutos con el asistente de cuatro pasos: información general, espacios y accesos, identidad y marca, revisar y publicar. Puedes guardar como borrador y volver cuando quieras. Con Gestbot baja a un par de minutos porque te genera la estructura base y tú solo ajustas.':
+    'Five to ten minutes with the four-step wizard: general info, spaces and access, identity and brand, review and publish. You can save a draft and come back whenever. With Gestbot it drops to a couple of minutes, because it generates the base structure and you just adjust.',
+  'No. Todo corre en el navegador, incluido el escáner de QR, que usa la cámara del celular de tu coordinador. No hay aplicación que descargar ni equipo que comprar.':
+    'No. Everything runs in the browser, including the QR scanner, which uses your coordinator phone camera. Nothing to download and no hardware to buy.',
+
+  '¿Cuánto cuesta GESTEK?': 'How much does GESTEK cost?',
+  'El plan gratuito cubre lo esencial para operar tus eventos, sin límite de asistentes. Algunas funciones adicionales dentro del evento se pagan por uso, y hay un plan de marca blanca para quien quiera quitar nuestro logo. Lo que veas marcado como "Próximamente" en Producto todavía no existe: lo decimos en vez de anunciarlo.':
+    'The free plan covers what you need to run your events, with no attendee limit. Some extra in-event features are pay-per-use, and there is a white-label plan for anyone who wants our logo gone. Whatever is marked "Coming soon" on the Product page does not exist yet: we say so instead of advertising it.',
+  '¿Cobran comisión por las ventas?': 'Do you charge commission on sales?',
+  'No sobre la boleta. El pago va directo del asistente a tu cuenta a través de tu propia llave o código QR: GESTEK no toca ese flujo ni retiene el dinero. La única plata que cobramos es la comisión cuando contratas personal por el módulo de vacantes, y está a la vista antes de que aceptes.':
+    'Not on the ticket. Payment goes straight from the attendee to your account through your own key or QR code: GESTEK never touches that flow and never holds the money. The only money we charge is the commission when you hire staff through the jobs module, and it is visible before you accept.',
+  '¿Cuándo recibo el dinero de mis ventas?': 'When do I get the money from my sales?',
+  'Cuando lo defina tu pasarela, no nosotros. Como el cobro es contra tu cuenta, los tiempos de acreditación son los del banco o la pasarela que conectes. Nosotros no somos un intermediario que retiene y luego gira.':
+    'Whenever your payment provider says, not us. Since the charge lands in your account, settlement times are the bank or gateway you connect. We are not a middleman that holds funds and pays out later.',
+  '¿Puedo pasarme a otro plan o cancelar?': 'Can I switch plans or cancel?',
+  'Sí, cuando quieras y sin llamadas de retención. Si cancelas, tus eventos y tus datos no se borran: siguen ahí y puedes exportarlos.':
+    'Yes, whenever you want and with no retention calls. If you cancel, your events and data are not deleted: they stay and you can export them.',
+
+  'Ya tengo página web. ¿Me sirve GESTEK?': 'I already have a website. Is GESTEK any use to me?',
+  'Sí, y no tienes que rehacer nada. Cualquier sección del evento se puede incrustar en tu web como un bloque: las boletas, el mapa del recinto, las llaves del torneo, la agenda. Copias un código, lo pegas donde quieras y el cobro nunca saca al visitante de tu página. Lo llamamos eFrame y está en el plan gratuito.':
+    'Yes, and you do not have to rebuild anything. Any section of the event can be embedded in your site as a block: tickets, the venue map, tournament brackets, the agenda. Copy a snippet, paste it where you want, and checkout never takes the visitor off your page. We call it eFrame and it is in the free plan.',
+  '¿Puedo quitar la marca GESTEK de la página de mi evento?': 'Can I remove GESTEK branding from my event page?',
+  'Sí, con el plan de marca blanca. Pones tu logo, tus colores, tu tipografía y tu pie de página, y el asistente nunca ve nuestro nombre. En el plan gratuito la página ya usa tu logo y tus colores, pero conserva una mención discreta a GESTEK.':
+    'Yes, with the white-label plan. Your logo, your colors, your typography and your footer, and the attendee never sees our name. On the free plan the page already uses your logo and colors, but keeps a discreet GESTEK mention.',
+  '¿Los datos de mis asistentes son míos?': 'Is my attendee data mine?',
+  'Sí. Son tuyos y los puedes exportar en CSV cuando quieras. No los vendemos, no los usamos para publicidad y no los cruzamos con los de otros organizadores.':
+    'Yes. It is yours and you can export it as CSV whenever you want. We do not sell it, we do not use it for advertising and we do not cross it with other organizers data.',
+
+  '¿Qué pasa si se cae el internet en la puerta?': 'What if the internet drops at the door?',
+  'El escáner sigue funcionando. Guarda los ingresos en el propio celular y los sincroniza cuando vuelve la señal, así que la fila no se detiene. Es la parte que más nos importa que aguante: un evento no se puede quedar quieto esperando a que vuelva el wifi.':
+    'The scanner keeps working. It stores check-ins on the phone itself and syncs them when the signal returns, so the queue never stops. This is the part we most want to hold up: an event cannot stand still waiting for the wifi.',
+  '¿Puedo controlar el ingreso en varias puertas a la vez?': 'Can I run check-in at several gates at once?',
+  'Sí. Puedes tener varios puntos de control funcionando en simultáneo, cada uno con su coordinador y su celular, y ver el aforo consolidado en tiempo real. También puedes definir zonas con su propio cupo y reglas de reingreso.':
+    'Yes. You can run several checkpoints at the same time, each with its own coordinator and phone, and see consolidated capacity live. You can also define zones with their own limits and re-entry rules.',
+  '¿Puedo importar asistentes desde un Excel?': 'Can I import attendees from a spreadsheet?',
+  'Sí. Subes un CSV con nombre y correo desde el panel del evento y la plataforma genera los códigos QR y las invitaciones. Sirve tanto para invitados como para listas que ya tenías de ediciones anteriores.':
+    'Yes. Upload a CSV with name and email from the event panel and the platform generates the QR codes and invitations. It works for guest lists and for lists you already had from previous editions.',
+
+  '¿Cómo confirmo mi cuenta o recupero mi contraseña?': 'How do I confirm my account or recover my password?',
+  'Al registrarte te llega un correo con un enlace de confirmación; si no aparece en un par de minutos, revisa spam o pide el reenvío desde la pantalla de acceso. Para la contraseña, el enlace de "olvidé mi contraseña" en esa misma pantalla te manda un correo para cambiarla.':
+    'When you sign up you get an email with a confirmation link; if it does not show up within a couple of minutes, check spam or request a resend from the sign-in screen. For the password, the "forgot my password" link on that same screen emails you a reset.',
+  'Sí, de lectura. Un token por organización te deja consultar tus eventos, asistentes y resumen. Además hay webhooks firmados que avisan a tu sistema cuando publicas un evento, cuando se paga una boleta y en cada check-in. La documentación con ejemplos está en camino y lo decimos así, sin adornarlo.':
+    'Yes, read-only. A per-organization token lets you query your events, attendees and summary. There are also signed webhooks that tell your system when you publish an event, when a ticket is paid and on every check-in. Documentation with examples is on the way, and we say it plainly.',
+  '¿En qué idiomas está?': 'What languages is it in?',
+  'Español e inglés, con un interruptor manual: no adivinamos por tu ubicación. Los textos legales se quedan solo en español a propósito, porque una traducción sin revisión de un abogado no puede tener el mismo valor que el original.':
+    'Spanish and English, with a manual switch: we do not guess from your location. The legal texts stay in Spanish on purpose, because a translation without a lawyer review cannot carry the same weight as the original.',
+
+  '¿Se quedó algo sin responder?': 'Still something unanswered?',
+  'Escríbenos y lo respondemos. Si la pregunta se repite, termina en esta página.':
+    'Write to us and we will answer. If a question keeps coming up, it ends up on this page.',
+  'Tengo una pregunta': 'I have a question',
+  'Tengo una sugerencia': 'I have a suggestion',
+  'Ej. ¿Puedo vender boletas para un evento en dos ciudades a la vez?':
+    'e.g. Can I sell tickets for an event running in two cities at once?',
+  'Cuéntanos qué mejorarías o qué te faltó encontrar.':
+    'Tell us what you would improve or what you could not find.',
+  'Se abrirá tu programa de correo con el mensaje listo para enviar.':
+    'Your mail app will open with the message ready to send.',
+  'Enviar': 'Send',
+  '¿Prefieres verlo funcionando?': 'Rather see it working?',
+  'Mira los eventos publicados': 'Browse the published events',
 
   /* ── Panel interno · chrome ─────────────────────────────────── */
   'Inicio': 'Home',
