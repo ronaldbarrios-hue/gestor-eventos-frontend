@@ -16,11 +16,13 @@ function useReveal(threshold = 0.15) {
   return [ref, visible];
 }
 
-const GROUPS = {
-  free: {
-    label: 'Plan gratis',
-    accent: 'primary',
-    sections: [
+/* Lo que trae GESTEK. Sin planes: la marca blanca no es un nivel que se
+   compra, es el producto — la plataforma desaparece detrás de la marca del
+   organizador desde el primer evento y sin pagar nada.
+
+   Lo que sí se paga va aparte, al final, y se dice qué se cobra de verdad
+   hoy y qué todavía no. */
+const SECCIONES = [
       {
         cat: 'Eventos',
         ancla: 'eventos',
@@ -91,59 +93,6 @@ const GROUPS = {
           'Auth con Supabase + recuperación por correo',
         ],
       },
-    ],
-  },
-  pagos: {
-    label: 'Pagos internos',
-    accent: 'primary',
-    /* Lo que se cobra por uso, no por suscripción. Aquí no entra nada del
-       día a día: el evento se opera completo sin pasar por esta pestaña.
-       Entra lo que a nosotros nos cuesta cada vez que se usa —una consulta
-       de identidad, una respuesta del agente— y lo que le da ventaja a un
-       organizador sobre otro, como destacar una oferta.
-
-       ⚠️ Estado real: el modelo está construido (los cobros se registran
-       en cobros_vacantes) pero la pasarela NO está conectada todavía. Por
-       eso casi todo va marcado. Cuando se conecte, se quitan las marcas. */
-    sections: [
-      {
-        cat: 'Cómo funciona',
-        ancla: 'pagos-como',
-        icon: 'wallet',
-        items: [
-          'Sin suscripción ni mensualidad: pagas solo lo que uses',
-          'El precio se ve antes de confirmar, nunca después',
-          'Cada cobro queda registrado y consultable en tu panel',
-          'Si no usas nada de aquí, no pagas nada',
-        ],
-      },
-      {
-        cat: 'Contratación de personal',
-        ancla: 'pagos-vacantes',
-        icon: 'users',
-        items: [
-          'Publicar vacantes y recibir postulaciones: sin costo',
-          'Comisión sobre el contrato al contratar a alguien',
-          { texto: 'Destacar una vacante para que aparezca primero', proximamente: true },
-          { texto: 'Verificación de identidad del candidato', proximamente: true },
-        ],
-      },
-      {
-        cat: 'Asistente y envíos',
-        ancla: 'pagos-agente',
-        icon: 'sparkles',
-        items: [
-          'Gestbot responde y ejecuta acciones en tu evento',
-          { texto: 'Paquetes de uso del asistente', proximamente: true },
-          { texto: 'Envíos masivos por encima del cupo incluido', proximamente: true },
-        ],
-      },
-    ],
-  },
-  pro: {
-    label: 'Marca blanca',
-    accent: 'accent',
-    sections: [
       {
         cat: 'API y webhooks',
         ancla: 'api',
@@ -211,24 +160,49 @@ const GROUPS = {
           'Notificaciones segmentadas por audiencia',
         ],
       },
-    ],
-  },
-};
+];
+
+/* Cobros dentro del evento. No es un plan: es lo que se paga por uso, y un
+   evento se opera de principio a fin sin tocar nada de aquí. */
+const SECCIONES_PAGOS = [
+      {
+        cat: 'Cómo funciona',
+        ancla: 'pagos-como',
+        icon: 'wallet',
+        items: [
+          'Sin suscripción ni mensualidad: pagas solo lo que uses',
+          'El precio se ve antes de confirmar, nunca después',
+          'Cada cobro queda registrado y consultable en tu panel',
+          'Si no usas nada de aquí, no pagas nada',
+        ],
+      },
+      {
+        cat: 'Contratación de personal',
+        ancla: 'pagos-vacantes',
+        icon: 'users',
+        items: [
+          'Publicar vacantes y recibir postulaciones: sin costo',
+          'Comisión sobre el contrato al contratar a alguien',
+          { texto: 'Destacar una vacante para que aparezca primero', proximamente: true },
+          { texto: 'Verificación de identidad del candidato', proximamente: true },
+        ],
+      },
+      {
+        cat: 'Asistente y envíos',
+        ancla: 'pagos-agente',
+        icon: 'sparkles',
+        items: [
+          'Gestbot responde y ejecuta acciones en tu evento',
+          { texto: 'Paquetes de uso del asistente', proximamente: true },
+          { texto: 'Envíos masivos por encima del cupo incluido', proximamente: true },
+        ],
+      },
+];
 
 export default function ProductoPage() {
-  const [tab, setTab] = useState(() => {
-    const ancla = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
-    if (!ancla) return 'free';
-    /* Un enlace desde la portada puede apuntar a un bloque de cualquiera de
-       las dos pestañas. Se abre la que lo contiene; si no, el bloque no está
-       en el DOM y el navegador no tiene a dónde desplazarse. */
-    const donde = Object.entries(GROUPS).find(([, g]) => g.sections.some(x => x.ancla === ancla));
-    return donde ? donde[0] : 'free';
-  });
-  const group = GROUPS[tab];
-
-  /* El desplazamiento va después de pintar. Se resalta un momento porque
-     caer a media página sin más deja al lector sin saber qué vino a ver. */
+  /* Al llegar con #ancla desde la portada hay que desplazar después de
+     pintar. Se resalta un momento porque caer a media página sin más deja
+     al lector sin saber qué vino a ver. */
   useEffect(() => {
     const ancla = window.location.hash.slice(1);
     if (!ancla) return undefined;
@@ -240,89 +214,87 @@ export default function ProductoPage() {
       setTimeout(() => el.classList.remove('ring-2', 'ring-primary/60'), 2400);
     }, 260);
     return () => clearTimeout(id);
-  }, [tab]);
+  }, []);
+
   return (
     <>
-      <Hero tab={tab} setTab={setTab} />
-      <Grid group={group} tab={tab} key={tab} />
+      <Hero />
+      <Rejilla secciones={SECCIONES} />
+      <Pagos />
       <CierrePublico />
     </>
   );
 }
 
-function Hero({ tab, setTab }) {
+function Hero() {
   const { t } = useI18n();
   return (
-    <section className="relative px-5 sm:px-8 pt-6 pb-12 max-w-5xl mx-auto text-center overflow-hidden">
+    <section className="relative px-5 sm:px-8 pt-6 pb-14 max-w-5xl mx-auto text-center overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/8 blur-[160px] rounded-full" />
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 rounded-full bg-primary/40 animate-[float_4s_ease-in-out_infinite]"
-            style={{
-              top: `${10 + (i * 7) % 80}%`,
-              left: `${(i * 13) % 90}%`,
-              animationDelay: `${i * 0.3}s`,
-            }}
-          />
-        ))}
       </div>
 
-      <p className="relative text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('Producto')}</p>
+      <p className="relative text-sm uppercase tracking-widest text-primary font-semibold mb-4">{t('Producto')}</p>
       <h1 className="relative text-5xl sm:text-6xl font-bold font-display tracking-tight text-text-1 leading-[1.05] mb-6">
         {t('Todo lo que GESTEK ofrece')}
       </h1>
-      <p className="relative text-lg text-text-2 max-w-2xl mx-auto leading-relaxed mb-10">
-        {t('GESTEK incluye todo lo esencial, y suma API, agente IA, white-label y dominio propio para los equipos que necesitan escalar y mantener su marca.')}
+      <p className="relative text-lg text-text-2 max-w-2xl mx-auto leading-relaxed">
+        {t('Un solo plan, gratuito. La marca blanca no es un nivel que se compra: desde tu primer evento la plataforma desaparece detrás de tu marca, con tu logo, tus colores y tu dominio.')}
       </p>
 
-      <div className="relative inline-flex flex-wrap justify-center items-center gap-1 p-1.5 rounded-3xl sm:rounded-full border border-border bg-surface/60 backdrop-blur">
+      <div className="relative mt-9 inline-flex flex-wrap justify-center items-center gap-2">
         {[
-          ['free',  'Plan gratuito', 'Casi todo'],
-          ['pagos', 'Pagos internos', 'Por uso'],
-          ['pro',   'Marca blanca',   'Sin nuestro logo'],
-        ].map(([id, etiqueta, apunte]) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            aria-pressed={tab === id}
-            className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
-              tab === id ? 'bg-gradient-primary text-[#15171C] shadow-card' : 'text-text-2 hover:text-text-1'
-            }`}
-          >
-            {t(etiqueta)}
-            <span className={`hidden sm:inline text-[10px] px-2 py-0.5 rounded-full ${
-              tab === id ? 'bg-black/15 text-[#15171C]' : 'bg-surface-3 text-text-3'
-            }`}>{t(apunte)}</span>
-          </button>
+          ['Sin mensualidad', 'wallet'],
+          ['Sin límite de asistentes', 'users'],
+          ['Con tu marca desde el día uno', 'paint'],
+        ].map(([texto, icono]) => (
+          <span key={texto} className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/25
+                                       bg-primary/8 text-sm font-medium text-text-1">
+            <span className="text-primary"><FeatureIcon name={icono} /></span>
+            {t(texto)}
+          </span>
         ))}
       </div>
-
-      {/* Lo que la pestaña necesita aclarar antes de la lista */}
-      <p className="relative mt-7 text-sm text-text-2 max-w-xl mx-auto leading-relaxed">
-        {tab === 'free'  && t('Todo esto viene incluido, sin límite de asistentes y sin fecha de caducidad.')}
-        {tab === 'pagos' && t('Se cobra por uso, no por mes. Un evento se opera de principio a fin sin tocar nada de esta pestaña: aquí solo está lo que a nosotros nos cuesta cada vez que se usa y lo que le da ventaja a un organizador sobre otro.')}
-        {tab === 'pro'   && t('Para quien necesita que la plataforma desaparezca detrás de su propia marca.')}
-      </p>
     </section>
   );
 }
 
-function Grid({ group, tab }) {
+/* ─────────── Lo que se paga por uso ─────────── */
+function Pagos() {
   const { t } = useI18n();
   return (
-    <section className="px-5 sm:px-8 pb-20 max-w-6xl mx-auto">
-      {tab === 'pagos' && (
-        <div className="mb-6 rounded-2xl border border-warning/30 bg-warning/8 px-5 py-4 max-w-3xl mx-auto">
-          <p className="text-sm text-text-1 font-semibold mb-1">{t('Todavía no cobramos nada de esta pestaña')}</p>
+    <section id="pagos-internos" className="px-5 sm:px-8 py-20 border-t border-border bg-surface/25">
+      <div className="max-w-6xl mx-auto">
+        <header className="max-w-2xl mb-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary mb-4">
+            {t('Lo único que se paga')}
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1 leading-tight">
+            {t('Cobros dentro del evento')}
+          </h2>
+          <p className="mt-4 text-base text-text-2 leading-relaxed">
+            {t('Se cobra por uso, nunca por mes. Un evento se opera de principio a fin sin tocar nada de esto: aquí solo está lo que a nosotros nos cuesta cada vez que se usa y lo que le da ventaja a un organizador sobre otro.')}
+          </p>
+        </header>
+
+        <div className="mb-6 rounded-2xl border border-warning/30 bg-warning/8 px-5 py-4 max-w-3xl">
+          <p className="text-sm text-text-1 font-semibold mb-1">{t('Todavía no cobramos nada de esto')}</p>
           <p className="text-sm text-text-2 leading-relaxed">
             {t('El modelo está construido y cada cobro se registra, pero la pasarela aún no está conectada. Preferimos decirlo a que te enteres cuando te llegue una factura que no esperabas.')}
           </p>
         </div>
-      )}
+
+        <Rejilla secciones={SECCIONES_PAGOS} sinMargen />
+      </div>
+    </section>
+  );
+}
+
+function Rejilla({ secciones, sinMargen = false }) {
+  return (
+    <section className={sinMargen ? '' : 'px-5 sm:px-8 pb-20 max-w-6xl mx-auto'}>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 animate-[fadeUp_0.5s_ease_both]">
-        {group.sections.map((s, i) => <FeatureCard key={s.cat} section={s} index={i} accent={group.accent} />)}
+        {secciones.map((s, i) => <FeatureCard key={s.cat} section={s} index={i} accent="primary" />)}
       </div>
     </section>
   );

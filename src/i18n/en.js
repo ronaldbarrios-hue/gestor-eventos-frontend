@@ -689,6 +689,18 @@ export default {
   '¿Prefieres verlo funcionando?': 'Rather see it working?',
   'Mira los eventos publicados': 'Browse the published events',
 
+  /* ── Producto · un solo plan ────────────────────────────────── */
+  'Un solo plan, gratuito. La marca blanca no es un nivel que se compra: desde tu primer evento la plataforma desaparece detrás de tu marca, con tu logo, tus colores y tu dominio.':
+    'One plan, free. White-label is not a tier you buy: from your very first event the platform disappears behind your brand, with your logo, your colors and your domain.',
+  'Sin mensualidad': 'No monthly fee',
+  'Sin límite de asistentes': 'No attendee limit',
+  'Con tu marca desde el día uno': 'Your brand from day one',
+  'Lo único que se paga': 'The only thing you pay for',
+  'Cobros dentro del evento': 'Charges inside the event',
+  'Se cobra por uso, nunca por mes. Un evento se opera de principio a fin sin tocar nada de esto: aquí solo está lo que a nosotros nos cuesta cada vez que se usa y lo que le da ventaja a un organizador sobre otro.':
+    'Charged per use, never per month. An event runs start to finish without touching any of this: what lives here is what costs us every time it is used, and what gives one organizer an edge over another.',
+  'Todavía no cobramos nada de esto': 'We do not charge for any of this yet',
+
   /* ── Producto · pagos internos ──────────────────────────────── */
   'Plan gratuito': 'Free plan',
   'Pagos internos': 'In-app payments',
