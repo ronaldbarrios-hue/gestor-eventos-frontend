@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext.jsx';
+import { Link } from 'react-router-dom';
 import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 
 const Icono = ({ d, className = '' }) => (
@@ -37,6 +38,7 @@ export default function BotonConfiguracion() {
   const { theme, setLight, setDark } = useTheme();
   const { t, lang, setLang } = useI18n();
   const [abierto, setAbierto] = useState(false);
+  const [verDatos, setVerDatos] = useState(false);
   const raiz = useRef(null);
 
   /* Cerrar al hacer clic fuera o con Escape — lo que espera cualquiera
@@ -107,6 +109,39 @@ export default function BotonConfiguracion() {
                 {i.label}
               </button>
             ))}
+          </div>
+
+          {/* ── Qué guardamos ──
+              No hay banner de cookies porque no hay nada que consentir: no
+              usamos analítica, ni píxeles, ni rastreadores de terceros. Lo
+              que se guarda es lo imprescindible para que la página funcione
+              como la dejaste, y eso no pide permiso — pide que se diga. Un
+              banner de "aceptar cookies" sin cookies que aceptar sería un
+              trámite falso. */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <button
+              onClick={() => setVerDatos((v) => !v)}
+              aria-expanded={verDatos}
+              className="w-full flex items-center justify-between gap-2 text-[11px] text-text-3 hover:text-text-2 transition-colors"
+            >
+              {t('Qué guardamos en tu navegador')}
+              <Icono d={<path d="M19 9l-7 7-7-7" />}
+                     className={`h-3 w-3 transition-transform ${verDatos ? 'rotate-180' : ''}`} />
+            </button>
+
+            {verDatos && (
+              <div className="mt-2.5 animate-[fadeIn_0.2s_ease_both]">
+                <p className="text-[11px] text-text-2 leading-relaxed">
+                  {t('Solo lo necesario para que la página funcione como la dejaste: el tema, el idioma y tu sesión si entras. Sin analítica, sin píxeles y sin rastreadores de terceros — por eso no te pedimos aceptar cookies.')}
+                </p>
+                <Link
+                  to="/privacidad"
+                  className="inline-block mt-2 text-[11px] text-primary hover:underline"
+                >
+                  {t('Política de Privacidad')}
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

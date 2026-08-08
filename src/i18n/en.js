@@ -568,6 +568,9 @@ export default {
   /* ── Configuración del sitio ────────────────────────────────── */
   'Configuración': 'Settings',
   'Apariencia': 'Appearance',
+  'Qué guardamos en tu navegador': 'What we store in your browser',
+  'Solo lo necesario para que la página funcione como la dejaste: el tema, el idioma y tu sesión si entras. Sin analítica, sin píxeles y sin rastreadores de terceros — por eso no te pedimos aceptar cookies.':
+    'Only what the page needs to work the way you left it: theme, language, and your session if you sign in. No analytics, no pixels and no third-party trackers — which is why we never ask you to accept cookies.',
   'Claro': 'Light',
   'Oscuro': 'Dark',
   'Ocultar': 'Hide',
@@ -1025,6 +1028,7 @@ export default {
   'Cambiar idioma': 'Change language',
   'Idioma': 'Language',
   'Abrir el acompañante': 'Open the companion',
+  'Abrir Gestbot': 'Open Gestbot',
   'Mostrar el acompañante': 'Show the companion',
   'Ocultar acompañante': 'Hide companion',
   'Abrir menú': 'Open menu',

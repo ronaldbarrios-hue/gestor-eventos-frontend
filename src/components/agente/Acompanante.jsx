@@ -19,6 +19,7 @@
    y el bot arranca en (18, 42) → mano en (109, 68). */
 
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Criatura from './Criatura.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
@@ -60,8 +61,9 @@ function useCss() {
   }, []);
 }
 
-export default function Acompanante() {
+export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
   useCss();
+  const navegar = useNavigate();
   const { theme, toggle } = useTheme();
   const { t, recargando } = useI18n();
   const [tirando, setTirando] = useState(false);
@@ -89,9 +91,9 @@ export default function Acompanante() {
       <button
         onClick={() => setOculto(false)}
         aria-label={t('Mostrar el acompañante')}
-        className="hidden lg:flex fixed bottom-5 left-5 z-40 h-10 w-10 rounded-full border border-primary/40
+        className={`hidden lg:flex fixed bottom-5 ${lado === 'derecha' ? 'right-5' : 'left-5'} z-40 h-10 w-10 rounded-full border border-primary/40
                    bg-surface/90 backdrop-blur shadow-card items-center justify-center
-                   hover:border-primary transition-colors"
+                   hover:border-primary transition-colors`}
       >
         <span className="block h-2 w-2 rounded-full bg-primary" />
       </button>
@@ -101,7 +103,7 @@ export default function Acompanante() {
   return (
     <div
       className={`ac-raiz ${tirando ? 'ac-tirando' : ''} hidden lg:block fixed z-40 select-none pointer-events-none`}
-      style={{ left: 12, bottom: 10, width: ANCHO, height: ALTO }}
+      style={{ [lado === 'derecha' ? 'right' : 'left']: 12, bottom: 10, width: ANCHO, height: ALTO }}
     >
       <svg
         viewBox={`0 0 ${ANCHO} ${ALTO}`} width={ANCHO} height={ALTO}
@@ -200,12 +202,25 @@ export default function Acompanante() {
       </svg>
 
       {/* ── El bot, tecleando en su portátil sobre la mesa ── */}
-      <div
-        className="pointer-events-auto absolute"
-        style={{ left: BOT_X, top: BOT_Y, width: BOT, height: BOT * (150 / 140) }}
-      >
-        <Criatura mood={mood} size={BOT} seguirCursor />
-      </div>
+      {alAbrir === false ? (
+        <div
+          className="pointer-events-none absolute"
+          style={{ left: BOT_X, top: BOT_Y, width: BOT, height: BOT * (150 / 140) }}
+        >
+          <Criatura mood={mood} size={BOT} seguirCursor />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => (alAbrir ? alAbrir() : navegar('/gestbot'))}
+          aria-label={t('Abrir Gestbot')}
+          title={t('Abrir Gestbot')}
+          className="pointer-events-auto absolute cursor-pointer bg-transparent border-0 p-0"
+          style={{ left: BOT_X, top: BOT_Y, width: BOT, height: BOT * (150 / 140) }}
+        >
+          <Criatura mood={mood} size={BOT} seguirCursor />
+        </button>
+      )}
 
       {/* Salida discreta, por si estorba */}
       <button

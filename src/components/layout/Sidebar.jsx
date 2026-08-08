@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import GestekMark from './GestekMark.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
-import Criatura from '../agente/Criatura.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useAccesosDirectos, DESTINOS_ACCESO, SECCIONES_EVENTO,
   CATEGORIAS_GENERAL, CATEGORIAS_EVENTO, filtrarYAgrupar } from '../../hooks/useAccesosDirectos.js';
@@ -232,25 +231,6 @@ export default function Sidebar({ mobile = false, onClose }) {
         )}
       </nav>
 
-      {/* ── Hotspot Gestbot — solo en modo Organizador (gestiona eventos, no aplica a comprar boletas) ── */}
-      {(
-        <div className="p-3">
-          <div className="rounded-2xl bg-sidebar-2 border border-white/5 p-4">
-            <div className="flex items-center gap-3 mb-2.5">
-              <div className="flex-shrink-0 -my-1"><Criatura mood="happy" size={52} /></div>
-              <p className="text-[13px] font-semibold text-white leading-tight">¿Necesitas ayuda en algo?</p>
-            </div>
-            <NavLink
-              to="/gestbot"
-              onClick={mobile ? onClose : undefined}
-              className="block w-full text-center px-3 py-2 rounded-xl bg-accent hover:bg-accent-dark
-                         text-white text-[13px] font-medium transition-colors"
-            >
-              Abrir Gestbot
-            </NavLink>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Criatura from '../../components/agente/Criatura.jsx';
-import GestekMark from '../../components/layout/GestekMark.jsx';
 import { PasoAPaso, IncrustarEnTuWeb, CasosDeUso, VideoDemo, InventarioModulos } from './landing/Secciones.jsx';
 import CierrePublico from './landing/CierrePublico.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
@@ -145,55 +144,47 @@ export default function LandingHomePage() {
   );
 }
 
-/* ─────────── HERO ─────────── */
+/* ─────────── HERO ───────────
+   Antes ocupaba una pantalla entera para decir el nombre y poco más: la
+   marca gigante (repetida, porque ya está en la navbar dos centímetros
+   arriba), órbitas girando y un párrafo largo. Ahora entra el nombre, la
+   promesa y tres datos concretos en el mismo espacio, y la página empieza
+   a contar algo antes del primer desplazamiento. */
 function Hero() {
   const { t } = useI18n();
   const [ref, visible] = useReveal(0);
+
+  const APOYOS = [
+    ['33', 'funciones construidas'],
+    ['0', 'comisión sobre tus boletas'],
+    ['2', 'idiomas, y tu marca en todo'],
+  ];
+
   return (
-    <section className="relative px-5 sm:px-8 pt-12 sm:pt-20 pb-24 overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none" style={{
-        transform: 'translateZ(0)',
-        backgroundImage:
-          'radial-gradient(48rem 30rem at 50% 0%, rgba(224,177,43,0.13), transparent 60%),'
-          + 'radial-gradient(26rem 26rem at 12% 35%, rgba(201,162,39,0.09), transparent 60%),'
-          + 'radial-gradient(20rem 20rem at 88% 25%, rgba(224,177,43,0.08), transparent 60%)',
+    <section className="relative px-5 sm:px-8 pt-10 sm:pt-14 pb-16 overflow-hidden">
+      {/* Un solo resplandor, arriba, que se funde con el resto de la página.
+          Antes había tres más tres órbitas girando: eso era lo que hacía
+          sentir el centro como una pieza aparte. */}
+      <div className="absolute inset-x-0 top-0 h-[34rem] pointer-events-none" style={{
+        backgroundImage: 'radial-gradient(52rem 26rem at 50% 0%, rgba(224,177,43,0.14), transparent 68%)',
       }} />
 
-      {/* Decorative orbits */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-        <div className="absolute w-[600px] h-[600px] rounded-full border border-border/40 animate-[spin-slow_60s_linear_infinite]" />
-        <div className="absolute w-[800px] h-[800px] rounded-full border border-border/25 animate-[spin-slow_90s_linear_infinite_reverse]" />
-        <div className="absolute w-[1000px] h-[1000px] rounded-full border border-border/15" />
-      </div>
-
-      <div className="relative max-w-5xl mx-auto text-center" ref={ref}>
-        {/* La marca preside el hero, encima del nombre */}
-        <div className={`flex justify-center mb-6 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <GestekMark size={104} className="drop-shadow-[0_0_34px_rgba(224,177,43,0.45)]" />
-        </div>
-
-        <h1 className={`text-7xl sm:text-8xl lg:text-[8.5rem] font-bold font-display tracking-tight leading-none text-text-1 transition-all duration-700 delay-100 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <span className="bg-gradient-to-br from-text-1 via-primary-light to-accent-light bg-clip-text text-transparent animate-[shimmer_8s_linear_infinite]" style={{ backgroundSize: '200% 100%', animationDirection: 'reverse' }}>
+      <div className="relative max-w-4xl mx-auto text-center" ref={ref}>
+        <h1 className={`text-6xl sm:text-7xl lg:text-8xl font-bold font-display tracking-tight leading-none transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <span className="bg-gradient-to-br from-text-1 via-primary-light to-accent-light bg-clip-text text-transparent">
             GESTEK
           </span>
         </h1>
 
-        <p className={`mt-4 text-base sm:text-lg text-primary-light font-semibold tracking-[0.3em] uppercase transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <p className={`mt-4 text-sm sm:text-base text-primary font-semibold tracking-[0.3em] uppercase transition-all duration-700 delay-100 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           {t('Personaliza, organiza y crece')}
         </p>
 
-        <div className={`mt-6 flex justify-center transition-all duration-700 delay-250 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/40
-                           bg-accent/10 text-accent-light text-xs sm:text-sm font-semibold">
-            {t('La primera plataforma de eventos con inteligencia artificial integrada')}
-          </span>
-        </div>
-
-        <p className={`mt-8 text-lg sm:text-2xl text-text-2 max-w-3xl mx-auto leading-relaxed transition-all duration-700 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <p className={`mt-7 text-lg sm:text-xl text-text-2 max-w-2xl mx-auto leading-relaxed transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           {t('Crea y vende boletas, monta stands, controla el ingreso y arma el cronograma. Sirve para un evento único o para una convención con decenas de actividades adentro. Todo en un solo lugar.')}
         </p>
 
-        <div className={`mt-12 flex flex-col sm:flex-row items-center justify-center gap-3 transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <div className={`mt-9 flex flex-col sm:flex-row items-center justify-center gap-3 transition-all duration-700 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <Link
             to="/register"
             className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow hover:shadow-[0_0_60px_rgba(224,177,43,0.45)] hover:scale-[1.02] active:scale-[0.98]"
@@ -208,9 +199,16 @@ function Hero() {
           </Link>
         </div>
 
-        <p className={`mt-6 text-sm text-text-3 transition-all duration-700 delay-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
-          {t('Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy')}
-        </p>
+        {/* Tres datos en vez de una frase de relleno: el espacio que sobraba
+            ahora dice algo comprobable. */}
+        <div className={`mt-14 grid grid-cols-3 gap-4 sm:gap-8 max-w-2xl mx-auto pt-8 border-t border-border transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          {APOYOS.map(([dato, que]) => (
+            <div key={que}>
+              <p className="text-3xl sm:text-4xl font-bold font-display text-primary tabular-nums leading-none">{dato}</p>
+              <p className="mt-2 text-xs sm:text-sm text-text-3 leading-snug">{t(que)}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

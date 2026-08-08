@@ -23,9 +23,9 @@
     --color-text-3      : 138 133 122;  /* #8A857A */
 
     /* ── Sidebar (la noche identitaria, IGUAL en ambos modos) ──── */
-    --color-sidebar     : 13 15 19;   /* #0D0F13 */
-    --color-sidebar-2   : 26 31 39;   /* hover/superficie interna */
-    --color-sidebar-3   : 38 44 54;   /* activo */
+    --color-sidebar     : 18 16 11;   /* #12100B — la misma noche cálida */
+    --color-sidebar-2   : 33 29 21;   /* hover/superficie interna */
+    --color-sidebar-3   : 48 42 31;   /* activo */
 
     /* ── Latón · el acento de marca. En día se oscurece para que
        tenga contraste sobre los fondos claros. ── */
@@ -55,14 +55,18 @@
      ThemeContext). Grises azulados neutros — no negro puro — y los
      mismos acentos de marca para no perder identidad visual. */
   html.dark {
-    --color-bg         : 13 15 19;    /* #0D0F13 */
-    --color-surface     : 22 26 33;    /* #161A21 */
-    --color-surface-2   : 30 35 44;    /* #1E232C */
-    --color-surface-3   : 40 46 56;    /* #282E38 */
-    --color-border-rgb  : 255 255 255;
-    --color-text-1      : 242 239 232; /* #F2EFE8 */
-    --color-text-2      : 169 167 159; /* #A9A79F */
-    --color-text-3      : 123 122 116; /* #7B7A74 */
+    /* ⚠️ La noche tiene que ser CÁLIDA. La anterior (#0D0F13) tenía más azul
+       que rojo: era el gris azulado de siempre con dorado encima, y por eso
+       no se sentía "latón y noche" sino "lo de antes, en dorado". Estas
+       tienen el rojo por delante del azul, como el propio latón. */
+    --color-bg         : 18 16 11;    /* #12100B */
+    --color-surface     : 27 24 17;    /* #1B1811 */
+    --color-surface-2   : 37 33 24;    /* #252118 */
+    --color-surface-3   : 51 45 34;    /* #332D22 */
+    --color-border-rgb  : 255 244 214; /* el filo también tira a cálido */
+    --color-text-1      : 245 240 230; /* #F5F0E6 */
+    --color-text-2      : 173 165 149; /* #ADA595 */
+    --color-text-3      : 125 118 104; /* #7D7668 */
 
     /* Sobre la noche el latón puede ir a pleno brillo */
     --color-primary       : 224 177 43;   /* #E0B12B */
@@ -95,8 +99,8 @@
     overflow-x: clip; /* los paneles fijos fuera de pantalla no deben crear scroll horizontal */
     background-image:
       radial-gradient(ellipse 60% 40% at 50% -10%, rgba(201,162,39,0.07), transparent 60%),
-      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(165,129,26,0.05), transparent 70%),
-      url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(33,30,24,0.045)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(165,129,26,0.05), transparent 70%);
+
   }
 
   /* En modo oscuro la rejilla clara casi no se ve — versión con trazo
@@ -104,8 +108,8 @@
   html.dark body {
     background-image:
       radial-gradient(ellipse 60% 40% at 50% -10%, rgba(224,177,43,0.10), transparent 60%),
-      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(201,162,39,0.07), transparent 70%),
-      url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(255,255,255,0.025)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(201,162,39,0.07), transparent 70%);
+
   }
 
   * { box-sizing: border-box; }

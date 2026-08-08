@@ -4,8 +4,6 @@ import { useTheme } from '../../context/ThemeContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 import PublicNavbar from './PublicNavbar.jsx';
 import PublicFooter from './PublicFooter.jsx';
-import SideDecorations from './SideDecorations.jsx';
-import Acompanante from '../agente/Acompanante.jsx';
 import BotonConfiguracion from '../ui/BotonConfiguracion.jsx';
 
 export default function PublicLayout() {
@@ -53,7 +51,6 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text-1 overflow-x-clip">
-      <SideDecorations />
       {!esMarcaBlanca && <PublicNavbar />}
 
       {esPaginaTicket && (
@@ -76,10 +73,9 @@ export default function PublicLayout() {
 
       {!esMarcaBlanca && <PublicFooter />}
 
-      {/* El acompañante y la configuración solo en las páginas de GESTEK:
-          en marca blanca no debe aparecer nada nuestro. El bot va a la
-          izquierda y la configuración a la derecha, para que no choquen. */}
-      {!esMarcaBlanca && <Acompanante />}
+      {/* El acompañante se fue al panel: en la landing distraía sin aportar,
+          y su sitio natural es donde de verdad puede ayudar a trabajar.
+          Aquí queda solo la configuración, abajo a la derecha. */}
       {!esMarcaBlanca && <BotonConfiguracion />}
     </div>
   );

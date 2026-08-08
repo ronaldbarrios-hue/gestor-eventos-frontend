@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import TopBar from './TopBar.jsx';
+import Acompanante from '../agente/Acompanante.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function AppLayout() {
@@ -60,6 +61,12 @@ export default function AppLayout() {
           </div>
         </main>
       </div>
+
+      {/* El acompañante vive aquí, no en la landing: dentro de la plataforma
+          es donde puede ayudar. Va a la derecha porque el sidebar ocupa la
+          izquierda. Un solo bot — el hotspot estático del sidebar se quitó
+          para no tener dos. */}
+      <Acompanante lado="derecha" />
     </div>
   );
 }
