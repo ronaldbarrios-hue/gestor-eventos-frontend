@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import logoG from '../assets/logo-g.svg';
+import GestekMark from '../components/layout/GestekMark.jsx';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploader.jsx';
 import { supabase } from '../lib/supabase.js';
@@ -36,25 +37,45 @@ export default function AuthPage() {
   const mode = pathname.startsWith('/register') ? 'register' : 'login';
 
   const [displayMode, setDisplayMode] = useState(mode);
-  const [phase, setPhase] = useState('idle'); // idle | out | in
+  const [phase, setPhase] = useState('idle');       // idle | out | in
+  const [rumbo, setRumbo] = useState('right');      // hacia dónde viaja el formulario
 
   useEffect(() => {
-    if (mode === displayMode) return;
+    if (mode === displayMode) return undefined;
+    /* En login el formulario está a la izquierda y en registro a la derecha,
+       así que el rumbo lo decide a cuál vamos. Se guarda al empezar porque
+       la fase de entrada tiene que seguir el mismo sentido que la de salida:
+       si no, el contenido sale por un lado y vuelve por el mismo, y se ve
+       como un rebote en vez de un viaje. */
+    setRumbo(mode === 'register' ? 'right' : 'left');
     setPhase('out');
     const t1 = setTimeout(() => {
       setDisplayMode(mode);
       setPhase('in');
-      const t2 = setTimeout(() => setPhase('idle'), DUR_IN);
-      return () => clearTimeout(t2);
     }, DUR_OUT);
     return () => clearTimeout(t1);
   }, [mode, displayMode]);
 
+  useEffect(() => {
+    if (phase !== 'in') return undefined;
+    const t = setTimeout(() => setPhase('idle'), DUR_IN);
+    return () => clearTimeout(t);
+  }, [phase]);
+
   const isLogin = displayMode === 'login';
 
-  const panelTransition = phase !== 'idle'
-    ? 'opacity-0 pointer-events-none'
-    : 'opacity-100';
+  /* El formulario viaja en el sentido del rumbo; el panel de color y su
+     texto, en el contrario — se están intercambiando el sitio. */
+  const animFormulario = phase === 'out'
+    ? (rumbo === 'right' ? 'animate-auth-out-right' : 'animate-auth-out-left')
+    : phase === 'in'
+      ? (rumbo === 'right' ? 'animate-auth-in-right' : 'animate-auth-in-left')
+      : '';
+  const animPanel = phase === 'out'
+    ? (rumbo === 'right' ? 'animate-auth-out-left' : 'animate-auth-out-right')
+    : phase === 'in'
+      ? (rumbo === 'right' ? 'animate-auth-in-left' : 'animate-auth-in-right')
+      : '';
 
   return (
     <div className="relative min-h-screen flex items-start lg:items-center justify-center bg-bg text-text-1 overflow-x-hidden px-4 sm:px-8 pt-16 pb-8 lg:py-12 animate-[fadeIn_0.4s_ease_both]">
@@ -74,18 +95,45 @@ export default function AuthPage() {
         <span>Volver</span>
       </Link>
 
-      <div className={`relative w-full max-w-5xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-12 items-center transition-opacity duration-300 ${panelTransition}`}>
-        {/* FORM panel */}
-        <div className={isLogin ? 'lg:order-1' : 'lg:order-2'}>
-          <div className="w-full max-w-md mx-auto">
-            {isLogin ? <LoginForm /> : <RegisterForm />}
+      {/* Una sola tarjeta con las dos mitades adentro. Antes eran dos columnas
+          sueltas que se desvanecían y volvían a aparecer; ahora la mitad de
+          color se desliza de un lado al otro y el contenido viaja con ella. */}
+      <div className="relative w-full max-w-5xl mx-auto lg:rounded-[2rem] lg:border lg:border-border-2
+                      lg:bg-surface/40 lg:backdrop-blur-xl lg:shadow-card-hover lg:overflow-hidden">
+
+        {/* La mitad de color. Es la noche de la marca, así que resalta contra
+            el lado del formulario en los dos temas. */}
+        <div
+          aria-hidden="true"
+          className={`hidden lg:block absolute inset-y-0 left-0 w-1/2 z-0
+                      transition-transform duration-[680ms] ease-[cubic-bezier(0.65,0,0.35,1)]
+                      ${isLogin ? 'translate-x-full' : 'translate-x-0'}`}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#232935] via-[#161A21] to-[#0D0F13]" />
+          <div
+            className="absolute inset-0"
+            style={{ backgroundImage: 'radial-gradient(30rem 22rem at 22% 12%, rgba(224,177,43,0.20), transparent 62%)' }}
+          />
+          {/* La marca, en grande y muy tenue: llena el panel sin robar lectura */}
+          <div className="absolute -bottom-16 -right-14 opacity-[0.055]">
+            <GestekMark size={340} color="#F2D66B" />
           </div>
+          <div className={`absolute inset-y-0 w-px bg-primary/25 ${isLogin ? 'left-0' : 'right-0'}`} />
         </div>
 
-        {/* TEXT panel — solo desktop */}
-        <div className={`${isLogin ? 'lg:order-2' : 'lg:order-1'} hidden lg:block`}>
-          <div className="max-w-md mx-auto">
-            {isLogin ? <LoginText /> : <RegisterText />}
+        <div className="relative z-10 grid lg:grid-cols-2 lg:min-h-[640px]">
+          {/* Formulario */}
+          <div className={`${isLogin ? 'lg:order-1' : 'lg:order-2'} flex items-center lg:p-10 xl:p-12 ${animFormulario}`}>
+            <div className="w-full max-w-md mx-auto">
+              {isLogin ? <LoginForm /> : <RegisterForm />}
+            </div>
+          </div>
+
+          {/* Texto — vive sobre la mitad de color, solo en escritorio */}
+          <div className={`${isLogin ? 'lg:order-2' : 'lg:order-1'} hidden lg:flex items-center p-10 xl:p-12 ${animPanel}`}>
+            <div className="w-full max-w-md mx-auto">
+              {isLogin ? <LoginText /> : <RegisterText />}
+            </div>
           </div>
         </div>
       </div>
@@ -106,42 +154,60 @@ function BackgroundGlows({ isLogin }) {
 
 /* ─────────── LOGIN ─────────── */
 function LoginText() {
+  /* Antes esto era un titular, un párrafo y tres círculos de degradado
+     haciéndose pasar por fotos de usuarios. Se veía vacío justamente
+     porque no decía nada: ahora enumera lo que la persona viene a
+     retomar, que es lo único que importa en esta pantalla. */
+  const TE_ESPERA = [
+    ['Tus eventos', 'Con sus ventas y su aforo al día.'],
+    ['El ingreso listo', 'Escáner, escarapelas y zonas configuradas.'],
+    ['Lo que avanzó tu equipo', 'Tareas, mensajes y solicitudes pendientes.'],
+  ];
+
   return (
-    <div className="space-y-6">
-      <Link
-        to="/"
-        className={`${staggerClass} inline-flex items-center gap-3 group`}
-        style={staggerStyle(0)}
-      >
-        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(224,177,43,0.5)] animate-[float_5s_ease-in-out_infinite]" />
-        <span className="text-2xl font-bold font-display tracking-tight">GESTEK</span>
+    <div className="space-y-7">
+      <Link to="/" className={`${staggerClass} inline-flex items-center gap-3 group`} style={staggerStyle(0)}>
+        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(224,177,43,0.5)]" />
+        <span className="text-2xl font-bold font-display tracking-tight text-white">GESTEK</span>
       </Link>
+
       <h2
-        className={`${staggerClass} text-4xl xl:text-5xl font-bold font-display tracking-tight leading-[1.05]`}
+        className={`${staggerClass} text-4xl xl:text-5xl font-bold font-display tracking-tight leading-[1.05] text-white`}
         style={staggerStyle(1)}
       >
         Bienvenido de vuelta.
       </h2>
-      <p
-        className={`${staggerClass} text-lg text-text-2 leading-relaxed`}
-        style={staggerStyle(2)}
-      >
-        Tu plataforma de eventos te está esperando. Gestiona inscripciones,
-        asistencia, pagos y comunidad desde un solo lugar.
+
+      <p className={`${staggerClass} text-lg text-white/65 leading-relaxed`} style={staggerStyle(2)}>
+        Todo quedó donde lo dejaste.
       </p>
-      <div
-        className={`${staggerClass} flex items-center gap-3 pt-4 border-t border-border-2`}
-        style={staggerStyle(3)}
-      >
-        <div className="flex -space-x-2">
-          {[0, 1, 2].map(i => (
-            <div key={i} className={`w-9 h-9 rounded-full border-2 border-bg bg-gradient-to-br ${
-              i === 0 ? 'from-primary to-accent' : i === 1 ? 'from-accent to-success' : 'from-success to-primary'
-            }`} />
-          ))}
-        </div>
-        <p className="text-sm text-text-2">Únete a los organizadores que ya usan GESTEK</p>
-      </div>
+
+      <ul className={`${staggerClass} space-y-4 pt-5 border-t border-white/10`} style={staggerStyle(3)}>
+        {TE_ESPERA.map(([que, detalle], i) => (
+          <li
+            key={que}
+            className="flex items-start gap-3.5 animate-[fadeUp_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
+            style={{ animationDelay: `${320 + i * 80}ms` }}
+          >
+            <span className="mt-1 h-6 w-6 flex-shrink-0 rounded-full bg-primary/20 border border-primary/40
+                             flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#F2D66B" strokeWidth="2.6" strokeLinecap="round"
+                   strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-[15px] font-semibold text-white">{que}</p>
+              <p className="text-sm text-white/55 mt-0.5">{detalle}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <p className={`${staggerClass} text-sm text-white/45 pt-2`} style={staggerStyle(4)}>
+        ¿Problemas para entrar?{' '}
+        <Link to="/faq" className="text-[#F2D66B] hover:underline">Mira las preguntas frecuentes</Link>
+      </p>
     </div>
   );
 }
@@ -282,55 +348,63 @@ function LoginForm() {
 
 /* ─────────── REGISTER ─────────── */
 function RegisterText() {
+  /* Las cuatro casillas decían dos palabras cada una y no explicaban nada.
+     Ahora cada una dice qué es y por qué importa, y ninguna promete algo
+     que no exista: el agente de IA es del plan de marca blanca y se dice. */
+  const LO_QUE_TIENES = [
+    ['Asistentes ilimitados', 'Sin tope y sin caducidad, también en el plan gratuito.'],
+    ['El dinero va directo a ti', 'Cobras con tu propia llave. GESTEK no toca ese flujo.'],
+    ['Ingreso con QR', 'Escanea desde el celular, incluso sin internet.'],
+    ['Tu equipo con roles', 'Cada quien ve y hace solo lo suyo, evento por evento.'],
+  ];
+
   return (
     <div className="space-y-6">
-      <Link
-        to="/"
-        className={`${staggerClass} inline-flex items-center gap-3 group`}
-        style={staggerStyle(0)}
-      >
-        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(224,177,43,0.5)] animate-[float_5s_ease-in-out_infinite]" />
-        <span className="text-2xl font-bold font-display tracking-tight">GESTEK</span>
+      <Link to="/" className={`${staggerClass} inline-flex items-center gap-3 group`} style={staggerStyle(0)}>
+        <img src={logoG} alt="GESTEK" className="h-12 w-12 transition-transform group-hover:scale-110 drop-shadow-[0_0_18px_rgba(224,177,43,0.5)]" />
+        <span className="text-2xl font-bold font-display tracking-tight text-white">GESTEK</span>
       </Link>
+
       <p
-        className={`${staggerClass} text-xs uppercase tracking-widest text-accent-light font-semibold`}
+        className={`${staggerClass} text-xs uppercase tracking-widest text-[#F2D66B] font-semibold`}
         style={staggerStyle(1)}
       >
-        Plataforma todo-en-uno · Gratis para siempre
+        Plan gratuito · Sin límite de asistentes
       </p>
+
       <h2
-        className={`${staggerClass} text-4xl xl:text-5xl font-bold font-display tracking-tight leading-[1.05]`}
+        className={`${staggerClass} text-4xl xl:text-[2.9rem] font-bold font-display tracking-tight leading-[1.05] text-white`}
         style={staggerStyle(2)}
       >
         Crea tu cuenta y monta tu primer evento hoy.
       </h2>
-      <p
-        className={`${staggerClass} text-lg text-text-2 leading-relaxed`}
-        style={staggerStyle(3)}
-      >
-        Cuéntanos lo básico y preparamos tu entorno de trabajo. Si tienes Pro,
-        el agente IA propone bloques iniciales según tu contexto.
+
+      <p className={`${staggerClass} text-[17px] text-white/65 leading-relaxed`} style={staggerStyle(3)}>
+        Cuéntanos lo básico y te dejamos el entorno listo: página pública,
+        boletas y control de ingreso desde el primer momento.
       </p>
-      <div
-        className={`${staggerClass} grid grid-cols-2 gap-3 pt-4 border-t border-border-2`}
-        style={staggerStyle(4)}
-      >
-        {[
-          ['Asistentes ilimitados', 'Sin caducidad'],
-          ['Pagos BRE-B', 'Sin comisión'],
-          ['QR + Gamificación', 'Incluido'],
-          ['Multi-usuario', 'Roles granulares'],
-        ].map(([k, v], i) => (
-          <div
-            key={k}
-            className="rounded-2xl border border-border bg-surface/40 p-3 transition-all duration-200 hover:border-border-2 hover:bg-surface/60 hover:-translate-y-0.5 animate-[fadeUp_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
-            style={{ animationDelay: `${350 + i * 60}ms` }}
+
+      <ul className={`${staggerClass} space-y-3.5 pt-5 border-t border-white/10`} style={staggerStyle(4)}>
+        {LO_QUE_TIENES.map(([que, detalle], i) => (
+          <li
+            key={que}
+            className="flex items-start gap-3.5 animate-[fadeUp_0.45s_cubic-bezier(0.16,1,0.3,1)_both]"
+            style={{ animationDelay: `${340 + i * 70}ms` }}
           >
-            <p className="text-sm font-semibold text-text-1">{k}</p>
-            <p className="text-xs text-text-3 mt-0.5">{v}</p>
-          </div>
+            <span className="mt-1 h-6 w-6 flex-shrink-0 rounded-full bg-primary/20 border border-primary/40
+                             flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#F2D66B" strokeWidth="2.6" strokeLinecap="round"
+                   strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-[15px] font-semibold text-white">{que}</p>
+              <p className="text-sm text-white/55 mt-0.5">{detalle}</p>
+            </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }
