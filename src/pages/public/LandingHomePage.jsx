@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Criatura from '../../components/agente/Criatura.jsx';
 import GestekMark from '../../components/layout/GestekMark.jsx';
-import { PasoAPaso, IncrustarEnTuWeb, CasosDeUso, VideoDemo } from './landing/Secciones.jsx';
+import { PasoAPaso, IncrustarEnTuWeb, CasosDeUso, VideoDemo, InventarioModulos } from './landing/Secciones.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
@@ -50,6 +50,7 @@ export default function LandingHomePage() {
       <Stats />
       <Pillars />
       <CasosDeUso />
+      <InventarioModulos />
       <FeatureSplit
         side="left"
         kicker="QR y gamificación"
@@ -121,12 +122,12 @@ export default function LandingHomePage() {
         side="right"
         kicker="API + Webhooks"
         title="Conecta GESTEK con todo tu stack"
-        desc="GESTEK incluye API REST con API key (HMAC), webhooks que disparan en cada inscripción, pago o check-in, y auditoría de todas las acciones del equipo."
+        desc="GESTEK incluye una API REST de lectura con token, webhooks firmados que disparan al publicar un evento, al pagarse una boleta y en cada check-in, y auditoría de todas las acciones del equipo."
         bullets={[
-          'API key por organización con firma HMAC',
-          'Webhooks: registro, pago, check-in, cancelación + reintentos',
+          'Token de API por organización, revocable',
+          'Webhooks firmados con HMAC-SHA256 y reintento automático',
           'Auditoría de acciones del equipo (quién hizo qué y cuándo)',
-          'Rate limit y tokens revocables',
+          'Registro de cada entrega, con su estado y su respuesta',
         ]}
         visual={<CodeMockup />}
       />

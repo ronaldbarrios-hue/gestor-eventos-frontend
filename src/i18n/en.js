@@ -216,14 +216,14 @@ export default {
 
   'API + Webhooks': 'API + Webhooks',
   'Conecta GESTEK con todo tu stack': 'Connect GESTEK to your whole stack',
-  'GESTEK incluye API REST con API key (HMAC), webhooks que disparan en cada inscripción, pago o check-in, y auditoría de todas las acciones del equipo.':
-    'GESTEK ships a REST API with an API key (HMAC), webhooks that fire on every registration, payment or check-in, and an audit trail of every team action.',
-  'API key por organización con firma HMAC': 'Per-organization API key with HMAC signing',
-  'Webhooks: registro, pago, check-in, cancelación + reintentos':
-    'Webhooks: registration, payment, check-in, cancellation plus retries',
+  'GESTEK incluye una API REST de lectura con token, webhooks firmados que disparan al publicar un evento, al pagarse una boleta y en cada check-in, y auditoría de todas las acciones del equipo.':
+    'GESTEK ships a read-only REST API with a token, signed webhooks that fire when an event is published, when a ticket is paid and on every check-in, and an audit trail of every team action.',
+  'Token de API por organización, revocable': 'Per-organization API token, revocable',
+  'Webhooks firmados con HMAC-SHA256 y reintento automático':
+    'Webhooks signed with HMAC-SHA256, with an automatic retry',
   'Auditoría de acciones del equipo (quién hizo qué y cuándo)':
     'Audit trail of team actions (who did what and when)',
-  'Rate limit y tokens revocables': 'Rate limiting and revocable tokens',
+  'Registro de cada entrega, con su estado y su respuesta': 'A log of every delivery, with its status and response',
 
   /* ── Portada · Gestbot ──────────────────────────────────────── */
   'Asistente de IA integrado': 'Built-in AI assistant',
@@ -435,12 +435,13 @@ export default {
   'Roles: admin, editor, lector': 'Roles: admin, editor, viewer',
   'Asignar permisos por evento': 'Assign permissions per event',
   'Auth con Supabase + recuperación por correo': 'Supabase auth plus email recovery',
-  'API REST completa con API key': 'Full REST API with an API key',
-  'Webhooks: inscripción, pago, check-in, cancelación':
-    'Webhooks: registration, payment, check-in, cancellation',
-  'Firmas HMAC + reintentos automáticos': 'HMAC signatures plus automatic retries',
+  'API REST de solo lectura con token Bearer': 'Read-only REST API with a Bearer token',
+  'Webhooks: evento publicado, boleta pagada y check-in':
+    'Webhooks: event published, ticket paid and check-in',
+  'Firma HMAC-SHA256 y reintento automático': 'HMAC-SHA256 signature and an automatic retry',
   'OpenAPI / Postman con ejemplos': 'OpenAPI / Postman with examples',
-  'Rate limit 600 req/min': 'Rate limit of 600 req/min',
+  'Límite de peticiones por token': 'Per-token request limit',
+  'Próximamente': 'Coming soon',
   'Crea bloques iniciales de evento por contexto': 'Creates starting event blocks from context',
   'Sugiere agenda, copy y configuración': 'Suggests agenda, copy and configuration',
   'Asistencia conversacional para editar eventos': 'Conversational help to edit events',
@@ -487,6 +488,57 @@ export default {
   '¿GESTEK tiene API?': 'Does GESTEK have an API?',
   'Sí, hay API REST completa con autenticación por API key y webhooks para inscripción, pago y check-in. Documentación con ejemplos disponible.':
     'Yes, there is a full REST API with API-key authentication and webhooks for registration, payment and check-in. Documentation with examples is available.',
+
+  /* ── Portada · inventario de módulos ────────────────────────── */
+  'Lo que ya está construido': 'What is already built',
+  '{n} funciones, no una promesa': '{n} features, not a promise',
+  'Todo lo de esta lista existe hoy y se abre al entrar. Lo que todavía está en el plan lo marcamos como tal en la página de producto.':
+    'Everything on this list exists today and opens when you log in. Whatever is still on the roadmap is marked as such on the product page.',
+  'Próximamente': 'Coming soon',
+  'En construcción': 'In progress',
+
+  'Boletería y dinero': 'Ticketing and money',
+  'Tipos de boleta, cupos y cortesías': 'Ticket types, capacity and comps',
+  'Proceso de compra configurable': 'Configurable checkout',
+  'Cupones y promociones': 'Coupons and promotions',
+  'Pagos y conciliación': 'Payments and reconciliation',
+  'Facturación': 'Invoicing',
+  'Analítica de ventas por canal': 'Sales analytics by channel',
+  'Lista de espera automática': 'Automatic waitlist',
+
+  'Ingreso y acreditación': 'Check-in and accreditation',
+  'Escaneo de QR desde el celular': 'QR scanning from a phone',
+  'Escarapelas con campos e impresión propia': 'Badges with your own fields and printing',
+  'Tarjeta del asistente en el teléfono': 'Attendee pass on their phone',
+  'Accesos, zonas y reingreso': 'Access points, zones and re-entry',
+  'Puntos de control en stands': 'Checkpoints at booths',
+  'Invitaciones nominadas': 'Named invitations',
+
+  'Experiencia del asistente': 'Attendee experience',
+  'Editor de la página del evento': 'Event page editor',
+  'Cualquier sección incrustable (eFrame)': 'Any section embeddable (eFrame)',
+  'Mapa navegable del recinto': 'Navigable venue map',
+  'Agenda por salas y horarios': 'Agenda by room and time',
+  'Rueda de negocios': 'Business matchmaking',
+  'Torneos con llaves en vivo': 'Tournaments with live brackets',
+  'Ranking y puntos': 'Leaderboard and points',
+
+  'Equipo y operación': 'Team and operations',
+  'Roles con permisos por evento': 'Roles with per-event permissions',
+  'Tareas y seguimiento': 'Tasks and follow-up',
+  'Sugerencias y solicitudes del equipo': 'Team suggestions and requests',
+  'Documentos compartidos': 'Shared documents',
+  'Chat por canales y anuncios': 'Channel chat and announcements',
+  'Vacantes y contratación de personal': 'Job posts and staff hiring',
+  'Reporte post-evento': 'Post-event report',
+
+  'Marca y automatización': 'Brand and automation',
+  'Marca blanca: logo, colores y tipografía': 'White-label: logo, colors and typography',
+  'Correos del evento editables': 'Editable event emails',
+  'SEO de la página pública': 'SEO for the public page',
+  'Automatizaciones por evento': 'Per-event automations',
+  'API de lectura y webhooks firmados': 'Read API and signed webhooks',
+  'Auditoría de acciones del equipo': 'Audit trail of team actions',
 
   /* ── Panel interno · chrome ─────────────────────────────────── */
   'Inicio': 'Home',

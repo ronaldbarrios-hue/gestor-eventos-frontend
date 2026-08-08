@@ -407,3 +407,130 @@ export function VideoDemo() {
     </section>
   );
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   5 · INVENTARIO DE MÓDULOS
+   La web contaba seis funciones cuando la plataforma tiene más de
+   treinta construidas. Esta sección las lista agrupadas igual que el
+   panel del evento, para que lo que se promete y lo que se abre al
+   entrar sean la misma cosa.
+
+   ⚠️ REGLA: aquí solo va lo que EXISTE y funciona. Lo que está en el
+   plan pero no construido va en /producto con su marca de "Próximamente",
+   nunca aquí.
+   ══════════════════════════════════════════════════════════════════ */
+const AREAS = [
+  {
+    area: 'Boletería y dinero',
+    icono: <><rect x="2.5" y="6" width="19" height="12" rx="2.5" /><path d="M2.5 10h19M6.5 14.5h4" /></>,
+    items: [
+      'Tipos de boleta, cupos y cortesías',
+      'Proceso de compra configurable',
+      'Cupones y promociones',
+      'Pagos y conciliación',
+      'Facturación',
+      'Analítica de ventas por canal',
+      'Lista de espera automática',
+    ],
+  },
+  {
+    area: 'Ingreso y acreditación',
+    icono: <><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" /><path d="M4 12h16" /></>,
+    items: [
+      'Escaneo de QR desde el celular',
+      'Escarapelas con campos e impresión propia',
+      'Tarjeta del asistente en el teléfono',
+      'Accesos, zonas y reingreso',
+      'Puntos de control en stands',
+      'Invitaciones nominadas',
+    ],
+  },
+  {
+    area: 'Experiencia del asistente',
+    icono: <><path d="M12 3L2 8l10 5 10-5-10-5z" /><path d="M6 10.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5" /></>,
+    items: [
+      'Editor de la página del evento',
+      'Cualquier sección incrustable (eFrame)',
+      'Mapa navegable del recinto',
+      'Agenda por salas y horarios',
+      'Rueda de negocios',
+      'Torneos con llaves en vivo',
+      'Ranking y puntos',
+    ],
+  },
+  {
+    area: 'Equipo y operación',
+    icono: <><path d="M12 4.35a4 4 0 110 5.3M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.2M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></>,
+    items: [
+      'Roles con permisos por evento',
+      'Tareas y seguimiento',
+      'Sugerencias y solicitudes del equipo',
+      'Documentos compartidos',
+      'Chat por canales y anuncios',
+      'Vacantes y contratación de personal',
+      'Reporte post-evento',
+    ],
+  },
+  {
+    area: 'Marca y automatización',
+    icono: <><path d="M4 20h16M6 16l4-8 4 8M8.5 13.5h3" /><path d="M16 8h4M18 6v4" /></>,
+    items: [
+      'Marca blanca: logo, colores y tipografía',
+      'Correos del evento editables',
+      'SEO de la página pública',
+      'Automatizaciones por evento',
+      'API de lectura y webhooks firmados',
+      'Auditoría de acciones del equipo',
+    ],
+  },
+];
+
+export function InventarioModulos() {
+  const { t } = useI18n();
+  const [ref, visible] = useReveal(0.08);
+  const total = AREAS.reduce((n, a) => n + a.items.length, 0);
+
+  return (
+    <section className="px-5 sm:px-8 py-24 sm:py-28 border-y border-border bg-surface/25">
+      <div className="max-w-6xl mx-auto" ref={ref}>
+        <header className="text-center max-w-2xl mx-auto mb-14">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary mb-4">
+            {t('Lo que ya está construido')}
+          </p>
+          <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight">
+            {t('{n} funciones, no una promesa', { n: total })}
+          </h2>
+          <p className="mt-5 text-base sm:text-lg text-text-2">
+            {t('Todo lo de esta lista existe hoy y se abre al entrar. Lo que todavía está en el plan lo marcamos como tal en la página de producto.')}
+          </p>
+        </header>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {AREAS.map((a, i) => (
+            <article
+              key={a.area}
+              className={`card p-6 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+              style={{ transitionDelay: `${i * 80}ms` }}
+            >
+              <div className="flex items-center gap-3 mb-5">
+                <span className="h-10 w-10 flex-shrink-0 rounded-xl bg-primary/12 border border-primary/25
+                                 text-primary flex items-center justify-center">
+                  <Icono d={a.icono} className="h-5 w-5" />
+                </span>
+                <h3 className="text-base font-semibold text-text-1 leading-snug">{t(a.area)}</h3>
+              </div>
+              <ul className="space-y-2.5">
+                {a.items.map((it) => (
+                  <li key={it} className="flex items-start gap-2.5 text-sm text-text-2">
+                    <Icono d={<path d="M4 12.5l5 5L20 6.5" />} className="h-3.5 w-3.5 mt-1 flex-shrink-0 text-primary" />
+                    {t(it)}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}

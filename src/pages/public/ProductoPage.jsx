@@ -94,11 +94,11 @@ const GROUPS = {
         cat: 'API y webhooks',
         icon: 'code',
         items: [
-          'API REST completa con API key',
-          'Webhooks: inscripción, pago, check-in, cancelación',
-          'Firmas HMAC + reintentos automáticos',
-          'OpenAPI / Postman con ejemplos',
-          'Rate limit 600 req/min',
+          'API REST de solo lectura con token Bearer',
+          'Webhooks: evento publicado, boleta pagada y check-in',
+          'Firma HMAC-SHA256 y reintento automático',
+          { texto: 'OpenAPI / Postman con ejemplos', proximamente: true },
+          { texto: 'Límite de peticiones por token', proximamente: true },
         ],
       },
       {
@@ -119,17 +119,17 @@ const GROUPS = {
           'Tu propio logo en lugar del nuestro',
           'Personalización de colores y tipografía',
           'Plantillas de página pública premium',
-          'Dominio personalizado (tudominio.com)',
+          { texto: 'Dominio personalizado (tudominio.com)', proximamente: true },
         ],
       },
       {
         cat: 'Analítica avanzada',
         icon: 'chart',
         items: [
-          'Cohortes de asistentes',
-          'Atribución (fuente de inscripción)',
-          'Retención entre ediciones',
-          'Export programado a Google Sheets',
+          { texto: 'Cohortes de asistentes', proximamente: true },
+          { texto: 'Atribución (fuente de inscripción)', proximamente: true },
+          { texto: 'Retención entre ediciones', proximamente: true },
+          { texto: 'Export programado a Google Sheets', proximamente: true },
         ],
       },
       {
@@ -247,17 +247,47 @@ function FeatureCard({ section, index, accent }) {
       </div>
       <h3 className="relative text-lg font-bold font-display text-text-1 mb-4 flex items-center justify-between gap-3">
         <span>{t(section.cat)}</span>
-        <span className={`text-[10px] uppercase tracking-widest font-semibold ${accentClass} whitespace-nowrap`}>{t('{n} funciones', { n: section.items.length })}</span>
+        {(() => {
+          /* El contador cuenta solo lo que ya funciona. Si un área todavía
+             no tiene nada construido, decirlo — "0 funciones" se lee como
+             un error, no como una etapa del plan. */
+          const listas = section.items.filter(i => typeof i === 'string').length;
+          return (
+            <span className={`text-[10px] uppercase tracking-widest font-semibold whitespace-nowrap ${listas ? accentClass : 'text-text-3'}`}>
+              {listas ? t('{n} funciones', { n: listas }) : t('En construcción')}
+            </span>
+          );
+        })()}
       </h3>
       <ul className="relative space-y-2.5">
-        {section.items.map(item => (
-          <li key={item} className="flex items-start gap-2.5 text-sm text-text-1">
-            <svg className={`w-4 h-4 mt-0.5 flex-shrink-0 ${accentClass}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            <span>{t(item)}</span>
-          </li>
-        ))}
+        {section.items.map(item => {
+          /* Un item puede ser texto (ya funciona) u objeto con
+             `proximamente` (está en el plan pero todavía no existe). Se
+             marca en vez de anunciarlo como si estuviera listo. */
+          const texto = typeof item === 'string' ? item : item.texto;
+          const pendiente = typeof item !== 'string' && item.proximamente;
+          return (
+            <li key={texto} className={`flex items-start gap-2.5 text-sm ${pendiente ? 'text-text-3' : 'text-text-1'}`}>
+              {pendiente ? (
+                <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-text-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M12 7.5V12l3 2" />
+                </svg>
+              ) : (
+                <svg className={`w-4 h-4 mt-0.5 flex-shrink-0 ${accentClass}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              <span>
+                {t(texto)}
+                {pendiente && (
+                  <span className="ml-2 text-[10px] uppercase tracking-widest text-text-3 whitespace-nowrap">
+                    {t('Próximamente')}
+                  </span>
+                )}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
