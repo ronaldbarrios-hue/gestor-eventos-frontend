@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Criatura from '../../components/agente/Criatura.jsx';
 import GestekMark from '../../components/layout/GestekMark.jsx';
 import { PasoAPaso, IncrustarEnTuWeb, CasosDeUso, VideoDemo, InventarioModulos } from './landing/Secciones.jsx';
+import CierrePublico from './landing/CierrePublico.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
@@ -54,6 +55,7 @@ export default function LandingHomePage() {
       <FeatureSplit
         side="left"
         kicker="QR y gamificación"
+        ancla="asistencia"
         title="Asistencia con QR y misiones para tus asistentes"
         desc="Genera un QR único por inscrito. Escanea para check-in y check-out. Premia con puntos, badges y ranking para subir la participación de tus eventos."
         bullets={[
@@ -67,6 +69,7 @@ export default function LandingHomePage() {
       <FeatureSplit
         side="right"
         kicker="Pagos con Bre-B"
+        ancla="pagos"
         title="Cobra tus boletas con BRE-B en menos de un minuto"
         desc="Pega tu llave BRE-B o sube tu código QR. El dinero llega directo a tu cuenta y GESTEK no toca ese flujo."
         bullets={[
@@ -80,6 +83,7 @@ export default function LandingHomePage() {
       <FeatureSplit
         side="left"
         kicker="Equipo y comunicación"
+        ancla="equipo"
         title="Tu equipo, con roles, tareas y voz propia"
         desc="Define roles con permisos granulares por evento. Cada miembro entra a su vista 'Mi trabajo', ve sus tareas, chatea por canales y te envía sugerencias o solicitudes que tú gestionas."
         bullets={[
@@ -94,6 +98,7 @@ export default function LandingHomePage() {
       <FeatureSplit
         side="right"
         kicker="Agenda y fidelidad"
+        ancla="gamificacion"
         title="Programa el evento y premia a tu gente"
         desc="Arma la agenda con vistas Lista, Día (timeline por horas), Semana y Mes, con speakers y patrocinadores. Suma un programa de puntos y recompensas, ranking del equipo y analítica real."
         bullets={[
@@ -108,6 +113,7 @@ export default function LandingHomePage() {
       <FeatureSplit
         side="left"
         kicker="White-label"
+        ancla="white-label"
         title="Tu marca, no la nuestra"
         desc="Personaliza el panel y las páginas públicas: logo, nombre, colores, fondo, tipografía, radio de bordes, tagline y redes. Y si quieres, quitas la marca GESTEK y pones tu footer."
         bullets={[
@@ -121,6 +127,7 @@ export default function LandingHomePage() {
       <FeatureSplit
         side="right"
         kicker="API + Webhooks"
+        ancla="api"
         title="Conecta GESTEK con todo tu stack"
         desc="GESTEK incluye una API REST de lectura con token, webhooks firmados que disparan al publicar un evento, al pagarse una boleta y en cada check-in, y auditoría de todas las acciones del equipo."
         bullets={[
@@ -133,7 +140,7 @@ export default function LandingHomePage() {
       />
       <IncrustarEnTuWeb />
       <FAQTeaser />
-      <CTASection />
+      <CierrePublico />
     </>
   );
 }
@@ -172,7 +179,7 @@ function Hero() {
         </h1>
 
         <p className={`mt-4 text-base sm:text-lg text-primary-light font-semibold tracking-[0.3em] uppercase transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          {t('Organiza, automatiza y crece')}
+          {t('Personaliza, organiza y crece')}
         </p>
 
         <div className={`mt-6 flex justify-center transition-all duration-700 delay-250 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
@@ -363,7 +370,7 @@ function Pillars() {
 }
 
 /* ─────────── FEATURE SPLIT (reutilizable) ─────────── */
-function FeatureSplit({ side, kicker, title, desc, bullets, visual }) {
+function FeatureSplit({ side, kicker, title, desc, bullets, visual, ancla }) {
   const { t } = useI18n();
   const [ref, visible] = useReveal();
   const isLeft = side === 'left';
@@ -384,6 +391,22 @@ function FeatureSplit({ side, kicker, title, desc, bullets, visual }) {
               </li>
             ))}
           </ul>
+
+          {/* La portada es la vista previa; el detalle vive en Producto.
+              Antes estas secciones no llevaban a ninguna parte. */}
+          {ancla && (
+            <Link
+              to={`/producto#${ancla}`}
+              className="mt-7 inline-flex items-center gap-2 text-sm font-medium text-primary
+                         hover:gap-3 transition-all"
+            >
+              {t('Conocer más sobre esta función')}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                   strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </Link>
+          )}
         </div>
 
         <div className={`${isLeft ? 'lg:order-2' : 'lg:order-1'} transition-all duration-700 delay-150 ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
@@ -641,9 +664,9 @@ function AIPro() {
         </div>
 
         <div className="text-center mt-12">
-          <Link to="/register?plan=pro"
-            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-r from-primary to-accent
-                       text-white text-sm font-semibold hover:opacity-90 transition-all shadow-glow-accent">
+          <Link to="/producto#gestbot"
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-primary
+                       text-[#15171C] text-sm font-semibold hover:opacity-90 transition-all shadow-glow">
             {t('Conocer a Gestbot')}
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
           </Link>
@@ -697,30 +720,3 @@ function FAQTeaser() {
   );
 }
 
-/* ─────────── CTA final ─────────── */
-function CTASection() {
-  const { t } = useI18n();
-  return (
-    <section className="px-5 sm:px-8 py-28">
-      <div className="relative max-w-3xl mx-auto text-center rounded-3xl border border-border-2 bg-gradient-to-br from-surface/80 to-surface/30 p-12 sm:p-16 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/15 blur-[120px] rounded-full" />
-        </div>
-        <h2 className="relative text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight mb-5">
-          {t('Tu próximo evento empieza hoy')}
-        </h2>
-        <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-10">
-          {t('Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy.')}
-        </p>
-        <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link to="/register" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow hover:scale-[1.02]">
-            {t('Crear cuenta gratis')}
-          </Link>
-          <Link to="/como-funciona" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
-            {t('Cómo funciona')}
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}

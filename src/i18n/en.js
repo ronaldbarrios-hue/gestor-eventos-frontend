@@ -27,7 +27,15 @@ export default {
     'The all-in-one platform to organize, automate and scale professional events.',
 
   /* ── Portada ────────────────────────────────────────────────── */
-  'Organiza, automatiza y crece': 'Organize, automate and grow',
+  'Personaliza, organiza y crece': 'Personalize, organize and grow',
+  'Conocer más sobre esta función': 'Learn more about this feature',
+  '¿Vas a organizar un evento o quieres trabajar en uno?':
+    'Organizing an event, or looking to work at one?',
+  'Con la misma cuenta creas tu evento y vendes boletas, o armas tu perfil y te postulas a las vacantes que publican los organizadores.':
+    'The same account lets you create your event and sell tickets, or build your profile and apply to the jobs organizers post.',
+  'Ya tengo cuenta': 'I already have an account',
+  'O mira primero qué eventos y vacantes hay ahora':
+    'Or first see what events and jobs are out there',
   'Boletas, ingreso y stands en un solo lugar': 'Tickets, check-in and booths in one place',
   'Ver cómo funciona': 'See how it works',
   'Todo esto en una sola herramienta': 'All of it in a single tool',

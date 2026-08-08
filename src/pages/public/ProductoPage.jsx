@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import CierrePublico from './landing/CierrePublico.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
@@ -22,6 +23,7 @@ const GROUPS = {
     sections: [
       {
         cat: 'Eventos',
+        ancla: 'eventos',
         icon: 'calendar',
         items: [
           'Asistentes ilimitados',
@@ -34,6 +36,7 @@ const GROUPS = {
       },
       {
         cat: 'Asistencia y boletas',
+        ancla: 'asistencia',
         icon: 'qr',
         items: [
           'QR único de check-in / check-out',
@@ -45,6 +48,7 @@ const GROUPS = {
       },
       {
         cat: 'Comunicación',
+        ancla: 'comunicacion',
         icon: 'mail',
         items: [
           'Recordatorios automáticos por email',
@@ -55,6 +59,7 @@ const GROUPS = {
       },
       {
         cat: 'Gamificación',
+        ancla: 'gamificacion',
         icon: 'trophy',
         items: [
           'Puntos por asistencia y participación',
@@ -65,6 +70,7 @@ const GROUPS = {
       },
       {
         cat: 'Pagos BRE-B',
+        ancla: 'pagos',
         icon: 'wallet',
         items: [
           'El organizador pega su llave o QR',
@@ -76,6 +82,7 @@ const GROUPS = {
       },
       {
         cat: 'Cuentas y equipo',
+        ancla: 'equipo',
         icon: 'users',
         items: [
           'Multi-usuario con roles granulares',
@@ -92,6 +99,7 @@ const GROUPS = {
     sections: [
       {
         cat: 'API y webhooks',
+        ancla: 'api',
         icon: 'code',
         items: [
           'API REST de solo lectura con token Bearer',
@@ -103,6 +111,7 @@ const GROUPS = {
       },
       {
         cat: 'Agente IA',
+        ancla: 'gestbot',
         icon: 'sparkles',
         items: [
           'Crea bloques iniciales de evento por contexto',
@@ -113,6 +122,7 @@ const GROUPS = {
       },
       {
         cat: 'White-label y branding',
+        ancla: 'white-label',
         icon: 'paint',
         items: [
           'Removible: sin marca GESTEK en tus páginas',
@@ -124,6 +134,7 @@ const GROUPS = {
       },
       {
         cat: 'Analítica avanzada',
+        ancla: 'analitica',
         icon: 'chart',
         items: [
           { texto: 'Cohortes de asistentes', proximamente: true },
@@ -134,6 +145,7 @@ const GROUPS = {
       },
       {
         cat: 'Operaciones',
+        ancla: 'operaciones',
         icon: 'shield',
         items: [
           'Auditoría completa del equipo',
@@ -144,6 +156,7 @@ const GROUPS = {
       },
       {
         cat: 'Comunicación avanzada',
+        ancla: 'comunicacion-avanzada',
         icon: 'bell',
         items: [
           'Web push notifications',
@@ -156,13 +169,36 @@ const GROUPS = {
 };
 
 export default function ProductoPage() {
-  const [tab, setTab] = useState('free');
+  const [tab, setTab] = useState(() => {
+    const ancla = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+    if (!ancla) return 'free';
+    /* Un enlace desde la portada puede apuntar a un bloque de cualquiera de
+       las dos pestañas. Se abre la que lo contiene; si no, el bloque no está
+       en el DOM y el navegador no tiene a dónde desplazarse. */
+    const donde = Object.entries(GROUPS).find(([, g]) => g.sections.some(x => x.ancla === ancla));
+    return donde ? donde[0] : 'free';
+  });
   const group = GROUPS[tab];
+
+  /* El desplazamiento va después de pintar. Se resalta un momento porque
+     caer a media página sin más deja al lector sin saber qué vino a ver. */
+  useEffect(() => {
+    const ancla = window.location.hash.slice(1);
+    if (!ancla) return undefined;
+    const id = setTimeout(() => {
+      const el = document.getElementById(ancla);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-primary/60');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-primary/60'), 2400);
+    }, 260);
+    return () => clearTimeout(id);
+  }, [tab]);
   return (
     <>
       <Hero tab={tab} setTab={setTab} />
       <Grid group={group} key={tab} />
-      <CTA />
+      <CierrePublico />
     </>
   );
 }
@@ -236,6 +272,7 @@ function FeatureCard({ section, index, accent }) {
   return (
     <div
       ref={ref}
+      id={section.ancla}
       style={{ transitionDelay: `${index * 60}ms` }}
       className={`group relative p-6 rounded-3xl border border-border bg-surface/40 hover:bg-surface/70 hover:border-border-2 hover:-translate-y-1 transition-all duration-700 overflow-hidden
         ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
@@ -312,29 +349,3 @@ function FeatureIcon({ name }) {
   }
 }
 
-function CTA() {
-  const { t } = useI18n();
-  return (
-    <section className="px-5 sm:px-8 pb-24">
-      <div className="relative max-w-3xl mx-auto text-center rounded-3xl border border-border-2 bg-gradient-to-br from-surface/80 to-surface/30 p-12 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/15 blur-[120px] rounded-full" />
-        </div>
-        <h2 className="relative text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1 mb-4">
-          {t('Pruébalo gratis hoy')}
-        </h2>
-        <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-8">
-          {t('Sin tarjeta de crédito. Empieza con todo lo esencial activado.')}
-        </p>
-        <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link to="/register" className="px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow">
-            {t('Crear cuenta gratis')}
-          </Link>
-          <Link to="/explorar" className="px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
-            {t('Explorar eventos')}
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}

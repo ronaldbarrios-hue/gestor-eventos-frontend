@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import CierrePublico from './landing/CierrePublico.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
@@ -121,7 +122,7 @@ export default function ComoFuncionaPage() {
       <UseCases />
       <Integrations />
       <MiniFAQ />
-      <CTA />
+      <CierrePublico />
     </>
   );
 }
@@ -312,24 +313,3 @@ function MiniFAQ() {
   );
 }
 
-function CTA() {
-  const { t } = useI18n();
-  return (
-    <section className="px-5 sm:px-8 pb-28 pt-12">
-      <div className="relative max-w-3xl mx-auto text-center rounded-3xl border border-border-2 bg-gradient-to-br from-surface/80 to-surface/30 p-12 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/15 blur-[120px] rounded-full" />
-        </div>
-        <h2 className="relative text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1 mb-4">
-          {t('Suficiente teoría')}
-        </h2>
-        <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-8">
-          {t('Crea tu cuenta y prueba el flujo con un evento de demo en menos de 5 minutos.')}
-        </p>
-        <Link to="/register" className="relative inline-block px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow">
-          {t('Crear mi cuenta')}
-        </Link>
-      </div>
-    </section>
-  );
-}
