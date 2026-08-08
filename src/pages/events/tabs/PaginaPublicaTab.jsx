@@ -93,9 +93,13 @@ export default function PaginaPublicaTab({ evento }) {
         </div>
       </div>
 
-      {/* Footer info */}
+      {/* El editor visual YA existe: está en el botón "Editor" de la barra de
+          arriba. Aquí antes decía "Próximamente: editor visual drag & drop",
+          anunciando como futuro algo construido y a diez centímetros. */}
       <div className="rounded-2xl border border-border bg-surface/40 px-5 py-3 text-xs text-text-3 leading-relaxed">
-        <strong className="text-text-2">Próximamente:</strong> editor visual drag &amp; drop para personalizar bloques (hero, agenda, speakers, FAQ, mapa, ticket box, video) sin código.
+        Esto es lo que ve tu público. Para cambiarlo, entra al{' '}
+        <strong className="text-text-2">Editor</strong>: arrastras secciones, editas cada
+        una y puedes exportar cualquiera como iframe para tu propia web.
       </div>
     </div>
   );

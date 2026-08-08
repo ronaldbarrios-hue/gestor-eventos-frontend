@@ -29,21 +29,17 @@ const RecuperarPage      = lazy(() => import('./pages/RecuperarPage.jsx'));
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage.jsx'));
 const ConfirmarPage      = lazy(() => import('./pages/ConfirmarPage.jsx'));
 const CompletarPerfilPage= lazy(() => import('./pages/CompletarPerfilPage.jsx'));
-const DashboardPage      = lazy(() => import('./pages/DashboardPage.jsx'));
 const InicioPage         = lazy(() => import('./pages/inicio/InicioPage.jsx'));
 const EventsListPage     = lazy(() => import('./pages/events/EventsListPage.jsx'));
 const EventCreatePage    = lazy(() => import('./pages/events/EventCreatePage.jsx'));
 const EventWorkspace     = lazy(() => import('./pages/events/workspace/EventWorkspace.jsx'));
 const EventEditPage      = lazy(() => import('./pages/events/EventEditPage.jsx'));
-const UsersPage          = lazy(() => import('./pages/users/UsersPage.jsx'));
 const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage.jsx'));
 const AjustesPage        = lazy(() => import('./pages/ajustes/AjustesPage.jsx'));
 const GestbotPage        = lazy(() => import('./pages/agente/GestbotPage.jsx'));
 const ChatHubPage        = lazy(() => import('./pages/chat/ChatHubPage.jsx'));
-const PagosPage          = lazy(() => import('./pages/settings/PagosPage.jsx'));
 const NotificacionesPage = lazy(() => import('./pages/settings/NotificacionesPage.jsx'));
 const RecompensasPage    = lazy(() => import('./pages/settings/RecompensasPage.jsx'));
-const WhiteLabelPage     = lazy(() => import('./pages/settings/WhiteLabelPage.jsx'));
 const MiEspacioPage      = lazy(() => import('./pages/espacio/MiEspacioPage.jsx'));
 const MisBoletasPage     = lazy(() => import('./pages/settings/MisBoletasPage.jsx'));
 
@@ -118,7 +114,6 @@ export default function App() {
 
               <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
                 <Route path="/inicio"             element={<InicioPage />} />
-                <Route path="/inicio/clasico"     element={<DashboardPage />} />
                 <Route path="/eventos"            element={<EventsListPage />} />
                 <Route path="/eventos/nuevo"      element={<EventCreatePage />} />
                 <Route path="/eventos/:id/editar" element={<EventEditPage />} />
@@ -131,11 +126,8 @@ export default function App() {
                 <Route path="/mis-boletas"        element={<MisBoletasPage />} />
                 <Route path="/gestbot"            element={<GestbotPage />} />
                 <Route path="/chat"               element={<ChatHubPage />} />
-                <Route path="/pagos"              element={<PagosPage />} />
                 <Route path="/notificaciones"     element={<NotificacionesPage />} />
                 <Route path="/recompensas"        element={<RecompensasPage />} />
-                <Route path="/white-label"        element={<WhiteLabelPage />} />
-                <Route path="/usuarios"           element={<UsersPage />} />
                 {/* Rutas legadas → nueva estructura del rework */}
                 <Route path="/dashboard"          element={<Navigate to="/inicio" replace />} />
                 <Route path="/mi-trabajo"         element={<Navigate to="/mi-espacio" replace />} />

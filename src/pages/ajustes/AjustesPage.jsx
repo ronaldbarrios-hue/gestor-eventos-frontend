@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -7,7 +7,6 @@ import { supabase } from '../../lib/supabase.js';
 import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 import { pantallaInicial, setPantallaInicial } from '../../lib/prefs.js';
 import SettingsPage, { NotificacionesTab, PagosTab, WhiteLabelTab, AparienciaCard } from '../settings/SettingsPage.jsx';
-import UsersPage from '../users/UsersPage.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Ajustes — Rework Fase 5 (estructura del PDF)
@@ -98,12 +97,31 @@ function Organizacion() {
       </Seccion>
     );
   }
+  /* Aquí vivía una tabla de usuarios que SIEMPRE decía "0 usuarios
+     registrados": su API era un stub declarado (list() devolvía [] y toda
+     escritura rechazaba) y no existe routes/usuarios.js en el backend.
+     Una tabla vacía se lee como "no tienes a nadie", que es falso y peor
+     que no mostrar nada. Se dice lo que hay y se manda a donde sí funciona. */
   return (
     <Seccion titulo="Organización" desc="Miembros, roles globales y auditoría de tu organización.">
-      <UsersPage />
+      <div className="card p-6">
+        <h3 className="text-base font-semibold text-text-1 mb-2">El equipo se gestiona por evento</h3>
+        <p className="text-sm text-text-2 leading-relaxed mb-4">
+          Hoy invitas gente, le das un rol y le asignas permisos dentro de cada evento,
+          en <strong className="text-text-1">Organización → Equipo y roles</strong>. Ahí es donde
+          de verdad importa: alguien puede ser de logística en un evento y no tener nada que ver
+          con el siguiente.
+        </p>
+        <Link to="/eventos" className="btn-secondary btn-sm">Ir a mis eventos</Link>
+      </div>
+
       <div className="card p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-1.5">Roles globales y auditoría general</h3>
-        <p className="text-sm text-text-2">Perfiles de organización (Administrador, Gerente, Producción, Marketing, Finanzas, Soporte) y el registro global de acciones llegan en la siguiente iteración del rework. Los permisos por evento siguen configurándose dentro de cada evento.</p>
+        <h3 className="text-sm font-semibold text-text-1 mb-1.5">Roles de toda la organización</h3>
+        <p className="text-sm text-text-2 leading-relaxed">
+          Perfiles que apliquen a la cuenta entera (Administrador, Gerente, Producción,
+          Marketing, Finanzas, Soporte) y un registro global de acciones todavía no existen.
+          Cuando existan, aparecerán aquí.
+        </p>
       </div>
     </Seccion>
   );
