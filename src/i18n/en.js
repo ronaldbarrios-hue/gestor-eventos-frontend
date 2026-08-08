@@ -396,6 +396,7 @@ export default {
   'Plan gratis': 'Free plan',
   'Marca blanca': 'White-label',
   '{n} funciones': '{n} features',
+  '1 función': '1 feature',
   'Pruébalo gratis hoy': 'Try it free today',
   'Sin tarjeta de crédito. Empieza con todo lo esencial activado.':
     'No credit card. Start with all the essentials switched on.',
@@ -687,6 +688,46 @@ export default {
   'Enviar': 'Send',
   '¿Prefieres verlo funcionando?': 'Rather see it working?',
   'Mira los eventos publicados': 'Browse the published events',
+
+  /* ── Producto · pagos internos ──────────────────────────────── */
+  'Plan gratuito': 'Free plan',
+  'Pagos internos': 'In-app payments',
+  'Casi todo': 'Almost everything',
+  'Por uso': 'Pay per use',
+  'Sin nuestro logo': 'No logo of ours',
+  'Todo esto viene incluido, sin límite de asistentes y sin fecha de caducidad.':
+    'All of this is included, with no attendee limit and no expiry date.',
+  'Se cobra por uso, no por mes. Un evento se opera de principio a fin sin tocar nada de esta pestaña: aquí solo está lo que a nosotros nos cuesta cada vez que se usa y lo que le da ventaja a un organizador sobre otro.':
+    'Charged per use, not per month. An event runs start to finish without touching anything on this tab: what lives here is what costs us every time it is used, and what gives one organizer an edge over another.',
+  'Para quien necesita que la plataforma desaparezca detrás de su propia marca.':
+    'For whoever needs the platform to disappear behind their own brand.',
+  'Todavía no cobramos nada de esta pestaña': 'We do not charge anything on this tab yet',
+  'El modelo está construido y cada cobro se registra, pero la pasarela aún no está conectada. Preferimos decirlo a que te enteres cuando te llegue una factura que no esperabas.':
+    'The model is built and every charge is recorded, but the payment gateway is not connected yet. We would rather say so than have you find out from an invoice you did not expect.',
+
+  'Cómo funciona': 'How it works',
+  'Sin suscripción ni mensualidad: pagas solo lo que uses':
+    'No subscription, no monthly fee: you pay only for what you use',
+  'El precio se ve antes de confirmar, nunca después':
+    'The price is shown before you confirm, never after',
+  'Cada cobro queda registrado y consultable en tu panel':
+    'Every charge is recorded and visible in your panel',
+  'Si no usas nada de aquí, no pagas nada': 'Use none of this and you pay nothing',
+
+  'Contratación de personal': 'Hiring staff',
+  'Publicar vacantes y recibir postulaciones: sin costo':
+    'Posting jobs and receiving applications: free',
+  'Comisión sobre el contrato al contratar a alguien':
+    'A commission on the contract when you hire someone',
+  'Destacar una vacante para que aparezca primero':
+    'Feature a job so it shows up first',
+  'Verificación de identidad del candidato': 'Candidate identity verification',
+
+  'Asistente y envíos': 'Assistant and sending',
+  'Gestbot responde y ejecuta acciones en tu evento':
+    'Gestbot answers and performs actions in your event',
+  'Paquetes de uso del asistente': 'Assistant usage packs',
+  'Envíos masivos por encima del cupo incluido': 'Bulk sends beyond the included quota',
 
   /* ── Acciones en curso ──────────────────────────────────────── */
   'Publicando el evento…': 'Publishing the event…',

@@ -93,6 +93,53 @@ const GROUPS = {
       },
     ],
   },
+  pagos: {
+    label: 'Pagos internos',
+    accent: 'primary',
+    /* Lo que se cobra por uso, no por suscripción. Aquí no entra nada del
+       día a día: el evento se opera completo sin pasar por esta pestaña.
+       Entra lo que a nosotros nos cuesta cada vez que se usa —una consulta
+       de identidad, una respuesta del agente— y lo que le da ventaja a un
+       organizador sobre otro, como destacar una oferta.
+
+       ⚠️ Estado real: el modelo está construido (los cobros se registran
+       en cobros_vacantes) pero la pasarela NO está conectada todavía. Por
+       eso casi todo va marcado. Cuando se conecte, se quitan las marcas. */
+    sections: [
+      {
+        cat: 'Cómo funciona',
+        ancla: 'pagos-como',
+        icon: 'wallet',
+        items: [
+          'Sin suscripción ni mensualidad: pagas solo lo que uses',
+          'El precio se ve antes de confirmar, nunca después',
+          'Cada cobro queda registrado y consultable en tu panel',
+          'Si no usas nada de aquí, no pagas nada',
+        ],
+      },
+      {
+        cat: 'Contratación de personal',
+        ancla: 'pagos-vacantes',
+        icon: 'users',
+        items: [
+          'Publicar vacantes y recibir postulaciones: sin costo',
+          'Comisión sobre el contrato al contratar a alguien',
+          { texto: 'Destacar una vacante para que aparezca primero', proximamente: true },
+          { texto: 'Verificación de identidad del candidato', proximamente: true },
+        ],
+      },
+      {
+        cat: 'Asistente y envíos',
+        ancla: 'pagos-agente',
+        icon: 'sparkles',
+        items: [
+          'Gestbot responde y ejecuta acciones en tu evento',
+          { texto: 'Paquetes de uso del asistente', proximamente: true },
+          { texto: 'Envíos masivos por encima del cupo incluido', proximamente: true },
+        ],
+      },
+    ],
+  },
   pro: {
     label: 'Marca blanca',
     accent: 'accent',
@@ -197,7 +244,7 @@ export default function ProductoPage() {
   return (
     <>
       <Hero tab={tab} setTab={setTab} />
-      <Grid group={group} key={tab} />
+      <Grid group={group} tab={tab} key={tab} />
       <CierrePublico />
     </>
   );
@@ -230,32 +277,50 @@ function Hero({ tab, setTab }) {
         {t('GESTEK incluye todo lo esencial, y suma API, agente IA, white-label y dominio propio para los equipos que necesitan escalar y mantener su marca.')}
       </p>
 
-      <div className="relative inline-flex items-center gap-1 p-1.5 rounded-full border border-border bg-surface/60 backdrop-blur">
-        <button
-          onClick={() => setTab('free')}
-          className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all ${
-            tab === 'free' ? 'bg-text-1 text-bg shadow-card' : 'text-text-2 hover:text-text-1'
-          }`}
-        >
-          {t('Plan gratis')}
-        </button>
-        <button
-          onClick={() => setTab('pro')}
-          className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
-            tab === 'pro' ? 'bg-gradient-primary text-[#15171C] shadow-card' : 'text-text-2 hover:text-text-1'
-          }`}
-        >
-          {t('Marca blanca')}
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${tab === 'pro' ? 'bg-black/15 text-[#15171C]' : 'bg-accent/15 text-accent-light'}`}>+IA · API</span>
-        </button>
+      <div className="relative inline-flex flex-wrap justify-center items-center gap-1 p-1.5 rounded-3xl sm:rounded-full border border-border bg-surface/60 backdrop-blur">
+        {[
+          ['free',  'Plan gratuito', 'Casi todo'],
+          ['pagos', 'Pagos internos', 'Por uso'],
+          ['pro',   'Marca blanca',   'Sin nuestro logo'],
+        ].map(([id, etiqueta, apunte]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            aria-pressed={tab === id}
+            className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
+              tab === id ? 'bg-gradient-primary text-[#15171C] shadow-card' : 'text-text-2 hover:text-text-1'
+            }`}
+          >
+            {t(etiqueta)}
+            <span className={`hidden sm:inline text-[10px] px-2 py-0.5 rounded-full ${
+              tab === id ? 'bg-black/15 text-[#15171C]' : 'bg-surface-3 text-text-3'
+            }`}>{t(apunte)}</span>
+          </button>
+        ))}
       </div>
+
+      {/* Lo que la pestaña necesita aclarar antes de la lista */}
+      <p className="relative mt-7 text-sm text-text-2 max-w-xl mx-auto leading-relaxed">
+        {tab === 'free'  && t('Todo esto viene incluido, sin límite de asistentes y sin fecha de caducidad.')}
+        {tab === 'pagos' && t('Se cobra por uso, no por mes. Un evento se opera de principio a fin sin tocar nada de esta pestaña: aquí solo está lo que a nosotros nos cuesta cada vez que se usa y lo que le da ventaja a un organizador sobre otro.')}
+        {tab === 'pro'   && t('Para quien necesita que la plataforma desaparezca detrás de su propia marca.')}
+      </p>
     </section>
   );
 }
 
-function Grid({ group }) {
+function Grid({ group, tab }) {
+  const { t } = useI18n();
   return (
     <section className="px-5 sm:px-8 pb-20 max-w-6xl mx-auto">
+      {tab === 'pagos' && (
+        <div className="mb-6 rounded-2xl border border-warning/30 bg-warning/8 px-5 py-4 max-w-3xl mx-auto">
+          <p className="text-sm text-text-1 font-semibold mb-1">{t('Todavía no cobramos nada de esta pestaña')}</p>
+          <p className="text-sm text-text-2 leading-relaxed">
+            {t('El modelo está construido y cada cobro se registra, pero la pasarela aún no está conectada. Preferimos decirlo a que te enteres cuando te llegue una factura que no esperabas.')}
+          </p>
+        </div>
+      )}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 animate-[fadeUp_0.5s_ease_both]">
         {group.sections.map((s, i) => <FeatureCard key={s.cat} section={s} index={i} accent={group.accent} />)}
       </div>
@@ -291,7 +356,7 @@ function FeatureCard({ section, index, accent }) {
           const listas = section.items.filter(i => typeof i === 'string').length;
           return (
             <span className={`text-[10px] uppercase tracking-widest font-semibold whitespace-nowrap ${listas ? accentClass : 'text-text-3'}`}>
-              {listas ? t('{n} funciones', { n: listas }) : t('En construcción')}
+              {!listas ? t('En construcción') : listas === 1 ? t('1 función') : t('{n} funciones', { n: listas })}
             </span>
           );
         })()}
