@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
   const ref = useRef(null);
@@ -126,25 +127,25 @@ export default function ComoFuncionaPage() {
 }
 
 function Hero() {
+  const { t } = useI18n();
   return (
     <section className="relative px-5 sm:px-8 pt-8 pb-16 max-w-5xl mx-auto text-center overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-primary/10 blur-[140px] rounded-full animate-[glowPulse_6s_ease-in-out_infinite]" />
       </div>
-      <p className="relative text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Cómo funciona</p>
+      <p className="relative text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('Cómo funciona')}</p>
       <h1 className="relative text-5xl sm:text-6xl font-bold font-display tracking-tight text-text-1 leading-[1.05] mb-6">
-        De idea a evento publicado,<br />en <span className="bg-gradient-to-br from-primary-light to-accent-light bg-clip-text text-transparent">menos de una tarde</span>
+        {t('De idea a evento publicado,')}<br />{t('en')} <span className="bg-gradient-to-br from-primary-light to-accent-light bg-clip-text text-transparent">{t('menos de una tarde')}</span>
       </h1>
       <p className="relative text-lg text-text-2 max-w-2xl mx-auto leading-relaxed">
-        GESTEK guía cada paso del ciclo de vida del evento — desde la creación
-        hasta el análisis post-evento — sin que tengas que ensamblar 5 herramientas distintas.
+        {t('GESTEK guía cada paso del ciclo de vida del evento — desde la creación hasta el análisis post-evento — sin que tengas que ensamblar 5 herramientas distintas.')}
       </p>
       <div className="relative mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
-        <Link to="/register" className="px-7 py-3.5 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all shadow-[0_0_40px_rgba(241,245,249,0.18)]">
-          Probar GESTEK
+        <Link to="/register" className="px-7 py-3.5 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow">
+          {t('Probar GESTEK')}
         </Link>
         <Link to="/producto" className="px-7 py-3.5 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
-          Ver todas las funciones
+          {t('Ver todas las funciones')}
         </Link>
       </div>
     </section>
@@ -152,12 +153,13 @@ function Hero() {
 }
 
 function Flow() {
+  const { t } = useI18n();
   return (
     <section className="px-5 sm:px-8 py-20 max-w-5xl mx-auto">
       <div className="text-center mb-14">
-        <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">El flujo, paso a paso</p>
+        <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('El flujo, paso a paso')}</p>
         <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight">
-          7 pasos. Ninguno opcional, todos importan.
+          {t('7 pasos. Ninguno opcional, todos importan.')}
         </h2>
       </div>
 
@@ -169,6 +171,7 @@ function Flow() {
 }
 
 function FlowStep({ step, index }) {
+  const { t } = useI18n();
   const [ref, visible] = useReveal(0.2);
   return (
     <div
@@ -185,12 +188,12 @@ function FlowStep({ step, index }) {
           <div className="hidden lg:block w-10 h-px bg-border-2" />
         </div>
         <div>
-          <h3 className="text-2xl font-bold font-display text-text-1 mb-3">{step.title}</h3>
-          <p className="text-base text-text-2 leading-relaxed mb-3">{step.desc}</p>
-          <p className="text-sm text-text-3 leading-relaxed">{step.detail}</p>
+          <h3 className="text-2xl font-bold font-display text-text-1 mb-3">{t(step.title)}</h3>
+          <p className="text-base text-text-2 leading-relaxed mb-3">{t(step.desc)}</p>
+          <p className="text-sm text-text-3 leading-relaxed">{t(step.detail)}</p>
         </div>
         <span className="hidden lg:inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary-light tracking-wider uppercase whitespace-nowrap self-center">
-          Incluido
+          {t('Incluido')}
         </span>
       </div>
     </div>
@@ -198,17 +201,18 @@ function FlowStep({ step, index }) {
 }
 
 function UseCases() {
+  const { t } = useI18n();
   const [ref, visible] = useReveal();
   return (
     <section className="px-5 sm:px-8 py-24 bg-surface/20 border-y border-border">
       <div className="max-w-6xl mx-auto" ref={ref}>
         <div className={`text-center mb-14 transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-          <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Casos de uso reales</p>
+          <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('Casos de uso reales')}</p>
           <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight mb-4">
-            Cómo lo usan en producción
+            {t('Cómo lo usan en producción')}
           </h2>
           <p className="text-base sm:text-lg text-text-2 max-w-2xl mx-auto">
-            Cuatro escenarios típicos donde GESTEK reemplaza la combinación habitual de Eventbrite + Mailchimp + Google Forms + Excel + Stripe.
+            {t('Cuatro escenarios típicos donde GESTEK reemplaza la combinación habitual de Eventbrite + Mailchimp + Google Forms + Excel + Stripe.')}
           </p>
         </div>
 
@@ -221,20 +225,20 @@ function UseCases() {
                 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
             >
               <span className="inline-block text-xs uppercase tracking-widest text-accent-light font-semibold mb-3 px-3 py-1 rounded-full border border-accent/25 bg-accent/10">
-                {c.tag}
+                {t(c.tag)}
               </span>
-              <h3 className="text-xl font-semibold text-text-1 leading-snug mb-4">{c.title}</h3>
+              <h3 className="text-xl font-semibold text-text-1 leading-snug mb-4">{t(c.title)}</h3>
               <ul className="space-y-2.5 mb-5">
                 {c.points.map(p => (
                   <li key={p} className="flex items-start gap-2.5 text-sm text-text-2">
                     <svg className="w-4 h-4 mt-0.5 text-primary-light flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>{p}</span>
+                    <span>{t(p)}</span>
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-text-3 pt-4 border-t border-border">{c.profile}</p>
+              <p className="text-xs text-text-3 pt-4 border-t border-border">{t(c.profile)}</p>
             </div>
           ))}
         </div>
@@ -244,14 +248,15 @@ function UseCases() {
 }
 
 function Integrations() {
+  const { t } = useI18n();
   return (
     <section className="px-5 sm:px-8 py-24 max-w-5xl mx-auto text-center">
-      <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Conecta con tu stack</p>
+      <p className="text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('Conecta con tu stack')}</p>
       <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight mb-5">
-        Funciona con lo que ya usas
+        {t('Funciona con lo que ya usas')}
       </h2>
       <p className="text-base sm:text-lg text-text-2 max-w-xl mx-auto mb-12">
-        API REST con autenticación por key y webhooks para todos los eventos. Sin reinventar tu CRM, tu correo o tu ERP.
+        {t('API REST con autenticación por key y webhooks para todos los eventos. Sin reinventar tu CRM, tu correo o tu ERP.')}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -261,8 +266,8 @@ function Integrations() {
           ['Zapier', 'Automation'],
           ['n8n', 'Automation'],
           ['Make', 'Automation'],
-          ['Slack', 'Notificaciones'],
-          ['Google Sheets', 'Datos'],
+          ['Slack', 'Notifications'],
+          ['Google Sheets', 'Data'],
         ].map(([name, cat]) => (
           <div key={name} className="p-5 rounded-2xl border border-border bg-surface/40 hover:bg-surface/70 transition-colors">
             <p className="text-base font-semibold text-text-1">{name}</p>
@@ -271,18 +276,19 @@ function Integrations() {
         ))}
       </div>
       <p className="text-xs text-text-3 mt-6">
-        + cualquier herramienta que reciba webhooks HTTP. <Link to="/producto" className="underline hover:text-text-1">Ver docs de API</Link>
+        {t('+ cualquier herramienta que reciba webhooks HTTP.')} <Link to="/producto" className="underline hover:text-text-1">{t('Ver docs de API')}</Link>
       </p>
     </section>
   );
 }
 
 function MiniFAQ() {
+  const { t } = useI18n();
   const [open, setOpen] = useState(0);
   return (
     <section className="px-5 sm:px-8 py-20 max-w-3xl mx-auto">
       <h2 className="text-3xl sm:text-4xl font-bold font-display text-text-1 text-center mb-10">
-        Preguntas sobre el flujo
+        {t('Preguntas sobre el flujo')}
       </h2>
       <div className="space-y-3">
         {FAQ_FLOW.map((f, i) => {
@@ -290,13 +296,13 @@ function MiniFAQ() {
           return (
             <div key={f.q} className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
               <button onClick={() => setOpen(isOpen ? -1 : i)} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-surface/60 transition-colors">
-                <span className="text-base font-medium text-text-1">{f.q}</span>
+                <span className="text-base font-medium text-text-1">{t(f.q)}</span>
                 <svg className={`w-4 h-4 text-text-2 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}>
-                <p className="px-5 pb-5 text-base text-text-2 leading-relaxed">{f.a}</p>
+                <p className="px-5 pb-5 text-base text-text-2 leading-relaxed">{t(f.a)}</p>
               </div>
             </div>
           );
@@ -307,6 +313,7 @@ function MiniFAQ() {
 }
 
 function CTA() {
+  const { t } = useI18n();
   return (
     <section className="px-5 sm:px-8 pb-28 pt-12">
       <div className="relative max-w-3xl mx-auto text-center rounded-3xl border border-border-2 bg-gradient-to-br from-surface/80 to-surface/30 p-12 overflow-hidden">
@@ -314,13 +321,13 @@ function CTA() {
           <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/15 blur-[120px] rounded-full" />
         </div>
         <h2 className="relative text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1 mb-4">
-          Suficiente teoría
+          {t('Suficiente teoría')}
         </h2>
         <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-8">
-          Crea tu cuenta y prueba el flujo con un evento de demo en menos de 5 minutos.
+          {t('Crea tu cuenta y prueba el flujo con un evento de demo en menos de 5 minutos.')}
         </p>
-        <Link to="/register" className="relative inline-block px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all">
-          Crear mi cuenta
+        <Link to="/register" className="relative inline-block px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow">
+          {t('Crear mi cuenta')}
         </Link>
       </div>
     </section>

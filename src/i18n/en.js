@@ -273,6 +273,221 @@ export default {
     'No. The money goes straight from the attendee to your account via BRE-B. GESTEK never touches it.',
   'Ver todas las preguntas': 'See all questions',
 
+  /* ══ Cómo funciona ═══════════════════════════════════════════ */
+  'De idea a evento publicado,': 'From idea to published event,',
+  'en': 'in',
+  'menos de una tarde': 'less than an afternoon',
+  'GESTEK guía cada paso del ciclo de vida del evento — desde la creación hasta el análisis post-evento — sin que tengas que ensamblar 5 herramientas distintas.':
+    'GESTEK guides every stage of the event lifecycle — from creation to post-event analysis — without you having to bolt together 5 different tools.',
+  'Probar GESTEK': 'Try GESTEK',
+  'Ver todas las funciones': 'See every feature',
+  'El flujo, paso a paso': 'The flow, step by step',
+  '7 pasos. Ninguno opcional, todos importan.': '7 steps. None optional, all of them matter.',
+  'Incluido': 'Included',
+
+  'Crea tu cuenta': 'Create your account',
+  'Registro en 2 pasos. Datos básicos + perfil del organizador. Sin tarjeta de crédito, sin demos, sin esperas.':
+    'A 2-step signup. Basic details plus your organizer profile. No credit card, no demos, no waiting.',
+  'Confirmas el email con un enlace de Supabase y entras directo al panel de organizador. Todo lo principal queda activado desde el segundo uno.':
+    'Confirm your email through a link and land straight in the organizer panel. Everything essential is on from second one.',
+  'Configura tu entorno de trabajo': 'Set up your workspace',
+  'Cuéntanos en lenguaje natural qué tipo de eventos organizas: Gestbot propone la estructura inicial, o usa el wizard paso a paso.':
+    'Tell us in plain language what kind of events you run: Gestbot proposes the starting structure, or use the step-by-step wizard.',
+  'Industria, frecuencia, tamaño promedio, modalidad — el agente prepara plantillas, agenda base y copy de invitación. Tú ajustas, no empiezas en blanco.':
+    'Industry, cadence, average size, format — the agent prepares templates, a base agenda and invitation copy. You adjust; you never start from a blank page.',
+  'Crea el evento (wizard 4 pasos)': 'Create the event (4-step wizard)',
+  'Información general → Espacios y accesos → Identidad y marca → Revisión y publicar. Diseñado para no saltarse pasos críticos.':
+    'General info → Spaces and access → Identity and brand → Review and publish. Built so critical steps never get skipped.',
+  'Cada paso valida campos obligatorios y muestra preview de la card pública en tiempo real. Puedes guardar como borrador y volver cuando quieras.':
+    'Each step validates required fields and previews the public card live. You can save a draft and come back whenever.',
+  'Comparte y vende boletas': 'Share and sell tickets',
+  'Tu evento tiene página pública propia (gestek.io/explorar/tu-evento). Botón de compra con BRE-B usando tu llave o QR de organizador.':
+    'Your event gets its own public page (gestek.io/explorar/your-event), with a BRE-B buy button using your organizer key or QR.',
+  'El dinero va directo a tu cuenta — GESTEK no toca el flujo de pago. Recibos automáticos por email al asistente.':
+    'The money goes straight to your account — GESTEK never touches the payment flow. Attendees get automatic email receipts.',
+  'Gestiona la asistencia con QR': 'Handle attendance with QR',
+  'Cada inscrito recibe un QR único. Escanea en la entrada para check-in, escanea de nuevo para check-out. Métricas en tiempo real.':
+    'Every registrant gets a unique QR. Scan at the door to check in, scan again to check out. Live metrics.',
+  'Opción de check-in por estación si tienes varios accesos. Lista de espera automática cuando el cupo se llena.':
+    'Per-station check-in if you have several entrances. Automatic waitlist once capacity fills.',
+  'Activa gamificación y notificaciones': 'Turn on gamification and notifications',
+  'Asigna puntos por asistencia, talleres, networking. Crea misiones. Manda recordatorios automáticos por email antes y durante el evento.':
+    'Award points for attendance, workshops and networking. Create missions. Send automatic email reminders before and during the event.',
+  'Ranking visible en tiempo real, badges desbloqueables, recordatorios programados a T-7d, T-1d, T-1h. Todo configurable por evento.':
+    'A live leaderboard, unlockable badges and reminders scheduled at T-7d, T-1d, T-1h. All configurable per event.',
+  'Mide, mejora, repite': 'Measure, improve, repeat',
+  'Panel con asistencia, ocupación, conversión, ingresos. Exporta a CSV. Conecta tu CRM con la API + webhooks.':
+    'A panel with attendance, occupancy, conversion and revenue. Export to CSV. Connect your CRM through the API and webhooks.',
+  'Analytics del evento: ventas, conversión, tráfico y embudo, con reportes avanzados en camino.':
+    'Event analytics: sales, conversion, traffic and funnel, with advanced reports on the way.',
+
+  'Casos de uso reales': 'Real use cases',
+  'Cómo lo usan en producción': 'How people run it in production',
+  'Cuatro escenarios típicos donde GESTEK reemplaza la combinación habitual de Eventbrite + Mailchimp + Google Forms + Excel + Stripe.':
+    'Four typical scenarios where GESTEK replaces the usual mix of Eventbrite + Mailchimp + Google Forms + Excel + Stripe.',
+  'Empresas y corporativos': 'Companies and corporate',
+  'Kick-off anual de 500 empleados con transporte y catering':
+    'An annual kick-off for 500 employees with transport and catering',
+  'Multinacional · 6 sedes · evento híbrido': 'Multinational · 6 sites · hybrid event',
+  'Lista de inscritos por sede con QR único': 'Registrant list per site with a unique QR',
+  'Encuesta previa al evento por email': 'Pre-event survey by email',
+  'Check-in por sede con tablet o móvil del coordinador':
+    'Per-site check-in from the coordinator tablet or phone',
+  'Gamificación entre equipos durante el evento': 'Team-vs-team gamification during the event',
+  'Universidades': 'Universities',
+  'Semana de innovación con 20 talleres simultáneos':
+    'An innovation week with 20 parallel workshops',
+  'Universidad pública · 3.000 estudiantes · 5 días': 'Public university · 3,000 students · 5 days',
+  'Inscripción por taller con cupos limitados': 'Per-workshop registration with limited seats',
+  'Check-in por sala con QR escaneado por el profesor': 'Per-room check-in with the QR scanned by the lecturer',
+  'Asistencia consolidada por estudiante (puntaje académico)':
+    'Consolidated attendance per student (academic credit)',
+  'Certificado descargable post-evento': 'Downloadable certificate after the event',
+  'Comunidad / Meetups': 'Community / Meetups',
+  'Encuentro tech mensual con cobro simbólico de boleta':
+    'A monthly tech meetup with a token ticket price',
+  'Comunidad · 200 asistentes · mensual': 'Community · 200 attendees · monthly',
+  'Página pública con agenda + speakers': 'Public page with agenda and speakers',
+  'Cobro por BRE-B directo al organizador': 'BRE-B charge straight to the organizer',
+  'Recordatorio automático 24h antes': 'Automatic reminder 24h before',
+  'Ranking de asistentes recurrentes (gamificación)': 'Leaderboard of returning attendees (gamification)',
+  'Festivales y conciertos': 'Festivals and concerts',
+  'Festival de música con boletería propia y control de acceso':
+    'A music festival with its own ticketing and access control',
+  'Productora · 3.000 asistentes · 2 días': 'Production company · 3,000 attendees · 2 days',
+  'Venta de boletas con QR único por persona': 'Ticket sales with a unique QR per person',
+  'Control de acceso en varias puertas en simultáneo': 'Access control at several gates at once',
+  'Webhook a tu CRM con cada venta': 'A webhook to your CRM on every sale',
+  'White-label completo por evento (sin logo GESTEK)':
+    'Full white-label per event (no GESTEK logo)',
+
+  'Conecta con tu stack': 'Connect to your stack',
+  'Funciona con lo que ya usas': 'Works with what you already use',
+  'API REST con autenticación por key y webhooks para todos los eventos. Sin reinventar tu CRM, tu correo o tu ERP.':
+    'A REST API with key authentication and webhooks for every event. No need to reinvent your CRM, your email or your ERP.',
+  '+ cualquier herramienta que reciba webhooks HTTP.': '+ any tool that accepts HTTP webhooks.',
+  'Ver docs de API': 'See API docs',
+  'Preguntas sobre el flujo': 'Questions about the flow',
+  '¿Cuánto tiempo tarda crear un evento desde cero?': 'How long does it take to create an event from scratch?',
+  'Entre 5 y 10 minutos con el wizard. Con Gestbot, baja a 1-2 minutos porque te genera la estructura base.':
+    'Between 5 and 10 minutes with the wizard. With Gestbot it drops to 1-2 minutes, because it generates the base structure for you.',
+  '¿Necesito instalar algo?': 'Do I need to install anything?',
+  'No. Todo corre en el navegador. El escáner de QR funciona desde la cámara del móvil de tu coordinador.':
+    'No. Everything runs in the browser. The QR scanner works from your coordinator phone camera.',
+  '¿Puedo importar asistentes de un Excel?': 'Can I import attendees from a spreadsheet?',
+  'Sí — desde el panel del evento subes un CSV con nombre y email y la plataforma genera los QR e invitaciones.':
+    'Yes — upload a CSV with name and email from the event panel and the platform generates the QR codes and invitations.',
+  'Suficiente teoría': 'Enough theory',
+  'Crea tu cuenta y prueba el flujo con un evento de demo en menos de 5 minutos.':
+    'Create your account and try the flow with a demo event in under 5 minutes.',
+
+  /* ══ Producto ════════════════════════════════════════════════ */
+  'Todo lo que GESTEK ofrece': 'Everything GESTEK offers',
+  'GESTEK incluye todo lo esencial, y suma API, agente IA, white-label y dominio propio para los equipos que necesitan escalar y mantener su marca.':
+    'GESTEK covers all the essentials, and adds an API, an AI agent, white-label and your own domain for teams that need to scale while keeping their brand.',
+  'Plan gratis': 'Free plan',
+  'Marca blanca': 'White-label',
+  '{n} funciones': '{n} features',
+  'Pruébalo gratis hoy': 'Try it free today',
+  'Sin tarjeta de crédito. Empieza con todo lo esencial activado.':
+    'No credit card. Start with all the essentials switched on.',
+  'Explorar eventos': 'Explore events',
+
+  'Asistencia y boletas': 'Attendance and tickets',
+  'Gamificación': 'Gamification',
+  'Comunicación': 'Communication',
+  'Pagos BRE-B': 'BRE-B payments',
+  'Cuentas y equipo': 'Accounts and team',
+  'API y webhooks': 'API and webhooks',
+  'Agente IA': 'AI agent',
+  'White-label y branding': 'White-label and branding',
+  'Analítica avanzada': 'Advanced analytics',
+  'Operaciones': 'Operations',
+  'Comunicación avanzada': 'Advanced communication',
+
+  'Asistentes ilimitados': 'Unlimited attendees',
+  'Wizard de creación de 4 pasos': '4-step creation wizard',
+  'Presencial, virtual o híbrido': 'In person, virtual or hybrid',
+  'Categorías, etiquetas, visibilidad pública o privada':
+    'Categories, tags, public or private visibility',
+  'Página pública individual por evento': 'An individual public page per event',
+  'Subpath gestek.io/tu-marca para tu organización':
+    'A gestek.io/your-brand subpath for your organization',
+  'QR único de check-in / check-out': 'Unique check-in / check-out QR',
+  'Inscripciones e invitaciones masivas': 'Bulk registrations and invitations',
+  'Cupos limitados con lista de espera': 'Limited seats with a waitlist',
+  'Importar y exportar asistentes en CSV': 'Import and export attendees as CSV',
+  'Página de compra con BRE-B': 'Checkout page with BRE-B',
+  'Recordatorios automáticos por email': 'Automatic email reminders',
+  'Notificaciones de eventos in-app': 'In-app event notifications',
+  'Confirmaciones de inscripción': 'Registration confirmations',
+  'Recuperación de cuenta por correo': 'Account recovery by email',
+  'Puntos por asistencia y participación': 'Points for attendance and participation',
+  'Badges desbloqueables': 'Unlockable badges',
+  'Ranking entre asistentes en tiempo real': 'Live leaderboard among attendees',
+  'Misiones configurables por evento': 'Missions configurable per event',
+  'El organizador pega su llave o QR': 'The organizer pastes their key or QR',
+  'Cobro directo a la cuenta del organizador': 'Charges go straight to the organizer account',
+  'Sin comisión de plataforma': 'No platform commission',
+  'Recibos automáticos al asistente': 'Automatic receipts to the attendee',
+  'Gestión manual de reembolsos': 'Manual refund handling',
+  'Multi-usuario con roles granulares': 'Multi-user with granular roles',
+  'Roles: admin, editor, lector': 'Roles: admin, editor, viewer',
+  'Asignar permisos por evento': 'Assign permissions per event',
+  'Auth con Supabase + recuperación por correo': 'Supabase auth plus email recovery',
+  'API REST completa con API key': 'Full REST API with an API key',
+  'Webhooks: inscripción, pago, check-in, cancelación':
+    'Webhooks: registration, payment, check-in, cancellation',
+  'Firmas HMAC + reintentos automáticos': 'HMAC signatures plus automatic retries',
+  'OpenAPI / Postman con ejemplos': 'OpenAPI / Postman with examples',
+  'Rate limit 600 req/min': 'Rate limit of 600 req/min',
+  'Crea bloques iniciales de evento por contexto': 'Creates starting event blocks from context',
+  'Sugiere agenda, copy y configuración': 'Suggests agenda, copy and configuration',
+  'Asistencia conversacional para editar eventos': 'Conversational help to edit events',
+  'Análisis automático de feedback post-evento': 'Automatic analysis of post-event feedback',
+  'Removible: sin marca GESTEK en tus páginas': 'Removable: no GESTEK branding on your pages',
+  'Tu propio logo en lugar del nuestro': 'Your own logo instead of ours',
+  'Personalización de colores y tipografía': 'Custom colors and typography',
+  'Plantillas de página pública premium': 'Premium public-page templates',
+  'Dominio personalizado (tudominio.com)': 'Custom domain (yourdomain.com)',
+  'Cohortes de asistentes': 'Attendee cohorts',
+  'Atribución (fuente de inscripción)': 'Attribution (registration source)',
+  'Retención entre ediciones': 'Retention across editions',
+  'Export programado a Google Sheets': 'Scheduled export to Google Sheets',
+  'Auditoría completa del equipo': 'Full team audit trail',
+  'Soporte prioritario con SLA de 4h': 'Priority support with a 4h SLA',
+  'Onboarding 1:1': '1:1 onboarding',
+  'Acuerdo DPA bajo solicitud': 'DPA agreement on request',
+  'Web push notifications': 'Web push notifications',
+  'Personalizar plantillas de email': 'Customize email templates',
+  'Notificaciones segmentadas por audiencia': 'Notifications segmented by audience',
+
+  /* ══ FAQ ═════════════════════════════════════════════════════ */
+  'Si no encuentras tu respuesta, escríbenos.': 'If you do not find your answer, write to us.',
+  'Todo lo necesario para operar eventos: creación, página pública, asistentes ilimitados, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B.':
+    'Everything you need to run events: creation, a public page, unlimited attendees, attendance QR, email reminders, gamification, API plus webhooks and the BRE-B gateway.',
+  '¿Y qué añade el plan Pro?': 'And what does the Pro plan add?',
+  'Agente IA que arma tus eventos según contexto, personalización de colores y tipografía, white-label (tu logo en vez de GESTEK), analytics avanzada y soporte prioritario.':
+    'An AI agent that builds your events from context, custom colors and typography, white-label (your logo instead of GESTEK), advanced analytics and priority support.',
+  '¿Cómo funciona la pasarela BRE-B?': 'How does the BRE-B gateway work?',
+  'Tú pegas tu llave o subes tu código QR de BRE-B en tu cuenta de organizador. Los pagos van directo a ti — GESTEK no toca ese dinero ni cobra comisión.':
+    'You paste your key or upload your BRE-B QR code in your organizer account. Payments go straight to you — GESTEK never touches that money and charges no commission.',
+  '¿Necesito tarjeta de crédito para registrarme?': 'Do I need a credit card to sign up?',
+  'No. El plan gratis no requiere tarjeta. Solo registras correo y contraseña.':
+    'No. The free plan needs no card. Just an email and a password.',
+  '¿Cómo confirmo mi cuenta?': 'How do I confirm my account?',
+  'Te enviamos un correo con un enlace de confirmación. Si no lo recibes en 2 minutos, revisa spam o solicita reenvío desde la pantalla de login.':
+    'We send you an email with a confirmation link. If it does not arrive within 2 minutes, check spam or request a resend from the login screen.',
+  '¿Olvidé mi contraseña, qué hago?': 'I forgot my password, what do I do?',
+  'En la pantalla de login hay un enlace de "olvidé mi contraseña". Recibirás un correo con un enlace para restablecerla.':
+    'There is a "forgot my password" link on the login screen. You will get an email with a link to reset it.',
+  '¿Puedo migrar de gratis a Pro o cancelar?': 'Can I move from free to Pro, or cancel?',
+  'Sí. Subes a Pro cuando lo necesites y cancelas cuando quieras. Si cancelas, tus eventos y datos no se pierden.':
+    'Yes. Upgrade to Pro whenever you need it and cancel whenever you want. If you cancel, your events and data are not lost.',
+  '¿GESTEK tiene API?': 'Does GESTEK have an API?',
+  'Sí, hay API REST completa con autenticación por API key y webhooks para inscripción, pago y check-in. Documentación con ejemplos disponible.':
+    'Yes, there is a full REST API with API-key authentication and webhooks for registration, payment and check-in. Documentation with examples is available.',
+
   /* ── Panel interno · chrome ─────────────────────────────────── */
   'Inicio': 'Home',
   'Eventos': 'Events',

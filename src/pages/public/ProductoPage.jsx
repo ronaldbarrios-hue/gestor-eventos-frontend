@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
   const ref = useRef(null);
@@ -167,6 +168,7 @@ export default function ProductoPage() {
 }
 
 function Hero({ tab, setTab }) {
+  const { t } = useI18n();
   return (
     <section className="relative px-5 sm:px-8 pt-6 pb-12 max-w-5xl mx-auto text-center overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
@@ -184,14 +186,12 @@ function Hero({ tab, setTab }) {
         ))}
       </div>
 
-      <p className="relative text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">Producto</p>
+      <p className="relative text-sm uppercase tracking-widest text-primary-light font-semibold mb-4">{t('Producto')}</p>
       <h1 className="relative text-5xl sm:text-6xl font-bold font-display tracking-tight text-text-1 leading-[1.05] mb-6">
-        Todo lo que GESTEK ofrece
+        {t('Todo lo que GESTEK ofrece')}
       </h1>
       <p className="relative text-lg text-text-2 max-w-2xl mx-auto leading-relaxed mb-10">
-        GESTEK incluye todo lo esencial, y suma
-        API, agente IA, white-label y dominio propio para los equipos que
-        necesitan escalar y mantener su marca.
+        {t('GESTEK incluye todo lo esencial, y suma API, agente IA, white-label y dominio propio para los equipos que necesitan escalar y mantener su marca.')}
       </p>
 
       <div className="relative inline-flex items-center gap-1 p-1.5 rounded-full border border-border bg-surface/60 backdrop-blur">
@@ -201,16 +201,16 @@ function Hero({ tab, setTab }) {
             tab === 'free' ? 'bg-text-1 text-bg shadow-card' : 'text-text-2 hover:text-text-1'
           }`}
         >
-          Plan gratis
+          {t('Plan gratis')}
         </button>
         <button
           onClick={() => setTab('pro')}
           className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
-            tab === 'pro' ? 'bg-gradient-to-r from-primary to-accent text-white shadow-card' : 'text-text-2 hover:text-text-1'
+            tab === 'pro' ? 'bg-gradient-primary text-[#15171C] shadow-card' : 'text-text-2 hover:text-text-1'
           }`}
         >
-          Marca blanca
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${tab === 'pro' ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent-light'}`}>+IA · API</span>
+          {t('Marca blanca')}
+          <span className={`text-[10px] px-2 py-0.5 rounded-full ${tab === 'pro' ? 'bg-black/15 text-[#15171C]' : 'bg-accent/15 text-accent-light'}`}>+IA · API</span>
         </button>
       </div>
     </section>
@@ -228,6 +228,7 @@ function Grid({ group }) {
 }
 
 function FeatureCard({ section, index, accent }) {
+  const { t } = useI18n();
   const [ref, visible] = useReveal(0.1);
   const accentClass = accent === 'accent' ? 'text-accent-light' : 'text-primary-light';
   const accentBg = accent === 'accent' ? 'bg-accent/15 border-accent/25' : 'bg-primary/15 border-primary/25';
@@ -245,8 +246,8 @@ function FeatureCard({ section, index, accent }) {
         <FeatureIcon name={section.icon} />
       </div>
       <h3 className="relative text-lg font-bold font-display text-text-1 mb-4 flex items-center justify-between gap-3">
-        <span>{section.cat}</span>
-        <span className={`text-[10px] uppercase tracking-widest font-semibold ${accentClass} whitespace-nowrap`}>{section.items.length} funciones</span>
+        <span>{t(section.cat)}</span>
+        <span className={`text-[10px] uppercase tracking-widest font-semibold ${accentClass} whitespace-nowrap`}>{t('{n} funciones', { n: section.items.length })}</span>
       </h3>
       <ul className="relative space-y-2.5">
         {section.items.map(item => (
@@ -254,7 +255,7 @@ function FeatureCard({ section, index, accent }) {
             <svg className={`w-4 h-4 mt-0.5 flex-shrink-0 ${accentClass}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            <span>{item}</span>
+            <span>{t(item)}</span>
           </li>
         ))}
       </ul>
@@ -282,6 +283,7 @@ function FeatureIcon({ name }) {
 }
 
 function CTA() {
+  const { t } = useI18n();
   return (
     <section className="px-5 sm:px-8 pb-24">
       <div className="relative max-w-3xl mx-auto text-center rounded-3xl border border-border-2 bg-gradient-to-br from-surface/80 to-surface/30 p-12 overflow-hidden">
@@ -289,17 +291,17 @@ function CTA() {
           <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/15 blur-[120px] rounded-full" />
         </div>
         <h2 className="relative text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1 mb-4">
-          Pruébalo gratis hoy
+          {t('Pruébalo gratis hoy')}
         </h2>
         <p className="relative text-base sm:text-lg text-text-2 max-w-lg mx-auto mb-8">
-          Sin tarjeta de crédito. Empieza con todo lo esencial activado.
+          {t('Sin tarjeta de crédito. Empieza con todo lo esencial activado.')}
         </p>
         <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link to="/register" className="px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all">
-            Crear cuenta gratis
+          <Link to="/register" className="px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow">
+            {t('Crear cuenta gratis')}
           </Link>
           <Link to="/explorar" className="px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">
-            Explorar eventos
+            {t('Explorar eventos')}
           </Link>
         </div>
       </div>
