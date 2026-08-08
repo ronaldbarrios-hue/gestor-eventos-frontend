@@ -12,8 +12,8 @@
 
 export const WALLET_DEFECTO = {
   estilo: 'gradiente',        // gradiente | oscuro | claro | neon
-  color1: '#3B82F6',
-  color2: '#8B5CF6',
+  color1: '#C9A227',
+  color2: '#E0B12B',
   mostrar_qr: true,
   mostrar_puntos: true,
   mostrar_tipo: true,

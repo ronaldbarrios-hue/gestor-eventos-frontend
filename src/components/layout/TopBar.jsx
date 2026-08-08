@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
+import { useI18n } from '../../context/I18nContext.jsx';
+import SelectorIdioma from '../ui/SelectorIdioma.jsx';
 import { notificacionesApi } from '../../api/notificaciones.js';
 import { supabase } from '../../lib/supabase.js';
 
@@ -36,6 +38,7 @@ export default function TopBar({ onMenu }) {
   const { pathname }  = useLocation();
   const { usuario, logout, cambiarModo } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
+  const { t } = useI18n();
   const navigate      = useNavigate();
   const [notifOpen,   setNotifOpen]   = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -151,7 +154,7 @@ export default function TopBar({ onMenu }) {
       {/* Hamburger mobile */}
       <button
         onClick={onMenu}
-        aria-label="Abrir menú"
+        aria-label={t('Abrir menú')}
         className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-xl text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0"
       >
         <MenuIcon className="w-5 h-5" />
@@ -159,7 +162,7 @@ export default function TopBar({ onMenu }) {
       {showBack && (
         <button
           onClick={() => navigate(-1)}
-          aria-label="Volver"
+          aria-label={t('Volver')}
           className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0"
         >
           <BackIcon className="w-4 h-4" />
@@ -172,8 +175,8 @@ export default function TopBar({ onMenu }) {
           <span key={i} className="flex items-center gap-1.5 min-w-0">
             {i > 0 && <ChevronIcon className="w-3 h-3 text-text-3 flex-shrink-0" />}
             {c.to
-              ? <Link to={c.to} className="text-text-2 hover:text-text-1 transition-colors truncate">{c.label}</Link>
-              : <span className="text-text-1 font-medium truncate">{c.label}</span>
+              ? <Link to={c.to} className="text-text-2 hover:text-text-1 transition-colors truncate">{t(c.label)}</Link>
+              : <span className="text-text-1 font-medium truncate">{t(c.label)}</span>
             }
           </span>
         ))}
@@ -187,7 +190,7 @@ export default function TopBar({ onMenu }) {
             ref={searchRef}
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar en GESTEK…"
+            placeholder={t('Buscar en GESTEK…')}
             className="w-full h-9 pl-9 pr-14 rounded-xl bg-surface-2 border border-border text-sm text-text-1
                        placeholder:text-text-3 focus:outline-none focus:border-accent/50 focus:ring-2
                        focus:ring-accent/20 transition-all"
@@ -209,7 +212,7 @@ export default function TopBar({ onMenu }) {
             disabled={cambiandoModo}
             className={`px-3 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
               ${modoActivo === 'organizador'
-                ? 'bg-gradient-primary text-white shadow-glow-sm'
+                ? 'bg-gradient-primary text-[#15171C] shadow-glow-sm'
                 : 'text-text-3 hover:text-text-1'}`}
           >
             Organizar
@@ -219,7 +222,7 @@ export default function TopBar({ onMenu }) {
             disabled={cambiandoModo}
             className={`px-3 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
               ${modoActivo === 'asistente'
-                ? 'bg-gradient-primary text-white shadow-glow-sm'
+                ? 'bg-gradient-primary text-[#15171C] shadow-glow-sm'
                 : 'text-text-3 hover:text-text-1'}`}
           >
             Explorar
@@ -228,7 +231,7 @@ export default function TopBar({ onMenu }) {
 
         {/* Notifications */}
         <div className="relative">
-          <button onClick={() => setNotifOpen(v => !v)} aria-label="Notificaciones" className="btn-icon btn-ghost relative">
+          <button onClick={() => setNotifOpen(v => !v)} aria-label={t('Notificaciones')} className="btn-icon btn-ghost relative">
             <BellIcon className="w-4 h-4" />
             {unread > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full shadow-glow-sm" />
@@ -240,10 +243,10 @@ export default function TopBar({ onMenu }) {
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
               <div className="absolute right-0 top-11 z-50 w-80 card-glass rounded-2xl overflow-hidden animate-[scaleIn_0.15s_ease_both] origin-top-right">
                 <div className="card-header">
-                  <h3 className="text-sm font-semibold text-text-1">Notificaciones</h3>
+                  <h3 className="text-sm font-semibold text-text-1">{t('Notificaciones')}</h3>
                   {unread > 0 && (
                     <button onClick={markAllRead} className="text-xs text-primary hover:underline">
-                      Marcar todas como leídas
+                      {t('Marcar todas como leídas')}
                     </button>
                   )}
                 </div>
@@ -266,7 +269,7 @@ export default function TopBar({ onMenu }) {
                   ))}
                 </div>
                 {notifs.length === 0 && (
-                  <p className="text-sm text-text-2 text-center py-10">Sin notificaciones</p>
+                  <p className="text-sm text-text-2 text-center py-10">{t('Sin notificaciones')}</p>
                 )}
               </div>
             </>
@@ -277,15 +280,15 @@ export default function TopBar({ onMenu }) {
         <div className="relative">
           <button
             onClick={() => setAccountOpen(v => !v)}
-            aria-label="Cuenta"
+            aria-label={t('Cuenta')}
             className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-surface-2 transition-colors"
           >
-            <span className="w-8 h-8 rounded-full bg-gradient-primary text-white text-xs font-bold
+            <span className="w-8 h-8 rounded-full bg-gradient-primary text-[#15171C] text-xs font-bold
                              flex items-center justify-center flex-shrink-0">
               {initials}
             </span>
             <span className="hidden md:block text-sm font-medium text-text-1 max-w-[120px] truncate">
-              {usuario?.nombre?.split(' ')[0] || 'Cuenta'}
+              {usuario?.nombre?.split(' ')[0] || t('Cuenta')}
             </span>
             <ChevronDownIcon className="hidden md:block w-3 h-3 text-text-3" />
           </button>
@@ -295,7 +298,7 @@ export default function TopBar({ onMenu }) {
               <div className="fixed inset-0 z-40" onClick={() => setAccountOpen(false)} />
               <div className="absolute right-0 top-12 z-50 w-64 card-glass rounded-2xl overflow-hidden animate-[scaleIn_0.15s_ease_both] origin-top-right">
                 <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-semibold text-text-1 truncate">{usuario?.nombre || 'Usuario'}</p>
+                  <p className="text-sm font-semibold text-text-1 truncate">{usuario?.nombre || t('Usuario')}</p>
                   <p className="text-xs text-text-2 truncate">{usuario?.email || ''}</p>
                 </div>
 
@@ -306,36 +309,39 @@ export default function TopBar({ onMenu }) {
                       onClick={() => cambiarAModo('organizador')}
                       disabled={cambiandoModo}
                       className={`flex-1 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
-                        ${modoActivo === 'organizador' ? 'bg-gradient-primary text-white' : 'text-text-3'}`}
+                        ${modoActivo === 'organizador' ? 'bg-gradient-primary text-[#15171C]' : 'text-text-3'}`}
                     >
-                      Organizar
+                      {t('Organizar')}
                     </button>
                     <button
                       onClick={() => cambiarAModo('asistente')}
                       disabled={cambiandoModo}
                       className={`flex-1 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
-                        ${modoActivo === 'asistente' ? 'bg-gradient-primary text-white' : 'text-text-3'}`}
+                        ${modoActivo === 'asistente' ? 'bg-gradient-primary text-[#15171C]' : 'text-text-3'}`}
                     >
-                      Explorar
+                      {t('Explorar')}
                     </button>
                   </div>
                 </div>
 
                 <div className="py-1.5">
                   <MenuItem onClick={() => { setAccountOpen(false); navigate('/ajustes?a=perfil'); }}>
-                    <UserIcon className="w-4 h-4" /> Mi perfil
+                    <UserIcon className="w-4 h-4" /> {t('Mi perfil')}
                   </MenuItem>
                   <MenuItem onClick={() => { setAccountOpen(false); navigate('/mis-boletas'); }}>
-                    <TicketIcon className="w-4 h-4" /> Mis boletas
+                    <TicketIcon className="w-4 h-4" /> {t('Mis boletas')}
                   </MenuItem>
                   <MenuItem onClick={toggleTheme}>
                     {theme === 'dark' ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
-                    {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+                    {theme === 'dark' ? t('Modo claro') : t('Modo oscuro')}
                   </MenuItem>
+                </div>
+                <div className="px-4 py-3 border-t border-border">
+                  <SelectorIdioma variante="lista" />
                 </div>
                 <div className="py-1.5 border-t border-border">
                   <MenuItem onClick={handleLogout} danger>
-                    <LogoutIcon className="w-4 h-4" /> Cerrar sesión
+                    <LogoutIcon className="w-4 h-4" /> {t('Cerrar sesión')}
                   </MenuItem>
                 </div>
               </div>

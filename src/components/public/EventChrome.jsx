@@ -83,7 +83,7 @@ export function EventNavbar({ evento, pages, activeIdx = 0, onNav }) {
           ? <img src={logoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
           : (
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                 style={{ background: 'linear-gradient(135deg, var(--brand-primary, #3B82F6), var(--brand-accent, #8B5CF6))' }}>
+                 style={{ background: 'linear-gradient(135deg, var(--brand-primary, #C9A227), var(--brand-accent, #E0B12B))' }}>
               {(nombreOrg || 'O').charAt(0).toUpperCase()}
             </div>
           )}

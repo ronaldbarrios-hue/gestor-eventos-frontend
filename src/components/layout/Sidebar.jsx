@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import GestekMark from './GestekMark.jsx';
+import { useI18n } from '../../context/I18nContext.jsx';
 import Criatura from '../agente/Criatura.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useAccesosDirectos, DESTINOS_ACCESO, SECCIONES_EVENTO,
@@ -36,6 +37,7 @@ const NAV_ITEMS_ASISTENTE = [
 ];
 
 export default function Sidebar({ mobile = false, onClose }) {
+  const { t } = useI18n();
   const { usuario } = useAuth();
   const esAsistente = usuario?.modoActivo === 'asistente';
   const NAV_ITEMS = esAsistente ? NAV_ITEMS_ASISTENTE : NAV_ITEMS_ORGANIZADOR;
@@ -96,7 +98,7 @@ export default function Sidebar({ mobile = false, onClose }) {
         {mobile && (
           <button
             onClick={onClose}
-            aria-label="Cerrar"
+            aria-label={t('Cerrar')}
             className="w-9 h-9 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-2 flex items-center justify-center transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -109,7 +111,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       {/* Indicador de modo actual (informativo, ya que el switch real vive en la TopBar) */}
       {esAsistente && (
         <div className="mx-4 mb-1 px-3 py-1.5 rounded-lg bg-sidebar-2 border border-white/10 text-center">
-          <span className="text-[10px] uppercase tracking-widest text-slate-400">Modo Explorar</span>
+          <span className="text-[10px] uppercase tracking-widest text-slate-400">{t('Modo Explorar')}</span>
         </div>
       )}
 
@@ -119,7 +121,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       {/* ── Navegación principal ── */}
       <nav className="flex-1 overflow-y-auto no-scrollbar px-3 py-3 space-y-1">
         <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-          Principal
+          {t('Principal')}
         </p>
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
@@ -129,12 +131,12 @@ export default function Sidebar({ mobile = false, onClose }) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-medium transition-colors
                ${isActive
-                 ? 'bg-accent text-white shadow-glow-sm'
+                 ? 'bg-accent text-[#15171C] shadow-glow-sm'
                  : 'text-slate-300 hover:text-white hover:bg-sidebar-2'}`
             }
           >
             <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-            {label}
+            {t(label)}
           </NavLink>
         ))}
 
@@ -143,9 +145,9 @@ export default function Sidebar({ mobile = false, onClose }) {
         {!esAsistente && (
           <div className="pt-5">
             <div className="flex items-center justify-between px-3 pb-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Accesos directos</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">{t('Accesos directos')}</p>
               <div className="relative">
-                <button ref={plusRef} onClick={() => picker ? cerrarPicker() : abrirPicker()} title="Agregar acceso directo"
+                <button ref={plusRef} onClick={() => picker ? cerrarPicker() : abrirPicker()} title={t('Agregar acceso directo')}
                   className="w-5 h-5 rounded-md text-slate-400 hover:text-white hover:bg-sidebar-2 flex items-center justify-center transition-colors leading-none">+</button>
                 {picker && createPortal(
                   <>
@@ -154,7 +156,7 @@ export default function Sidebar({ mobile = false, onClose }) {
                       className="z-[9999] rounded-xl bg-sidebar-2 border border-white/10 shadow-xl overflow-hidden">
                       {/* Dos orígenes: funciones generales o una sección de un evento */}
                       <div className="flex border-b border-white/10">
-                        {[['general', 'General'], ['evento', 'De un evento']].map(([v, l]) => (
+                        {[['general', t('General')], ['evento', t('De un evento')]].map(([v, l]) => (
                           <button key={v} onClick={() => { setBusqueda(''); v === 'evento' ? verEventos() : (setModo('general'), setEventoSel(null)); }}
                             className={`flex-1 py-2 text-[11px] font-semibold transition-colors
                                         ${modo === v ? 'text-white bg-sidebar-3' : 'text-slate-400 hover:text-white'}`}>
@@ -167,7 +169,7 @@ export default function Sidebar({ mobile = false, onClose }) {
                       {(modo === 'general' || (modo === 'evento' && eventoSel)) && (
                         <div className="p-2 border-b border-white/10">
                           <input autoFocus value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                            placeholder="Buscar función…"
+                            placeholder={t('Buscar función…')}
                             className="w-full bg-sidebar-3 border border-white/10 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-white/25" />
                         </div>
                       )}
@@ -175,7 +177,7 @@ export default function Sidebar({ mobile = false, onClose }) {
                       <div className="max-h-80 overflow-y-auto no-scrollbar py-1.5">
                         {modo === 'general' && (
                           gruposGeneral.length === 0
-                            ? <p className="px-3 py-2 text-xs text-slate-500">{disponibles.length === 0 ? 'Ya agregaste todas las funciones generales.' : 'Sin resultados.'}</p>
+                            ? <p className="px-3 py-2 text-xs text-slate-500">{disponibles.length === 0 ? t('Ya agregaste todas las funciones generales.') : t('Sin resultados.')}</p>
                             : gruposGeneral.map(g => (
                               <GrupoPicker key={g.cat} titulo={g.cat}>
                                 {g.items.map(d => (
@@ -187,9 +189,9 @@ export default function Sidebar({ mobile = false, onClose }) {
 
                         {modo === 'evento' && !eventoSel && (
                           eventos === null
-                            ? <p className="px-3 py-2 text-xs text-slate-500">Cargando eventos…</p>
+                            ? <p className="px-3 py-2 text-xs text-slate-500">{t('Cargando eventos…')}</p>
                             : eventos.length === 0
-                              ? <p className="px-3 py-2 text-xs text-slate-500">Aún no tienes eventos.</p>
+                              ? <p className="px-3 py-2 text-xs text-slate-500">{t('Aún no tienes eventos.')}</p>
                               : eventos.map(ev => (
                                 <button key={ev.id} onClick={() => setEventoSel(ev)}
                                   className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-sidebar-3 transition-colors truncate">

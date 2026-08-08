@@ -9,6 +9,12 @@ const NUDO = 'M7375 8728 c150 -23 331 -103 475 -212 77 -58 591 -572 2301 -2301 5
    de texto (ej. text-white) cuando la marca vaya sobre un fondo dorado. */
 export const ORO = '#E0B12B';
 
+/* El trazado crudo y su viewBox, para incrustar la marca dentro de otro
+   SVG (el pecho del bot, por ejemplo) sin duplicar el path. */
+export const NUDO_PATH = NUDO;
+export const NUDO_VIEWBOX = '543 57 576 576';
+export const NUDO_TRANSFORM = 'translate(0,941) scale(0.1,-0.1)';
+
 export default function GestekMark({ size = 42, className = '', color = ORO }) {
   return (
     <svg

@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Criatura from '../../components/agente/Criatura.jsx';
 import GestekMark from '../../components/layout/GestekMark.jsx';
+import { PasoAPaso, IncrustarEnTuWeb, CasosDeUso, VideoDemo } from './landing/Secciones.jsx';
+import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
   const ref = useRef(null);
@@ -41,10 +43,13 @@ export default function LandingHomePage() {
     <>
       <Hero />
       <Marquee />
+      <PasoAPaso />
+      <VideoDemo />
       <AIPro />
       <FreeIntro />
       <Stats />
       <Pillars />
+      <CasosDeUso />
       <FeatureSplit
         side="left"
         kicker="QR y gamificación"
@@ -125,6 +130,7 @@ export default function LandingHomePage() {
         ]}
         visual={<CodeMockup />}
       />
+      <IncrustarEnTuWeb />
       <FAQTeaser />
       <CTASection />
     </>
@@ -133,15 +139,16 @@ export default function LandingHomePage() {
 
 /* ─────────── HERO ─────────── */
 function Hero() {
+  const { t } = useI18n();
   const [ref, visible] = useReveal(0);
   return (
     <section className="relative px-5 sm:px-8 pt-12 sm:pt-20 pb-24 overflow-hidden">
       <div className="absolute inset-0 pointer-events-none" style={{
         transform: 'translateZ(0)',
         backgroundImage:
-          'radial-gradient(48rem 30rem at 50% 0%, rgba(59,130,246,0.12), transparent 60%),'
-          + 'radial-gradient(26rem 26rem at 12% 35%, rgba(139,92,246,0.08), transparent 60%),'
-          + 'radial-gradient(20rem 20rem at 88% 25%, rgba(59,130,246,0.08), transparent 60%)',
+          'radial-gradient(48rem 30rem at 50% 0%, rgba(224,177,43,0.13), transparent 60%),'
+          + 'radial-gradient(26rem 26rem at 12% 35%, rgba(201,162,39,0.09), transparent 60%),'
+          + 'radial-gradient(20rem 20rem at 88% 25%, rgba(224,177,43,0.08), transparent 60%)',
       }} />
 
       {/* Decorative orbits */}
@@ -164,39 +171,37 @@ function Hero() {
         </h1>
 
         <p className={`mt-4 text-base sm:text-lg text-primary-light font-semibold tracking-[0.3em] uppercase transition-all duration-700 delay-200 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          Organiza, automatiza y crece
+          {t('Organiza, automatiza y crece')}
         </p>
 
         <div className={`mt-6 flex justify-center transition-all duration-700 delay-250 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/40
                            bg-accent/10 text-accent-light text-xs sm:text-sm font-semibold">
-            La primera plataforma de eventos con inteligencia artificial integrada
+            {t('La primera plataforma de eventos con inteligencia artificial integrada')}
           </span>
         </div>
 
         <p className={`mt-8 text-lg sm:text-2xl text-text-2 max-w-3xl mx-auto leading-relaxed transition-all duration-700 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          Crea y vende boletas, monta stands, controla el ingreso y arma
-          el cronograma. Sirve para un evento único o para una convención
-          con decenas de actividades adentro. Todo en un solo lugar.
+          {t('Crea y vende boletas, monta stands, controla el ingreso y arma el cronograma. Sirve para un evento único o para una convención con decenas de actividades adentro. Todo en un solo lugar.')}
         </p>
 
         <div className={`mt-12 flex flex-col sm:flex-row items-center justify-center gap-3 transition-all duration-700 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <Link
             to="/register"
-            className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all shadow-[0_0_40px_rgba(241,245,249,0.2)] hover:shadow-[0_0_60px_rgba(241,245,249,0.35)] hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow hover:shadow-[0_0_60px_rgba(224,177,43,0.45)] hover:scale-[1.02] active:scale-[0.98]"
           >
-            Crear mi cuenta
+            {t('Crear mi cuenta')}
           </Link>
           <Link
             to="/como-funciona"
             className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 hover:border-text-3 transition-all"
           >
-            Ver cómo funciona
+            {t('Ver cómo funciona')}
           </Link>
         </div>
 
         <p className={`mt-6 text-sm text-text-3 transition-all duration-700 delay-700 ${visible ? 'opacity-100' : 'opacity-0'}`}>
-          Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy
+          {t('Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy')}
         </p>
       </div>
     </section>
@@ -566,8 +571,8 @@ function AIPro() {
       <div className="absolute inset-0 pointer-events-none" style={{
         transform: 'translateZ(0)',
         backgroundImage:
-          'radial-gradient(42rem 30rem at 50% 50%, rgba(139,92,246,0.12), transparent 62%),'
-          + 'radial-gradient(22rem 22rem at 75% 30%, rgba(59,130,246,0.10), transparent 60%)',
+          'radial-gradient(42rem 30rem at 50% 50%, rgba(201,162,39,0.12), transparent 62%),'
+          + 'radial-gradient(22rem 22rem at 75% 30%, rgba(224,177,43,0.10), transparent 60%)',
       }} />
 
       <div ref={ref} className={`relative max-w-6xl mx-auto transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
@@ -702,7 +707,7 @@ function CTASection() {
           Crea tu cuenta en menos de un minuto y organiza tu primer evento hoy.
         </p>
         <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link to="/register" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-bg bg-text-1 hover:bg-white transition-all shadow-[0_0_40px_rgba(241,245,249,0.2)] hover:scale-[1.02]">
+          <Link to="/register" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow hover:scale-[1.02]">
             Crear cuenta gratis
           </Link>
           <Link to="/como-funciona" className="w-full sm:w-auto px-8 py-4 rounded-full text-base font-medium text-text-1 border border-border-2 hover:bg-surface-2 transition-colors">

@@ -4,23 +4,13 @@ import { useTheme } from '../../context/ThemeContext.jsx';
 import PublicNavbar from './PublicNavbar.jsx';
 import PublicFooter from './PublicFooter.jsx';
 import SideDecorations from './SideDecorations.jsx';
+import Acompanante from '../agente/Acompanante.jsx';
 
 export default function PublicLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [animKey, setAnimKey] = useState(pathname);
   const { theme } = useTheme();
-
-  /* El sitio público de GESTEK vive SIEMPRE en oscuro (azules profundos +
-     gris, texto claro): identidad de marketing, sin saturar la vista.
-     La app interna conserva la preferencia claro/oscuro del usuario —
-     al salir del layout público se restaura su tema. */
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    return () => {
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-    };
-  }, [theme]);
 
   useEffect(() => {
     setAnimKey(pathname);
@@ -40,6 +30,21 @@ export default function PublicLayout() {
      simple de "Volver". */
   const esPaginaTicket = /^\/mi-ticket\/[^/]+$/.test(pathname);
   const esPaginaExplorar = esListadoExplorar || esPaginaEvento || esPaginaTicket;
+
+  /* Las páginas de marca blanca (evento del organizador, boleta) siguen
+     viviendo en oscuro: su diseño se armó sobre fondo profundo y ahí la
+     marca que manda no es la nuestra. Las páginas de GESTEK sí respetan
+     la preferencia del usuario — es la luz que el bot enciende y apaga. */
+  useEffect(() => {
+    if (!esPaginaExplorar) {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      return undefined;
+    }
+    document.documentElement.classList.add('dark');
+    return () => {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    };
+  }, [esPaginaExplorar, theme]);
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text-1 overflow-x-clip">
@@ -74,6 +79,9 @@ export default function PublicLayout() {
         <Outlet />
       </main>
       {!esPaginaExplorar && <PublicFooter />}
+      {/* El acompañante solo en las páginas de GESTEK: en marca blanca
+          no debe aparecer nada nuestro. */}
+      {!esPaginaExplorar && <Acompanante />}
     </div>
   );
 }

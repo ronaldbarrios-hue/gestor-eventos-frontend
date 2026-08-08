@@ -333,7 +333,13 @@ export default function CompletarPerfilPage() {
                   className="mt-1 w-4 h-4 rounded border-border bg-surface-2 accent-primary"
                 />
                 <span className="text-xs text-text-2 leading-relaxed">
-                  Acepto los <a className="underline text-text-1 hover:text-primary-light" href="#">términos</a> y la <a className="underline text-text-1 hover:text-primary-light" href="#">política de privacidad</a>. Acepto recibir comunicaciones de GESTEK.
+                  Acepto los{' '}
+                  <a className="underline text-text-1 hover:text-primary-light" href="/terminos"
+                     target="_blank" rel="noreferrer noopener" onClick={e => e.stopPropagation()}>términos y condiciones</a>{' '}
+                  y la{' '}
+                  <a className="underline text-text-1 hover:text-primary-light" href="/privacidad"
+                     target="_blank" rel="noreferrer noopener" onClick={e => e.stopPropagation()}>política de privacidad</a>.
+                  Acepto recibir comunicaciones de GESTEK.
                 </span>
               </label>
 

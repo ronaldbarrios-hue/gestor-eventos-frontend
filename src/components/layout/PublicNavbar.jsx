@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import logoG from '../../assets/logo-g.svg';
+import SelectorIdioma from '../ui/SelectorIdioma.jsx';
+import { useI18n } from '../../context/I18nContext.jsx';
 
+/* Las etiquetas se guardan en español: son las claves del diccionario, y
+   t() las traduce en el render. */
 const NAV_LINKS = [
   { to: '/',              label: 'Inicio'        },
   { to: '/como-funciona', label: 'Cómo funciona' },
@@ -11,6 +15,7 @@ const NAV_LINKS = [
 ];
 
 export default function PublicNavbar() {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [spinKey, setSpinKey] = useState(0);
@@ -67,29 +72,30 @@ export default function PublicNavbar() {
                    ${isActive ? 'text-text-1 bg-surface-2' : 'text-text-2 hover:text-text-1 hover:bg-surface-2/60'}`
                 }
               >
-                {l.label}
+                {t(l.label)}
               </NavLink>
             </li>
           ))}
         </ul>
 
-        {/* Right side: auth */}
+        {/* Right side: idioma + auth */}
         <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+          <SelectorIdioma />
           <Link to="/login" className="px-4 py-2.5 text-base text-text-2 hover:text-text-1 transition-colors rounded-full">
-            Iniciar sesión
+            {t('Iniciar sesión')}
           </Link>
           <Link
             to="/register"
-            className="px-5 py-2.5 text-base font-semibold text-bg bg-text-1 hover:bg-white rounded-full transition-all shadow-[0_0_24px_rgba(241,245,249,0.15)] hover:shadow-[0_0_32px_rgba(241,245,249,0.25)]"
+            className="px-5 py-2.5 text-base font-semibold text-[#15171C] bg-gradient-primary rounded-full transition-all shadow-glow-sm hover:shadow-glow"
           >
-            Registrarse
+            {t('Registrarse')}
           </Link>
         </div>
 
         {/* Mobile burger */}
         <button
           onClick={() => setOpen(v => !v)}
-          aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+          aria-label={open ? t('Cerrar menú') : t('Abrir menú')}
           className="lg:hidden p-2 rounded-full hover:bg-surface-2 transition-colors"
         >
           <div className="w-5 h-4 flex flex-col justify-between items-end">
@@ -117,18 +123,22 @@ export default function PublicNavbar() {
                      ${isActive ? 'text-text-1 bg-surface-2' : 'text-text-2 hover:text-text-1 hover:bg-surface-2/60'}`
                   }
                 >
-                  {l.label}
+                  {t(l.label)}
                 </NavLink>
               </li>
             ))}
           </ul>
           <div className="border-t border-border my-3" />
+          <div className="px-2 pb-2">
+            <SelectorIdioma variante="lista" />
+          </div>
+          <div className="border-t border-border my-3" />
           <div className="flex flex-col gap-2 px-1 pb-1">
             <Link to="/login" className="block w-full text-center py-3 rounded-2xl text-base text-text-2 hover:bg-surface-2 transition-colors">
-              Iniciar sesión
+              {t('Iniciar sesión')}
             </Link>
-            <Link to="/register" className="block w-full text-center py-3 rounded-2xl text-base font-semibold text-bg bg-text-1 hover:bg-white transition-colors">
-              Registrarse
+            <Link to="/register" className="block w-full text-center py-3 rounded-2xl text-base font-semibold text-[#15171C] bg-gradient-primary transition-colors">
+              {t('Registrarse')}
             </Link>
           </div>
         </div>

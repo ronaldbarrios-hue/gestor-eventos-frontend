@@ -10,7 +10,7 @@ export default {
            patrón "rgb(var(--x) / <alpha-value>)" preserva los modificadores
            de opacidad que ya se usan en toda la app (ej. bg-primary/10). */
         bg         : 'rgb(var(--color-bg) / <alpha-value>)',
-        'bg-grid'  : '#0A1020',
+        'bg-grid'  : '#0D0F13',
         surface    : 'rgb(var(--color-surface) / <alpha-value>)',
         'surface-2': 'rgb(var(--color-surface-2) / <alpha-value>)',
         'surface-3': 'rgb(var(--color-surface-3) / <alpha-value>)',
@@ -20,18 +20,18 @@ export default {
           DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
           dark   : 'rgb(var(--color-primary-dark) / <alpha-value>)',
           light  : 'rgb(var(--color-primary-light) / <alpha-value>)',
-          glow   : 'rgba(59,130,246,0.25)',
+          glow   : 'rgba(224,177,43,0.25)',
         },
         accent     : {
           DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
           dark   : 'rgb(var(--color-accent-dark) / <alpha-value>)',
           light  : 'rgb(var(--color-accent-light) / <alpha-value>)',
-          glow   : 'rgba(139,92,246,0.25)',
+          glow   : 'rgba(201,162,39,0.25)',
         },
         success    : {
           DEFAULT: 'rgb(var(--color-success) / <alpha-value>)',
           light  : 'rgb(var(--color-success-light) / <alpha-value>)',
-          glow   : 'rgba(16,185,129,0.2)',
+          glow   : 'rgba(57,211,140,0.2)',
         },
         warning    : {
           DEFAULT: 'rgb(var(--color-warning) / <alpha-value>)',
@@ -40,7 +40,7 @@ export default {
         danger     : {
           DEFAULT: 'rgb(var(--color-danger) / <alpha-value>)',
           light  : 'rgb(var(--color-danger-light) / <alpha-value>)',
-          glow   : 'rgba(239,68,68,0.2)',
+          glow   : 'rgba(217,112,94,0.2)',
         },
         sidebar    : {
           DEFAULT: 'rgb(var(--color-sidebar) / <alpha-value>)',
@@ -58,17 +58,17 @@ export default {
       },
       backgroundImage: {
         'grid-pattern': "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(255,255,255,0.03)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e\")",
-        'gradient-primary': 'linear-gradient(135deg, #3B82F6, #8B5CF6)',
-        'gradient-dark'   : 'linear-gradient(135deg, #0D1525, #162445)',
-        'gradient-glow'   : 'radial-gradient(ellipse at top, rgba(59,130,246,0.15) 0%, transparent 60%)',
+        'gradient-primary': 'linear-gradient(135deg, #C9A227, #E0B12B 55%, #F2D66B)',
+        'gradient-dark'   : 'linear-gradient(135deg, #0D0F13, #1E232C)',
+        'gradient-glow'   : 'radial-gradient(ellipse at top, rgba(224,177,43,0.16) 0%, transparent 60%)',
       },
       boxShadow: {
-        card       : '0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)',
-        'card-hover': '0 8px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(59,130,246,0.2)',
-        glow       : '0 0 30px rgba(59,130,246,0.3)',
-        'glow-sm'  : '0 0 15px rgba(59,130,246,0.2)',
-        'glow-accent': '0 0 30px rgba(139,92,246,0.3)',
-        inner      : 'inset 0 1px 0 rgba(255,255,255,0.06)',
+        card       : 'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card-hover)',
+        glow       : '0 0 30px rgba(224,177,43,0.30)',
+        'glow-sm'  : '0 0 15px rgba(224,177,43,0.20)',
+        'glow-accent': '0 0 30px rgba(201,162,39,0.30)',
+        inner      : 'var(--shadow-inner)',
       },
       animation: {
         'fade-up'    : 'fadeUp 0.4s ease both',
@@ -114,7 +114,7 @@ export default {
         authInRight : { from:{ opacity:0, transform:'translateX(-50%)' }, to:{ opacity:1, transform:'translateX(0)' } },
         authInLeft  : { from:{ opacity:0, transform:'translateX(50%)' }, to:{ opacity:1, transform:'translateX(0)' } },
         glowPulse : { '0%,100%':{ opacity:.35, transform:'scale(1)' }, '50%':{ opacity:.7, transform:'scale(1.08)' } },
-        logoShine : { '0%,100%':{ filter:'drop-shadow(0 0 0 rgba(96,165,250,0))' }, '50%':{ filter:'drop-shadow(0 0 14px rgba(96,165,250,0.55))' } },
+        logoShine : { '0%,100%':{ filter:'drop-shadow(0 0 0 rgba(224,177,43,0))' }, '50%':{ filter:'drop-shadow(0 0 14px rgba(224,177,43,0.55))' } },
       },
       backdropBlur: { xs: '2px' },
       borderRadius: { '2xl':'1rem', '3xl':'1.5rem', '4xl':'2rem' },

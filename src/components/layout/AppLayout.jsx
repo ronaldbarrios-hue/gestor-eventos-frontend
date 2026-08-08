@@ -9,8 +9,8 @@ export default function AppLayout() {
   const { pathname } = useLocation();
   useAuth(); /* mantiene el contexto activo */
 
-  const bPrimary = '#3B82F6';
-  const bAccent  = '#8B5CF6';
+  const bPrimary = '#C9A227';
+  const bAccent  = '#E0B12B';
 
   useEffect(() => { setOpen(false); }, [pathname]);
 

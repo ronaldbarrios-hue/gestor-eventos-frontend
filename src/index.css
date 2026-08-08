@@ -12,32 +12,42 @@
        Tailwind pueda combinarlo con modificadores de opacidad como
        bg-primary/10, border-border-2, etc.
        El modo oscuro se activa con la clase "dark" en <html>. */
-    --color-bg         : 248 250 252;
-    --color-surface     : 255 255 255;
-    --color-surface-2   : 241 245 249;
-    --color-surface-3   : 226 232 240;
-    --color-border-rgb  : 15 23 42;
-    --color-text-1      : 15 23 42;
-    --color-text-2      : 71 85 105;
-    --color-text-3      : 148 163 184;
+    /* ── DÍA · blancos cálidos, nada de gris azulado ── */
+    --color-bg         : 244 241 233;  /* #F4F1E9 */
+    --color-surface     : 251 250 247;  /* #FBFAF7 */
+    --color-surface-2   : 239 235 225;  /* #EFEBE1 */
+    --color-surface-3   : 226 220 204;  /* #E2DCCC */
+    --color-border-rgb  : 33 30 24;
+    --color-text-1      : 21 23 28;     /* #15171C */
+    --color-text-2      : 85 83 77;     /* #55534D */
+    --color-text-3      : 138 133 122;  /* #8A857A */
 
-    /* ── Sidebar (azul oscuro identitario, IGUAL en ambos modos) ──── */
-    --color-sidebar     : 10 15 26;   /* #0A0F1A */
-    --color-sidebar-2   : 17 24 39;   /* hover/superficie interna */
-    --color-sidebar-3   : 26 34 53;   /* activo */
+    /* ── Sidebar (la noche identitaria, IGUAL en ambos modos) ──── */
+    --color-sidebar     : 13 15 19;   /* #0D0F13 */
+    --color-sidebar-2   : 26 31 39;   /* hover/superficie interna */
+    --color-sidebar-3   : 38 44 54;   /* activo */
 
-    --color-primary       : 59 130 246;
-    --color-primary-dark  : 37 99 235;
-    --color-primary-light : 96 165 250;
-    --color-accent         : 139 92 246;
-    --color-accent-dark    : 124 58 237;
-    --color-accent-light   : 167 139 250;
-    --color-success        : 16 185 129;
-    --color-success-light  : 52 211 153;
-    --color-warning         : 245 158 11;
-    --color-warning-light   : 252 211 77;
-    --color-danger          : 239 68 68;
-    --color-danger-light    : 248 113 113;
+    /* ── Latón · el acento de marca. En día se oscurece para que
+       tenga contraste sobre los fondos claros. ── */
+    --color-primary       : 138 110 25;   /* #8A6E19 — oscurecido para que
+                                             el texto blanco encima pase 4.5:1 */
+    --color-primary-dark  : 107 85 20;    /* #6B5514 */
+    --color-primary-light : 165 129 26;   /* #A5811A */
+    --color-accent         : 201 162 39;  /* #C9A227 */
+    --color-accent-dark    : 138 110 25;  /* #8A6E19 */
+    --color-accent-light   : 165 129 26;  /* #A5811A */
+    --color-success        : 15 138 87;
+    --color-success-light  : 30 163 105;
+    --color-warning         : 190 106 26;  /* naranja tostado, lejos del latón */
+    --color-warning-light   : 216 132 45;
+    --color-danger          : 190 55 48;
+    --color-danger-light    : 214 79 70;
+
+    /* ── Sombras · en día la luz viene de arriba y es suave; el negro
+       puro sobre papel cálido se ve sucio, así que va tintado. ── */
+    --shadow-card       : 0 1px 2px rgba(43,35,18,0.06), 0 0 0 1px rgba(43,35,18,0.05);
+    --shadow-card-hover : 0 10px 30px rgba(43,35,18,0.10), 0 0 0 1px rgba(165,129,26,0.22);
+    --shadow-inner      : inset 0 1px 0 rgba(255,255,255,0.7);
   }
 
   /* ── Paleta modo OSCURO ─────────────────────────────────────────
@@ -45,14 +55,32 @@
      ThemeContext). Grises azulados neutros — no negro puro — y los
      mismos acentos de marca para no perder identidad visual. */
   html.dark {
-    --color-bg         : 14 17 22;    /* #0E1116 */
-    --color-surface     : 21 26 34;    /* #151A22 */
-    --color-surface-2   : 28 34 48;    /* #1C2230 */
-    --color-surface-3   : 35 43 61;    /* #232B3D */
+    --color-bg         : 13 15 19;    /* #0D0F13 */
+    --color-surface     : 22 26 33;    /* #161A21 */
+    --color-surface-2   : 30 35 44;    /* #1E232C */
+    --color-surface-3   : 40 46 56;    /* #282E38 */
     --color-border-rgb  : 255 255 255;
-    --color-text-1      : 241 245 249;
-    --color-text-2      : 148 163 184;
-    --color-text-3      : 100 116 139;
+    --color-text-1      : 242 239 232; /* #F2EFE8 */
+    --color-text-2      : 169 167 159; /* #A9A79F */
+    --color-text-3      : 123 122 116; /* #7B7A74 */
+
+    /* Sobre la noche el latón puede ir a pleno brillo */
+    --color-primary       : 224 177 43;   /* #E0B12B */
+    --color-primary-dark  : 165 129 26;
+    --color-primary-light : 242 214 107;  /* #F2D66B */
+    --color-accent         : 201 162 39;  /* #C9A227 */
+    --color-accent-dark    : 165 129 26;
+    --color-accent-light   : 233 212 133; /* #E9D485 */
+    --color-success        : 57 211 140;
+    --color-success-light  : 110 226 172;
+    --color-warning         : 232 154 61;
+    --color-warning-light   : 246 188 75;
+    --color-danger          : 217 112 94;
+    --color-danger-light    : 233 145 129;
+
+    --shadow-card       : 0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+    --shadow-card-hover : 0 8px 30px rgba(0,0,0,0.45), 0 0 0 1px rgba(224,177,43,0.22);
+    --shadow-inner      : inset 0 1px 0 rgba(255,255,255,0.06);
   }
 
   html {
@@ -66,17 +94,17 @@
     @apply bg-bg text-text-1 font-sans antialiased text-base;
     overflow-x: clip; /* los paneles fijos fuera de pantalla no deben crear scroll horizontal */
     background-image:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(59,130,246,0.06), transparent 60%),
-      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(139,92,246,0.05), transparent 70%),
-      url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(15,23,42,0.035)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(201,162,39,0.07), transparent 60%),
+      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(165,129,26,0.05), transparent 70%),
+      url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(33,30,24,0.045)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
   }
 
   /* En modo oscuro la rejilla clara casi no se ve — versión con trazo
      blanco sutil y glows un poco más presentes. */
   html.dark body {
     background-image:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(59,130,246,0.10), transparent 60%),
-      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(139,92,246,0.08), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(224,177,43,0.10), transparent 60%),
+      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(201,162,39,0.07), transparent 70%),
       url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(255,255,255,0.025)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
   }
 
@@ -92,7 +120,7 @@
     }
   }
 
-  ::selection { background: rgba(59,130,246,0.3); color: rgb(var(--color-text-1)); }
+  ::selection { background: rgba(201,162,39,0.32); color: rgb(var(--color-text-1)); }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -200,7 +228,7 @@
   .divider { @apply border-t border-border; }
 
   /* ── Glow ring ───────────────────────────────── */
-  .glow-ring { box-shadow: 0 0 0 1px rgba(59,130,246,0.3), 0 0 20px rgba(59,130,246,0.15); }
+  .glow-ring { box-shadow: 0 0 0 1px rgba(224,177,43,0.32), 0 0 20px rgba(224,177,43,0.16); }
 }
 
 @layer utilities {
