@@ -9,7 +9,6 @@ import { useEventosPrefs } from '../../hooks/useEventosPrefs.js';
 import { EstadoBadge, ModalidadBadge } from '../../components/ui/Badge.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
-import ExplorarPage from '../public/ExplorarPage.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Eventos — Rework Fase 2
@@ -76,7 +75,6 @@ export default function EventsListPage() {
   const [loading, setLoading] = useState(true);
   const [categorias, setCategorias] = useState([]);
   const [q, setQ] = useState(searchParams.get('q') || '');
-  const [pestana, setPestana] = useState(searchParams.get('tab') === 'explorar' ? 'explorar' : 'mios');
   const [filtros, setFiltros] = useState({ rol: '', estado: '', fecha: '', modalidad: '', categoria: '' });
   const [accionando, setAccionando] = useState(null);
 
@@ -215,29 +213,6 @@ export default function EventsListPage() {
         </Link>
       </header>
 
-      {/* ── Pestañas: mis eventos / explorar para inspirarse ── */}
-      <div className="flex items-center gap-1 border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0">
-        {[['mios', t('Mis eventos')], ['explorar', t('Explorar GESTEK')]].map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setPestana(v)}
-            className={`relative px-4 py-2.5 text-[14px] font-medium transition-colors
-                        ${pestana === v ? 'text-text-1' : 'text-text-3 hover:text-text-2'}`}
-          >
-            {label}
-            {pestana === v && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" />}
-          </button>
-        ))}
-        {pestana === 'explorar' && (
-          <span className="ml-auto hidden sm:inline text-xs text-text-3 pr-1">
-            {t('Páginas públicas de eventos en GESTEK — inspírate para el tuyo.')}
-          </span>
-        )}
-      </div>
-
-      {pestana === 'explorar' ? (
-        <div className="-mx-4 sm:mx-0"><ExplorarPage /></div>
-      ) : (<>
       {/* ── Búsqueda + filtros + vista ── */}
       <div className="flex flex-col lg:flex-row gap-3">
         <div className="relative flex-1 min-w-0">
@@ -290,7 +265,6 @@ export default function EventsListPage() {
       ) : (
         <VistaGrid eventos={ordenados} favoritos={favoritos} acciones={acciones} accionando={accionando} />
       )}
-      </>)}
     </div>
   );
 }

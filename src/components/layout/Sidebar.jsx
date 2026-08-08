@@ -21,26 +21,25 @@ import { eventosApi } from '../../api/eventos.js';
    organizador, ya que son funciones de gestión.
    ────────────────────────────────────────────────────────────────── */
 
-const NAV_ITEMS_ORGANIZADOR = [
-  { to: '/inicio',     icon: HomeIcon,      label: 'Inicio'     },
-  { to: '/eventos',    icon: CalendarIcon,  label: 'Eventos'    },
-  { to: '/mi-espacio', icon: BriefcaseIcon, label: 'Mi Espacio' },
-  { to: '/vacantes',   icon: VacantesIcon,  label: 'Vacantes'   },
-  { to: '/ajustes',    icon: SettingsIcon,  label: 'Ajustes'    },
-];
+/* Una sola navegación. Antes había dos, según un conmutador
+   Organizador/Explorar en la barra superior, que obligaba a elegir una
+   identidad cuando la misma persona casi siempre es las dos: organiza sus
+   eventos y va a los de otros. Explorar pasó a ser una sección, no un modo.
 
-const NAV_ITEMS_ASISTENTE = [
-  { to: '/inicio',                icon: HomeIcon,     label: 'Inicio'      },
-  { to: '/eventos?tab=explorar',  icon: CompassIcon,  label: 'Explorar'    },
-  { to: '/mis-boletas',           icon: TicketIcon,   label: 'Mis boletas' },
-  { to: '/ajustes',               icon: SettingsIcon, label: 'Ajustes'     },
+   · Eventos    → los míos
+   · Explorar   → los públicos de GESTEK y las vacantes abiertas
+   · Mi Espacio → mi trabajo, mis perfiles y mis postulaciones */
+const NAV_ITEMS = [
+  { to: '/inicio',       icon: HomeIcon,      label: 'Inicio'     },
+  { to: '/eventos',      icon: CalendarIcon,  label: 'Eventos'    },
+  { to: '/app/explorar', icon: CompassIcon,   label: 'Explorar'   },
+  { to: '/mi-espacio',   icon: BriefcaseIcon, label: 'Mi Espacio' },
+  { to: '/ajustes',      icon: SettingsIcon,  label: 'Ajustes'    },
 ];
 
 export default function Sidebar({ mobile = false, onClose }) {
   const { t } = useI18n();
   const { usuario } = useAuth();
-  const esAsistente = usuario?.modoActivo === 'asistente';
-  const NAV_ITEMS = esAsistente ? NAV_ITEMS_ASISTENTE : NAV_ITEMS_ORGANIZADOR;
 
   const { accesos, agregar, quitar } = useAccesosDirectos(usuario?.id);
   const [picker, setPicker] = useState(false);
@@ -108,12 +107,6 @@ export default function Sidebar({ mobile = false, onClose }) {
         )}
       </div>
 
-      {/* Indicador de modo actual (informativo, ya que el switch real vive en la TopBar) */}
-      {esAsistente && (
-        <div className="mx-4 mb-1 px-3 py-1.5 rounded-lg bg-sidebar-2 border border-white/10 text-center">
-          <span className="text-[10px] uppercase tracking-widest text-slate-400">{t('Modo Explorar')}</span>
-        </div>
-      )}
 
       {/* Separador entre marca y navegación */}
       <div className="mx-4 border-t border-white/10" />
@@ -142,7 +135,7 @@ export default function Sidebar({ mobile = false, onClose }) {
 
         {/* ── Accesos directos (personales) — solo en modo Organizador,
                ya que apuntan a funciones de gestión de eventos ── */}
-        {!esAsistente && (
+        {(
           <div className="pt-5">
             <div className="flex items-center justify-between px-3 pb-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">{t('Accesos directos')}</p>
@@ -240,7 +233,7 @@ export default function Sidebar({ mobile = false, onClose }) {
       </nav>
 
       {/* ── Hotspot Gestbot — solo en modo Organizador (gestiona eventos, no aplica a comprar boletas) ── */}
-      {!esAsistente && (
+      {(
         <div className="p-3">
           <div className="rounded-2xl bg-sidebar-2 border border-white/5 p-4">
             <div className="flex items-center gap-3 mb-2.5">
@@ -290,9 +283,6 @@ function CalendarIcon({ className }) {
 function BriefcaseIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
 }
-function VacantesIcon({ className }) {
-  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0H8m9 10.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zm2.5 5.5l-1.8-1.8" /></svg>;
-}
 function SettingsIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 }
@@ -304,7 +294,4 @@ function DotIcon({ className }) {
 }
 function CompassIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M15.5 8.5l-2 5-5 2 2-5 5-2z" /></svg>;
-}
-function TicketIcon({ className }) {
-  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>;
 }

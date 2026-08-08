@@ -11,6 +11,7 @@ import PersonalizarPanel from '../../components/widgets/PersonalizarPanel.jsx';
 import MiTrabajoPage from '../equipo/MiTrabajoPage.jsx';
 import PerfilTalentoEditor from '../vacantes/PerfilTalentoEditor.jsx';
 import PerfilOrganizador from './PerfilOrganizador.jsx';
+import MisPostulaciones from '../vacantes/MisPostulaciones.jsx';
 import { Link } from 'react-router-dom';
 import {
   MisTareasWidget, MisSolicitudesWidget, MiCalendarioWidget, MisRecursosWidget,
@@ -52,14 +53,25 @@ const COMPONENTES = {
 
 export default function MiEspacioPage() {
   const { t } = useI18n();
-  const [vista, setVista] = useState('panel');
+  const VISTAS = ['panel', 'colaborador', 'talento', 'postulaciones', 'organizador', 'expositor'];
+  const [vista, setVista] = useState(() => {
+    const pedida = new URLSearchParams(window.location.search).get('tab');
+    return VISTAS.includes(pedida) ? pedida : 'panel';
+  });
+  const irA = (v) => {
+    setVista(v);
+    const url = new URL(window.location.href);
+    if (v === 'panel') url.searchParams.delete('tab'); else url.searchParams.set('tab', v);
+    window.history.replaceState({}, '', url);
+  };
 
   const [expositores, setExpositores] = useState([]);
   useEffect(() => { meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {}); }, []);
 
   const TABS = [
     ['panel', t('Mi panel')], ['colaborador', t('Colaborador')],
-    ['talento', t('Perfil de talento')], ['organizador', t('Perfil de organizador')],
+    ['talento', t('Perfil de talento')], ['postulaciones', t('Mis postulaciones')],
+    ['organizador', t('Perfil de organizador')],
     ...(expositores.length ? [['expositor', t('Mis stands')]] : []),
   ];
 
@@ -70,7 +82,7 @@ export default function MiEspacioPage() {
         {TABS.map(([v, label]) => (
           <button
             key={v}
-            onClick={() => setVista(v)}
+            onClick={() => irA(v)}
             className={`relative px-4 py-2.5 text-[14px] font-medium whitespace-nowrap transition-colors
                         ${vista === v ? 'text-text-1' : 'text-text-3 hover:text-text-2'}`}
           >
@@ -92,6 +104,15 @@ export default function MiEspacioPage() {
             <Link to="/vacantes" className="btn-secondary btn-sm flex-shrink-0">{t('Explorar vacantes →')}</Link>
           </div>
           <PerfilTalentoEditor />
+        </div>
+      )}
+      {vista === 'postulaciones' && (
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{t('Mis postulaciones')}</h1>
+            <p className="text-sm text-text-2 mt-1">{t('A qué vacantes te presentaste y en qué va cada una.')}</p>
+          </div>
+          <MisPostulaciones />
         </div>
       )}
       {vista === 'organizador' && (

@@ -48,7 +48,7 @@ export default function PerfilOrganizador() {
   const prom = rep?.promedio;
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="space-y-4">
       {/* Reputación */}
       <div className="rounded-3xl border border-border bg-surface/40 p-5 flex flex-wrap items-center gap-5">
         <div className="text-center">
@@ -66,26 +66,26 @@ export default function PerfilOrganizador() {
       {/* Editor de identidad pública */}
       <div className="rounded-3xl border border-border bg-surface/40 p-5 space-y-4">
         <p className="text-sm font-semibold text-text-1">Tu identidad pública como organizador</p>
-        <div className="grid sm:grid-cols-[100px_1fr] gap-4 items-start">
+        <div className="grid lg:grid-cols-[220px_1fr] gap-6">
           <div>
             <label className="label text-xs">Foto / logo</label>
             <ImagePicker value={form.avatar_url} onChange={url => set({ avatar_url: url })} ownerId={form.id} placeholder="URL o subir" />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="field">
               <label className="label text-xs">Nombre público *</label>
               <input value={form.nombre} onChange={e => set({ nombre: e.target.value })} className="input rounded-xl py-2.5 text-sm" />
             </div>
             <div className="field">
               <label className="label text-xs">Descripción</label>
-              <textarea value={form.bio} onChange={e => set({ bio: e.target.value })} rows={3} className="input rounded-xl py-2.5 text-sm resize-none" placeholder="Quién eres como organizador, qué eventos haces." />
+              <textarea value={form.bio} onChange={e => set({ bio: e.target.value })} rows={4} className="input rounded-xl py-2.5 text-sm resize-none" placeholder="Quién eres como organizador, qué eventos haces." />
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="field"><label className="label text-xs">Empresa</label><input value={form.empresa} onChange={e => set({ empresa: e.target.value })} className="input rounded-xl py-2.5 text-sm" /></div>
+              <div className="field"><label className="label text-xs">Ocupación</label><input value={form.ocupacion} onChange={e => set({ ocupacion: e.target.value })} className="input rounded-xl py-2.5 text-sm" /></div>
+              <div className="field"><label className="label text-xs">Ciudad</label><input value={form.ciudad} onChange={e => set({ ciudad: e.target.value })} className="input rounded-xl py-2.5 text-sm" /></div>
             </div>
           </div>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <div className="field"><label className="label text-xs">Empresa</label><input value={form.empresa} onChange={e => set({ empresa: e.target.value })} className="input rounded-xl py-2.5 text-sm" /></div>
-          <div className="field"><label className="label text-xs">Ocupación</label><input value={form.ocupacion} onChange={e => set({ ocupacion: e.target.value })} className="input rounded-xl py-2.5 text-sm" /></div>
-          <div className="field"><label className="label text-xs">Ciudad</label><input value={form.ciudad} onChange={e => set({ ciudad: e.target.value })} className="input rounded-xl py-2.5 text-sm" /></div>
         </div>
         <div className="flex justify-end">
           <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">{saving ? <><Spinner size="sm" /> Guardando…</> : 'Guardar'}</button>

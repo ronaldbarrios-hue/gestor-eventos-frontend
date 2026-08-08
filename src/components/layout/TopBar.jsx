@@ -36,7 +36,7 @@ function tiempoRelativo(iso) {
 
 export default function TopBar({ onMenu }) {
   const { pathname }  = useLocation();
-  const { usuario, logout, cambiarModo } = useAuth();
+  const { usuario, logout } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const { t } = useI18n();
   const navigate      = useNavigate();
@@ -45,7 +45,6 @@ export default function TopBar({ onMenu }) {
   const [busqueda,    setBusqueda]    = useState('');
   const [notifs,      setNotifs]      = useState([]);
   const [unread,      setUnread]      = useState(0);
-  const [cambiandoModo, setCambiandoModo] = useState(false);
   const loadedRef     = useRef(false);
   const searchRef     = useRef(null);
 
@@ -123,21 +122,10 @@ export default function TopBar({ onMenu }) {
 
   const handleLogout = () => { setAccountOpen(false); logout(); navigate('/login'); };
 
-  /* Switch Organizador/Explorar — estilo píldora tipo Airbnb (Viajar/Anfitrión).
-     Persiste en los metadatos del usuario vía cambiarModo() (AuthContext),
-     y navega al lugar correcto de cada modo (Sidebar también reacciona a
-     usuario.modoActivo, mostrando distinta navegación en cada caso). */
-  const modoActivo = usuario?.modoActivo || 'organizador';
-  const cambiarAModo = async (modo) => {
-    if (modo === modoActivo || cambiandoModo) return;
-    setCambiandoModo(true);
-    try {
-      await cambiarModo(modo);
-      navigate(modo === 'asistente' ? '/eventos?tab=explorar' : '/inicio');
-    } finally {
-      setCambiandoModo(false);
-    }
-  };
+  /* El conmutador Organizar/Explorar se quitó. Partía la aplicación en dos
+     navegaciones distintas para el mismo usuario, que casi siempre es las
+     dos cosas: organiza sus eventos Y va a los de otros. Ahora hay un solo
+     sidebar y "Explorar" es una sección más, no un modo. */
 
   const showBack = !ROOT_PATHS.has(pathname);
   const initials = usuario?.nombre
@@ -204,30 +192,6 @@ export default function TopBar({ onMenu }) {
 
       {/* Right side */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
-
-        {/* Switch Organizador / Explorar */}
-        <div className="hidden sm:flex items-center bg-surface-2 border border-border rounded-full p-0.5 mr-1">
-          <button
-            onClick={() => cambiarAModo('organizador')}
-            disabled={cambiandoModo}
-            className={`px-3 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
-              ${modoActivo === 'organizador'
-                ? 'bg-gradient-primary text-[#15171C] shadow-glow-sm'
-                : 'text-text-3 hover:text-text-1'}`}
-          >
-            Organizar
-          </button>
-          <button
-            onClick={() => cambiarAModo('asistente')}
-            disabled={cambiandoModo}
-            className={`px-3 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
-              ${modoActivo === 'asistente'
-                ? 'bg-gradient-primary text-[#15171C] shadow-glow-sm'
-                : 'text-text-3 hover:text-text-1'}`}
-          >
-            Explorar
-          </button>
-        </div>
 
         {/* Notifications */}
         <div className="relative">
@@ -302,27 +266,6 @@ export default function TopBar({ onMenu }) {
                   <p className="text-xs text-text-2 truncate">{usuario?.email || ''}</p>
                 </div>
 
-                {/* Switch también aquí, visible en mobile donde el de arriba está oculto */}
-                <div className="sm:hidden px-4 py-2.5 border-b border-border">
-                  <div className="flex items-center bg-surface-2 border border-border rounded-full p-0.5">
-                    <button
-                      onClick={() => cambiarAModo('organizador')}
-                      disabled={cambiandoModo}
-                      className={`flex-1 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
-                        ${modoActivo === 'organizador' ? 'bg-gradient-primary text-[#15171C]' : 'text-text-3'}`}
-                    >
-                      {t('Organizar')}
-                    </button>
-                    <button
-                      onClick={() => cambiarAModo('asistente')}
-                      disabled={cambiandoModo}
-                      className={`flex-1 h-7 rounded-full text-xs font-semibold transition-all disabled:opacity-60
-                        ${modoActivo === 'asistente' ? 'bg-gradient-primary text-[#15171C]' : 'text-text-3'}`}
-                    >
-                      {t('Explorar')}
-                    </button>
-                  </div>
-                </div>
 
                 <div className="py-1.5">
                   <MenuItem onClick={() => { setAccountOpen(false); navigate('/ajustes?a=perfil'); }}>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import { vacantesApi, formatoPago } from '../../api/vacantes.js';
 import { useI18n } from '../../context/I18nContext.jsx';
+import DetalleVacante from '../vacantes/DetalleVacante.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Explorar — la vitrina pública de GESTEK.
@@ -130,6 +131,7 @@ function ListaEventos({ t, lang }) {
 /* ─────────── Vacantes ─────────── */
 function ListaVacantes({ t }) {
   const [vacantes, setVacantes] = useState([]);
+  const [abierta, setAbierta] = useState(null);
   const [estado, setEstado] = useState('cargando'); // cargando | ok | sesion | error
   const [error, setError] = useState('');
 
@@ -179,10 +181,10 @@ function ListaVacantes({ t }) {
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {vacantes.map(v => (
-        <Link
+        <button
           key={v.id}
-          to={`/vacantes?v=${v.id}`}
-          className="group rounded-3xl border border-border bg-surface/40 hover:bg-surface/60 hover:border-primary/35 transition-all p-5 flex flex-col gap-3"
+          onClick={() => setAbierta(v.id)}
+          className="group text-left rounded-3xl border border-border bg-surface/40 hover:bg-surface/60 hover:border-primary/35 transition-all p-5 flex flex-col gap-3"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -207,8 +209,11 @@ function ListaVacantes({ t }) {
           <p className="mt-auto pt-3 border-t border-border text-sm font-semibold text-success tabular-nums">
             {formatoPago(v.pago_monto, v.pago_moneda, v.pago_periodo)}
           </p>
-        </Link>
+        </button>
       ))}
+      {abierta && (
+        <DetalleVacante id={abierta} onClose={() => setAbierta(null)} onPostulado={cargar} />
+      )}
     </div>
   );
 }

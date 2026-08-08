@@ -564,6 +564,48 @@ export default {
   'Ocultar': 'Hide',
   'El asistente de GESTEK en su escritorio': 'The GESTEK assistant at their desk',
 
+  /* ── Perfil de talento y postulaciones ──────────────────────── */
+  'Cargando tu perfil…': 'Loading your profile…',
+  'Disponible para vacantes': 'Available for jobs',
+  'Si lo activas, los organizadores pueden encontrarte al buscar talento.':
+    'Turn this on and organizers can find you when they search for talent.',
+  'Verificación de identidad': 'Identity verification',
+  'Tu identidad está verificada.': 'Your identity is verified.',
+  'Verificación en proceso…': 'Verification in progress…',
+  'Verifica tu identidad y rostro para dar más confianza.':
+    'Verify your identity and face so people trust you more.',
+  'Verificar identidad': 'Verify identity',
+  'Verificación iniciada.': 'Verification started.',
+  'En proceso': 'In progress',
+  'Foto': 'Photo',
+  'URL o subir': 'URL or upload',
+  'Hoja de vida': 'Résumé',
+  'Subir hoja de vida': 'Upload résumé',
+  'Subiendo…': 'Uploading…',
+  'Quitar': 'Remove',
+  'PDF o Word (.docx), hasta 8 MB. Preferimos PDF: se ve igual en cualquier equipo.':
+    'PDF or Word (.docx), up to 8 MB. We prefer PDF: it looks the same on any machine.',
+  'la hoja de vida': 'a résumé',
+  'Hoja de vida cargada. Recuerda guardar el perfil.':
+    'Résumé uploaded. Remember to save your profile.',
+  'Inicia sesión para subir tu hoja de vida.': 'Sign in to upload your résumé.',
+  'Titular': 'Headline',
+  'Ej. Logística y montaje de eventos': 'e.g. Event logistics and setup',
+  'Sobre ti': 'About you',
+  'Tu experiencia en pocas líneas.': 'Your experience in a few lines.',
+  'Habilidades (separadas por coma)': 'Skills (comma separated)',
+  'servicio al cliente, montaje, sonido': 'customer service, setup, sound',
+  'Teléfono': 'Phone',
+  'Portafolio (URL)': 'Portfolio (URL)',
+  'Guardar perfil': 'Save profile',
+  'Perfil de talento guardado.': 'Talent profile saved.',
+  'Ponle un titular a tu perfil (ej. "Logística y montaje").':
+    'Give your profile a headline (e.g. "Logistics and setup").',
+  'Tu perfil ahora aparece como disponible.': 'Your profile now shows as available.',
+  'Tu perfil ya no es visible.': 'Your profile is no longer visible.',
+  'A qué vacantes te presentaste y en qué va cada una.':
+    'Which jobs you applied to and where each one stands.',
+
   /* ── Panel interno · chrome ─────────────────────────────────── */
   'Inicio': 'Home',
   'Eventos': 'Events',
