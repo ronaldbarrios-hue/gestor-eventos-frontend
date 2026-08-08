@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useI18n, tEstatico } from '../../context/I18nContext.jsx';
+import AccionEnCurso from '../../components/ui/AccionEnCurso.jsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { confirmDialog } from '../../components/ui/Confirm.jsx';
 import { eventosApi } from '../../api/eventos.js';
@@ -77,6 +78,10 @@ export default function EventsListPage() {
   const [q, setQ] = useState(searchParams.get('q') || '');
   const [filtros, setFiltros] = useState({ rol: '', estado: '', fecha: '', modalidad: '', categoria: '' });
   const [accionando, setAccionando] = useState(null);
+  /* Publicar y duplicar tardan y cambian algo visible para el público, así
+     que merecen decir qué están haciendo en vez de dejar el botón girando
+     en una esquina. El resto de acciones son instantáneas. */
+  const [enCurso, setEnCurso] = useState(null);   // 'publicar' | 'duplicar' | null
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -156,19 +161,22 @@ export default function EventsListPage() {
     finally { setAccionando(null); }
   };
   const duplicar = async (e) => {
-    setAccionando(e.id);
+    setAccionando(e.id); setEnCurso('duplicar');
     try { const r = await eventosApi.duplicar(e.id); success(`Evento duplicado: ${r.evento.titulo}`); cargar(); }
     catch (x) { err(x.response?.data?.error || x.message); }
-    finally { setAccionando(null); }
+    finally { setAccionando(null); setEnCurso(null); }
   };
   const publicarToggle = async (e) => {
+    const despublicando = e.estado === 'publicado';
     setAccionando(e.id);
+    /* Despublicar es instantáneo y no expone nada: no merece pantalla. */
+    if (!despublicando) setEnCurso('publicar');
     try {
-      if (e.estado === 'publicado') { await eventosApi.cambiarEstado(e.id, 'borrador'); success('Evento despublicado.'); }
+      if (despublicando) { await eventosApi.cambiarEstado(e.id, 'borrador'); success('Evento despublicado.'); }
       else { await eventosApi.publicar(e.id); success('Evento publicado.'); }
       cargar();
     } catch (x) { err(x.response?.data?.error || x.message); }
-    finally { setAccionando(null); }
+    finally { setAccionando(null); setEnCurso(null); }
   };
   const archivar = async (e) => {
     if (!await confirmDialog({ title: 'Archivar evento', message: `"${e.titulo}" dejará de aparecer por defecto, pero conserva toda su información y puede restaurarse.`, confirmLabel: 'Archivar' })) return;
@@ -195,6 +203,8 @@ export default function EventsListPage() {
 
   return (
     <div className="space-y-6 animate-[fadeUp_0.4s_ease_both]">
+      {enCurso && <AccionEnCurso accion={enCurso} />}
+
       {/* ── Header con conteos ── */}
       <header className="flex items-end justify-between gap-4 flex-wrap">
         <div>

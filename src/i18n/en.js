@@ -688,6 +688,19 @@ export default {
   '¿Prefieres verlo funcionando?': 'Rather see it working?',
   'Mira los eventos publicados': 'Browse the published events',
 
+  /* ── Acciones en curso ──────────────────────────────────────── */
+  'Publicando el evento…': 'Publishing the event…',
+  'Queda visible en Explorar y su página empieza a recibir visitas.':
+    'It becomes visible in Explore and its page starts receiving visitors.',
+  'Guardando cambios…': 'Saving changes…',
+  'Procesando el pago…': 'Processing the payment…',
+  'No cierres esta ventana ni vuelvas atrás.': 'Do not close this window or go back.',
+  'Generando escarapelas…': 'Generating badges…',
+  'Puede tardar según cuántos asistentes tengas.': 'It may take a while depending on how many attendees you have.',
+  'Duplicando el evento…': 'Duplicating the event…',
+  'Importando asistentes…': 'Importing attendees…',
+  'Cada fila genera su código QR.': 'Each row generates its QR code.',
+
   /* ── Panel interno · chrome ─────────────────────────────────── */
   'Inicio': 'Home',
   'Eventos': 'Events',
