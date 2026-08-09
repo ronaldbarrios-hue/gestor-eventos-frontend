@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Criatura from '../../components/agente/Criatura.jsx';
 import { PasoAPaso, IncrustarEnTuWeb, CasosDeUso, VideoDemo, InventarioModulos } from './landing/Secciones.jsx';
 import CierrePublico from './landing/CierrePublico.jsx';
-import Mosaico from './landing/Mosaico.jsx';
+import FigurasFondo from './landing/FigurasFondo.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
@@ -44,7 +44,6 @@ export default function LandingHomePage() {
     <>
       <Hero />
       <Marquee />
-      <Mosaico />
       <PasoAPaso />
       <VideoDemo />
       <AIPro />
@@ -164,6 +163,9 @@ function Hero() {
 
   return (
     <section className="relative px-5 sm:px-8 pt-10 sm:pt-14 pb-16 overflow-hidden">
+      {/* Las piezas del logo, sueltas, detrás del titular. */}
+      <FigurasFondo />
+
       {/* Un solo resplandor, arriba, que se funde con el resto de la página.
           Antes había tres más tres órbitas girando: eso era lo que hacía
           sentir el centro como una pieza aparte. */}

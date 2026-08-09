@@ -83,63 +83,127 @@ export default function CadenaHelice({ pasos, children }) {
     };
   }, [quieta]);
 
+  /* Se calculan TODOS los estados antes de pintar, porque el tramo que sale
+     de un eslabón tiene que terminar exactamente en el siguiente: hace falta
+     saber dónde estará el de abajo antes de dibujar el de arriba. Esto es lo
+     que faltaba: el hilo salía recto hacia abajo y el eslabón siguiente ya se
+     había ido a otra X, así que la cadena no llegaba a tocarse. */
+  const estados = pasos.map((paso, i) => {
+    const angulo = i * DESFASE + avance * VUELTAS * Math.PI * 2;
+    const sen = Math.sin(angulo);
+    const cos = Math.cos(angulo);
+    const alFrente = (cos + 1) / 2;                       // 0 … 1
+    return {
+      paso,
+      x: quieta ? 0 : sen * RADIO,
+      escala: quieta ? 1 : 0.72 + alFrente * 0.38,
+      opacidad: quieta ? 1 : 0.42 + alFrente * 0.58,
+      desenfoque: quieta ? 0 : (1 - alFrente) * 1.6,
+      aplastado: quieta ? 1 : Math.abs(cos),
+      inclinacion: quieta ? 0 : sen * 14,
+    };
+  });
+
   return (
     <div ref={raiz} className="relative">
-      {pasos.map((paso, i) => {
-        /* El ángulo de este eslabón: su sitio fijo en la hélice más lo que
-           ha avanzado el scroll. */
-        const angulo = i * DESFASE + avance * VUELTAS * Math.PI * 2;
-        const sen = Math.sin(angulo);
-        const cos = Math.cos(angulo);
+      {estados.map((e, i) => (
+        <div key={e.paso.n} className="flex gap-5 lg:gap-8 items-stretch"
+             style={{ marginBottom: SEPARACION_FILAS }}>
+          {/* ── El carril: el eslabón y el tramo que lo une con el de abajo ── */}
+          <Carril
+            estado={e}
+            siguiente={estados[i + 1] || null}
+            numero={e.paso.n}
+          />
 
-        /* cos = +1 → al frente; cos = -1 → detrás. */
-        const alFrente = (cos + 1) / 2;                       // 0 … 1
-        const x = quieta ? 0 : sen * RADIO;
-        const escala = quieta ? 1 : 0.72 + alFrente * 0.38;
-        const opacidad = quieta ? 1 : 0.42 + alFrente * 0.58;
-        const desenfoque = quieta ? 0 : (1 - alFrente) * 1.6;
-
-        return (
-          <div key={paso.n} className="flex gap-5 lg:gap-8 items-start mb-4">
-            {/* ── El eslabón, que sí gira ── */}
-            <div
-              className="relative hidden lg:flex justify-center w-[190px] flex-shrink-0 h-[132px] items-center"
-              aria-hidden="true"
-            >
-              {/* El hilo que une con el siguiente. Se mueve con el eslabón
-                  para que la cadena no se despegue de sus propias piezas. */}
-              {i < pasos.length - 1 && (
-                <span
-                  className="absolute left-1/2 top-1/2 w-[3px] rounded-full bg-gradient-to-b from-primary/45 to-primary/15"
-                  style={{
-                    height: 132,
-                    transform: `translate(calc(-50% + ${x}px), 0)`,
-                    opacity: opacidad * 0.7,
-                    transition: 'none',
-                  }}
-                />
-              )}
-
-              <span
-                className="relative z-10 block"
-                style={{
-                  transform: `translateX(${x}px) scale(${escala})`,
-                  opacity: opacidad,
-                  filter: desenfoque > 0.05 ? `blur(${desenfoque.toFixed(2)}px)` : 'none',
-                  willChange: 'transform, opacity',
-                }}
-              >
-                <Eslabon n={paso.n} aplastado={quieta ? 1 : Math.abs(cos)} inclinacion={quieta ? 0 : sen * 14} />
-              </span>
-            </div>
-
-            {/* ── La información, que no gira ── */}
-            <div className="flex-1 min-w-0">
-              {children(paso, i)}
-            </div>
+          {/* ── La información, que no gira ── */}
+          <div className="flex-1 min-w-0">
+            {children(e.paso, i)}
           </div>
-        );
-      })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* El carril de un paso.
+
+   Mide su propio alto —que lo decide la tarjeta de al lado, no él— y con ese
+   número dibuja una curva desde el centro de SU eslabón hasta el centro del
+   SIGUIENTE. Sin medir no hay manera: la altura de cada tarjeta depende del
+   texto, y una constante a ojo deja el hilo colgando en el aire, que es
+   justo lo que pasaba. */
+const ANCHO_CARRIL = 190;
+const CENTRO_ESLABON = 66;   // a qué altura de la fila va el eslabón
+
+/* El hueco entre filas. Va como constante y no como clase de Tailwind porque
+   el tramo de cadena TIENE que sumarlo para llegar al eslabón de abajo: el
+   margen no entra en offsetHeight, y con `mb-4` a un lado y el cálculo al
+   otro, el hilo se quedaba 17px corto en los seis tramos. Un solo número
+   manda sobre los dos. */
+const SEPARACION_FILAS = 16;
+
+function Carril({ estado, siguiente, numero }) {
+  const caja = useRef(null);
+  const [alto, setAlto] = useState(0);
+
+  useEffect(() => {
+    const el = caja.current;
+    if (!el) return undefined;
+    const medir = () => setAlto(el.offsetHeight);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const cx = ANCHO_CARRIL / 2;
+  const x1 = cx + estado.x;
+  const x2 = siguiente ? cx + siguiente.x : x1;
+  /* El siguiente eslabón está una fila más abajo: el alto de esta fila, más
+     el hueco entre filas, más su propia altura dentro de la suya. */
+  const y1 = CENTRO_ESLABON;
+  const y2 = alto + SEPARACION_FILAS + CENTRO_ESLABON;
+
+  return (
+    <div ref={caja} className="relative hidden lg:block w-[190px] flex-shrink-0" aria-hidden="true">
+      {siguiente && alto > 0 && (
+        <svg
+          className="absolute left-0 top-0 overflow-visible pointer-events-none"
+          width={ANCHO_CARRIL} height={alto}
+        >
+          {/* Curva en S: sale del eslabón hacia abajo y entra en el siguiente
+              también por arriba. Una recta diagonal se leería como un palo
+              cruzado; la curva se lee como cuerda que cuelga y acompaña el
+              giro de la hélice. */}
+          <path
+            d={`M ${x1} ${y1} C ${x1} ${y1 + (y2 - y1) * 0.45}, ${x2} ${y2 - (y2 - y1) * 0.45}, ${x2} ${y2}`}
+            fill="none"
+            stroke="rgb(var(--color-primary))"
+            strokeWidth="3"
+            strokeLinecap="round"
+            /* La opacidad del tramo sigue a la MENOR de las dos puntas: si
+               uno de los dos eslabones está detrás, el tramo también. */
+            opacity={Math.min(estado.opacidad, siguiente.opacidad) * 0.75}
+          />
+        </svg>
+      )}
+
+      {/* El eslabón va encima del tramo, y como tiene el hueco calado, el
+          hilo se ve pasar por dentro. Eso es lo que lo convierte en cadena
+          y no en figuras sueltas con una raya al lado. */}
+      <span
+        className="absolute left-1/2 z-10 block"
+        style={{
+          top: CENTRO_ESLABON,
+          transform: `translate(calc(-50% + ${estado.x}px), -50%) scale(${estado.escala})`,
+          opacity: estado.opacidad,
+          filter: estado.desenfoque > 0.05 ? `blur(${estado.desenfoque.toFixed(2)}px)` : 'none',
+          willChange: 'transform, opacity',
+        }}
+      >
+        <Eslabon n={numero} aplastado={estado.aplastado} inclinacion={estado.inclinacion} />
+      </span>
     </div>
   );
 }
@@ -160,21 +224,24 @@ export default function CadenaHelice({ pasos, children }) {
    `aplastado` va de 0 (de canto) a 1 (de frente). */
 function Eslabon({ n, aplastado, inclinacion = 0 }) {
   const ANCHO_MAX = 62;
+  const ANCHO_MIN = 20;       // de canto sigue siendo una pieza, no una raya
   const ALTO = 84;
-  const ancho = 8 + aplastado * (ANCHO_MAX - 8);
-  const grosor = 6.5;
+  const grosor = 7;
 
-  /* El hexágono de la lazada, en coordenadas del propio eslabón. Al reducir
-     `ancho` las diagonales se cierran solas y la pieza se ve de perfil. */
-  const w = ancho, h = ALTO;
+  const w = ANCHO_MIN + aplastado * (ANCHO_MAX - ANCHO_MIN);
+  const h = ALTO;
   const externo = `${w / 2},0 ${w},${h * 0.21} ${w},${h * 0.79} ${w / 2},${h} 0,${h * 0.79} 0,${h * 0.21}`;
-  /* El hueco interior: se encoge más rápido que el contorno, así que de canto
-     se cierra antes, igual que el ojo de un eslabón visto de lado. */
-  const g = grosor * (0.45 + aplastado * 0.55);
-  const iw = Math.max(0, w - g * 2);
-  const ih = h - g * 2;
-  const interno = iw > 1
-    ? `${g + iw / 2},${g} ${g + iw},${g + ih * 0.21} ${g + iw},${g + ih * 0.79} ${g + iw / 2},${g + ih} ${g},${g + ih * 0.79} ${g},${g + ih * 0.21}`
+
+  /* El ojo del eslabón se cierra MÁS RÁPIDO que el contorno, en proporción a
+     lo de frente que esté. Antes iba al revés —el hueco encogía más despacio
+     que la pieza— y de canto quedaba un aro finísimo: por eso los eslabones
+     se veían como contornos huecos en vez de metal. */
+  const iw = Math.max(0, (w - grosor * 2) * aplastado);
+  const ih = h - grosor * 2;
+  const gx = (w - iw) / 2;         // el ojo, centrado
+  const gy = grosor;
+  const interno = iw > 1.5
+    ? `${gx + iw / 2},${gy} ${gx + iw},${gy + ih * 0.21} ${gx + iw},${gy + ih * 0.79} ${gx + iw / 2},${gy + ih} ${gx},${gy + ih * 0.79} ${gx},${gy + ih * 0.21}`
     : null;
 
   return (
