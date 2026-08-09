@@ -134,14 +134,35 @@ export default function BotonConfiguracion() {
                 <p className="text-[11px] text-text-2 leading-relaxed">
                   {t('Solo lo necesario para que la página funcione como la dejaste: el tema, el idioma y tu sesión si entras. Sin analítica, sin píxeles y sin rastreadores de terceros, así que no te pedimos aceptar cookies.')}
                 </p>
-                <Link
-                  to="/privacidad"
-                  className="inline-block mt-2 text-[11px] text-primary hover:underline"
-                >
-                  {t('Política de Privacidad')}
-                </Link>
               </div>
             )}
+
+            {/* Los dos documentos, siempre a la vista.
+
+                Estaban escondidos: la privacidad solo aparecía si desplegabas
+                "Qué guardamos", y los términos no estaban en ninguna parte
+                salvo dentro del registro. Buscar las condiciones de un
+                servicio es algo que se hace de forma deliberada, y el sitio
+                donde se busca es la rueda de ajustes. Que cueste encontrarlos
+                no es discreción, es mala señal. */}
+            <div className="mt-3 grid grid-cols-2 gap-1.5">
+              <Link
+                to="/privacidad"
+                onClick={() => setAbierto(false)}
+                className="text-center py-1.5 rounded-lg text-[11px] border border-border
+                           text-text-3 hover:text-text-1 hover:bg-surface-2 transition-colors"
+              >
+                {t('Privacidad')}
+              </Link>
+              <Link
+                to="/terminos"
+                onClick={() => setAbierto(false)}
+                className="text-center py-1.5 rounded-lg text-[11px] border border-border
+                           text-text-3 hover:text-text-1 hover:bg-surface-2 transition-colors"
+              >
+                {t('Términos')}
+              </Link>
+            </div>
           </div>
         </div>
       )}

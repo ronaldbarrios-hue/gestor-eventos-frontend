@@ -5,12 +5,46 @@
    mismo valor que el original. Cuando la app está en inglés se muestra un
    aviso que lo dice, en vez de fingir que hay una versión oficial. */
 
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useI18n } from '../../context/I18nContext.jsx';
+
+/* La vuelta.
+
+   Aquí se llega casi siempre desde la mitad de otra cosa: creando la cuenta,
+   marcando la casilla de aceptar. El navbar de arriba lleva a Inicio o a
+   Explorar, que NO es de donde venías, y en la app instalada no hay botón de
+   atrás del navegador. Resultado: te leías los términos y te quedabas sin
+   forma de volver a terminar el registro.
+
+   `location.key` vale 'default' cuando esta página es la primera de la
+   sesión de navegación, es decir, cuando se llegó por enlace directo y no
+   hay nada atrás. En ese caso volver atrás sacaría al usuario del sitio, así
+   que se va a la portada. */
+function Volver() {
+  const navigate = useNavigate();
+  const { key } = useLocation();
+  const hayDeDondeVolver = key !== 'default';
+
+  return (
+    <button
+      onClick={() => (hayDeDondeVolver ? navigate(-1) : navigate('/'))}
+      className="inline-flex items-center gap-2 mb-8 -ml-1 px-3 py-2 rounded-xl text-sm text-text-2
+                 hover:text-text-1 hover:bg-surface-2 transition-colors"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M19 12H5M11 18l-6-6 6-6" />
+      </svg>
+      {hayDeDondeVolver ? 'Volver a donde estabas' : 'Ir al inicio'}
+    </button>
+  );
+}
 
 export function LegalLayout({ titulo, actualizada, children }) {
   const { lang } = useI18n();
   return (
     <section className="px-5 sm:px-8 py-14 max-w-3xl mx-auto">
+      <Volver />
       <header className="mb-10">
         <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mb-3">Legal</p>
         <h1 className="text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1">{titulo}</h1>

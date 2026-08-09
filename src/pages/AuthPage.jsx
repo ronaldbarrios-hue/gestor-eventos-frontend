@@ -8,7 +8,7 @@ import GestekMark from '../components/layout/GestekMark.jsx';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploader.jsx';
 import { supabase } from '../lib/supabase.js';
-import { PAISES, bandera } from '../lib/paises.js';
+import { PAISES, bandera, INDICATIVOS } from '../lib/paises.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 const DUR_OUT = 420;
@@ -431,7 +431,8 @@ function RegisterForm() {
   const [checkingInvite, setCheckingInvite] = useState(false);
 
   const [paso1, setPaso1] = useState({
-    nombre: '', email: '', telefono: '', participantes: '', contexto: '', password: '',
+    nombre: '', email: '', indicativo: '+57', telefono: '',
+    participantes: '', contexto: '', password: '',
   });
   const [paso2, setPaso2] = useState({
     fotoFile: null, ocupacion: '', empresa: '', ciudad: '', aceptar: false,
@@ -484,7 +485,12 @@ function RegisterForm() {
       password: paso1.password,
       rol: 'organizador',
       modo_activo: proposito === 'asistente' ? 'asistente' : 'organizador',
-      telefono: paso1.telefono,
+      /* Con indicativo. Sin él el número no sirve ni para llamar ni para
+         WhatsApp, que es justo para lo que se pide. Si no escribió teléfono
+         se manda vacío: un prefijo suelto no es un dato. */
+      telefono: paso1.telefono.trim()
+        ? `${paso1.indicativo} ${paso1.telefono.trim()}`
+        : '',
       participantes: paso1.participantes,
       contexto: paso1.contexto,
       ocupacion: paso2.ocupacion,
@@ -642,13 +648,33 @@ function RegisterForm() {
 
       {step === 1 && (
         <div key="step1" className="animate-[fadeUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]">
+          {/* El propósito elegido, y cómo cambiarlo.
+
+              Era un enlace de 12px en gris terciario justo encima de un
+              titular de 36px: lo más pequeño y apagado de la pantalla, al
+              lado de lo más grande. Se perdía por eso, no por estar mal
+              puesto.
+
+              Ahora es una pastilla con filo de latón que además DICE qué
+              elegiste. Así deja de ser solo una salida y pasa a ser
+              información: si te equivocaste al elegir, lo ves antes de
+              rellenar el formulario entero. */}
           <button
             type="button"
             onClick={() => { setStep(0); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            className="text-xs text-text-3 hover:text-text-1 transition-colors mb-3 inline-flex items-center gap-1"
+            className="group mb-5 inline-flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full
+                       border border-primary/40 bg-primary/10 text-[13px] text-text-1
+                       hover:bg-primary/20 hover:border-primary/70 transition-colors"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            Cambiar propósito
+            <svg className="w-4 h-4 text-primary transition-transform group-hover:-translate-x-0.5"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="text-text-2">
+              {proposito === 'asistente' ? 'Vas a asistir a eventos' : 'Vas a organizar eventos'}
+            </span>
+            <span className="text-text-3">·</span>
+            <span className="font-semibold">Cambiar</span>
           </button>
           <h1
             className={`${staggerClass} text-3xl sm:text-4xl font-bold font-display tracking-tight mb-2`}
@@ -687,16 +713,31 @@ function RegisterForm() {
               </div>
             )}
 
+            {/* Teléfono.
+
+                Tenía dos problemas y el gordo no se veía: el desplegable del
+                indicativo no estaba conectado a nada —sin name, sin value, sin
+                onChange— así que era decoración y el número se guardaba SIN
+                prefijo. Un teléfono sin indicativo no sirve para llamar ni
+                para WhatsApp, que es justo para lo que se pide.
+
+                El otro era de sitio: 90px con "+57 CO" dentro, más la flecha
+                del desplegable, dejaba el texto cortado. Ahora son 128 y el
+                número queda holgado al lado. */}
             <div className="field">
               <label className="label">Teléfono</label>
-              <div className="grid grid-cols-[90px_1fr] gap-2">
-                <select className="input rounded-2xl py-3 text-sm px-2">
-                  <option>+57 CO</option>
-                  <option>+1 US</option>
-                  <option>+34 ES</option>
-                  <option>+52 MX</option>
+              <div className="grid grid-cols-[128px_1fr] gap-2">
+                <select
+                  name="indicativo" value={paso1.indicativo} onChange={onChange1}
+                  className="input rounded-2xl py-3 text-sm px-2.5"
+                  aria-label="Indicativo del país"
+                >
+                  {INDICATIVOS.map(p => (
+                    <option key={p.code + p.dial} value={p.dial}>{p.dial} {p.code}</option>
+                  ))}
                 </select>
                 <input name="telefono" value={paso1.telefono} onChange={onChange1}
+                  type="tel" inputMode="tel" autoComplete="tel-national"
                   className="input rounded-2xl py-3 text-base min-w-0" placeholder="300 000 0000"
                   style={{ fontSize: '16px' }} />
               </div>

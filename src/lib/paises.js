@@ -62,3 +62,31 @@ export const PAISES = [
   { code: 'SG', nombre: 'Singapur' },
   { code: 'OTRO', nombre: 'Otro' },
 ];
+
+/* Indicativos telefónicos, para el campo de teléfono del registro.
+
+   Van aparte de PAISES porque no es la misma lista ni sirve para lo mismo:
+   PAISES es "de dónde eres" y esto es "qué prefijo lleva tu número". Aquí
+   solo están los países desde los que tiene sentido registrarse hoy, con
+   Colombia primero por ser el mercado de partida.
+
+   El nombre va abreviado a dos letras a propósito: el desplegable convive
+   con el número en la misma fila y el país largo lo estrangulaba. */
+export const INDICATIVOS = [
+  { code: 'CO', dial: '+57',  nombre: 'Colombia' },
+  { code: 'MX', dial: '+52',  nombre: 'México' },
+  { code: 'AR', dial: '+54',  nombre: 'Argentina' },
+  { code: 'CL', dial: '+56',  nombre: 'Chile' },
+  { code: 'PE', dial: '+51',  nombre: 'Perú' },
+  { code: 'EC', dial: '+593', nombre: 'Ecuador' },
+  { code: 'VE', dial: '+58',  nombre: 'Venezuela' },
+  { code: 'BO', dial: '+591', nombre: 'Bolivia' },
+  { code: 'UY', dial: '+598', nombre: 'Uruguay' },
+  { code: 'PY', dial: '+595', nombre: 'Paraguay' },
+  { code: 'CR', dial: '+506', nombre: 'Costa Rica' },
+  { code: 'PA', dial: '+507', nombre: 'Panamá' },
+  { code: 'GT', dial: '+502', nombre: 'Guatemala' },
+  { code: 'DO', dial: '+1',   nombre: 'Rep. Dominicana' },
+  { code: 'ES', dial: '+34',  nombre: 'España' },
+  { code: 'US', dial: '+1',   nombre: 'Estados Unidos' },
+];

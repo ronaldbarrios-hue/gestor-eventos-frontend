@@ -20,6 +20,11 @@ export default {
   'Cuenta': 'Account',
   'Legal': 'Legal',
   'Política de Privacidad': 'Privacy Policy',
+  /* Atajos cortos, para los dos botones de la rueda de configuración. El
+     documento en sí sigue en español: lo que se traduce es la etiqueta que
+     lleva a él, no el texto vinculante. */
+  'Privacidad': 'Privacy',
+  'Términos': 'Terms',
   'Términos del Servicio': 'Terms of Service',
   'Hecho en Ibagué, Colombia.': 'Made in Ibagué, Colombia.',
   'Organiza, automatiza y crece.': 'Organize, automate and grow.',
