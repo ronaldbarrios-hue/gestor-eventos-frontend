@@ -109,6 +109,15 @@ export default {
   'Crea tu cuenta y ten la página pública de tu evento vendiendo hoy mismo.':
     'Create your account and have your event page selling today.',
 
+  /* ── Portada · mosaico de eventos reales ────────────────────── */
+  'Hecho con GESTEK': 'Made with GESTEK',
+  'Esto no es una maqueta': 'This is not a mockup',
+  'Son eventos que están publicados ahora mismo, con su boletería, su equipo y su página. Pulsa cualquiera para verlo por dentro.':
+    'These are events published right now, with their ticketing, their team and their page. Tap any of them to look inside.',
+  'Aquí van a aparecer los eventos que se publiquen con GESTEK. Cuando el primero tenga portada, entra solo.':
+    'Events published with GESTEK will show up here. As soon as the first one has a cover image, it appears on its own.',
+  'Ver todos los eventos': 'See every event',
+
   /* ── Portada · cinta ────────────────────────────────────────── */
   'CREAR EVENTOS': 'CREATE EVENTS',
   'QR DE ASISTENCIA': 'ATTENDANCE QR',

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Criatura from '../../components/agente/Criatura.jsx';
 import { PasoAPaso, IncrustarEnTuWeb, CasosDeUso, VideoDemo, InventarioModulos } from './landing/Secciones.jsx';
 import CierrePublico from './landing/CierrePublico.jsx';
+import Mosaico from './landing/Mosaico.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 
 function useReveal(threshold = 0.15) {
@@ -43,6 +44,7 @@ export default function LandingHomePage() {
     <>
       <Hero />
       <Marquee />
+      <Mosaico />
       <PasoAPaso />
       <VideoDemo />
       <AIPro />
