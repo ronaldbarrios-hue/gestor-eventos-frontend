@@ -1,10 +1,16 @@
 /* El acompañante — el bot trabajando en su escritorio, abajo a la izquierda.
 
    Qué cambió y por qué:
-   - Antes el cordón colgaba del BOMBILLO. En una lámpara real el interruptor
-     de cadena está en el cuello, no en el vidrio. Ahora sale de una cajita de
-     interruptor en la junta del brazo, y el bombillo queda ~16px a la
-     izquierda: no se tocan ni se cruzan, que era lo que confundía.
+   - EL CORDÓN, tercer intento. Primero colgaba del bombillo. Luego se movió a
+     una cajita en la junta del brazo, que sonaba bien pero seguía viéndose
+     mal, y el motivo no era estético: la caja y el arranque del cordón caían
+     DENTRO del cono de la pantalla, y como se pintan después de ella,
+     aparecían encima, pegados al bombillo. Parecía un hilo saliendo del
+     vidrio porque, dibujado, eso es lo que era.
+     Ahora hay una regla y está en las constantes: la pantalla acaba en
+     APEX_X, y el interruptor y el cordón empiezan a la derecha de ahí. Nunca
+     se pueden solapar, aunque alguien mueva las alturas. Medido: 16,5px
+     libres entre el halo del bombillo y el borde de la caja.
    - Antes era una lámpara flotando sobre un bot en el aire. Ahora hay
      escritorio, portátil encendido y una lámpara de trabajo: el bot está
      trabajando, y por eso tiene una luz que apagar.
@@ -33,7 +39,29 @@ const MANO_X = Math.round(BOT_X + (114 / 140) * BOT);   // 109
 const MANO_Y = Math.round(BOT_Y + (32 / 140) * BOT);    // 68
 
 const MESA_Y = 158;   // superficie del escritorio
-const CUELLO = 20;    // altura de la junta brazo–pantalla
+
+/* ── Geometría de la lámpara ────────────────────────────────────────────
+   Va toda en constantes porque las tres veces que esto se rompió fue por lo
+   mismo: se movía una pieza a ojo y se olvidaba otra, y acababan solapadas.
+
+   La regla que manda: la PANTALLA queda enteramente a la izquierda de
+   APEX_X, y el interruptor y el cordón enteramente a la derecha. Mientras se
+   respete eso, el cordón no puede cruzar el bombillo aunque se muevan las
+   alturas. Antes no había regla: la caja del interruptor y el arranque del
+   cordón caían DENTRO del cono, y como se pintan después de la pantalla,
+   aparecían encima de ella pegados al bombillo. Eso es lo que se veía.
+
+   El cordón cae a plomo sobre MANO_X, que es donde el bot tiene la mano
+   levantada: la punta le queda justo en la mano y por eso el gesto de tirar
+   se lee. */
+const APEX_X   = 100;             // punta de la pantalla; también el fin del brazo
+const APEX_Y   = 20;
+const BOCA_IZQ = [63, 40];        // boca de la pantalla
+const BOCA_DER = [91, 52];
+const BOMBILLO = [77, 45];        // asomando por la boca
+const SW_X     = MANO_X;          // interruptor: sobre el brazo, a plomo de la mano
+const SW_Y     = 21;
+const SW_ALTO  = 13;
 
 const LATON       = '#C9A227';
 const LATON_CLARO = '#F2D66B';
@@ -164,7 +192,7 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
         {/* ── El haz cae de la boca de la pantalla sobre el bot y la mesa ── */}
         <path
           className="ac-cono"
-          d={`M78 38 L106 50 L146 ${MESA_Y} L34 ${MESA_Y} Z`}
+          d={`M${BOCA_IZQ[0]} ${BOCA_IZQ[1]} L${BOCA_DER[0]} ${BOCA_DER[1]} L131 ${MESA_Y} L19 ${MESA_Y} Z`}
           fill="url(#ac-luz)"
           opacity={encendida ? 1 : 0}
         />
@@ -177,47 +205,54 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
           <ellipse cx="210" cy={MESA_Y - 1} rx="18" ry="4.8" fill="#2A303B" />
           <ellipse cx="210" cy={MESA_Y - 3} rx="18" ry="4.8" fill="url(#ac-pantallaLampara)" opacity="0.85" />
 
-          {/* poste y brazo articulado, en arco hasta el cuello */}
+          {/* poste y brazo, en arco hasta la punta de la pantalla. El brazo
+              pasa por encima del interruptor, que es donde va montado. */}
           <path d={`M210 ${MESA_Y - 5} L210 86`} stroke="#4A5260" strokeWidth="4.5" strokeLinecap="round" />
           <circle cx="210" cy="86" r="4.5" fill={LATON} />
-          <path d={`M210 86 Q206 34 ${MANO_X + 8} ${CUELLO + 4}`}
+          <path d={`M210 86 Q206 34 ${APEX_X} ${APEX_Y}`}
                 stroke="#4A5260" strokeWidth="4.5" fill="none" strokeLinecap="round" />
 
-          {/* pantalla cónica, apuntando abajo-izquierda sobre el bot */}
-          <path d={`M${MANO_X + 6} ${CUELLO - 2} L78 38 L106 50 Z`} fill="url(#ac-pantallaLampara)" />
-          <path d="M78 38 L106 50" stroke="#8A6E19" strokeWidth="2.6" strokeLinecap="round" />
+          {/* pantalla cónica. Cuelga del final del brazo y se abre hacia
+              abajo-izquierda, sobre el bot. Su punto más a la derecha es el
+              ápice: de ahí para allá no hay pantalla. */}
+          <path d={`M${APEX_X} ${APEX_Y} L${BOCA_IZQ[0]} ${BOCA_IZQ[1]} L${BOCA_DER[0]} ${BOCA_DER[1]} Z`}
+                fill="url(#ac-pantallaLampara)" />
+          <path d={`M${BOCA_IZQ[0]} ${BOCA_IZQ[1]} L${BOCA_DER[0]} ${BOCA_DER[1]}`}
+                stroke="#8A6E19" strokeWidth="2.6" strokeLinecap="round" />
 
-          {/* bombillo asomando por la boca — a 16px del cordón, sin cruzarse */}
+          {/* bombillo, asomando por la boca */}
           <circle
-            cx="90" cy="43" r="5.5"
+            cx={BOMBILLO[0]} cy={BOMBILLO[1]} r="5.5"
             fill={encendida ? 'url(#ac-bombillo)' : '#3A3526'}
             style={{ transition: 'fill .45s ease' }}
           />
           {encendida && (
-            <circle cx="90" cy="43" r="11" fill="#FFE9A8" opacity="0.3">
+            <circle cx={BOMBILLO[0]} cy={BOMBILLO[1]} r="11" fill="#FFE9A8" opacity="0.3">
               <animate attributeName="opacity" values="0.22;0.4;0.22" dur="3.2s" repeatCount="indefinite" />
             </circle>
           )}
 
-          {/* junta del brazo y CAJA DEL INTERRUPTOR: de aquí sale el cordón */}
-          <circle cx={MANO_X + 8} cy={CUELLO + 4} r="4.5" fill={LATON} />
-          <rect x={MANO_X - 4.5} y={CUELLO + 2} width="9" height="13" rx="2.5"
+          {/* La caja del interruptor, montada SOBRE EL BRAZO y a la derecha
+              del ápice. Aquí es donde estaba el fallo: antes caía dentro del
+              cono, y como se pinta después de la pantalla, aparecía encima
+              de ella pegada al bombillo. */}
+          <rect x={SW_X - 4.5} y={SW_Y} width="9" height={SW_ALTO} rx="2.5"
                 fill="#3A414E" stroke={LATON} strokeWidth="1" strokeOpacity="0.7" />
-          <line x1={MANO_X - 2} y1={CUELLO + 6} x2={MANO_X + 2} y2={CUELLO + 6}
+          <line x1={SW_X - 2} y1={SW_Y + 4} x2={SW_X + 2} y2={SW_Y + 4}
                 stroke={LATON_CLARO} strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
         </g>
 
-        {/* ── El cordón, desde la caja del interruptor ── */}
+        {/* ── El cordón: cae a plomo del interruptor hasta la mano ── */}
         <g className="ac-cordon">
-          <line x1={MANO_X} y1={CUELLO + 15} x2={MANO_X} y2={MANO_Y - 4}
+          <line x1={SW_X} y1={SW_Y + SW_ALTO} x2={SW_X} y2={MANO_Y - 4}
                 stroke="#6B6355" strokeWidth="1.7" strokeLinecap="round" />
-          <circle cx={MANO_X} cy={MANO_Y} r="4" fill={LATON} />
+          <circle cx={SW_X} cy={MANO_Y} r="4" fill={LATON} />
         </g>
 
         {/* zona de clic del cordón — invisible y generosa */}
         <rect
           className="pointer-events-auto cursor-pointer"
-          x={MANO_X - 15} y={CUELLO + 2} width="30" height={MANO_Y - CUELLO + 4}
+          x={SW_X - 15} y={SW_Y} width="30" height={MANO_Y - SW_Y + 8}
           fill="transparent"
           onClick={jalarCordon}
         >

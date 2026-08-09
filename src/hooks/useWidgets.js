@@ -17,7 +17,11 @@ export const TAMANOS = ['sm', 'md', 'lg', 'full'];
    5) qué pasó (actividad), 6) el asistente (gestbot). */
 export const WIDGETS_META = [
   { id: 'eventos',       titulo: 'Eventos activos',    descripcion: 'Eventos en los que participas, con acceso rápido.', defaultSize: 'lg',  defaultVisible: true  },
-  { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'sm',  defaultVisible: true  },
+  /* Gestbot pasa de 'sm' a 'md'. En la ranura pequeña no cabía más que un
+     aviso y un botón, y con el bot dentro quedaba estrangulado. Es además el
+     widget que MÁS avisos acumula, así que era el que peor llevaba ser el
+     más estrecho. */
+  { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'md',  defaultVisible: true  },
   { id: 'mi-trabajo',    titulo: 'Mi trabajo',         descripcion: 'Tareas, solicitudes y aprobaciones pendientes.',    defaultSize: 'md',  defaultVisible: true  },
   { id: 'ventas',        titulo: 'Ventas',             descripcion: 'Resumen de boletas vendidas y ocupación.',          defaultSize: 'sm',  defaultVisible: true  },
   { id: 'calendario',    titulo: 'Calendario',         descripcion: 'Próximos compromisos relacionados contigo.',        defaultSize: 'sm',  defaultVisible: true  },
