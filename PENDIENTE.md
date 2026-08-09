@@ -20,13 +20,14 @@ lo que toque backend o base de datos se avisa antes.
 Sin esto, la promesa central de la plataforma (que cualquiera se monte la
 página de su evento) no está entera.
 
-- **#30 · Marca / White Label no conserva los cambios.** Diagnosticado, ver
-  sección "Fallos con causa confirmada" más abajo. No es cosmético: es
-  pérdida de datos silenciosa.
-- **#31 · El panel de sección no scrollea solo.** Al abrir Portada hay que
-  mover el scroll de la página principal para ver el resto de opciones.
-- **#29 · Mover el botón de editar** abajo, junto a `+ Página`, y que ambos
-  destaquen. Esa franja pasa a ser solo del editor.
+- ~~**#30 · Marca / White Label no conserva los cambios.**~~ **Hecho.** Un
+  solo guardado: la marca vive en el estado del editor y se escribe con todo
+  lo demás. Ver "Fallos con causa confirmada" más abajo.
+- ~~**#31 · El panel de sección no scrollea solo.**~~ **Hecho.** Era el único
+  panel con `block` y dos alturas máximas encajadas; ahora usa la misma
+  columna flex que los cajones de Marca y Navbar, que sí funcionaban.
+- ~~**#29 · Mover el botón de editar** junto a `+ Página`.~~ **Hecho.** Los dos
+  van juntos, destacados y separados de las pestañas por una línea.
 - **#32 · iFrame: los tres modos de publicación.** Enlazar la web propia del
   organizador, incrustar iFrame, o llevar directo a la landing de GESTEK.
   Necesita migración (`eventos.modo_publico`, `url_externa`). Ampliar el
@@ -123,9 +124,20 @@ Y por eso la vista previa muestra azul y morado: son los valores por defecto
 de `WhiteLabelSection.jsx:77-79` (`#3B82F6`, `#8B5CF6`, `#070C18`), justo los
 que se ven en el panel. El panel está enseñando los defaults, no la marca.
 
-El arreglo tiene tres partes y ninguna vale sola: pasar `reload`, re-sincronizar
-el estado cuando cambia el evento, y que los dos guardados escriban campos
-separados en vez de pisarse el `page_json` entero.
+**Arreglado así:** en vez de coordinar dos guardados, se quitó uno. La marca
+pasa a vivir en el estado del editor, junto a las páginas y el navbar, y se
+escribe con ellas en una sola llamada. El panel funciona ahora de dos maneras:
+suelto —con su botón, como se usa desde el espacio de trabajo— o controlado,
+que informa hacia arriba y no guarda nada por su cuenta. Dentro del editor va
+controlado, así que ya no hay un segundo botón que pueda pisar al primero.
+
+Y de paso, la vista previa no mentía: **estaba pintando unos defaults que ya
+no existen.** El preset llamado "GESTEK" y los colores por defecto del panel
+eran el azul y el morado de la marca vieja (`#3B82F6`, `#8B5CF6`, `#070C18`).
+Cambiados a latón y noche.
+
+**Falta comprobarlo con una cuenta de verdad:** poner colores, guardar, salir
+del evento y volver a entrar. Es el paso 3 del recorrido de abajo.
 
 ---
 
@@ -181,7 +193,7 @@ puede funcionar, pero nadie lo ha visto funcionar de principio a fin.
 | Registro → confirmación por email → panel | Sin probar | — |
 | Crear evento (wizard 4 pasos) → publicar | Parcial | Se ve un evento publicado en el panel |
 | Editar landing → guardar → se ve en público | Sin probar | — |
-| **Marca → guardar → se ve en público** | **Roto** | Causa confirmada arriba |
+| **Marca → guardar → se ve en público** | Arreglado, sin comprobar | Causa confirmada y corregida arriba; falta el recorrido con cuenta real |
 | Comprar o reservar boleta → email → QR | Sin probar | — |
 | **Escanear QR → check-in → métricas** | Sin probar | `CheckinTab` llama a `clientesApi.checkin` y `reingreso`; existe el camino, no se ha ejecutado |
 | **Vacante pública → candidato aplica** | **Roto en producción** | El backend nunca se desplegó en Render: sigue devolviendo 401 |

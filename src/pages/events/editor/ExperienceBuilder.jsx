@@ -80,12 +80,27 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const [embedId, setEmbedId] = useState(null);   // sección que se está exportando como iframe
   const [navbar, setNavbar] = useState(() => navbarConfig(evento.page_json));
   const initialNavbar = useMemo(() => navbarConfig(evento.page_json), []); // eslint-disable-line
+
+  /* La marca vive AQUÍ, en el mismo sitio que las páginas y el navbar.
+
+     Antes la editaba el panel por su cuenta y la guardaba él solo, así que
+     había dos botones escribiendo el mismo `page_json` partiendo cada uno de
+     su copia vieja del evento. Guardabas la marca, se escribía bien, y al
+     pulsar "Guardar cambios" el editor volvía a escribir el page_json que
+     tenía en memoria —sin la marca— y la borraba sin avisar. */
+  const [branding, setBranding] = useState(() => ({ ...(evento.page_json?.branding || {}) }));
+  const initialBranding = useMemo(() => ({ ...(evento.page_json?.branding || {}) }), []); // eslint-disable-line
+
   const { success, error: toastErr } = useToast();
 
   useEffect(() => {
-    setDirty(JSON.stringify(pages) !== JSON.stringify(initialPages) || JSON.stringify(navbar) !== JSON.stringify(initialNavbar));
+    setDirty(
+      JSON.stringify(pages) !== JSON.stringify(initialPages)
+      || JSON.stringify(navbar) !== JSON.stringify(initialNavbar)
+      || JSON.stringify(branding) !== JSON.stringify(initialBranding)
+    );
     /* eslint-disable-next-line */
-  }, [pages, navbar]);
+  }, [pages, navbar, branding]);
 
   const setNav = (patch) => setNavbar(n => ({ ...n, ...patch }));
 
@@ -177,7 +192,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const guardar = async () => {
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), pages, navbar } });
+      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), pages, navbar, branding } });
       success('Página guardada. El sitio público ya está actualizado.');
       setDirty(false);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
@@ -205,10 +220,10 @@ export default function ExperienceBuilder({ evento, onClose }) {
         </p>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {onClose && <button onClick={onClose} className="btn-ghost btn-sm">← Volver al preview</button>}
-          <button onClick={toggleModo} className={`btn-ghost btn-sm ${esLienzoPagina ? 'text-accent' : ''}`}
-            title={esLienzoPagina ? 'Volver a modo Secciones' : 'Editar toda la página como Lienzo libre (mover/redimensionar todo)'}>
-            <IcLienzo className="w-4 h-4" /><span className="hidden md:inline">{esLienzoPagina ? 'Modo secciones' : 'Lienzo libre'}</span>
-          </button>
+          {/* El cambio de modo se fue abajo, a la franja de Páginas: es una
+              decisión SOBRE la página que se está editando, no una salida del
+              editor como las otras. Arriba quedan solo las que abren otra cosa
+              o cierran, y así la barra deja de mezclar dos tipos de acción. */}
           <button onClick={() => setNavOpen(true)} className="btn-ghost btn-sm" title="Editar el navbar del sitio">
             <NavIcon className="w-4 h-4" /><span className="hidden md:inline">Navbar</span>
           </button>
@@ -257,9 +272,40 @@ export default function ExperienceBuilder({ evento, onClose }) {
             </div>
           );
         })}
-        <button onClick={agregarPagina} className="btn-ghost btn-sm flex-shrink-0 !px-2.5" title="Agregar una página nueva al sitio">
-          + Página
-        </button>
+        {/* Las dos acciones de la franja, juntas y destacadas.
+
+            Iban perdidas: "+ Página" era un botón fantasma al final de una
+            fila de pestañas, y el cambio de modo estaba arriba entre cuatro
+            botones que hacen cosas distintas. Son las dos decisiones que más
+            se toman aquí —añadir una página y cambiar cómo se edita— y ahora
+            se ven como tales, separadas de las pestañas por una línea. */}
+        <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto pl-2.5 border-l border-border">
+          <button
+            onClick={agregarPagina}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
+                       border border-accent/45 bg-accent/10 text-text-1
+                       hover:bg-accent/20 hover:border-accent/70 transition-colors"
+            title="Agregar una página nueva al sitio"
+          >
+            <span className="text-base leading-none -mt-px">+</span> Página
+          </button>
+
+          <button
+            onClick={toggleModo}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
+                        border transition-colors ${
+              esLienzoPagina
+                ? 'border-accent bg-accent/20 text-text-1'
+                : 'border-border bg-surface-2 text-text-2 hover:text-text-1 hover:border-accent/50'
+            }`}
+            title={esLienzoPagina
+              ? 'Volver a modo Secciones: cada bloque en su sitio, uno debajo de otro'
+              : 'Lienzo libre: mover y redimensionar todo a mano'}
+          >
+            <IcLienzo className="w-4 h-4" />
+            {esLienzoPagina ? 'Modo secciones' : 'Lienzo libre'}
+          </button>
+        </div>
       </div>
 
       {/* ── Editor unificado ── */}
@@ -413,12 +459,26 @@ export default function ExperienceBuilder({ evento, onClose }) {
 
         {/* DERECHA · Propiedades + Animación (solo con selección, y no para lienzo) */}
         {sel && sel.type !== 'lienzo' && (
-          <aside className="hidden lg:block flex-shrink-0 w-[400px] xl:w-[460px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
-            <header className="flex items-center justify-between px-4 py-3 border-b border-border">
+          /* Columna flex con alto fijo, igual que los cajones de Marca y
+             Navbar, que sí se recorren bien.
+
+             Este panel era el raro: `block` con DOS alturas máximas encajadas,
+             la del aside y la del cuerpo, calculadas cada una por su cuenta.
+             Con eso el cuerpo nunca sabía cuánto sitio le quedaba de verdad y
+             no aparecía su barra: para ver el final de Portada había que mover
+             el scroll de la página entera.
+
+             Las tres piezas del arreglo van juntas y ninguna vale sola: alto
+             FIJO en vez de máximo, cabecera que no se encoge, y `min-h-0` en
+             el cuerpo. Sin ese `min-h-0` un hijo flexible se niega a encogerse
+             por debajo de su contenido, y el desbordamiento se escapa hacia
+             afuera en vez de convertirse en barra. */
+          <aside className="hidden lg:flex flex-col flex-shrink-0 w-[400px] xl:w-[460px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[64px] h-[calc(100vh-90px)]">
+            <header className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
               <h3 className="text-[13px] font-semibold text-text-1 truncate">{labelDe(sel.type)}</h3>
               <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs">✕</button>
             </header>
-            <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-150px)]">
+            <div className="flex-1 min-h-0 p-4 space-y-4 overflow-y-auto">
               {(() => {
                 const Ed = BLOCKS[sel.type]?.Editor;
                 return Ed ? (
@@ -497,7 +557,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
               </button>
             </header>
             <div className="flex-1 overflow-y-auto p-5">
-              <WhiteLabelSection evento={evento} />
+              <WhiteLabelSection evento={evento} valor={branding} onChange={setBranding} />
             </div>
           </aside>
         </>,

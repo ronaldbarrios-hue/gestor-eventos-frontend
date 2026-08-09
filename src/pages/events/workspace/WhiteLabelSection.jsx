@@ -25,22 +25,46 @@ const RADIOS = [
   { value: 'lg',   label: 'Amplios' },
   { value: 'xl',   label: 'Máximos' },
 ];
+/* El preset que se llama GESTEK tiene que ser GESTEK. Era el azul y el morado
+   de la marca vieja, y como además son los valores por defecto del panel, esos
+   dos colores aparecían en la vista previa de todo el mundo aunque la marca
+   real fuera latón y noche. */
 const PRESETS = [
-  { nombre: 'GESTEK',    primary: '#3B82F6', accent: '#8B5CF6', bg: '#070C18' },
+  { nombre: 'GESTEK',    primary: '#E0B12B', accent: '#F2D66B', bg: '#12100B' },
   { nombre: 'Noche',     primary: '#8B5CF6', accent: '#EC4899', bg: '#0B0714' },
   { nombre: 'Esmeralda', primary: '#10B981', accent: '#3B82F6', bg: '#07120E' },
   { nombre: 'Fuego',     primary: '#F59E0B', accent: '#EF4444', bg: '#140B07' },
-  { nombre: 'Claro',     primary: '#2563EB', accent: '#7C3AED', bg: '#F8FAFC' },
+  { nombre: 'Claro',     primary: '#8A6E19', accent: '#A5811A', bg: '#F6F3EC' },
 ];
 
-export default function WhiteLabelSection({ evento, reload }) {
+/* Este panel funciona de dos maneras:
+
+   · SUELTO (`evento` y `reload`): lleva su propio estado y su propio botón de
+     guardar. Es como se usa desde el espacio de trabajo del evento.
+
+   · CONTROLADO (`valor` y `onChange`): no guarda nada por su cuenta, sino que
+     va informando hacia arriba y quien lo monta guarda cuando toque. Es como
+     se usa dentro del editor de la página.
+
+   La distinción no es un capricho. Antes el panel guardaba SIEMPRE por su
+   cuenta, y dentro del editor eso significaba dos botones escribiendo el
+   mismo `page_json` desde copias distintas del evento: el segundo en pulsarse
+   borraba lo del primero sin avisar. */
+export default function WhiteLabelSection({ evento, reload, valor, onChange }) {
   const { success, error } = useToast();
+  const controlado = typeof onChange === 'function';
+
   const base = useMemo(() => ({ ...(evento.page_json?.branding || {}) }), [evento.page_json]);
-  const [b, setB] = useState(base);
+  const [propio, setPropio] = useState(base);
   const [saving, setSaving] = useState(false);
   const [paleta, setPaleta] = useState(null);      // [{hex, peso}]
   const [paletaCargando, setPaletaCargando] = useState(false);
 
+  const b = controlado ? (valor || {}) : propio;
+  const setB = (fn) => {
+    const siguiente = typeof fn === 'function' ? fn(b) : fn;
+    if (controlado) onChange(siguiente); else setPropio(siguiente);
+  };
   const set = (k, v) => setB(prev => ({ ...prev, [k]: v }));
 
   /* Toma los colores de una imagen (el logo ya subido o un archivo suelto).
@@ -74,9 +98,14 @@ export default function WhiteLabelSection({ evento, reload }) {
     finally { setSaving(false); }
   };
 
-  const primary = b.primary || '#3B82F6';
-  const accent  = b.accent  || '#8B5CF6';
-  const bg      = b.bg      || '#070C18';
+  /* Estos son los colores que se ven cuando el evento todavía no tiene marca
+     propia, así que TIENEN que ser los de GESTEK. Eran el azul y el morado de
+     la marca vieja: por eso la vista previa enseñaba un evento azul mientras
+     la página pública salía en latón. No era que la vista previa fallara, era
+     que estaba pintando unos defaults que ya no existen en ningún sitio. */
+  const primary = b.primary || '#E0B12B';
+  const accent  = b.accent  || '#F2D66B';
+  const bg      = b.bg      || '#12100B';
   const bgClaro = esClaro(bg);
 
   return (
@@ -199,9 +228,19 @@ export default function WhiteLabelSection({ evento, reload }) {
         </Card>
 
         <div className="flex items-center gap-3">
-          <button onClick={guardar} disabled={saving} className="btn-primary">
-            {saving ? 'Guardando…' : 'Guardar White Label'}
-          </button>
+          {/* En modo controlado NO hay botón propio: guarda el editor, con
+              todo lo demás y de una sola vez. Dejar aquí un segundo botón era
+              justo lo que hacía que la marca se perdiera. */}
+          {controlado ? (
+            <p className="text-xs text-text-3 leading-snug">
+              Los cambios de marca se guardan con <b className="text-text-1">Guardar cambios</b>,
+              arriba, junto con el resto de la página.
+            </p>
+          ) : (
+            <button onClick={guardar} disabled={saving} className="btn-primary">
+              {saving ? 'Guardando…' : 'Guardar White Label'}
+            </button>
+          )}
           <a href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer" className="btn-secondary">Ver sitio público</a>
         </div>
       </div>
