@@ -337,10 +337,10 @@ export function VideoDemo() {
         <header className="text-center max-w-2xl mx-auto mb-12">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary mb-4">Demo</p>
           <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight">
-            {t('Míralo en dos minutos')}
+            {t('Míralo en un minuto')}
           </h2>
           <p className="mt-5 text-base sm:text-lg text-text-2">
-            {t('Un recorrido corto por la creación de un evento, la venta y el control de ingreso.')}
+            {t('Un minuto: crear el evento, publicarlo, vender la boleta y controlar el ingreso.')}
           </p>
         </header>
 
@@ -352,7 +352,7 @@ export function VideoDemo() {
           {VIDEO_DEMO_URL && reproduciendo ? (
             <iframe
               src={`${VIDEO_DEMO_URL}${VIDEO_DEMO_URL.includes('?') ? '&' : '?'}autoplay=1`}
-              title={t('Míralo en dos minutos')}
+              title={t('Míralo en un minuto')}
               className="absolute inset-0 h-full w-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
               allowFullScreen
@@ -372,7 +372,7 @@ export function VideoDemo() {
                   type="button"
                   onClick={() => VIDEO_DEMO_URL && setReproduciendo(true)}
                   disabled={!VIDEO_DEMO_URL}
-                  aria-label={t('Míralo en dos minutos')}
+                  aria-label={t('Míralo en un minuto')}
                   className="h-20 w-20 rounded-full bg-gradient-primary text-[#15171C] flex items-center
                              justify-center shadow-glow transition-transform enabled:hover:scale-105
                              disabled:opacity-70 disabled:cursor-default"

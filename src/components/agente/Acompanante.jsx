@@ -68,11 +68,35 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
   const { t, recargando } = useI18n();
   const [tirando, setTirando] = useState(false);
   const [oculto, setOculto]   = useState(false);
+  const [dormido, setDormido] = useState(false);
+  const [encima, setEncima]   = useState(false);
   const temporizadores = useRef([]);
+  const sueno = useRef(null);
 
   const encendida = theme === 'light';
 
   useEffect(() => () => temporizadores.current.forEach(clearTimeout), []);
+
+  /* Se duerme tras un rato sin señales de vida y despierta con el primer
+     movimiento. No es un adorno: da a entender que hay alguien ahí que
+     responde, en vez de un dibujo tecleando en bucle para siempre — que a los
+     dos minutos se lee como un GIF pegado en la esquina. */
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const INACTIVIDAD = 50000;
+    const rearmar = () => {
+      setDormido(false);
+      clearTimeout(sueno.current);
+      sueno.current = setTimeout(() => setDormido(true), INACTIVIDAD);
+    };
+    rearmar();
+    const eventos = ['pointermove', 'keydown', 'scroll', 'pointerdown'];
+    eventos.forEach(e => window.addEventListener(e, rearmar, { passive: true }));
+    return () => {
+      clearTimeout(sueno.current);
+      eventos.forEach(e => window.removeEventListener(e, rearmar));
+    };
+  }, []);
 
   function jalarCordon() {
     if (tirando) return;
@@ -82,9 +106,13 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
     temporizadores.current.push(setTimeout(() => setTirando(false), 1160));
   }
 
-  /* Jalar manda sobre recargar el idioma: es lo que el usuario acaba de
-     hacer con la mano. En reposo el bot teclea en su portátil. */
-  const mood = tirando ? 'cordon' : recargando ? 'recargando' : 'thinking';
+  /* Orden de prioridad, de lo más inmediato a lo más pasivo: lo que el
+     usuario acaba de hacer con la mano manda sobre todo lo demás. */
+  const mood = tirando ? 'cordon'
+    : recargando ? 'recargando'
+    : encima ? 'atento'
+    : dormido ? 'durmiendo'
+    : 'thinking';
 
   if (oculto) {
     return (
@@ -213,6 +241,10 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
         <button
           type="button"
           onClick={() => (alAbrir ? alAbrir() : navegar('/gestbot'))}
+          onPointerEnter={() => setEncima(true)}
+          onPointerLeave={() => setEncima(false)}
+          onFocus={() => setEncima(true)}
+          onBlur={() => setEncima(false)}
           aria-label={t('Abrir Gestbot')}
           title={t('Abrir Gestbot')}
           className="pointer-events-auto absolute cursor-pointer bg-transparent border-0 p-0"

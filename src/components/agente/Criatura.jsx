@@ -10,7 +10,11 @@
    - error      : visor rojizo, ojos en X, se sacude
    - cordon     : estira el brazo hacia arriba y jala el cordón de la lámpara
    - recargando : la cara (que es una pantalla) se reinicia — barrido,
-                  parpadeo y barra de progreso. Se usa al cambiar de idioma. */
+                  parpadeo y barra de progreso. Se usa al cambiar de idioma.
+   - durmiendo  : ojos cerrados y respiración lenta. Entra solo tras un rato
+                  sin actividad; despierta al primer movimiento.
+   - atento     : levanta la mirada y se endereza. Es la reacción al pasar el
+                  puntero por encima: da a entender que se le puede hablar. */
 
 import { useEffect, useRef, useState } from 'react';
 import { NUDO_PATH, NUDO_VIEWBOX, NUDO_TRANSFORM } from '../layout/GestekMark';
@@ -37,6 +41,12 @@ const CSS = `
 @keyframes gb-sweep  {0%{transform:translateY(-16px);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateY(50px);opacity:0}}
 @keyframes gb-flick  {0%,100%{opacity:.12}10%{opacity:1}26%{opacity:.3}48%{opacity:1}62%{opacity:.18}84%{opacity:.9}}
 @keyframes gb-glitch {0%,100%{transform:translateX(0)}23%{transform:translateX(-1.5px)}47%{transform:translateX(1.5px)}71%{transform:translateX(-.8px)}}
+/* dormido: respira despacio y se hunde un poco */
+@keyframes gb-dormir {0%,100%{transform:translateY(2%) scale(1,.985)}50%{transform:translateY(4%) scale(1.008,1)}}
+/* atento: se endereza de golpe y se queda alerta */
+@keyframes gb-atento {0%{transform:translateY(0)}40%{transform:translateY(-7%)}100%{transform:translateY(-4%)}}
+/* la antena avisa que está despierto */
+@keyframes gb-senal {0%,100%{opacity:.25;transform:scale(.85)}50%{opacity:1;transform:scale(1.25)}}
 .gb-wrap{will-change:transform}
 .gb-idle       .gb-body{animation:gb-float 3.6s ease-in-out infinite}
 .gb-talking    .gb-body{animation:gb-bob 1s ease-in-out infinite}
@@ -45,6 +55,10 @@ const CSS = `
 .gb-thinking   .gb-body{animation:gb-bob 2.2s ease-in-out infinite}
 .gb-cordon     .gb-body{animation:gb-tugc 1.15s cubic-bezier(.36,.07,.19,.97) infinite}
 .gb-recargando .gb-body{animation:gb-float 3.6s ease-in-out infinite}
+.gb-durmiendo  .gb-body{animation:gb-dormir 4.6s ease-in-out infinite}
+.gb-atento     .gb-body{animation:gb-atento .45s cubic-bezier(.34,1.56,.64,1) both}
+.gb-atento     .gb-armR{animation:gb-wavef .6s ease-in-out infinite}
+.gb-senal{transform-box:fill-box;transform-origin:center;animation:gb-senal 1.1s ease-in-out infinite}
 .gb-eyelid{transform-box:fill-box;transform-origin:center;animation:gb-blink 5s ease-in-out infinite}
 .gb-armR{transform-box:view-box;transform-origin:96px 96px}
 .gb-armL{transform-box:view-box;transform-origin:44px 98px}
@@ -84,7 +98,7 @@ function useInjectCss() {
 const AURA = {
   idle: '#C9A227', thinking: '#E0B12B', talking: '#E0B12B',
   happy: '#39D38C', error: '#D9705E', cordon: '#F2D66B',
-  recargando: '#E0B12B',
+  recargando: '#E0B12B', durmiendo: '#6B5F3A', atento: '#F2D66B',
 };
 
 const LATON      = '#C9A227';
@@ -115,6 +129,7 @@ export default function Criatura({ mood = 'idle', size = 96, seguirCursor = fals
   const m = AURA[mood] ? mood : 'idle';
   const aura = AURA[m];
   const working  = m === 'thinking';
+  const dormido  = m === 'durmiendo';
   const jalando  = m === 'cordon';
   const cargando = m === 'recargando';
   const eye = m === 'error' ? '#F0A99A' : LATON_CLARO;
@@ -158,7 +173,7 @@ export default function Criatura({ mood = 'idle', size = 96, seguirCursor = fals
         <g className="gb-body">
           {/* antena */}
           <path d="M70 24 Q72 16 69 11" stroke="#5A6270" strokeWidth="3" fill="none" strokeLinecap="round" />
-          <circle className="gb-ping" cx="68" cy="9" r="5" fill={aura} />
+          <circle className={dormido ? 'gb-senal' : 'gb-ping'} cx="68" cy="9" r={dormido ? 3.5 : 5} fill={aura} />
 
           {/* ── Brazo izquierdo (pivote hombro 44,98) ── */}
           {working ? (
@@ -257,7 +272,14 @@ export default function Criatura({ mood = 'idle', size = 96, seguirCursor = fals
           ) : (
             <>
               {/* ojos */}
-              {m === 'happy' ? (
+              {dormido ? (
+                /* Dos rayas: los párpados cerrados. Nada de "Z" flotando —
+                   sería un emoji disfrazado de dibujo. */
+                <>
+                  <path d="M50 54 q8 6 16 0" stroke={eye} strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.75" />
+                  <path d="M74 54 q8 6 16 0" stroke={eye} strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.75" />
+                </>
+              ) : m === 'happy' ? (
                 <>
                   <path d="M52 58 q6 -8 12 0" stroke={eye} strokeWidth="4.5" fill="none" strokeLinecap="round" />
                   <path d="M76 58 q6 -8 12 0" stroke={eye} strokeWidth="4.5" fill="none" strokeLinecap="round" />
@@ -285,7 +307,9 @@ export default function Criatura({ mood = 'idle', size = 96, seguirCursor = fals
               )}
 
               {/* boca */}
-              {m === 'talking' ? (
+              {dormido ? (
+                <ellipse cx="70" cy="71" rx="4" ry="3" fill={eye} opacity="0.5" />
+              ) : m === 'talking' ? (
                 <rect x="62" y="68" width="16" height="6" rx="3" fill={eye}>
                   <animate attributeName="height" values="3;8;3" dur="0.3s" repeatCount="indefinite" />
                   <animate attributeName="y" values="69;66;69" dur="0.3s" repeatCount="indefinite" />

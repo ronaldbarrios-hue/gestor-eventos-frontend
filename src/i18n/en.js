@@ -98,9 +98,9 @@ export default {
     'An umbrella event with sub-events: each with its own ticketing, team and report.',
   'Ver un evento de ejemplo': 'See a sample event',
 
-  'Míralo en dos minutos': 'See it in two minutes',
-  'Un recorrido corto por la creación de un evento, la venta y el control de ingreso.':
-    'A short walkthrough of creating an event, selling and controlling check-in.',
+  'Míralo en un minuto': 'See it in one minute',
+  'Un minuto: crear el evento, publicarlo, vender la boleta y controlar el ingreso.':
+    'One minute: create the event, publish it, sell the ticket and control check-in.',
   'Video en camino': 'Video coming soon',
   'Estamos grabando el recorrido completo. Mientras tanto puedes crear tu evento y probarlo tú mismo.':
     'We are recording the full walkthrough. In the meantime you can create your event and try it yourself.',
