@@ -162,6 +162,40 @@ const SECCIONES = [
       },
 ];
 
+/* Una frase por módulo, para que cada sección diga QUÉ resuelve antes de
+   soltar la lista de lo que trae. Una lista de viñetas sin encabezado se lee
+   como un inventario; la frase es lo que la convierte en una promesa.
+
+   Van en un mapa aparte y no dentro de SECCIONES para no reescribir la lista
+   de funciones, que es la que se mantiene cuando se añade algo. */
+const RESUMENES = {
+  'eventos':              'Un evento único o una convención con decenas de actividades dentro. El wizard de cuatro pasos no te deja saltarte lo que después echarías de menos.',
+  'asistencia':           'Cada inscrito recibe su QR. Se escanea al entrar, se escanea al salir, y las cifras se mueven mientras la puerta sigue funcionando.',
+  'comunicacion':         'El asistente recibe lo que necesita cuando lo necesita, sin que tengas que acordarte de mandarlo.',
+  'gamificacion':         'Puntos, misiones y ranking para que la gente recorra el evento en vez de quedarse sentada en una sala.',
+  'pagos':                'El dinero va directo a tu cuenta. GESTEK no toca el flujo de pago ni se queda una comisión sobre tus boletas.',
+  'equipo':               'Quien monta el evento casi nunca es quien lo opera el día de la puerta. Cada quien entra a lo suyo y a nada más.',
+  'api':                  'Si ya tienes sistemas funcionando, el evento se conecta a ellos en vez de vivir aparte y obligarte a copiar datos a mano.',
+  'gestbot':              'Gestbot arranca el evento a partir de una frase tuya, y se queda para editarlo cuando le hables.',
+  'white-label':          'La plataforma desaparece detrás de tu marca. No es un nivel que se compra: viene puesto desde el primer evento.',
+  'analitica':            'Lo que pasó, puesto al lado de lo que pasó la vez anterior. Sin eso, cada edición empieza de cero.',
+  'operaciones':          'Lo que hace falta cuando el evento deja de ser tuyo solo y pasa a ser de un equipo que responde ante alguien.',
+  'comunicacion-avanzada':'Para cuando el correo ya no alcanza y hay que llegar a un grupo concreto en el momento justo.',
+};
+
+/* Las capturas de cada módulo.
+
+   Está vacío a propósito. Cuando haya capturas reales del producto se dejan
+   en `public/producto/` y se apuntan aquí por ancla:
+
+       'eventos': '/producto/eventos.png',
+
+   Mientras no las haya, cada sección dibuja un marco abstracto con el color
+   de la marca. Es deliberado que se vea abstracto y no una captura falsa: una
+   pantalla inventada promete algo que el producto todavía no enseña, y eso se
+   descubre justo cuando alguien se decide a probarlo. */
+const IMAGENES = {};
+
 /* Cobros dentro del evento. No es un plan: es lo que se paga por uso, y un
    evento se opera de principio a fin sin tocar nada de aquí. */
 const SECCIONES_PAGOS = [
@@ -204,22 +238,31 @@ export default function ProductoPage() {
      pintar. Se resalta un momento porque caer a media página sin más deja
      al lector sin saber qué vino a ver. */
   useEffect(() => {
-    const ancla = window.location.hash.slice(1);
-    if (!ancla) return undefined;
-    const id = setTimeout(() => {
-      const el = document.getElementById(ancla);
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-primary/60');
-      setTimeout(() => el.classList.remove('ring-2', 'ring-primary/60'), 2400);
-    }, 260);
-    return () => clearTimeout(id);
+    let id;
+    const ir = () => {
+      const ancla = window.location.hash.slice(1);
+      if (!ancla) return;
+      id = setTimeout(() => {
+        const el = document.getElementById(ancla);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('ring-2', 'ring-primary/60');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-primary/60'), 2400);
+      }, 260);
+    };
+
+    ir();
+    /* También al cambiar el hash estando ya aquí. Antes solo corría al montar,
+       así que un enlace a otra sección desde dentro de la propia página
+       cambiaba la barra de direcciones y no movía nada. */
+    window.addEventListener('hashchange', ir);
+    return () => { clearTimeout(id); window.removeEventListener('hashchange', ir); };
   }, []);
 
   return (
     <>
       <Hero />
-      <Rejilla secciones={SECCIONES} />
+      <Modulos />
       <Pagos />
       <CierrePublico />
     </>
@@ -287,6 +330,154 @@ function Pagos() {
         <Rejilla secciones={SECCIONES_PAGOS} sinMargen />
       </div>
     </section>
+  );
+}
+
+/* ─────────── Los módulos, uno por sección ───────────
+
+   Antes esto era una rejilla de doce tarjetas iguales. Doce cosas del mismo
+   tamaño y con el mismo peso no se leen: se hojean, y nadie se detiene en
+   ninguna. Ahora cada módulo tiene su franja, su frase y su visual, y el lado
+   por el que entra el visual va alternando para que el ojo tenga que cruzar
+   la página en vez de bajar por un carril.
+
+   El número grande de cada sección no es adorno: da idea de cuánto queda y
+   convierte una lista larga en un recorrido con principio y final. */
+function Modulos() {
+  return (
+    <div className="pb-4">
+      {SECCIONES.map((s, i) => (
+        <Modulo key={s.ancla} seccion={s} indice={i} />
+      ))}
+    </div>
+  );
+}
+
+function Modulo({ seccion, indice }) {
+  const { t } = useI18n();
+  const [ref, visible] = useReveal(0.12);
+  const derecha = indice % 2 === 1;       // el visual alterna de lado
+  const resumen = RESUMENES[seccion.ancla];
+  const imagen = IMAGENES[seccion.ancla];
+
+  return (
+    <section
+      id={seccion.ancla}
+      ref={ref}
+      className={`px-5 sm:px-8 py-14 sm:py-20 scroll-mt-24 rounded-3xl transition-all duration-700
+                  ${indice % 2 === 1 ? 'bg-surface/25' : ''}
+                  ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+    >
+      <div className={`max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center
+                       ${derecha ? 'lg:[&>*:first-child]:order-2' : ''}`}>
+        {/* ── El texto ── */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="flex-shrink-0 w-11 h-11 rounded-2xl border border-primary/30 bg-primary/10
+                             flex items-center justify-center text-primary">
+              <FeatureIcon name={seccion.icon} />
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-text-3 tabular-nums">
+              {String(indice + 1).padStart(2, '0')} / {String(SECCIONES.length).padStart(2, '0')}
+            </span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl font-bold font-display tracking-tight text-text-1 leading-tight">
+            {t(seccion.cat)}
+          </h2>
+
+          {resumen && (
+            <p className="mt-4 text-base sm:text-lg text-text-2 leading-relaxed max-w-xl">
+              {t(resumen)}
+            </p>
+          )}
+
+          <ul className="mt-7 space-y-2.5">
+            {seccion.items.map((item, k) => {
+              const texto = typeof item === 'string' ? item : item.texto;
+              const proximamente = typeof item === 'object' && item.proximamente;
+              return (
+                <li key={k} className="flex items-start gap-3">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                       className={`mt-1 flex-shrink-0 ${proximamente ? 'text-text-3' : 'text-primary'}`}
+                       aria-hidden="true">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  <span className={`text-[15px] leading-snug ${proximamente ? 'text-text-3' : 'text-text-1'}`}>
+                    {t(texto)}
+                    {/* Lo que aún no existe se dice, no se disimula. Descubrir
+                        que una función prometida no está es lo que rompe la
+                        confianza en todo lo demás de la página. */}
+                    {proximamente && (
+                      <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wider
+                                       px-1.5 py-0.5 rounded border border-border text-text-3">
+                        {t('Próximamente')}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {/* ── El visual ── */}
+        <Lienzo imagen={imagen} titulo={t(seccion.cat)} icono={seccion.icon} />
+      </div>
+    </section>
+  );
+}
+
+/* El hueco de la captura.
+
+   Con imagen, la enseña dentro de un marco de ventana. Sin imagen, dibuja una
+   composición abstracta con el latón de la marca: una barra de ventana y unos
+   bloques que sugieren una pantalla sin fingir ser ninguna.
+
+   Es a propósito que se vea abstracto. Dibujar una interfaz de mentira aquí
+   sería prometer una pantalla que el producto todavía no enseña, y eso se
+   descubre justo cuando alguien se decide a probarlo. */
+function Lienzo({ imagen, titulo, icono }) {
+  return (
+    <div className="relative">
+      <div className="absolute -inset-4 bg-primary/8 blur-3xl rounded-full pointer-events-none" />
+
+      <div className="relative rounded-2xl border border-border-2 bg-surface/70 backdrop-blur overflow-hidden shadow-card">
+        {/* La barra de la ventana, en los dos casos: es lo que hace que el
+            contenido se lea como "pantalla de producto" y no como ilustración. */}
+        <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-b border-border bg-surface-2/60">
+          <span className="w-2.5 h-2.5 rounded-full bg-text-3/30" />
+          <span className="w-2.5 h-2.5 rounded-full bg-text-3/30" />
+          <span className="w-2.5 h-2.5 rounded-full bg-text-3/30" />
+          <span className="ml-2 text-[10px] text-text-3 tracking-wide truncate">{titulo}</span>
+        </div>
+
+        {imagen ? (
+          <img src={imagen} alt={titulo} loading="lazy" decoding="async"
+               className="w-full block" />
+        ) : (
+          <div className="aspect-[16/11] p-5 flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/25
+                               flex items-center justify-center text-primary flex-shrink-0">
+                <FeatureIcon name={icono} />
+              </span>
+              <span className="h-2.5 rounded-full bg-text-3/20 flex-1 max-w-[45%]" />
+            </div>
+            <div className="flex-1 grid grid-cols-3 gap-2.5 mt-1">
+              <div className="rounded-xl bg-gradient-to-br from-primary/12 to-transparent border border-border" />
+              <div className="rounded-xl bg-surface-2/70 border border-border" />
+              <div className="rounded-xl bg-surface-2/40 border border-border" />
+            </div>
+            <div className="space-y-2">
+              <span className="block h-2 rounded-full bg-text-3/15 w-[70%]" />
+              <span className="block h-2 rounded-full bg-text-3/10 w-[45%]" />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

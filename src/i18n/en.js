@@ -20,6 +20,34 @@ export default {
   'Cuenta': 'Account',
   'Legal': 'Legal',
   'Política de Privacidad': 'Privacy Policy',
+  /* Resúmenes de los módulos en la página de Producto. El auditor NO los
+     detecta porque llegan a t() por variable y él solo lee literales; sin
+     esta tanda se quedarían en español dentro de la versión inglesa. */
+  'Un evento único o una convención con decenas de actividades dentro. El wizard de cuatro pasos no te deja saltarte lo que después echarías de menos.':
+    'A single event or a convention with dozens of activities inside. The four-step wizard will not let you skip what you would later miss.',
+  'Cada inscrito recibe su QR. Se escanea al entrar, se escanea al salir, y las cifras se mueven mientras la puerta sigue funcionando.':
+    'Every registrant gets their QR. Scan on the way in, scan on the way out, and the numbers move while the door keeps running.',
+  'El asistente recibe lo que necesita cuando lo necesita, sin que tengas que acordarte de mandarlo.':
+    'Attendees get what they need when they need it, without you having to remember to send it.',
+  'Puntos, misiones y ranking para que la gente recorra el evento en vez de quedarse sentada en una sala.':
+    'Points, missions and a leaderboard so people move through the event instead of sitting in one room.',
+  'El dinero va directo a tu cuenta. GESTEK no toca el flujo de pago ni se queda una comisión sobre tus boletas.':
+    'The money goes straight to your account. GESTEK never touches the payment flow and takes no cut of your tickets.',
+  'Quien monta el evento casi nunca es quien lo opera el día de la puerta. Cada quien entra a lo suyo y a nada más.':
+    'Whoever builds the event is rarely the one running the door. Each person gets into their own part and nothing else.',
+  'Si ya tienes sistemas funcionando, el evento se conecta a ellos en vez de vivir aparte y obligarte a copiar datos a mano.':
+    'If you already have systems running, the event plugs into them instead of living apart and making you copy data by hand.',
+  'Gestbot arranca el evento a partir de una frase tuya, y se queda para editarlo cuando le hables.':
+    'Gestbot starts the event from a sentence of yours, and sticks around to edit it whenever you talk to it.',
+  'La plataforma desaparece detrás de tu marca. No es un nivel que se compra: viene puesto desde el primer evento.':
+    'The platform disappears behind your brand. It is not a tier you buy: it is there from your first event.',
+  'Lo que pasó, puesto al lado de lo que pasó la vez anterior. Sin eso, cada edición empieza de cero.':
+    'What happened, set beside what happened last time. Without that, every edition starts from scratch.',
+  'Lo que hace falta cuando el evento deja de ser tuyo solo y pasa a ser de un equipo que responde ante alguien.':
+    'What you need once the event stops being only yours and becomes a team’s, answering to someone.',
+  'Para cuando el correo ya no alcanza y hay que llegar a un grupo concreto en el momento justo.':
+    'For when email is no longer enough and you need to reach one specific group at the right moment.',
+
   /* Atajos cortos, para los dos botones de la rueda de configuración. El
      documento en sí sigue en español: lo que se traduce es la etiqueta que
      lleva a él, no el texto vinculante. */
