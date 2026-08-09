@@ -1,0 +1,10 @@
+Aqui van las ocho capturas del producto, a 1920x1080 y en modo oscuro.
+La lista de cuales son esta en ../README.md
+
+Sin estas imagenes, la herramienta de video se INVENTA las pantallas.
+No es un fallo del prompt: no puede arrancar la aplicacion ni entrar
+con tu cuenta. Si no se las das, se las dibuja.
+
+Antes de capturar, monta un evento de mentira pero COMPLETO: portada,
+tres tipos de boleta, veinte asistentes. Un evento vacio se ve vacio
+tambien en el video.
