@@ -13,14 +13,21 @@
        bg-primary/10, border-border-2, etc.
        El modo oscuro se activa con la clase "dark" en <html>. */
     /* ── DÍA · blancos cálidos, nada de gris azulado ── */
-    --color-bg         : 244 241 233;  /* #F4F1E9 */
-    --color-surface     : 251 250 247;  /* #FBFAF7 */
-    --color-surface-2   : 239 235 225;  /* #EFEBE1 */
-    --color-surface-3   : 226 220 204;  /* #E2DCCC */
+    /* Bajados un punto respecto al primer día: el anterior (#F4F1E9 de fondo
+       sobre #FBFAF7 de tarjeta) deslumbraba en pantalla grande y, con solo 7
+       puntos entre uno y otro, las tarjetas casi no se despegaban del fondo.
+       Ahora hay 10 puntos de diferencia y el conjunto es papel, no folio
+       recién blanqueado. Sigue siendo cálido: el rojo por delante del azul. */
+    --color-bg         : 235 231 220;  /* #EBE7DC */
+    --color-surface     : 246 243 236;  /* #F6F3EC */
+    --color-surface-2   : 228 223 209;  /* #E4DFD1 */
+    --color-surface-3   : 214 206 186;  /* #D6CEBA */
     --color-border-rgb  : 33 30 24;
     --color-text-1      : 21 23 28;     /* #15171C */
     --color-text-2      : 85 83 77;     /* #55534D */
-    --color-text-3      : 138 133 122;  /* #8A857A */
+    --color-text-3      : 128 123 112;  /* #807B70 — sobre el fondo nuevo el
+                                           anterior se quedaba en 2.97:1 y las
+                                           etiquetas pequeñas se perdían */
 
     /* ── Sidebar (la noche identitaria, IGUAL en ambos modos) ──── */
     --color-sidebar     : 18 16 11;   /* #12100B — la misma noche cálida */
@@ -29,8 +36,12 @@
 
     /* ── Latón · el acento de marca. En día se oscurece para que
        tenga contraste sobre los fondos claros. ── */
-    --color-primary       : 138 110 25;   /* #8A6E19 — oscurecido para que
-                                             el texto blanco encima pase 4.5:1 */
+    --color-primary       : 125 99 22;    /* #7D6316 — oscurecido dos veces: la
+                                             primera para que el texto blanco
+                                             encima pasara 4.5:1, la segunda
+                                             porque al bajar el fondo el latón
+                                             como TEXTO se quedaba en 3.93:1.
+                                             Ahora pasa 4.63:1 en los dos usos */
     --color-primary-dark  : 107 85 20;    /* #6B5514 */
     --color-primary-light : 165 129 26;   /* #A5811A */
     --color-accent         : 201 162 39;  /* #C9A227 */
