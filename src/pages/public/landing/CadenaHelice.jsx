@@ -95,6 +95,7 @@ export default function CadenaHelice({ pasos, children }) {
     const alFrente = (cos + 1) / 2;                       // 0 … 1
     return {
       paso,
+      alFrente,
       x: quieta ? 0 : sen * RADIO,
       escala: quieta ? 1 : 0.72 + alFrente * 0.38,
       opacidad: quieta ? 1 : 0.42 + alFrente * 0.58,
@@ -116,8 +117,23 @@ export default function CadenaHelice({ pasos, children }) {
             numero={e.paso.n}
           />
 
-          {/* ── La información, que no gira ── */}
-          <div className="flex-1 min-w-0">
+          {/* ── La información, que no gira ──
+
+              El texto NO gira ni se encoge, pero sí aparece: se enciende
+              cuando su lazada se pone de frente y se apaga cuando se va
+              detrás. Así el scroll no mueve adornos, va destapando pasos.
+
+              No baja del 45% de opacidad a propósito. Que el texto llegue a
+              ser ilegible sería un efecto bonito un segundo y un problema el
+              resto del rato: aquí hay contenido que la gente entra a leer. */}
+          <div
+            className="flex-1 min-w-0"
+            style={quieta ? undefined : {
+              opacity: 0.45 + e.alFrente * 0.55,
+              transform: `translateY(${(1 - e.alFrente) * 10}px)`,
+              willChange: 'opacity, transform',
+            }}
+          >
             {children(e.paso, i)}
           </div>
         </div>
@@ -208,50 +224,41 @@ function Carril({ estado, siguiente, numero }) {
   );
 }
 
-/* El eslabón, con la forma del logo.
+/* El eslabon, con la forma del logo.
 
-   El nudo de GESTEK son dos lazadas entrelazadas: hexágonos alargados con las
-   puntas arriba y abajo, inclinados, que se enganchan. Aquí se usa esa misma
-   lazada como eslabón, en vez de un aro genérico, para que la cadena hable el
-   idioma de la marca.
+   El nudo de GESTEK son dos lazadas OVALADAS entrelazadas. Antes esto era un
+   hexagono de seis lados, y no habia coherencia posible: la marca es curva y
+   el eslabon era un diamante. Ahora es la lazada: un anillo alargado, de
+   esquinas redondas, como las del propio nudo.
 
-   El giro es 3D de verdad, no un dibujo plano que se desliza: la pieza se
-   ESTRECHA con el coseno del ángulo, de ancha de frente a casi una línea de
-   canto, que es lo que hace un cuerpo rotando sobre su eje vertical. Además
-   el borde interior se separa del exterior según lo de frente que esté, así
-   que de perfil el hueco casi desaparece — como pasa con un eslabón real.
+   El giro es 3D de verdad, no un dibujo plano que se desliza: el anillo se
+   ESTRECHA con el coseno del angulo, de ancho de frente a casi una linea de
+   canto, que es lo que hace un cuerpo rotando sobre su eje vertical. Como se
+   dibuja con un trazo grueso y no con dos contornos, el ojo se cierra solo al
+   estrecharse, igual que un eslabon de verdad visto de lado.
+
+   La caja es FIJA aunque el anillo se estreche, para que el centro de la
+   pieza no se mueva: de ahi sale y ahi llega el tramo de cadena.
 
    `aplastado` va de 0 (de canto) a 1 (de frente). */
+const RADIO_Y   = 40;   // media altura del anillo
+const RADIO_X   = 26;   // media anchura, de frente
+const RADIO_MIN = 3.5;  // media anchura, de canto
+const GROSOR    = 8;
+
 function Eslabon({ n, aplastado, inclinacion = 0 }) {
-  const ANCHO_MAX = 62;
-  const ANCHO_MIN = 20;       // de canto sigue siendo una pieza, no una raya
-  const ALTO = 84;
-  const grosor = 7;
-
-  const w = ANCHO_MIN + aplastado * (ANCHO_MAX - ANCHO_MIN);
-  const h = ALTO;
-  const externo = `${w / 2},0 ${w},${h * 0.21} ${w},${h * 0.79} ${w / 2},${h} 0,${h * 0.79} 0,${h * 0.21}`;
-
-  /* El ojo del eslabón se cierra MÁS RÁPIDO que el contorno, en proporción a
-     lo de frente que esté. Antes iba al revés —el hueco encogía más despacio
-     que la pieza— y de canto quedaba un aro finísimo: por eso los eslabones
-     se veían como contornos huecos en vez de metal. */
-  const iw = Math.max(0, (w - grosor * 2) * aplastado);
-  const ih = h - grosor * 2;
-  const gx = (w - iw) / 2;         // el ojo, centrado
-  const gy = grosor;
-  const interno = iw > 1.5
-    ? `${gx + iw / 2},${gy} ${gx + iw},${gy + ih * 0.21} ${gx + iw},${gy + ih * 0.79} ${gx + iw / 2},${gy + ih} ${gx},${gy + ih * 0.79} ${gx},${gy + ih * 0.21}`
-    : null;
+  const rx = RADIO_MIN + aplastado * (RADIO_X - RADIO_MIN);
+  const w = (RADIO_X + GROSOR) * 2;
+  const h = (RADIO_Y + GROSOR) * 2;
 
   return (
     <svg
-      width={Math.max(w, 10)} height={h} viewBox={`0 0 ${Math.max(w, 10)} ${h}`}
-      className="overflow-visible drop-shadow-[0_3px_6px_rgba(43,35,18,0.4)]"
+      width={w} height={h} viewBox={`0 0 ${w} ${h}`}
+      className="overflow-visible drop-shadow-[0_3px_6px_rgba(43,35,18,0.45)]"
       style={{ transform: `rotate(${inclinacion}deg)` }}
     >
       <defs>
-        {/* El latón no es plano: de un lado le da la luz y del otro no. Eso es
+        {/* El laton no es plano: de un lado le da la luz y del otro no. Eso es
             lo que termina de vender el volumen. */}
         <linearGradient id={`laton-${n}`} x1="0" y1="0" x2="1" y2="0.3">
           <stop offset="0%"   stopColor="#8A6E19" />
@@ -260,21 +267,24 @@ function Eslabon({ n, aplastado, inclinacion = 0 }) {
         </linearGradient>
       </defs>
 
-      {/* La pieza es el contorno menos el hueco: una sola figura con regla
-          evenodd, para que se vea como metal macizo y no como dos trazos. */}
-      <path
-        d={`M${externo.split(' ').join(' L').replace(/,/g, ' ')} Z${interno ? ` M${interno.split(' ').join(' L').replace(/,/g, ' ')} Z` : ''}`}
-        fill={`url(#laton-${n})`}
-        fillRule="evenodd"
+      {/* La lazada. Un trazo grueso sobre una elipse: al encoger el radio
+          horizontal, el ojo se cierra solo y la pieza se ve de perfil sin
+          tener que dibujar dos contornos y restarlos. */}
+      <ellipse
+        cx={w / 2} cy={h / 2} rx={rx} ry={RADIO_Y}
+        fill="none"
+        stroke={`url(#laton-${n})`}
+        strokeWidth={GROSOR}
+        strokeLinejoin="round"
       />
 
-      {/* El número solo cuando la pieza está lo bastante de frente para que
-          quepa dentro del hueco. */}
-      {aplastado > 0.5 && (
+      {/* El numero solo cuando la lazada esta lo bastante de frente para que
+          quepa dentro del ojo. */}
+      {aplastado > 0.62 && (
         <text
           x={w / 2} y={h / 2} textAnchor="middle" dominantBaseline="central"
-          className="fill-[#12100B] font-bold"
-          style={{ fontSize: 15, transform: `rotate(${-inclinacion}deg)`, transformOrigin: `${w / 2}px ${h / 2}px` }}
+          className="fill-text-1 font-bold"
+          style={{ fontSize: 16, transform: `rotate(${-inclinacion}deg)`, transformOrigin: `${w / 2}px ${h / 2}px` }}
         >
           {n}
         </text>

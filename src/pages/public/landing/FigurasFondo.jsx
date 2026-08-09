@@ -2,28 +2,36 @@
 
    Van DETRÁS de "GESTEK / Personaliza, organiza y crece", repartidas por todo
    el ancho, cada una a su altura, a su tamaño y con su giro. No es una tira ni
-   una cuadrícula: es un puñado de piezas sueltas, como el nudo del logo visto
-   de cerca. Una fila ordenada se lee como un carrusel de catálogo; esto se lee
-   como fondo.
+   una cuadrícula: es un puñado de piezas sueltas. Una fila ordenada se lee
+   como carrusel de catálogo; esto se lee como fondo.
 
-   La forma es el eslabón del logo, el mismo hexágono alargado del nudo.
+   Se llenan con las PORTADAS DE LOS EVENTOS ACTIVOS de toda la plataforma, y
+   van ROTANDO: cada pocos segundos algunas piezas cambian de evento. Así, por
+   muchos eventos que haya publicados, todos acaban pasando por la portada en
+   vez de quedarse los diez primeros para siempre. Es el escaparate de GESTEK,
+   y tiene que repartir.
 
-   Se llenan con las PORTADAS DE LOS EVENTOS PUBLICADOS de verdad. Las que
-   sobran se quedan en gris cálido, así que la sección nunca se ve rota: se va
-   encendiendo sola a medida que se publican eventos.
+   Cuatro cosas mandan sobre lo bonito:
 
-   Dos cosas que mandan sobre lo bonito:
+   · El texto va primero. En reposo ninguna pieza pasa del 34% de opacidad y
+     llevan un velo encima que se cierra hacia el centro, que es por donde va
+     el titular. Un fondo que compite con el titular es un fondo mal puesto.
 
-   · El texto va primero. Las piezas se quedan por debajo del 40% de opacidad
-     y llevan un velo encima que se oscurece hacia el centro, que es justo por
-     donde pasa el titular. Un fondo que compite con el titular es un fondo
-     mal puesto.
+   · Al pasar el puntero por una pieza con evento, esa se enciende: sube a
+     opacidad plena, se agranda un poco, se le pone filo de latón y sale el
+     nombre. Las demás no se tocan. Hasta que no la señalas no promete nada,
+     y cuando la señalas queda claro que es pulsable.
 
-   · No capturan el puntero. Están debajo de los botones de "Crear mi cuenta"
-     y "Ver cómo funciona"; si fueran enlaces, se comerían clics del CTA. Son
-     decoración honesta: el que quiera ver eventos tiene Explorar en el menú. */
+   · Solo las que TIENEN evento capturan el puntero. Las grises son
+     decoración y dejan pasar el clic; si no, se comerían clics del CTA.
+
+   · Las piezas que caen sobre la columna del texto se marcan `alFondo` y no
+     son pulsables aunque tengan evento: por ahí pasan "Crear mi cuenta" y
+     "Ver cómo funciona", y un enlace invisible por debajo de un botón es una
+     trampa. */
 
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { eventosApi } from '../../../api/eventos.js';
 
 /* El eslabón del logo, normalizado a la caja de la pieza. */
@@ -31,21 +39,30 @@ const ESLABON = 'polygon(50% 0%, 100% 21%, 100% 79%, 50% 100%, 0% 79%, 0% 21%)';
 
 /* Repartidas a mano, no generadas: quería controlar que el centro quede
    despejado para el titular y que las esquinas no queden vacías.
-   izq/arr en % del hero · w en px · giro en grados · op = opacidad ·
-   dur = segundos que tarda el vaivén. */
+   izq/arr en % del hero · w en px · giro en grados · op = opacidad en reposo
+   dur = segundos del vaivén · alFondo = cae sobre la columna del texto. */
 const FIGURAS = [
-  { izq:  3, arr:  6, w: 132, giro: -14, op: 0.34, dur: 17 },
-  { izq: 12, arr: 52, w:  92, giro:  11, op: 0.26, dur: 21 },
-  { izq: 21, arr: 18, w:  68, giro:  -6, op: 0.18, dur: 14 },
-  { izq: 30, arr: 74, w: 110, giro:  17, op: 0.22, dur: 24 },
-  { izq: 44, arr:  3, w:  74, giro: -10, op: 0.14, dur: 19 },
-  { izq: 56, arr: 80, w:  86, giro:   8, op: 0.16, dur: 16 },
-  { izq: 67, arr: 30, w:  64, giro: -13, op: 0.15, dur: 22 },
-  { izq: 74, arr: 66, w: 104, giro:  15, op: 0.24, dur: 18 },
-  { izq: 83, arr: 12, w: 122, giro:  -9, op: 0.30, dur: 20 },
-  { izq: 90, arr: 58, w:  88, giro:  12, op: 0.27, dur: 15 },
-  { izq: 37, arr: 40, w:  56, giro:   5, op: 0.10, dur: 26 },
+  { izq:  2, arr:  4, w: 138, giro: -14, op: 0.34, dur: 17 },
+  { izq:  9, arr: 30, w:  74, giro:   9, op: 0.22, dur: 23 },
+  { izq: 13, arr: 58, w:  98, giro:  11, op: 0.28, dur: 21 },
+  { izq: 21, arr: 12, w:  66, giro:  -6, op: 0.20, dur: 14 },
+  { izq: 24, arr: 78, w:  84, giro: -17, op: 0.24, dur: 26 },
+  { izq: 31, arr: 44, w:  58, giro:  17, op: 0.14, dur: 19, alFondo: true },
+  { izq: 37, arr:  6, w:  70, giro: -10, op: 0.15, dur: 24, alFondo: true },
+  { izq: 44, arr: 72, w:  62, giro:   7, op: 0.13, dur: 16, alFondo: true },
+  { izq: 52, arr: 34, w:  54, giro: -12, op: 0.10, dur: 27, alFondo: true },
+  { izq: 58, arr:  8, w:  68, giro:   5, op: 0.14, dur: 18, alFondo: true },
+  { izq: 63, arr: 76, w:  92, giro:   8, op: 0.20, dur: 15 },
+  { izq: 70, arr: 26, w:  72, giro: -13, op: 0.18, dur: 22 },
+  { izq: 77, arr: 60, w: 106, giro:  15, op: 0.26, dur: 18 },
+  { izq: 84, arr:  8, w: 126, giro:  -9, op: 0.32, dur: 20 },
+  { izq: 91, arr: 40, w:  66, giro:  13, op: 0.19, dur: 25 },
+  { izq: 94, arr: 70, w:  90, giro:  -7, op: 0.27, dur: 15 },
 ];
+
+/* Cada cuántos segundos rota el reparto de eventos entre las piezas. Ni tan
+   rápido que parpadee ni tan lento que nadie llegue a ver el cambio. */
+const SEGUNDOS_ENTRE_TURNOS = 6;
 
 const STYLE_ID = 'gestek-figuras-fondo';
 const CSS = `
@@ -59,6 +76,7 @@ const CSS = `
 
 export default function FigurasFondo() {
   const [eventos, setEventos] = useState([]);
+  const [turno, setTurno] = useState(0);
   const inyectado = useRef(false);
 
   useEffect(() => {
@@ -71,54 +89,100 @@ export default function FigurasFondo() {
   }, []);
 
   useEffect(() => {
-    eventosApi.publicos({ limit: 20 })
+    /* Se piden bastantes más de los que caben para que la rotación tenga de
+       dónde tirar. Si solo hay tres eventos publicados, se ven tres y ya. */
+    eventosApi.publicos({ limit: 60 })
       .then((d) => setEventos((d.eventos || []).filter(e => e.cover_url || e.gallery?.[0])))
       .catch(() => { /* sin eventos, todas las piezas se quedan apagadas */ });
   }, []);
 
+  /* La rotación solo tiene sentido si hay más eventos que piezas. Con menos,
+     cada uno ya tiene su sitio fijo y moverlos sería parpadeo gratis. */
+  const rota = eventos.length > FIGURAS.length;
+  useEffect(() => {
+    if (!rota) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const id = setInterval(() => setTurno(t => t + 1), SEGUNDOS_ENTRE_TURNOS * 1000);
+    return () => clearInterval(id);
+  }, [rota]);
+
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
+    <div className="absolute inset-0 overflow-hidden select-none">
       {FIGURAS.map((f, i) => {
-        /* Cada evento ocupa UNA pieza. Repetir el mismo cuatro veces se nota;
-           una pieza apagada se lee como sitio reservado. */
-        const ev = eventos[i] || null;
-        const imagen = ev?.cover_url || ev?.gallery?.[0];
-        return (
-          <div
-            key={i}
-            className="gestek-figura absolute"
-            style={{
-              left: `${f.izq}%`, top: `${f.arr}%`,
-              width: f.w, height: f.w * 1.44,
-              opacity: f.op,
-              '--dur': `${f.dur}s`,
-              animationDelay: `${-i * 1.7}s`,   // que no respiren todas a la vez
-            }}
-          >
-            <div
-              className="w-full h-full"
-              style={{ transform: `rotate(${f.giro}deg)`, clipPath: ESLABON, WebkitClipPath: ESLABON }}
-            >
-              {imagen ? (
-                <img src={imagen} alt="" loading="lazy" decoding="async"
-                     className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-surface-3 via-surface-2 to-surface" />
-              )}
-            </div>
-          </div>
-        );
+        /* Con MÁS eventos que piezas, cada pieza toma uno distinto y en cada
+           turno el reparto se desplaza uno: van entrando de a poco en vez de
+           cambiar todas a la vez.
+
+           Con MENOS, cada evento ocupa una pieza y las demás se quedan
+           grises. Rellenar dando la vuelta repetiría el mismo evento cuatro
+           veces, y eso se nota y se lee como relleno; una pieza apagada se
+           lee como sitio reservado. */
+        const ev = rota
+          ? eventos[(i + turno) % eventos.length]
+          : (eventos[i] || null);
+        return <Pieza key={i} figura={f} evento={ev} />;
       })}
 
       {/* El velo. Se oscurece hacia el centro, que es por donde pasa el
           titular, y deja respirar las esquinas. */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage:
             'radial-gradient(46rem 26rem at 50% 32%, rgb(var(--color-bg) / 0.92), rgb(var(--color-bg) / 0.55) 62%, transparent 100%)',
         }}
       />
+    </div>
+  );
+}
+
+function Pieza({ figura: f, evento: ev }) {
+  const imagen = ev?.cover_url || ev?.gallery?.[0];
+  /* Pulsable solo si tiene evento Y no cae sobre la columna del texto. */
+  const pulsable = !!(imagen && ev?.slug && !f.alFondo);
+
+  const cuerpo = (
+    <div
+      className="w-full h-full transition-[transform,filter] duration-300 group-hover:scale-[1.06]"
+      style={{ transform: `rotate(${f.giro}deg)`, clipPath: ESLABON, WebkitClipPath: ESLABON }}
+    >
+      {imagen ? (
+        <img src={imagen} alt="" loading="lazy" decoding="async"
+             className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-gradient-to-br from-surface-3 via-surface-2 to-surface" />
+      )}
+    </div>
+  );
+
+  return (
+    <div
+      className={`gestek-figura absolute group transition-opacity duration-300
+                  ${pulsable ? 'pointer-events-auto cursor-pointer hover:!opacity-100' : 'pointer-events-none'}`}
+      style={{
+        left: `${f.izq}%`, top: `${f.arr}%`,
+        width: f.w, height: f.w * 1.44,
+        opacity: f.op,
+        '--dur': `${f.dur}s`,
+        animationDelay: `${-f.izq * 0.11}s`,   // que no respiren todas a la vez
+      }}
+      aria-hidden={!pulsable}
+    >
+      {pulsable ? (
+        <Link to={`/explorar/${ev.slug}`} className="block w-full h-full" title={ev.titulo}>
+          {cuerpo}
+          {/* El nombre solo al señalar. En reposo sería ruido encima del
+              titular; al señalar es lo que dice a dónde lleva el clic. */}
+          <span
+            className="absolute inset-x-0 bottom-[14%] px-3 text-center text-[11px] font-semibold
+                       text-white leading-tight opacity-0 group-hover:opacity-100
+                       transition-opacity duration-300 pointer-events-none
+                       [text-shadow:0_1px_6px_rgb(18_16_11)]"
+          >
+            {ev.titulo}
+          </span>
+        </Link>
+      ) : cuerpo}
     </div>
   );
 }
