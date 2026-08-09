@@ -28,7 +28,7 @@ const STEPS = [
     n: '02',
     title: 'Configura tu entorno de trabajo',
     desc: 'Cuéntanos en lenguaje natural qué tipo de eventos organizas: Gestbot propone la estructura inicial, o usa el wizard paso a paso.',
-    detail: 'Industria, frecuencia, tamaño promedio, modalidad — el agente prepara plantillas, agenda base y copy de invitación. Tú ajustas, no empiezas en blanco.',
+    detail: 'Industria, frecuencia, tamaño promedio y modalidad. Con eso el agente prepara plantillas, agenda base y copy de invitación. Tú ajustas, no empiezas en blanco.',
   },
   {
     n: '03',
@@ -40,7 +40,7 @@ const STEPS = [
     n: '04',
     title: 'Comparte y vende boletas',
     desc: 'Tu evento tiene página pública propia (gestek.io/explorar/tu-evento). Botón de compra con BRE-B usando tu llave o QR de organizador.',
-    detail: 'El dinero va directo a tu cuenta — GESTEK no toca el flujo de pago. Recibos automáticos por email al asistente.',
+    detail: 'El dinero va directo a tu cuenta. GESTEK no toca el flujo de pago. Recibos automáticos por email al asistente.',
   },
   {
     n: '05',
@@ -112,7 +112,7 @@ const USE_CASES = [
 const FAQ_FLOW = [
   { q: '¿Cuánto tiempo tarda crear un evento desde cero?', a: 'Entre 5 y 10 minutos con el wizard. Con Gestbot, baja a 1-2 minutos porque te genera la estructura base.' },
   { q: '¿Necesito instalar algo?', a: 'No. Todo corre en el navegador. El escáner de QR funciona desde la cámara del móvil de tu coordinador.' },
-  { q: '¿Puedo importar asistentes de un Excel?', a: 'Sí — desde el panel del evento subes un CSV con nombre y email y la plataforma genera los QR e invitaciones.' },
+  { q: '¿Puedo importar asistentes de un Excel?', a: 'Sí. Desde el panel del evento subes un CSV con nombre y email, y la plataforma genera los QR e invitaciones.' },
 ];
 
 export default function ComoFuncionaPage() {
@@ -140,7 +140,7 @@ function Hero() {
         {t('De idea a evento publicado,')}<br />{t('en')} <span className="bg-gradient-to-br from-primary-light to-accent-light bg-clip-text text-transparent">{t('menos de una tarde')}</span>
       </h1>
       <p className="relative text-lg text-text-2 max-w-2xl mx-auto leading-relaxed">
-        {t('GESTEK guía cada paso del ciclo de vida del evento — desde la creación hasta el análisis post-evento — sin que tengas que ensamblar 5 herramientas distintas.')}
+        {t('GESTEK guía cada paso del ciclo de vida del evento, desde la creación hasta el análisis post-evento, sin que tengas que ensamblar 5 herramientas distintas.')}
       </p>
       <div className="relative mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
         <Link to="/register" className="px-7 py-3.5 rounded-full text-base font-semibold text-[#15171C] bg-gradient-primary transition-all shadow-glow">
@@ -214,7 +214,7 @@ function UseCases() {
             {t('Cómo lo usan en producción')}
           </h2>
           <p className="text-base sm:text-lg text-text-2 max-w-2xl mx-auto">
-            {t('Cuatro escenarios típicos donde GESTEK reemplaza la combinación habitual de Eventbrite + Mailchimp + Google Forms + Excel + Stripe.')}
+            {t('Cuatro escenarios típicos donde GESTEK reemplaza la combinación habitual de Eventbrite, Mailchimp, Google Forms, Excel y Stripe.')}
           </p>
         </div>
 

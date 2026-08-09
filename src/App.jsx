@@ -97,7 +97,7 @@ export default function App() {
                 <Route path="/terminos"          element={<TerminosPage />} />
               </Route>
 
-              {/* eFrame: una sección suelta para incrustar en otra web.
+              {/* iFrame: una sección suelta para incrustar en otra web.
                   Fuera de PublicLayout a propósito — sin navbar ni footer. */}
               <Route path="/embed/:slug/:seccion" element={<EmbedPage />} />
 

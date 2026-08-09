@@ -132,7 +132,7 @@ export default function BotonConfiguracion() {
             {verDatos && (
               <div className="mt-2.5 animate-[fadeIn_0.2s_ease_both]">
                 <p className="text-[11px] text-text-2 leading-relaxed">
-                  {t('Solo lo necesario para que la página funcione como la dejaste: el tema, el idioma y tu sesión si entras. Sin analítica, sin píxeles y sin rastreadores de terceros — por eso no te pedimos aceptar cookies.')}
+                  {t('Solo lo necesario para que la página funcione como la dejaste: el tema, el idioma y tu sesión si entras. Sin analítica, sin píxeles y sin rastreadores de terceros, así que no te pedimos aceptar cookies.')}
                 </p>
                 <Link
                   to="/privacidad"

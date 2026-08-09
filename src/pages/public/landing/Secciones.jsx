@@ -1,6 +1,6 @@
 /* Secciones de la portada pedidas en el rediseño:
    1. PasoAPaso        — cómo funciona, del primer boleto al último informe
-   2. IncrustarEnTuWeb — el eFrame explicado y con el snippet real
+   2. IncrustarEnTuWeb — el iFrame explicado y con el snippet real
    3. CasosDeUso       — para quién es
    4. VideoDemo        — el recorrido en video
 
@@ -123,7 +123,7 @@ export function PasoAPaso() {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   2 · INCRUSTAR EN TU WEB (eFrame)
+   2 · INCRUSTAR EN TU WEB (iFrame)
    ══════════════════════════════════════════════════════════════════ */
 export function IncrustarEnTuWeb() {
   const { t } = useI18n();
@@ -166,7 +166,7 @@ export function IncrustarEnTuWeb() {
       <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-16 items-center" ref={ref}>
         {/* Copia */}
         <div className={`transition-all duration-700 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-6'}`}>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary mb-4">eFrame</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary mb-4">iFrame</p>
           <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight">
             {t('Incrústalo en tu propia web')}
           </h2>
@@ -225,7 +225,7 @@ export function IncrustarEnTuWeb() {
             </div>
             <div className="mt-3 rounded-xl border-2 border-dashed border-primary/45 bg-primary/5 px-3 py-5 text-center">
               <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
-                eFrame · GESTEK
+                iFrame · GESTEK
               </span>
             </div>
             <div className="mt-3 space-y-2">
@@ -335,7 +335,6 @@ export function VideoDemo() {
     <section className="px-5 sm:px-8 py-24 sm:py-28 border-y border-border bg-surface/25">
       <div className="max-w-4xl mx-auto" ref={ref}>
         <header className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary mb-4">Demo</p>
           <h2 className="text-4xl sm:text-5xl font-bold font-display tracking-tight text-text-1 leading-tight">
             {t('Míralo en un minuto')}
           </h2>
@@ -450,7 +449,7 @@ const AREAS = [
     icono: <><path d="M12 3L2 8l10 5 10-5-10-5z" /><path d="M6 10.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5" /></>,
     items: [
       'Editor de la página del evento',
-      'Cualquier sección incrustable (eFrame)',
+      'Cualquier sección incrustable (iFrame)',
       'Mapa navegable del recinto',
       'Agenda por salas y horarios',
       'Rueda de negocios',

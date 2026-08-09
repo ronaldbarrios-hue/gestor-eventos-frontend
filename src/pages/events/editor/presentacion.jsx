@@ -7,7 +7,7 @@
    sentía pobre aunque el editor tuviera lienzo libre y veintiséis bloques.
 
    Estos ajustes viven en `block.data`, así que los lee igual el editor, la
-   página pública y el eFrame: los tres pintan con el mismo componente.
+   página pública y el iFrame: los tres pintan con el mismo componente.
 
    Se queda deliberadamente corto. Un panel con treinta perillas no hace
    mejores páginas, hace páginas indecisas: cuatro decisiones que siempre
@@ -128,7 +128,7 @@ export function ControlesPresentacion({ data = {}, onChange }) {
         <input
           value={p.titulo}
           onChange={(e) => set({ titulo: e.target.value })}
-          placeholder="Opcional — ej. Sobre el evento"
+          placeholder="Opcional. Ej: Sobre el evento"
           className="input rounded-xl py-2 text-sm"
         />
       </Grupo>

@@ -294,7 +294,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
                     </span>
                     <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${activo ? 'text-accent' : 'text-text-3'}`} />
                     <span className={`flex-1 py-2 text-[12.5px] truncate ${activo ? 'text-text-1 font-medium' : 'text-text-2'}`}>{b.data?.titulo?.trim() || labelDe(b.type)}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setEmbedId(b.id); }} aria-label="Exportar como iframe (eFrame)" title="Exportar esta sección como iframe (eFrame)"
+                    <button onClick={(e) => { e.stopPropagation(); setEmbedId(b.id); }} aria-label="Exportar como iframe (iFrame)" title="Exportar esta sección como iframe (iFrame)"
                       className="px-1.5 py-1 rounded-md text-text-3 hover:text-accent hover:bg-accent/10 transition-colors font-mono text-[10px] leading-none flex-shrink-0">{'</>'}</button>
                     <button onClick={(e) => { e.stopPropagation(); removeBlock(b.id); }} aria-label="Quitar"
                       className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-text-3 hover:text-danger transition-opacity">
@@ -461,19 +461,19 @@ export default function ExperienceBuilder({ evento, onClose }) {
                 )}
               </div>
 
-              {/* Exportar esta sección como iframe (eFrame) — visible y claro */}
+              {/* Exportar esta sección como iframe (iFrame) — visible y claro */}
               <div className="border-t border-border pt-3.5">
                 <button onClick={() => setEmbedId(sel.id)} className="btn-secondary btn-sm w-full justify-center">
                   <span className="font-mono">{'</>'}</span> Exportar como iframe
                 </button>
-                <p className="text-[11px] text-text-3 mt-1.5">Genera el código para incrustar SOLO esta sección en otra web (eFrame).</p>
+                <p className="text-[11px] text-text-3 mt-1.5">Genera el código para incrustar SOLO esta sección en otra web (iFrame).</p>
               </div>
             </div>
           </aside>
         )}
       </div>
 
-      {/* Exportar sección como iframe (eFrame) */}
+      {/* Exportar sección como iframe (iFrame) */}
       {embedId && (() => {
         const b = page?.blocks?.find(x => x.id === embedId);
         if (!b) return null;

@@ -1,4 +1,4 @@
-/* Exportación de secciones como iframe (eFrame).
+/* Exportación de secciones como iframe (iFrame).
    Una sección de la landing puede vivir dentro de la web de otra empresa:
    /embed/<slug>/<seccion>. Este módulo es la única fuente de verdad del
    formato de la URL y del snippet, para que el editor y la página pública

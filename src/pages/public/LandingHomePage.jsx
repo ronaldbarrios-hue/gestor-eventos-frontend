@@ -91,7 +91,7 @@ export default function LandingHomePage() {
           'Roles con permisos por evento (tickets, check-in, clientes…)',
           'Vista de empleado "Mi trabajo": sus eventos y tareas',
           'Chat del equipo por canales (general / staff)',
-          'Sugerencias, solicitudes y reportes del equipo → al organizador',
+          'Sugerencias, solicitudes y reportes del equipo al organizador',
           'Tareas tipo Kanban + recordatorios in-app (T-7d, T-1d, T-1h)',
         ]}
         visual={<TeamMockup />}

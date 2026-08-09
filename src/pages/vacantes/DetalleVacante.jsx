@@ -59,7 +59,7 @@ export default function DetalleVacante({ id, onClose, onPostulado }) {
 
           {yaPostule ? (
             <div className="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-text-1">
-              {t('Ya te postulaste — estado:')} <b>{t(ETAPAS_VACANTE.find(e => e.id === yaPostule.etapa)?.label || yaPostule.etapa)}</b>.
+              {t('Ya te postulaste. Estado:')} <b>{t(ETAPAS_VACANTE.find(e => e.id === yaPostule.etapa)?.label || yaPostule.etapa)}</b>.
             </div>
           ) : (<>
             {preguntas.length > 0 && (

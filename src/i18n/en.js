@@ -112,10 +112,10 @@ export default {
   /* ── Portada · mosaico de eventos reales ────────────────────── */
   'Hecho con GESTEK': 'Made with GESTEK',
   'Esto no es una maqueta': 'This is not a mockup',
-  'Son eventos que están publicados ahora mismo, con su boletería, su equipo y su página. Pulsa cualquiera para verlo por dentro.':
-    'These are events published right now, with their ticketing, their team and their page. Tap any of them to look inside.',
-  'Aquí van a aparecer los eventos que se publiquen con GESTEK. Cuando el primero tenga portada, entra solo.':
-    'Events published with GESTEK will show up here. As soon as the first one has a cover image, it appears on its own.',
+  'Son eventos publicados ahora mismo, con su boletería, su equipo y su página. Pulsa cualquiera para verlo por dentro.':
+    'Events published right now, with their ticketing, their team and their page. Tap any of them to look inside.',
+  'Aquí van a ir los eventos que se publiquen con GESTEK. Cada pieza se llena con el suyo en cuanto exista.':
+    'Events published with GESTEK go here. Each piece fills with one as soon as it exists.',
   'Ver todos los eventos': 'See every event',
 
   /* ── Portada · cinta ────────────────────────────────────────── */
@@ -203,7 +203,7 @@ export default {
   'Vista de empleado "Mi trabajo": sus eventos y tareas':
     'Staff view "My work": their events and tasks',
   'Chat del equipo por canales (general / staff)': 'Team chat by channel (general / staff)',
-  'Sugerencias, solicitudes y reportes del equipo → al organizador':
+  'Sugerencias, solicitudes y reportes del equipo al organizador':
     'Team suggestions, requests and reports → to the organizer',
   'Tareas tipo Kanban + recordatorios in-app (T-7d, T-1d, T-1h)':
     'Kanban-style tasks plus in-app reminders (T-7d, T-1d, T-1h)',
@@ -294,7 +294,7 @@ export default {
   'De idea a evento publicado,': 'From idea to published event,',
   'en': 'in',
   'menos de una tarde': 'less than an afternoon',
-  'GESTEK guía cada paso del ciclo de vida del evento — desde la creación hasta el análisis post-evento — sin que tengas que ensamblar 5 herramientas distintas.':
+  'GESTEK guía cada paso del ciclo de vida del evento, desde la creación hasta el análisis post-evento, sin que tengas que ensamblar 5 herramientas distintas.':
     'GESTEK guides every stage of the event lifecycle — from creation to post-event analysis — without you having to bolt together 5 different tools.',
   'Probar GESTEK': 'Try GESTEK',
   'Ver todas las funciones': 'See every feature',
@@ -310,7 +310,7 @@ export default {
   'Configura tu entorno de trabajo': 'Set up your workspace',
   'Cuéntanos en lenguaje natural qué tipo de eventos organizas: Gestbot propone la estructura inicial, o usa el wizard paso a paso.':
     'Tell us in plain language what kind of events you run: Gestbot proposes the starting structure, or use the step-by-step wizard.',
-  'Industria, frecuencia, tamaño promedio, modalidad — el agente prepara plantillas, agenda base y copy de invitación. Tú ajustas, no empiezas en blanco.':
+  'Industria, frecuencia, tamaño promedio y modalidad. Con eso el agente prepara plantillas, agenda base y copy de invitación. Tú ajustas, no empiezas en blanco.':
     'Industry, cadence, average size, format — the agent prepares templates, a base agenda and invitation copy. You adjust; you never start from a blank page.',
   'Crea el evento (wizard 4 pasos)': 'Create the event (4-step wizard)',
   'Información general → Espacios y accesos → Identidad y marca → Revisión y publicar. Diseñado para no saltarse pasos críticos.':
@@ -320,7 +320,7 @@ export default {
   'Comparte y vende boletas': 'Share and sell tickets',
   'Tu evento tiene página pública propia (gestek.io/explorar/tu-evento). Botón de compra con BRE-B usando tu llave o QR de organizador.':
     'Your event gets its own public page (gestek.io/explorar/your-event), with a BRE-B buy button using your organizer key or QR.',
-  'El dinero va directo a tu cuenta — GESTEK no toca el flujo de pago. Recibos automáticos por email al asistente.':
+  'El dinero va directo a tu cuenta. GESTEK no toca el flujo de pago. Recibos automáticos por email al asistente.':
     'The money goes straight to your account — GESTEK never touches the payment flow. Attendees get automatic email receipts.',
   'Gestiona la asistencia con QR': 'Handle attendance with QR',
   'Cada inscrito recibe un QR único. Escanea en la entrada para check-in, escanea de nuevo para check-out. Métricas en tiempo real.':
@@ -340,7 +340,7 @@ export default {
 
   'Casos de uso reales': 'Real use cases',
   'Cómo lo usan en producción': 'How people run it in production',
-  'Cuatro escenarios típicos donde GESTEK reemplaza la combinación habitual de Eventbrite + Mailchimp + Google Forms + Excel + Stripe.':
+  'Cuatro escenarios típicos donde GESTEK reemplaza la combinación habitual de Eventbrite, Mailchimp, Google Forms, Excel y Stripe.':
     'Four typical scenarios where GESTEK replaces the usual mix of Eventbrite + Mailchimp + Google Forms + Excel + Stripe.',
   'Empresas y corporativos': 'Companies and corporate',
   'Kick-off anual de 500 empleados con transporte y catering':
@@ -392,7 +392,7 @@ export default {
   'No. Todo corre en el navegador. El escáner de QR funciona desde la cámara del móvil de tu coordinador.':
     'No. Everything runs in the browser. The QR scanner works from your coordinator phone camera.',
   '¿Puedo importar asistentes de un Excel?': 'Can I import attendees from a spreadsheet?',
-  'Sí — desde el panel del evento subes un CSV con nombre y email y la plataforma genera los QR e invitaciones.':
+  'Sí. Desde el panel del evento subes un CSV con nombre y email, y la plataforma genera los QR e invitaciones.':
     'Yes — upload a CSV with name and email from the event panel and the platform generates the QR codes and invitations.',
   'Suficiente teoría': 'Enough theory',
   'Crea tu cuenta y prueba el flujo con un evento de demo en menos de 5 minutos.':
@@ -534,7 +534,7 @@ export default {
 
   'Experiencia del asistente': 'Attendee experience',
   'Editor de la página del evento': 'Event page editor',
-  'Cualquier sección incrustable (eFrame)': 'Any section embeddable (eFrame)',
+  'Cualquier sección incrustable (iFrame)': 'Any section embeddable (iFrame)',
   'Mapa navegable del recinto': 'Navigable venue map',
   'Agenda por salas y horarios': 'Agenda by room and time',
   'Rueda de negocios': 'Business matchmaking',
@@ -578,7 +578,7 @@ export default {
   'Configuración': 'Settings',
   'Apariencia': 'Appearance',
   'Qué guardamos en tu navegador': 'What we store in your browser',
-  'Solo lo necesario para que la página funcione como la dejaste: el tema, el idioma y tu sesión si entras. Sin analítica, sin píxeles y sin rastreadores de terceros — por eso no te pedimos aceptar cookies.':
+  'Solo lo necesario para que la página funcione como la dejaste: el tema, el idioma y tu sesión si entras. Sin analítica, sin píxeles y sin rastreadores de terceros, así que no te pedimos aceptar cookies.':
     'Only what the page needs to work the way you left it: theme, language, and your session if you sign in. No analytics, no pixels and no third-party trackers — which is why we never ask you to accept cookies.',
   'Claro': 'Light',
   'Oscuro': 'Dark',
@@ -658,8 +658,8 @@ export default {
     'Yes, whenever you want and with no retention calls. If you cancel, your events and data are not deleted: they stay and you can export them.',
 
   'Ya tengo página web. ¿Me sirve GESTEK?': 'I already have a website. Is GESTEK any use to me?',
-  'Sí, y no tienes que rehacer nada. Cualquier sección del evento se puede incrustar en tu web como un bloque: las boletas, el mapa del recinto, las llaves del torneo, la agenda. Copias un código, lo pegas donde quieras y el cobro nunca saca al visitante de tu página. Lo llamamos eFrame y está en el plan gratuito.':
-    'Yes, and you do not have to rebuild anything. Any section of the event can be embedded in your site as a block: tickets, the venue map, tournament brackets, the agenda. Copy a snippet, paste it where you want, and checkout never takes the visitor off your page. We call it eFrame and it is in the free plan.',
+  'Sí, y no tienes que rehacer nada. Cualquier sección del evento se puede incrustar en tu web como un bloque: las boletas, el mapa del recinto, las llaves del torneo, la agenda. Copias un código, lo pegas donde quieras y el cobro nunca saca al visitante de tu página. Lo llamamos iFrame y está en el plan gratuito.':
+    'Yes, and you do not have to rebuild anything. Any section of the event can be embedded in your site as a block: tickets, the venue map, tournament brackets, the agenda. Copy a snippet, paste it where you want, and checkout never takes the visitor off your page. We call it iFrame and it is in the free plan.',
   '¿Puedo quitar la marca GESTEK de la página de mi evento?': 'Can I remove GESTEK branding from my event page?',
   'Sí, con el plan de marca blanca. Pones tu logo, tus colores, tu tipografía y tu pie de página, y el asistente nunca ve nuestro nombre. En el plan gratuito la página ya usa tu logo y tus colores, pero conserva una mención discreta a GESTEK.':
     'Yes, with the white-label plan. Your logo, your colors, your typography and your footer, and the attendee never sees our name. On the free plan the page already uses your logo and colors, but keeps a discreet GESTEK mention.',
@@ -890,7 +890,7 @@ export default {
   'Crear evento': 'Create event',
   'Mis eventos': 'My events',
   'Explorar GESTEK': 'Explore GESTEK',
-  'Páginas públicas de eventos en GESTEK — inspírate para el tuyo.':
+  'Páginas públicas de eventos en GESTEK. Inspírate para el tuyo.':
     'Public event pages on GESTEK — get ideas for yours.',
   'Buscar por nombre, ciudad, categoría, estado…': 'Search by name, city, category, status…',
   'Categoría': 'Category',
@@ -980,7 +980,7 @@ export default {
   'No hay vacantes que coincidan. Prueba con otros filtros.':
     'No jobs match. Try different filters.',
   'Destacada': 'Featured',
-  'Ya te postulaste — estado:': 'You already applied — status:',
+  'Ya te postulaste. Estado:': 'You already applied — status:',
   'Preguntas de la vacante': 'Job questions',
   'Mensaje (opcional)': 'Message (optional)',
   'Cuéntale al organizador por qué eres buen fit.': 'Tell the organizer why you are a good fit.',

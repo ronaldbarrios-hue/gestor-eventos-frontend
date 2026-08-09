@@ -60,7 +60,7 @@ const GRUPOS = [
     preguntas: [
       {
         q: 'Ya tengo página web. ¿Me sirve GESTEK?',
-        a: 'Sí, y no tienes que rehacer nada. Cualquier sección del evento se puede incrustar en tu web como un bloque: las boletas, el mapa del recinto, las llaves del torneo, la agenda. Copias un código, lo pegas donde quieras y el cobro nunca saca al visitante de tu página. Lo llamamos eFrame y está en el plan gratuito.',
+        a: 'Sí, y no tienes que rehacer nada. Cualquier sección del evento se puede incrustar en tu web como un bloque: las boletas, el mapa del recinto, las llaves del torneo, la agenda. Copias un código, lo pegas donde quieras y el cobro nunca saca al visitante de tu página. Lo llamamos iFrame y está en el plan gratuito.',
       },
       {
         q: '¿Puedo quitar la marca GESTEK de la página de mi evento?',

@@ -110,7 +110,7 @@ export default function EventoPublicoPage() {
   const nav = navbarConfig(evento.page_json);
   const pillAlign = NAVBAR_ALINEACION[nav.alineacion] || 'justify-center';
   /* White Label del evento (page_json.branding) pisa el branding del
-     organizador SOLO en esta página — corazón de eFrame. */
+     organizador SOLO en esta página — corazón de iFrame. */
   const brandingEvento = evento.page_json?.branding || {};
   const organizador = {
     ...(evento.organizador || {}),

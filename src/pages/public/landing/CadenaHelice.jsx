@@ -129,7 +129,7 @@ export default function CadenaHelice({ pasos, children }) {
                   willChange: 'transform, opacity',
                 }}
               >
-                <Anillo n={paso.n} aplastado={quieta ? 1 : Math.abs(cos)} />
+                <Eslabon n={paso.n} aplastado={quieta ? 1 : Math.abs(cos)} inclinacion={quieta ? 0 : sen * 14} />
               </span>
             </div>
 
@@ -144,33 +144,70 @@ export default function CadenaHelice({ pasos, children }) {
   );
 }
 
-/* El anillo. Al girar sobre el eje vertical, un aro se ve cada vez más
-   estrecho hasta quedar de canto: eso es lo que hace `aplastado`, que es el
-   coseno del ángulo. Sin eso el eslabón solo se desplazaría de lado y
-   parecería que resbala, no que gira. */
-function Anillo({ n, aplastado }) {
-  const ancho = 26 + aplastado * 34;   // de canto ≈ 26px, de frente ≈ 60px
-  const alto = 76;
-  const grosor = 7;
+/* El eslabón, con la forma del logo.
+
+   El nudo de GESTEK son dos lazadas entrelazadas: hexágonos alargados con las
+   puntas arriba y abajo, inclinados, que se enganchan. Aquí se usa esa misma
+   lazada como eslabón, en vez de un aro genérico, para que la cadena hable el
+   idioma de la marca.
+
+   El giro es 3D de verdad, no un dibujo plano que se desliza: la pieza se
+   ESTRECHA con el coseno del ángulo, de ancha de frente a casi una línea de
+   canto, que es lo que hace un cuerpo rotando sobre su eje vertical. Además
+   el borde interior se separa del exterior según lo de frente que esté, así
+   que de perfil el hueco casi desaparece — como pasa con un eslabón real.
+
+   `aplastado` va de 0 (de canto) a 1 (de frente). */
+function Eslabon({ n, aplastado, inclinacion = 0 }) {
+  const ANCHO_MAX = 62;
+  const ALTO = 84;
+  const ancho = 8 + aplastado * (ANCHO_MAX - 8);
+  const grosor = 6.5;
+
+  /* El hexágono de la lazada, en coordenadas del propio eslabón. Al reducir
+     `ancho` las diagonales se cierran solas y la pieza se ve de perfil. */
+  const w = ancho, h = ALTO;
+  const externo = `${w / 2},0 ${w},${h * 0.21} ${w},${h * 0.79} ${w / 2},${h} 0,${h * 0.79} 0,${h * 0.21}`;
+  /* El hueco interior: se encoge más rápido que el contorno, así que de canto
+     se cierra antes, igual que el ojo de un eslabón visto de lado. */
+  const g = grosor * (0.45 + aplastado * 0.55);
+  const iw = Math.max(0, w - g * 2);
+  const ih = h - g * 2;
+  const interno = iw > 1
+    ? `${g + iw / 2},${g} ${g + iw},${g + ih * 0.21} ${g + iw},${g + ih * 0.79} ${g + iw / 2},${g + ih} ${g},${g + ih * 0.79} ${g},${g + ih * 0.21}`
+    : null;
 
   return (
     <svg
-      width={ancho} height={alto} viewBox={`0 0 ${ancho} ${alto}`}
-      className="drop-shadow-[0_3px_5px_rgba(43,35,18,0.35)] overflow-visible"
+      width={Math.max(w, 10)} height={h} viewBox={`0 0 ${Math.max(w, 10)} ${h}`}
+      className="overflow-visible drop-shadow-[0_3px_6px_rgba(43,35,18,0.4)]"
+      style={{ transform: `rotate(${inclinacion}deg)` }}
     >
-      <rect
-        x={grosor / 2} y={grosor / 2}
-        width={Math.max(1, ancho - grosor)} height={alto - grosor}
-        rx={Math.max(1, Math.min(ancho, alto) / 2 - grosor / 2)}
-        fill="none" stroke="currentColor" strokeWidth={grosor}
-        className="text-primary"
+      <defs>
+        {/* El latón no es plano: de un lado le da la luz y del otro no. Eso es
+            lo que termina de vender el volumen. */}
+        <linearGradient id={`laton-${n}`} x1="0" y1="0" x2="1" y2="0.3">
+          <stop offset="0%"   stopColor="#8A6E19" />
+          <stop offset="42%"  stopColor="#F2D66B" />
+          <stop offset="100%" stopColor="#A5811A" />
+        </linearGradient>
+      </defs>
+
+      {/* La pieza es el contorno menos el hueco: una sola figura con regla
+          evenodd, para que se vea como metal macizo y no como dos trazos. */}
+      <path
+        d={`M${externo.split(' ').join(' L').replace(/,/g, ' ')} Z${interno ? ` M${interno.split(' ').join(' L').replace(/,/g, ' ')} Z` : ''}`}
+        fill={`url(#laton-${n})`}
+        fillRule="evenodd"
       />
-      {/* El número solo aparece cuando el eslabón está lo bastante de frente
-          para que quepa; de canto se saldría del aro. */}
-      {aplastado > 0.45 && (
+
+      {/* El número solo cuando la pieza está lo bastante de frente para que
+          quepa dentro del hueco. */}
+      {aplastado > 0.5 && (
         <text
-          x={ancho / 2} y={alto / 2} textAnchor="middle" dominantBaseline="central"
-          className="fill-text-1 font-bold" style={{ fontSize: 15 }}
+          x={w / 2} y={h / 2} textAnchor="middle" dominantBaseline="central"
+          className="fill-[#12100B] font-bold"
+          style={{ fontSize: 15, transform: `rotate(${-inclinacion}deg)`, transformOrigin: `${w / 2}px ${h / 2}px` }}
         >
           {n}
         </text>

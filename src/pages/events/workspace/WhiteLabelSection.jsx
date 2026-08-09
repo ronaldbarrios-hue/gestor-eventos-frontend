@@ -5,7 +5,7 @@ import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    White Label del evento — Event Experience (Rework Fase 3.2)
-   El corazón de eFrame: lo que el público ve al abrir la página del
+   El corazón de iFrame: lo que el público ve al abrir la página del
    evento debe poder llevar 100% la identidad de la marca del cliente.
    Se guarda en page_json.branding y pisa el branding del organizador.
    ────────────────────────────────────────────────────────────────── */

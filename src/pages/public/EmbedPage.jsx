@@ -22,7 +22,7 @@ const ESPECIALES = {
 };
 
 /* ──────────────────────────────────────────────────────────────────
-   eFrame · /embed/:slug/:seccion
+   iFrame · /embed/:slug/:seccion
    Renderiza UNA sección de la landing, sin chrome de la app, para que
    una empresa la incruste en su propia web. Mismo componente Preview
    que usan el editor y la página pública: si allí se ve bien, aquí
