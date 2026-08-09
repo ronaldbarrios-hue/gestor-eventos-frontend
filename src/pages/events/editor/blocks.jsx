@@ -209,6 +209,32 @@ function DescripcionEditor({ data = {}, onChange, evento }) {
   );
 }
 
+function GaleriaEventoEditor({ data = {}, onChange, evento }) {
+  return (
+    <EditorSistema data={data} onChange={onChange} evento={evento} Preview={GaleriaEventoPreview} label="Galería del evento">
+      <Grupo label="Encabezado">
+        <input value={data.encabezado || ''} onChange={(e) => onChange({ ...data, encabezado: e.target.value })}
+          placeholder="Galería del evento" className="input rounded-xl py-2 text-sm" />
+      </Grupo>
+      <Grupo label="Columnas">
+        <Opciones valor={data.columnas || 3} onChange={(v) => onChange({ ...data, columnas: v })}
+          opciones={[[2, 'Dos'], [3, 'Tres'], [4, 'Cuatro']]} />
+      </Grupo>
+    </EditorSistema>
+  );
+}
+
+function LinksEditor({ data = {}, onChange, evento }) {
+  return (
+    <EditorSistema data={data} onChange={onChange} evento={evento} Preview={LinksPreview} label="Links">
+      <Grupo label="Encabezado">
+        <input value={data.encabezado || ''} onChange={(e) => onChange({ ...data, encabezado: e.target.value })}
+          placeholder="Links del evento" className="input rounded-xl py-2 text-sm" />
+      </Grupo>
+    </EditorSistema>
+  );
+}
+
 /* INFO — grid */
 const CAMPOS_INFO = [
   ['fecha',      'Fecha'],
@@ -368,9 +394,11 @@ function LinksPreview({ data, evento, isEditor }) {
     return <p className="text-sm text-text-3 italic">Sin links configurados.</p>;
   }
   return (
-    <div>
-      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">Links del evento</p>
-      <div className="flex flex-wrap gap-2">
+    <Seccion data={data}>
+      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">
+        {data?.encabezado || 'Links del evento'}
+      </p>
+      <div className={`flex flex-wrap gap-2 ${data?.alineacion === 'centro' ? 'justify-center' : ''}`}>
         {links.map((l, i) => (
           <a key={i} href={l.url} target="_blank" rel="noreferrer noopener"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full border border-border bg-surface/40 hover:bg-surface hover:border-border-2 text-sm text-text-1 transition-all">
@@ -379,7 +407,7 @@ function LinksPreview({ data, evento, isEditor }) {
           </a>
         ))}
       </div>
-    </div>
+    </Seccion>
   );
 }
 
@@ -395,10 +423,13 @@ function GaleriaEventoPreview({ data, evento, isEditor }) {
       </div>
     );
   }
+  const columnas = { 2: 'grid-cols-2', 3: 'grid-cols-2 sm:grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4' }[data?.columnas] || 'grid-cols-2 sm:grid-cols-3';
   return (
-    <div>
-      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">Galería del evento</p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <Seccion data={data}>
+      <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">
+        {data?.encabezado || 'Galería del evento'}
+      </p>
+      <div className={`grid ${columnas} gap-3`}>
         {urls.map((u, i) => (
           <a key={i} href={u} target="_blank" rel="noreferrer noopener"
             className="aspect-square rounded-2xl overflow-hidden border border-border hover:border-border-2 transition-all hover:scale-[1.02]">
@@ -406,7 +437,7 @@ function GaleriaEventoPreview({ data, evento, isEditor }) {
           </a>
         ))}
       </div>
-    </div>
+    </Seccion>
   );
 }
 
@@ -1546,7 +1577,7 @@ export const BLOCKS = {
     label: 'Galería del evento', category: 'sistema', icon: IconGaleria,
     defaults: {},
     Preview: GaleriaEventoPreview,
-    Editor: (props) => <EditorSistema {...props} Preview={GaleriaEventoPreview} label="Galería del evento" />,
+    Editor: GaleriaEventoEditor,
   },
   titulo: {
     label: 'Título del evento', category: 'sistema', icon: IconTitulo,
@@ -1576,7 +1607,7 @@ export const BLOCKS = {
     label: 'Links / redes sociales', category: 'sistema', icon: IconLinks,
     defaults: {},
     Preview: LinksPreview,
-    Editor: (props) => <EditorSistema {...props} Preview={LinksPreview} label="Links" />,
+    Editor: LinksEditor,
   },
   tickets: {
     label: 'Boletas / tickets', category: 'sistema', icon: IconTickets,
