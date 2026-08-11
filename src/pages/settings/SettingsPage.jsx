@@ -460,7 +460,6 @@ function IntegracionesTab() {
   const { success, error: toastErr } = useToast();
   const [tokens, setTokens]     = useState([]);
   const [webhooks, setWebhooks] = useState([]);
-  const [pro, setPro]           = useState(false);
   const [loading, setLoading]   = useState(true);
   const [nuevoToken, setNuevoToken] = useState(null); // {valor} mostrado una vez
   const [tokNombre, setTokNombre]   = useState('');
@@ -475,7 +474,7 @@ function IntegracionesTab() {
     try {
       const { integracionesApi } = await import('../../api/integraciones.js');
       const [t, w] = await Promise.all([integracionesApi.listTokens(), integracionesApi.listWebhooks()]);
-      setTokens(t.tokens || []); setPro(Boolean(t.pro));
+      setTokens(t.tokens || []);
       setWebhooks(w.webhooks || []);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally     { setLoading(false); }
@@ -523,16 +522,9 @@ function IntegracionesTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl bg-accent/5 border border-accent/20 px-4 py-3 text-sm text-text-2 leading-relaxed flex items-center justify-between gap-3">
-        <span>API REST + Webhooks para conectar GESTEK con tus sistemas (CRM, automatizaciones, facturación).</span>
-        <span className="badge badge-purple text-[10px] flex-shrink-0">Pro</span>
+      <div className="rounded-2xl bg-accent/5 border border-accent/20 px-4 py-3 text-sm text-text-2 leading-relaxed">
+        API REST + Webhooks para conectar GESTEK con tus sistemas (CRM, automatizaciones, facturación).
       </div>
-
-      {!pro && (
-        <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3 text-sm text-text-2">
-          Configura tu integración para crear tokens y webhooks.
-        </div>
-      )}
 
       {/* API Tokens */}
       <div className="card">
@@ -546,16 +538,14 @@ function IntegracionesTab() {
                 className="btn-secondary btn-sm mt-2">Copiar</button>
             </div>
           )}
-          {pro && (
-            <div className="flex items-end gap-2">
-              <div className="field flex-1">
-                <label className="label">Nombre del token</label>
-                <input className="input rounded-2xl py-2.5" value={tokNombre}
-                  onChange={e => setTokNombre(e.target.value)} placeholder="ej. Integración CRM" />
-              </div>
-              <button onClick={crearToken} disabled={busy || !tokNombre.trim()} className="btn-gradient">Generar</button>
+          <div className="flex items-end gap-2">
+            <div className="field flex-1">
+              <label className="label">Nombre del token</label>
+              <input className="input rounded-2xl py-2.5" value={tokNombre}
+                onChange={e => setTokNombre(e.target.value)} placeholder="ej. Integración CRM" />
             </div>
-          )}
+            <button onClick={crearToken} disabled={busy || !tokNombre.trim()} className="btn-gradient">Generar</button>
+          </div>
           {tokens.length === 0 ? (
             <p className="text-sm text-text-3 text-center py-3">Sin tokens.</p>
           ) : (
@@ -583,33 +573,31 @@ function IntegracionesTab() {
       <div className="card">
         <div className="card-header"><h3 className="text-base font-semibold text-text-1">Webhooks</h3></div>
         <div className="card-body space-y-4">
-          {pro && (
-            <div className="space-y-3">
-              <div className="field">
-                <label className="label">URL de destino</label>
-                <input className="input rounded-2xl py-2.5 font-mono" value={whUrl}
-                  onChange={e => setWhUrl(e.target.value)} placeholder="https://tu-sistema.com/webhook" />
-              </div>
-              <div>
-                <label className="label">Eventos</label>
-                <div className="flex flex-wrap gap-2">
-                  {WH_TIPOS.map(t => {
-                    const on = whEventos.includes(t.id);
-                    return (
-                      <button key={t.id} type="button"
-                        onClick={() => setWhEventos(s => on ? s.filter(x => x !== t.id) : [...s, t.id])}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${on ? 'border-primary/40 bg-primary/15 text-primary-light' : 'border-border text-text-3 hover:text-text-2'}`}>
-                        {t.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button onClick={crearWebhook} disabled={busy} className="btn-gradient">Crear webhook</button>
+          <div className="space-y-3">
+            <div className="field">
+              <label className="label">URL de destino</label>
+              <input className="input rounded-2xl py-2.5 font-mono" value={whUrl}
+                onChange={e => setWhUrl(e.target.value)} placeholder="https://tu-sistema.com/webhook" />
+            </div>
+            <div>
+              <label className="label">Eventos</label>
+              <div className="flex flex-wrap gap-2">
+                {WH_TIPOS.map(t => {
+                  const on = whEventos.includes(t.id);
+                  return (
+                    <button key={t.id} type="button"
+                      onClick={() => setWhEventos(s => on ? s.filter(x => x !== t.id) : [...s, t.id])}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${on ? 'border-primary/40 bg-primary/15 text-primary-light' : 'border-border text-text-3 hover:text-text-2'}`}>
+                      {t.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
+            <div className="flex justify-end">
+              <button onClick={crearWebhook} disabled={busy} className="btn-gradient">Crear webhook</button>
+            </div>
+          </div>
           {webhooks.length === 0 ? (
             <p className="text-sm text-text-3 text-center py-3">Sin webhooks.</p>
           ) : (

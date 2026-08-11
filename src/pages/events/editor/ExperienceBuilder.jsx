@@ -5,6 +5,7 @@ import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { eventosApi } from '../../../api/eventos.js';
+import { useDatosPreview } from '../../../hooks/useDatosPreview.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { BLOCKS, BLOCK_TYPES_SISTEMA, BLOCK_TYPES_CUSTOM } from './blocks.jsx';
@@ -59,7 +60,13 @@ function canvasDesdeBlocks(blocks, hasCover) {
   return { alto: Math.max(900, y + 60), elementos };
 }
 
-export default function ExperienceBuilder({ evento, onClose }) {
+export default function ExperienceBuilder({ evento: eventoBase, onClose }) {
+  /* El endpoint privado del evento no engancha ninguna colección, así que los
+     bloques que dependen de boletas, stands o recompensas se pintaban vacíos
+     dentro del editor aunque en público salieran bien. `useDatosPreview` las
+     trae y deja un evento equivalente al que ve el público. */
+  const { eventoCompleto: evento } = useDatosPreview(eventoBase);
+
   const initialPages = useMemo(() => {
     const pj = evento.page_json;
     if (pj?.pages?.length > 0) return pj.pages;

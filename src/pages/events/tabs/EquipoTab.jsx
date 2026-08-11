@@ -76,7 +76,7 @@ const ACCION_LABEL = {
 function AuditoriaSection({ eventoId }) {
   const [log, setLog]       = useState([]);
   const [loading, setLoading] = useState(true);
-  const [pro, setPro]       = useState(true);
+  const [error, setError]   = useState('');
 
   useEffect(() => {
     let activo = true;
@@ -84,7 +84,12 @@ function AuditoriaSection({ eventoId }) {
       .then(m => m.auditoriaApi.list(eventoId))
       .then(d => { if (activo) setLog(d.auditoria || []); })
       .catch(e => {
-        if (e.response?.status === 402) { if (activo) setPro(false); }
+        /* La auditoría es solo del dueño del evento; un colaborador recibe 403.
+           Antes cualquier fallo se leía como "te falta Pro". */
+        if (!activo) return;
+        setError(e.response?.status === 403
+          ? 'La auditoría solo la ve el dueño del evento.'
+          : (e.response?.data?.error || 'No se pudo cargar la auditoría.'));
       })
       .finally(() => { if (activo) setLoading(false); });
     return () => { activo = false; };
@@ -94,19 +99,16 @@ function AuditoriaSection({ eventoId }) {
 
   return (
     <section>
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3">
         <h3 className="text-lg font-bold font-display text-text-1 tracking-tight">Auditoría</h3>
-        <span className="badge badge-purple text-[10px]">Pro</span>
+        <p className="text-sm text-text-3 mt-0.5">Quién hizo qué en el evento: roles, ediciones, boletas y equipo.</p>
       </div>
 
       {loading ? (
         <div className="rounded-3xl border border-border bg-surface/40 p-6"><Spinner size="md" /></div>
-      ) : !pro ? (
-        <div className="rounded-3xl border border-accent/30 bg-accent/5 px-6 py-10 text-center">
-          <p className="text-base font-semibold text-text-1 mb-1">Auditoría no disponible</p>
-          <p className="text-sm text-text-2 max-w-sm mx-auto leading-relaxed">
-            Registrá quién hizo qué en tu evento (cambios de roles, ediciones, tickets, equipo). Activá Pro desde Configuración → Pagos.
-          </p>
+      ) : error ? (
+        <div className="rounded-3xl border border-border bg-surface/40 px-6 py-10 text-center">
+          <p className="text-sm text-text-2">{error}</p>
         </div>
       ) : log.length === 0 ? (
         <div className="rounded-3xl border border-border bg-surface/40 px-6 py-10 text-center">

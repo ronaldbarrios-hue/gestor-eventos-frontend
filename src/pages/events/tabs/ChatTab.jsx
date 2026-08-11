@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { chatApi } from '../../../api/chat.js';
 import { rolesApi } from '../../../api/roles.js';
 import { equipoApi } from '../../../api/equipo.js';
@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import { uploadEventImage } from '../../../components/ui/CoverUploader.jsx';
+import { formatoGrabacion, archivoDeAudio } from '../../../lib/grabacion.js';
 
 /* Chat staff por evento — sidebar de canales + área de mensajes con Realtime. */
 
@@ -271,11 +272,14 @@ function ChannelView({ evento, channel, usuario }) {
     } finally { setUploading(false); }
   };
 
-  const onSubirAudio = async (blob) => {
+  const onSubirAudio = async (blob, mimeGrabado) => {
     if (!blob) return;
     setUploading(true);
     try {
-      const file = new File([blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+      /* El type que sale de MediaRecorder trae los codecs pegados
+         ("audio/webm;codecs=opus") y el bucket los compara con igualdad
+         exacta, así que aquí se normaliza y se le pone la extensión real. */
+      const file = archivoDeAudio(blob, mimeGrabado);
       const url = await uploadEventImage(file, usuario.id, 'audio');
       const d = await chatApi.enviar(evento.id, channel.id, { contenido: '', file_url: url });
       setMessages(prev => prev.some(m => m.id === d.message.id) ? prev : [...prev, d.message]);
@@ -424,25 +428,47 @@ function MessageImage({ url }) {
 
 /* ─────────── AudioRecorderButton — hold to record ─────────── */
 
+/* Por debajo de esto no hay nada grabado: es el ruido de abrir y cerrar el
+   micrófono. Antes se descartaba en silencio y parecía que el audio no se
+   enviaba; ahora se avisa de que fue demasiado corto. */
+const MINIMO_BYTES = 1000;
+
 function AudioRecorderButton({ onComplete, disabled }) {
   const [recording, setRecording] = useState(false);
   const [elapsed,   setElapsed]   = useState(0);
   const mediaRef    = useRef(null);
   const chunksRef   = useRef([]);
   const timerRef    = useRef(null);
+  const arrancando  = useRef(false);
   const { error: toastErr } = useToast();
 
+  /* Se calcula una vez: si el navegador no puede grabar nada, el botón no se
+     ofrece en vez de fallar al pulsarlo. */
+  const formato = useMemo(() => formatoGrabacion(), []);
+
   const start = async () => {
-    if (disabled || recording) return;
+    /* En móvil se disparan touchstart y el mousedown emulado, y `recording`
+       todavía no ha llegado al estado: sin este cerrojo se abriría el
+       micrófono dos veces. */
+    if (disabled || recording || arrancando.current || !formato) return;
+    arrancando.current = true;
+    let stream = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: formato.mime });
       chunksRef.current = [];
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        /* `mr.mimeType` es la verdad de lo que se grabó, no lo que se pidió. */
+        const tipo = mr.mimeType || formato.mime;
+        const blob = new Blob(chunksRef.current, { type: tipo });
         stream.getTracks().forEach(t => t.stop());
-        if (blob.size > 1000) onComplete(blob);
+        if (blob.size > MINIMO_BYTES) onComplete(blob, tipo);
+        else toastErr('El audio fue demasiado corto. Mantén presionado mientras hablas.');
+      };
+      mr.onerror = () => {
+        stream?.getTracks().forEach(t => t.stop());
+        toastErr('La grabación se interrumpió.');
       };
       mediaRef.current = mr;
       mr.start();
@@ -450,7 +476,20 @@ function AudioRecorderButton({ onComplete, disabled }) {
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
     } catch (e) {
-      toastErr('No se pudo acceder al micrófono.');
+      stream?.getTracks().forEach(t => t.stop());
+      /* Distinguir el permiso denegado de que el micrófono no exista: antes
+         todo caía en "no se pudo acceder al micrófono", incluido el
+         NotSupportedError de Safari al pedirle webm. */
+      const nombre = e?.name || '';
+      if (nombre === 'NotAllowedError' || nombre === 'SecurityError') {
+        toastErr('Diste permiso denegado al micrófono. Habilítalo en el navegador.');
+      } else if (nombre === 'NotFoundError' || nombre === 'OverconstrainedError') {
+        toastErr('No se encontró ningún micrófono.');
+      } else {
+        toastErr('No se pudo grabar el audio en este navegador.');
+      }
+    } finally {
+      arrancando.current = false;
     }
   };
 
@@ -468,11 +507,17 @@ function AudioRecorderButton({ onComplete, disabled }) {
 
   const fmt = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
 
+  /* Sin formato grabable no se ofrece el botón: es más honesto que un botón
+     que siempre falla. */
+  if (!formato) return null;
+
   return (
     <button
       type="button"
       onMouseDown={start} onMouseUp={stop} onMouseLeave={stop}
-      onTouchStart={start} onTouchEnd={stop}
+      onTouchStart={(e) => { e.preventDefault(); start(); }}
+      onTouchEnd={(e) => { e.preventDefault(); stop(); }}
+      onTouchCancel={stop}
       disabled={disabled}
       aria-label="Mantén presionado para grabar audio"
       title="Mantén presionado para grabar"
