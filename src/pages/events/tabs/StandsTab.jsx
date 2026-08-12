@@ -33,7 +33,7 @@ export default function StandsTab({ evento, soyOwner }) {
   const { success, error: toastErr } = useToast();
   const [motivos, setMotivos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [vista, setVista] = useState('stands');   // stands | escanear | canjear | motivos | historial
+  const [vista, setVista] = useState('stands');   // stands | escanear | canjear | bolsa | pasaporte | motivos | historial
   const [motivoSel, setMotivoSel] = useState(null);
   const [lugar, setLugar] = useState('');
   const [ultimo, setUltimo] = useState(null);
@@ -90,7 +90,7 @@ export default function StandsTab({ evento, soyOwner }) {
           <p className="text-sm text-text-2 mt-1">Gestiona los stands del evento y, con la misma escarapela, registra puntos y entrega premios.</p>
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
-          {[['stands', 'Stands'], ['escanear', 'Dar puntos'], ['canjear', 'Canjear'], ['pasaporte', 'Pasaporte'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
+          {[['stands', 'Stands'], ['escanear', 'Dar puntos'], ['canjear', 'Canjear'], ['bolsa', 'Bolsa de puntos'], ['pasaporte', 'Pasaporte'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
             <button key={k} onClick={() => setVista(k)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${vista === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               {l}
@@ -100,6 +100,7 @@ export default function StandsTab({ evento, soyOwner }) {
       </div>
 
       {vista === 'stands' && <StandsEditor evento={evento} soyOwner={soyOwner} />}
+      {vista === 'bolsa' && <BolsaPuntos evento={evento} soyOwner={soyOwner} />}
       {vista === 'pasaporte' && <PasaporteConfig evento={evento} soyOwner={soyOwner} />}
 
       {vista === 'escanear' && (
@@ -307,36 +308,14 @@ function StandsEditor({ evento, soyOwner }) {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {stands.map(s => {
-            const manual = !s.ticket_id;
-            const borrador = s.estado_ficha === 'borrador';
-            return (
-              <div key={s.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3 group">
-                {s.logo_url
-                  ? <img src={s.logo_url} alt="" className="w-11 h-11 rounded-xl object-cover border border-border flex-shrink-0" />
-                  : <div className="w-11 h-11 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-base font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-1 truncate">{s.nombre}</p>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    {s.stand && <span className="text-[10px] font-mono bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">{s.stand}</span>}
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${manual ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-light'}`}>{manual ? 'Manual' : 'Boleta'}</span>
-                    {borrador && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">Borrador</span>}
-                  </div>
-                  {s.descripcion && <p className="text-xs text-text-3 mt-1.5 line-clamp-2">{s.descripcion}</p>}
-                </div>
-                <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => abrirEdicion(s)} title="Editar"
-                    className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                  </button>
-                  <button onClick={() => borrar(s)} title="Eliminar"
-                    className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {stands.map(s => (
+            <TarjetaStand
+              key={s.id}
+              s={s}
+              onEditar={() => abrirEdicion(s)}
+              onBorrar={() => borrar(s)}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -753,6 +732,284 @@ function Historial({ evento, items, soyOwner, onCambio }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/* ─────────── Tarjeta de un stand ───────────
+
+   Antes era un rectángulo con el nombre y dos botones al pasar el ratón. No
+   decía si el stand podía operar —si tiene motivos que registrar, si tiene
+   premios—, ni cuántos puntos había dado, ni de qué boleta salió, ni cómo
+   entrar a su portal. Todo eso existía en la base y no se veía en ninguna
+   pantalla. */
+function TarjetaStand({ s, onEditar, onBorrar }) {
+  const { success } = useToast();
+  const manual = !s.creado_por_boleta;
+  const borrador = s.estado_ficha === 'borrador';
+  const p = s.puntos || {};
+  const conCuota = s.cuota_puntos != null;
+  const gastado = Number(p.otorgados || 0);
+  const pct = conCuota && s.cuota_puntos > 0
+    ? Math.min(100, Math.round((gastado / s.cuota_puntos) * 100))
+    : 0;
+
+  /* El expositor entra a su portal con el código de su boleta-stand. Ese enlace
+     es lo que hay que pasarle, y hasta ahora había que armarlo a mano. */
+  const enlacePortal = s.codigo_boleta ? `${window.location.origin}/expositor/${s.codigo_boleta}` : null;
+
+  const copiarEnlace = () => {
+    if (!enlacePortal) return;
+    navigator.clipboard?.writeText(enlacePortal);
+    success('Enlace del portal copiado. Pásaselo al expositor.');
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3 group">
+      <div className="flex items-start gap-3">
+        {s.logo_url
+          ? <img src={s.logo_url} alt="" className="w-11 h-11 rounded-xl object-cover border border-border flex-shrink-0" />
+          : <div className="w-11 h-11 rounded-xl bg-surface-2 border border-border flex items-center justify-center flex-shrink-0">
+              <Icono name="stand" className="w-5 h-5 text-text-3" />
+            </div>}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-text-1 truncate">{s.nombre}</p>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {s.stand && <span className="text-[10px] font-mono bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">{s.stand}</span>}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${manual ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-light'}`}>
+              {manual ? 'Manual' : 'De una boleta'}
+            </span>
+            {borrador && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">Borrador</span>}
+            {!s.activo && <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/15 text-danger">Desactivado</span>}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button onClick={onEditar} aria-label="Editar"
+            className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+          </button>
+          <button onClick={onBorrar} aria-label="Eliminar"
+            className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center">
+            <Icono name="cerrar" className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {s.descripcion && <p className="text-xs text-text-3 line-clamp-2">{s.descripcion}</p>}
+
+      {/* ¿Puede operar? Un stand sin motivos no puede registrar nada, y eso solo
+          se descubría cuando el expositor lo intentaba. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        <Senal ok={s.tiene_motivos} si="con motivos" no="sin motivos que registrar" />
+        <Senal ok={s.tiene_premios} si="con premios" no="sin premios" neutro />
+      </div>
+
+      {/* Lo que ha repartido */}
+      <div className="rounded-xl bg-surface-2/50 border border-border px-3 py-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-[11px] text-text-3">Puntos otorgados</p>
+          <p className="text-sm font-semibold text-text-1 tabular-nums">
+            {gastado}{conCuota && <span className="text-text-3 font-normal"> / {s.cuota_puntos}</span>}
+          </p>
+        </div>
+        {conCuota && (
+          <div className="mt-1.5 h-1 rounded-full bg-surface-3 overflow-hidden">
+            <div className={`h-full rounded-full ${pct >= 100 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : 'bg-accent'}`}
+              style={{ width: `${pct}%` }} />
+          </div>
+        )}
+        <p className="text-[11px] text-text-3 mt-1">
+          {p.veces || 0} registro{(p.veces || 0) !== 1 ? 's' : ''} · {p.asistentes_distintos || 0} asistente{(p.asistentes_distintos || 0) !== 1 ? 's' : ''}
+          {conCuota && p.disponibles === 0 && <span className="text-danger"> · cuota agotada</span>}
+          {!conCuota && <span className="text-text-3"> · sin cuota asignada</span>}
+        </p>
+      </div>
+
+      {/* El portal del expositor */}
+      {enlacePortal ? (
+        <div className="flex items-center gap-2">
+          <a href={enlacePortal} target="_blank" rel="noreferrer noopener" className="btn-secondary btn-sm flex-1 justify-center">
+            Abrir su portal
+          </a>
+          <button onClick={copiarEnlace} className="btn-ghost btn-sm" title="Copiar el enlace para pasárselo">Copiar</button>
+        </div>
+      ) : (
+        <p className="text-[11px] text-text-3 border-l-2 border-border pl-2 leading-snug">
+          Este stand se creó a mano, así que no tiene portal: el expositor entra con el código de
+          una boleta de stand.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Senal({ ok, si, no, neutro }) {
+  return (
+    <span className={`inline-flex items-center gap-1 ${ok ? 'text-success' : neutro ? 'text-text-3' : 'text-warning'}`}>
+      <Icono name={ok ? 'check' : 'aviso'} className="w-3 h-3" />
+      {ok ? si : no}
+    </span>
+  );
+}
+
+/* ─────────── Bolsa de puntos del evento ───────────
+
+   El organizador define un total y reparte cuota por stand. Antes cada stand
+   podía otorgar sin límite, así que la economía del evento dependía de que
+   nadie se pasara — y la gracia de una gamificación es justo controlar cuánto
+   se reparte. El tope lo aplica además un trigger en la base: si mañana
+   aparece otro camino para dar puntos, sigue valiendo. */
+function BolsaPuntos({ evento, soyOwner }) {
+  const { success, error: toastErr } = useToast();
+  const [bolsa, setBolsa] = useState(null);
+  const [reparto, setReparto] = useState([]);
+  const [listo, setListo] = useState(true);
+  const [cargando, setCargando] = useState(true);
+  const [total, setTotal] = useState('');
+  const [cuotas, setCuotas] = useState({});
+  const [guardando, setGuardando] = useState(false);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    try {
+      const d = await networkingApi.bolsa(evento.id);
+      setBolsa(d.bolsa || null);
+      setReparto(d.reparto || []);
+      setListo(d.almacenamiento_listo !== false);
+      setTotal(d.bolsa?.bolsa_total != null ? String(d.bolsa.bolsa_total) : '');
+      const c = {};
+      for (const r of (d.reparto || [])) c[r.expositor_id] = r.cuota_puntos != null ? String(r.cuota_puntos) : '';
+      setCuotas(c);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setCargando(false); }
+  }, [evento.id, toastErr]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const sumaCuotas = Object.values(cuotas).reduce((s, v) => s + (Number(v) || 0), 0);
+  const totalNum = Number(total) || 0;
+  const sobra = total !== '' ? totalNum - sumaCuotas : null;
+
+  const guardarTodo = async () => {
+    setGuardando(true);
+    try {
+      await networkingApi.guardarBolsa(evento.id, { total: total === '' ? null : totalNum });
+      const limpias = {};
+      for (const [id, v] of Object.entries(cuotas)) limpias[id] = v === '' ? null : Number(v);
+      await networkingApi.guardarCuotas(evento.id, limpias);
+      success('Bolsa y reparto guardados.');
+      await cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setGuardando(false); }
+  };
+
+  /* Reparte lo que queda a partes iguales entre los stands sin cuota. Es lo que
+     todo el mundo hace a mano con una calculadora. */
+  const repartirParejo = () => {
+    if (total === '') { toastErr('Primero pon el total de la bolsa.'); return; }
+    const sinCuota = reparto.filter(r => !cuotas[r.expositor_id]);
+    const objetivo = sinCuota.length ? sinCuota : reparto;
+    if (!objetivo.length) return;
+    const yaFijado = reparto
+      .filter(r => !objetivo.some(o => o.expositor_id === r.expositor_id))
+      .reduce((s, r) => s + (Number(cuotas[r.expositor_id]) || 0), 0);
+    const porStand = Math.floor(Math.max(0, totalNum - yaFijado) / objetivo.length);
+    setCuotas(c => {
+      const n = { ...c };
+      for (const r of objetivo) n[r.expositor_id] = String(porStand);
+      return n;
+    });
+  };
+
+  if (!soyOwner) return null;
+  if (cargando) return <div className="card p-6"><Spinner size="md" /></div>;
+
+  if (!listo) return (
+    <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3">
+      <p className="text-sm text-text-1 font-medium">Falta aplicar la migración 0057</p>
+      <p className="text-xs text-text-2 mt-0.5">La bolsa de puntos necesita las tablas nuevas.</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-base font-semibold text-text-1">Bolsa de puntos del evento</h3>
+        <p className="text-sm text-text-3 mt-0.5 leading-relaxed max-w-2xl">
+          Define cuántos puntos se reparten en total y cuántos puede dar cada stand.
+          Un stand no puede pasarse de su cuota. Si dejas una cuota vacía, ese stand
+          no tiene tope.
+        </p>
+      </div>
+
+      <div className="grid sm:grid-cols-[200px_1fr] gap-4 items-end">
+        <div className="field">
+          <label className="label text-xs">Total de la bolsa</label>
+          <input type="number" min="0" value={total} onChange={e => setTotal(e.target.value)}
+            className="input rounded-xl py-2.5 text-sm" placeholder="Ej. 10000" />
+        </div>
+        <div className="flex items-center gap-4 flex-wrap text-sm">
+          <span className="text-text-3">Repartido: <strong className="text-text-1 tabular-nums">{sumaCuotas}</strong></span>
+          {sobra !== null && (
+            <span className={sobra < 0 ? 'text-danger' : 'text-text-3'}>
+              {sobra < 0 ? `Te pasas por ${-sobra}` : `Sin asignar: `}
+              {sobra >= 0 && <strong className="text-text-1 tabular-nums">{sobra}</strong>}
+            </span>
+          )}
+          <span className="text-text-3">Otorgado real: <strong className="text-text-1 tabular-nums">{bolsa?.otorgado_real ?? 0}</strong></span>
+          <button onClick={repartirParejo} className="btn-ghost btn-sm">Repartir parejo</button>
+        </div>
+      </div>
+
+      {reparto.length === 0 ? (
+        <p className="text-sm text-text-3">Todavía no hay stands a los que repartir.</p>
+      ) : (
+        <div className="rounded-2xl border border-border overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[520px]">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-text-3 border-b border-border bg-surface/60">
+                <th className="px-4 py-2.5 font-semibold">Stand</th>
+                <th className="px-4 py-2.5 font-semibold w-32">Cuota</th>
+                <th className="px-4 py-2.5 font-semibold text-right">Ya dio</th>
+                <th className="px-4 py-2.5 font-semibold text-right">Le queda</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {reparto.map(r => {
+                const v = cuotas[r.expositor_id] ?? '';
+                const dio = Number(r.otorgados || 0);
+                const bajo = v !== '' && Number(v) < dio;
+                return (
+                  <tr key={r.expositor_id}>
+                    <td className="px-4 py-2">
+                      <p className="text-text-1">{r.nombre}</p>
+                      {r.stand && <p className="text-[11px] font-mono text-text-3">{r.stand}</p>}
+                    </td>
+                    <td className="px-4 py-2">
+                      <input type="number" min="0" value={v}
+                        onChange={e => setCuotas(c => ({ ...c, [r.expositor_id]: e.target.value }))}
+                        className={`input rounded-lg py-1.5 text-sm ${bajo ? 'border-danger' : ''}`} placeholder="sin tope" />
+                      {bajo && <p className="text-[10px] text-danger mt-0.5">Ya dio {dio}</p>}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-text-2">{dio}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {v === ''
+                        ? <span className="text-text-3">sin tope</span>
+                        : <span className={Number(v) - dio <= 0 ? 'text-danger' : 'text-text-1'}>{Math.max(0, Number(v) - dio)}</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button onClick={guardarTodo} disabled={guardando || (sobra !== null && sobra < 0)} className="btn-primary">
+          {guardando ? <><Spinner size="sm" /> Guardando…</> : 'Guardar bolsa y reparto'}
+        </button>
+      </div>
     </div>
   );
 }

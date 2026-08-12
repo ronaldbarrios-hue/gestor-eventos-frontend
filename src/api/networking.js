@@ -8,7 +8,16 @@ export const networkingApi = {
   cancelar    : (eventoId, citaId) => client.delete(`/eventos/${eventoId}/networking/citas/${citaId}`).then(r => r.data),
 
   /* Vista del organizador */
-  expositoresAdmin: (eventoId) => client.get(`/eventos/${eventoId}/expositores`).then(r => r.data),
+  /* `todos: true` trae también los desactivados, que antes quedaban invisibles
+     en el panel y no se podían reactivar. */
+  expositoresAdmin: (eventoId, { todos } = {}) =>
+    client.get(`/eventos/${eventoId}/expositores`, { params: todos ? { todos: 1 } : {} }).then(r => r.data),
+
+  /* Bolsa de puntos del evento y su reparto por stand (migración 0057). */
+  bolsa       : (eventoId) => client.get(`/eventos/${eventoId}/expositores/bolsa`).then(r => r.data),
+  guardarBolsa: (eventoId, body) => client.put(`/eventos/${eventoId}/expositores/bolsa`, body).then(r => r.data),
+  guardarCuotas: (eventoId, cuotas) =>
+    client.put(`/eventos/${eventoId}/expositores/cuotas`, { cuotas }).then(r => r.data),
   crearStand      : (eventoId, body) => client.post(`/eventos/${eventoId}/expositores`, body).then(r => r.data),
   editarStand     : (eventoId, id, body) => client.patch(`/eventos/${eventoId}/expositores/${id}`, body).then(r => r.data),
   borrarStand     : (eventoId, id) => client.delete(`/eventos/${eventoId}/expositores/${id}`).then(r => r.data),
