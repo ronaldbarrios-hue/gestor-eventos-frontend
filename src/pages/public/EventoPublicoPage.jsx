@@ -588,10 +588,29 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
             </span>
           </label>
         )}
+        {/* Lo legal, y son DOS cosas.
+
+            GESTEK responde por la plataforma; el organizador por su evento: qué
+            datos recoge, para qué y cuánto los guarda. Con la ficha de
+            caracterización aplicada este formulario pide documento, etnia,
+            discapacidad y condición de víctima, así que el enlace a las
+            condiciones del evento no puede ser opcional — y antes lo era, y
+            venía apagado.
+
+            El enlace al evento va SIEMPRE, tenga el organizador documentos
+            propios o no: la página los muestra si existen y, si no, dice que
+            rigen los de la plataforma. Un enlace que a veces está y a veces no
+            es peor que uno que siempre explica algo. */}
         <p className="text-[11px] text-text-3 leading-relaxed">
           Al continuar aceptas los{' '}
-          <a href="/terminos" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">términos y condiciones</a> y la{' '}
-          <a href="/privacidad" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">política de privacidad</a> de GESTEK.
+          <Link to={`/explorar/${evento?.slug}/legal`} target="_blank" rel="noreferrer noopener"
+            className="underline text-text-2 hover:text-text-1">términos de este evento</Link>
+          {' '}y su{' '}
+          <Link to={`/explorar/${evento?.slug}/legal?doc=privacidad`} target="_blank" rel="noreferrer noopener"
+            className="underline text-text-2 hover:text-text-1">tratamiento de datos</Link>,
+          {' '}además de los{' '}
+          <a href="/terminos" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">términos</a> y la{' '}
+          <a href="/privacidad" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">privacidad</a> de GESTEK.
         </p>
         {!isFree && tienePagoSimple && (
           <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3 text-xs text-text-2 leading-relaxed space-y-2">

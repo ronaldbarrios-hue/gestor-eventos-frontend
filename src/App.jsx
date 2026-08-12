@@ -11,6 +11,7 @@ import CommandPalette from './components/layout/CommandPalette.jsx';
 import ErrorBoundary from './components/ui/ErrorBoundary.jsx';
 import LandingHomePage from './pages/public/LandingHomePage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
+import EventoLegalPage from './pages/public/EventoLegalPage.jsx';
 
 const ComoFuncionaPage   = lazy(() => import('./pages/public/ComoFuncionaPage.jsx'));
 const ProductoPage       = lazy(() => import('./pages/public/ProductoPage.jsx'));
@@ -90,6 +91,9 @@ export default function App() {
                 <Route path="/explorar/:slug/networking" element={<NetworkingPublicPage />} />
                 <Route path="/explorar/:slug/torneo" element={<TorneoPublicoPage />} />
                 <Route path="/explorar/:slug/agenda" element={<AgendaPublicaPage />} />
+                {/* Los términos del EVENTO, distintos de los de GESTEK. El
+                    formulario de inscripción enlaza siempre aquí. */}
+                <Route path="/explorar/:slug/legal" element={<EventoLegalPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
                 <Route path="/expositor/:codigo"  element={<ExpositorPage />} />
                   <Route path="/faq"               element={<FAQPage />} />

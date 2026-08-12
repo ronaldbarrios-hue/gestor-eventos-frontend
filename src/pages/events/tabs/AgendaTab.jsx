@@ -751,6 +751,10 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
        apuntarse a ESTA actividad, para poder contar quién participó en qué. */
     requiere_inscripcion: initial?.requiere_inscripcion === true,
     cupo       : initial?.cupo != null ? String(initial.cupo) : '',
+    /* ninguno | propio | evento. El caso normal es ninguno: la boleta ya
+       identificó a la persona y volver a pedirle sus datos para apuntarse a un
+       taller del mismo evento es hacerle escribir dos veces lo mismo. */
+    formulario_modo: initial?.formulario_modo || 'ninguno',
   });
   const [saving, setSaving] = useState(false);
   const competitivo = esCompetitivo(form.tipo);
@@ -772,6 +776,7 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
       requiere_inscripcion: form.requiere_inscripcion,
       /* Cupo vacío = sin límite, no cero. */
       cupo       : form.requiere_inscripcion && form.cupo !== '' ? Number(form.cupo) : null,
+      formulario_modo: form.requiere_inscripcion ? form.formulario_modo : 'ninguno',
     });
     setSaving(false);
   };
@@ -867,16 +872,37 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
         </label>
 
         {form.requiere_inscripcion && (
-          <div className="pl-7">
-            <label className="label text-xs">Cupo</label>
-            <input type="number" min="0" value={form.cupo}
-              onChange={e => setForm(f => ({ ...f, cupo: e.target.value }))}
-              placeholder="Sin límite"
-              className="input rounded-xl py-2.5 text-sm max-w-[180px]" />
-            <p className="text-[11px] text-text-3 mt-1">
-              Vacío = sin límite. Al llenarse, deja de aceptar inscripciones.
-              {initial?.inscritos > 0 && ` Ya hay ${initial.inscritos} inscrito${initial.inscritos !== 1 ? 's' : ''}.`}
-            </p>
+          <div className="pl-7 space-y-3">
+            <div>
+              <label className="label text-xs">Cupo</label>
+              <input type="number" min="0" value={form.cupo}
+                onChange={e => setForm(f => ({ ...f, cupo: e.target.value }))}
+                placeholder="Sin límite"
+                className="input rounded-xl py-2.5 text-sm max-w-[180px]" />
+              <p className="text-[11px] text-text-3 mt-1">
+                Vacío = sin límite. Al llenarse, deja de aceptar inscripciones.
+                {initial?.inscritos > 0 && ` Ya hay ${initial.inscritos} inscrito${initial.inscritos !== 1 ? 's' : ''}.`}
+              </p>
+            </div>
+
+            <div>
+              <label className="label text-xs">¿Le preguntas algo al inscribirse?</label>
+              <select value={form.formulario_modo}
+                onChange={e => setForm(f => ({ ...f, formulario_modo: e.target.value }))}
+                className="input bg-surface-2 rounded-xl py-2.5 text-sm">
+                <option value="ninguno">No, solo apuntarse</option>
+                <option value="propio">Sí, preguntas propias de esta actividad</option>
+                <option value="evento">El formulario completo del evento</option>
+              </select>
+              <p className="text-[11px] text-text-3 mt-1 leading-snug">
+                {form.formulario_modo === 'ninguno'
+                  && 'Lo normal. Su boleta ya dice quién es, así que apuntarse es un botón.'}
+                {form.formulario_modo === 'propio'
+                  && 'Para preguntas cortas sobre esta actividad: por qué le interesa, si querría más de esto. El editor de estas preguntas todavía no está: por ahora quedan sin ninguna, así que se comporta como «solo apuntarse».'}
+                {form.formulario_modo === 'evento'
+                  && 'Le vuelve a pedir todo lo del formulario del evento. Solo tiene sentido si esperas gente que no compró entrada.'}
+              </p>
+            </div>
           </div>
         )}
       </div>
