@@ -120,7 +120,7 @@ export default function LandingHomePage() {
           'Logo, colores, fondo y tipografía propios',
           'Se aplica en el panel y en las páginas públicas del evento',
           'Tagline + enlaces (web, Instagram, WhatsApp)',
-          'En Pro: sin "Powered by GESTEK" y footer propio',
+          'Puedes quitar el "Powered by GESTEK" y poner tu footer',
         ]}
         visual={<BrandMock />}
       />
@@ -317,13 +317,17 @@ function FreeIntro() {
     <section className="px-5 sm:px-8 pt-24 pb-6">
       <div ref={ref} className={`max-w-3xl mx-auto text-center transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
         <p className="text-xs uppercase tracking-widest text-primary-light font-bold mb-4">
-          {t('Plan gratuito')}
+          {t('Todo gratis')}
         </p>
         <h2 className="text-4xl sm:text-5xl font-bold font-display text-text-1 tracking-tight leading-tight mb-5">
-          {t('El plan gratuito incluye lo esencial para operar tus eventos.')}
+          {t('Todo GESTEK es de uso gratuito. Sin plan, sin niveles, sin funciones detrás de un muro.')}
         </h2>
         <p className="text-base sm:text-lg text-text-2 leading-relaxed">
-          {t('Asistentes ilimitados, QR de check-in, agenda con vista por día, equipo con roles y chat, programa de fidelidad con puntos y ranking, pagos BRE-B sin comisión y página pública con tu marca. Sin costo.')}
+          {t('Asistentes ilimitados, QR de check-in, agenda con vista por día, equipo con roles y chat, programa de fidelidad con puntos y ranking, pagos BRE-B sin comisión y página pública con tu marca.')}
+        </p>
+        {/* Lo único con tope, dicho aquí y no en letra pequeña. */}
+        <p className="text-sm text-text-3 leading-relaxed mt-5 max-w-xl mx-auto">
+          {t('Lo único con límite es el asistente de IA: funciona sobre una capa gratuita, así que tiene un número acotado de usos por día. Nada más lo tiene.')}
         </p>
       </div>
     </section>

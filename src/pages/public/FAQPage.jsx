@@ -39,7 +39,7 @@ const GRUPOS = [
     preguntas: [
       {
         q: '¿Cuánto cuesta GESTEK?',
-        a: 'El plan gratuito cubre lo esencial para operar tus eventos, sin límite de asistentes. Algunas funciones adicionales dentro del evento se pagan por uso, y hay un plan de marca blanca para quien quiera quitar nuestro logo. Lo que veas marcado como "Próximamente" en Producto todavía no existe: lo decimos en vez de anunciarlo.',
+        a: 'Todo GESTEK es de uso gratuito, sin límite de asistentes y sin funciones detrás de un plan. Lo único con tope es el asistente de IA, que funciona sobre una capa gratuita y por eso tiene un número acotado de usos por día. Lo que veas marcado como "Próximamente" en Producto todavía no existe: lo decimos en vez de anunciarlo.',
       },
       {
         q: '¿Cobran comisión por las ventas?',

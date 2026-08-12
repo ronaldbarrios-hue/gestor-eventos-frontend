@@ -66,7 +66,9 @@ export default function BotonConfiguracion() {
   ];
 
   return (
-    <div ref={raiz} className="fixed bottom-5 right-5 z-50">
+    /* El acompañante también vive en bottom-5 right-5: sin separarlos se
+     pisaban y el engranaje quedaba indistinguible. */
+    <div ref={raiz} className="fixed bottom-5 right-5 lg:bottom-[76px] z-50">
       {abierto && (
         <div
           role="dialog"

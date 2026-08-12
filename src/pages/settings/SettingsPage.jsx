@@ -367,7 +367,7 @@ export function WhiteLabelTab() {
                 placeholder="© 2026 Tu Empresa · Todos los derechos reservados"
                 className="input rounded-2xl py-3" />
               <p className="text-xs text-text-3 mt-1.5">
-                En Pro reemplaza el &quot;gestionado con GESTEK&quot;. Vacío = sin footer.
+                Reemplaza el &quot;gestionado con GESTEK&quot;. Vacío = sin footer.
               </p>
             </div>
 

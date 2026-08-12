@@ -369,7 +369,7 @@ function RegisterText() {
         className={`${staggerClass} text-xs uppercase tracking-widest text-[#F2D66B] font-semibold`}
         style={staggerStyle(1)}
       >
-        Plan gratuito · Sin límite de asistentes
+        Uso gratuito · Sin límite de asistentes
       </p>
 
       <h2

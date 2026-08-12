@@ -253,8 +253,6 @@ export default {
   'Se aplica en el panel y en las páginas públicas del evento':
     'Applies to the panel and to the public event pages',
   'Tagline + enlaces (web, Instagram, WhatsApp)': 'Tagline plus links (web, Instagram, WhatsApp)',
-  'En Pro: sin "Powered by GESTEK" y footer propio':
-    'On Pro: no "Powered by GESTEK" and your own footer',
 
   'API + Webhooks': 'API + Webhooks',
   'Conecta GESTEK con todo tu stack': 'Connect GESTEK to your whole stack',
@@ -510,7 +508,6 @@ export default {
   'Si no encuentras tu respuesta, escríbenos.': 'If you do not find your answer, write to us.',
   'Todo lo necesario para operar eventos: creación, página pública, asistentes ilimitados, QR de asistencia, recordatorios por email, gamificación, API + webhooks y pasarela BRE-B.':
     'Everything you need to run events: creation, a public page, unlimited attendees, attendance QR, email reminders, gamification, API plus webhooks and the BRE-B gateway.',
-  '¿Y qué añade el plan Pro?': 'And what does the Pro plan add?',
   'Agente IA que arma tus eventos según contexto, personalización de colores y tipografía, white-label (tu logo en vez de GESTEK), analytics avanzada y soporte prioritario.':
     'An AI agent that builds your events from context, custom colors and typography, white-label (your logo instead of GESTEK), advanced analytics and priority support.',
   '¿Cómo funciona la pasarela BRE-B?': 'How does the BRE-B gateway work?',
@@ -525,9 +522,6 @@ export default {
   '¿Olvidé mi contraseña, qué hago?': 'I forgot my password, what do I do?',
   'En la pantalla de login hay un enlace de "olvidé mi contraseña". Recibirás un correo con un enlace para restablecerla.':
     'There is a "forgot my password" link on the login screen. You will get an email with a link to reset it.',
-  '¿Puedo migrar de gratis a Pro o cancelar?': 'Can I move from free to Pro, or cancel?',
-  'Sí. Subes a Pro cuando lo necesites y cancelas cuando quieras. Si cancelas, tus eventos y datos no se pierden.':
-    'Yes. Upgrade to Pro whenever you need it and cancel whenever you want. If you cancel, your events and data are not lost.',
   '¿GESTEK tiene API?': 'Does GESTEK have an API?',
   'Sí, hay API REST completa con autenticación por API key y webhooks para inscripción, pago y check-in. Documentación con ejemplos disponible.':
     'Yes, there is a full REST API with API-key authentication and webhooks for registration, payment and check-in. Documentation with examples is available.',
@@ -1058,6 +1052,15 @@ export default {
   'Cambiar a modo oscuro': 'Switch to dark mode',
   'Cambiar idioma': 'Change language',
   'Idioma': 'Language',
+  'Tema': 'Theme',
+  'Todo gratis': 'All free',
+  'Todo GESTEK es de uso gratuito. Sin plan, sin niveles, sin funciones detrás de un muro.':
+    'All of GESTEK is free to use. No plan, no tiers, no features behind a wall.',
+  'Lo único con límite es el asistente de IA: funciona sobre una capa gratuita, así que tiene un número acotado de usos por día. Nada más lo tiene.':
+    'The only thing with a limit is the AI assistant: it runs on a free tier, so it has a capped number of uses per day. Nothing else does.',
+  'Puedes quitar el "Powered by GESTEK" y poner tu footer':
+    'You can remove the "Powered by GESTEK" and use your own footer',
+  'Uso gratuito · Sin límite de asistentes': 'Free to use · No attendee limit',
   'Abrir el acompañante': 'Open the companion',
   'Abrir Gestbot': 'Open Gestbot',
   'Mostrar el acompañante': 'Show the companion',
