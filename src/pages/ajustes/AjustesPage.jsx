@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 import { pantallaInicial, setPantallaInicial } from '../../lib/prefs.js';
 import SettingsPage, { NotificacionesTab, PagosTab, WhiteLabelTab, AparienciaCard } from '../settings/SettingsPage.jsx';
+import AscensoOrganizador, { VolverAModoAsistente } from '../../components/cuenta/AscensoOrganizador.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Ajustes — Rework Fase 5 (estructura del PDF)
@@ -146,6 +147,11 @@ function EspacioTrabajo() {
 
   return (
     <Seccion titulo="Espacio de Trabajo" desc="Construye tu propio GESTEK: qué ves y en qué orden.">
+      {/* El ascenso va arriba: para quien entró como asistente es la decisión
+          más grande de esta pantalla, y solo se le muestra a quien le aplica. */}
+      <AscensoOrganizador />
+      <VolverAModoAsistente />
+
       <div className="card p-5 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-text-1 mb-1.5">Pantalla inicial</h3>
