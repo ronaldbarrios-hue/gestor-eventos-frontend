@@ -1053,6 +1053,12 @@ export default {
   'Cambiar idioma': 'Change language',
   'Idioma': 'Language',
   'Tema': 'Theme',
+  'Viene de tu perfil': 'From your profile',
+  'Cambiar': 'Change',
+  'Editar en mi perfil': 'Edit in my profile',
+  'Sin definir': 'Not set',
+  'Estos datos son de tu cuenta y se usan en todas tus facetas. Al cambiarlos ahí, cambian aquí.':
+    'These belong to your account and are used across all your facets. Change them there and they change here.',
   'Todo gratis': 'All free',
   'Todo GESTEK es de uso gratuito. Sin plan, sin niveles, sin funciones detrás de un muro.':
     'All of GESTEK is free to use. No plan, no tiers, no features behind a wall.',

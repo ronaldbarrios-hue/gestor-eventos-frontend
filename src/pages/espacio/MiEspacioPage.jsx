@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useI18n } from '../../context/I18nContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { meApi } from '../../api/me.js';
+import { vacantesApi } from '../../api/vacantes.js';
+import { eventosApi } from '../../api/eventos.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useWidgets } from '../../hooks/useWidgets.js';
 import { EspacioDataProvider, useEspacioData } from '../../components/widgets/espacio/EspacioData.jsx';
@@ -53,6 +55,7 @@ const COMPONENTES = {
 
 export default function MiEspacioPage() {
   const { t } = useI18n();
+  const { usuario } = useAuth();
   const VISTAS = ['panel', 'colaborador', 'talento', 'postulaciones', 'organizador', 'expositor'];
   const [vista, setVista] = useState(() => {
     const pedida = new URLSearchParams(window.location.search).get('tab');
@@ -66,13 +69,42 @@ export default function MiEspacioPage() {
   };
 
   const [expositores, setExpositores] = useState([]);
-  useEffect(() => { meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {}); }, []);
+  /* Qué facetas usa esta persona de verdad. Se resuelve con lo que ya hay: si
+     tiene perfil de talento, si se ha postulado a algo, si es dueño de eventos y
+     si tiene stands. Todo va en paralelo y lo que falle se queda en false: una
+     pestaña de menos es mejor que una pantalla que no carga. */
+  const [tieneTalento, setTieneTalento] = useState(false);
+  const [tienePostulaciones, setTienePostulaciones] = useState(false);
+  const [esOrganizador, setEsOrganizador] = useState(false);
 
+  useEffect(() => {
+    meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {});
+    vacantesApi.miPerfil().then(d => setTieneTalento(Boolean(d?.perfil?.titular))).catch(() => {});
+    vacantesApi.misPostulaciones().then(d => setTienePostulaciones((d?.postulaciones || []).length > 0)).catch(() => {});
+    eventosApi.list({ limit: 1 }).then(d => setEsOrganizador((d?.eventos || []).length > 0)).catch(() => {});
+  }, []);
+
+  /* Colaborador: se es si el modo de la cuenta lo dice o si tiene eventos donde
+     no es dueño. El propio MiTrabajoPage ya resuelve lo segundo, así que aquí
+     basta el modo y que la pestaña aparezca si la piden por enlace. */
+  const esColaborador = usuario?.modoActivo === 'asistente' || esOrganizador;
+
+  /* Las pestañas aparecen POR USO, no todas de entrada.
+
+     «Mis stands» ya lo hacía: solo sale si tienes alguno. Lo mismo vale para el
+     resto — seis pestañas de las que casi todas están vacías es lo que hace
+     sentir duplicada una aplicación que no lo está.
+
+     La excepción es la que estás mirando: si llegas por un enlace directo a
+     ?tab=talento, esa pestaña tiene que existir aunque todavía no tengas perfil,
+     o el enlace no lleva a ninguna parte. */
   const TABS = [
-    ['panel', t('Mi panel')], ['colaborador', t('Colaborador')],
-    ['talento', t('Perfil de talento')], ['postulaciones', t('Mis postulaciones')],
-    ['organizador', t('Perfil de organizador')],
-    ...(expositores.length ? [['expositor', t('Mis stands')]] : []),
+    ['panel', t('Mi panel')],
+    ...(esColaborador || vista === 'colaborador' ? [['colaborador', t('Colaborador')]] : []),
+    ...(tieneTalento || vista === 'talento' ? [['talento', t('Perfil de talento')]] : []),
+    ...(tienePostulaciones || vista === 'postulaciones' ? [['postulaciones', t('Mis postulaciones')]] : []),
+    ...(esOrganizador || vista === 'organizador' ? [['organizador', t('Perfil de organizador')]] : []),
+    ...(expositores.length || vista === 'expositor' ? [['expositor', t('Mis stands')]] : []),
   ];
 
   return (

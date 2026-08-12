@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { vacantesApi } from '../../api/vacantes.js';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { validarArchivo, sanitizarNombre, TIPOS_CV, MAX_CV, ACCEPT_CV } from '../../lib/archivos.js';
-import ImagePicker from '../../components/ui/ImagePicker.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 
@@ -30,6 +31,7 @@ const Trazo = ({ d, className = '' }) => (
 
 export default function PerfilTalentoEditor() {
   const { t } = useI18n();
+  const { usuario } = useAuth();
   const { success, error: toastErr } = useToast();
   const [perfil, setPerfil] = useState(null);
   const [form, setForm] = useState(null);
@@ -43,11 +45,19 @@ export default function PerfilTalentoEditor() {
     try {
       const d = await vacantesApi.miPerfil();
       setPerfil(d.perfil);
+      /* Foto, ciudad y teléfono son de la PERSONA, no de esta faceta. Se
+         heredan de la cuenta y no se editan aquí: se editaban en dos sitios
+         contra dos almacenes distintos —los metadatos de Auth y la tabla
+         perfil_talento— que no se hablaban, así que la misma persona podía
+         acabar con dos fotos y dos teléfonos según por dónde se la mirara.
+
+         Se siguen ENVIANDO al guardar para que perfil_talento quede al día: el
+         snapshot que se congela al postularse lo lee de ahí, y tiene que
+         encontrar algo. */
       setForm({
         titular: d.perfil?.titular || '', bio: d.perfil?.bio || '',
         habilidades: (d.perfil?.habilidades || []).join(', '),
-        ciudad: d.perfil?.ciudad || '', telefono: d.perfil?.telefono || '',
-        foto_url: d.perfil?.foto_url || '', portfolio_url: d.perfil?.portfolio_url || '',
+        portfolio_url: d.perfil?.portfolio_url || '',
         cv_url: d.perfil?.cv_url || '', cv_nombre: d.perfil?.cv_nombre || '',
       });
     } catch (e) { toastErr(e.message); }
@@ -61,7 +71,15 @@ export default function PerfilTalentoEditor() {
     if (!form.titular.trim()) { toastErr(t('Ponle un titular a tu perfil (ej. "Logística y montaje").')); return; }
     setSaving(true);
     try {
-      const body = { ...form, habilidades: form.habilidades.split(',').map(s => s.trim()).filter(Boolean) };
+      const body = {
+        ...form,
+        habilidades: form.habilidades.split(',').map(s => s.trim()).filter(Boolean),
+        /* Lo heredado viaja con el resto: la cuenta es la fuente, perfil_talento
+           la copia que consulta el snapshot de una postulación. */
+        foto_url: usuario?.foto || '',
+        ciudad  : usuario?.ciudad || '',
+        telefono: usuario?.telefono || '',
+      };
       const d = await vacantesApi.guardarPerfil(body);
       setPerfil(d.perfil);
       success(t('Perfil de talento guardado.'));
@@ -156,10 +174,20 @@ export default function PerfilTalentoEditor() {
 
           {/* Columna izquierda: quién eres de un vistazo */}
           <div className="space-y-5">
+            {/* Heredado de la cuenta. Antes se subía aquí una segunda foto que
+                no tenía nada que ver con la del perfil. */}
             <div>
               <label className="label text-xs">{t('Foto')}</label>
-              <ImagePicker value={form.foto_url} onChange={url => set({ foto_url: url })}
-                           ownerId={perfil?.user_id} placeholder={t('URL o subir')} />
+              <div className="flex items-center gap-3">
+                {usuario?.foto
+                  ? <img src={usuario.foto} alt="" className="w-16 h-16 rounded-2xl object-cover border border-border" />
+                  : <div className="w-16 h-16 rounded-2xl bg-surface-2 border border-border flex items-center justify-center text-lg font-bold text-text-3">
+                      {(usuario?.nombre || '?').charAt(0).toUpperCase()}
+                    </div>}
+                <Link to="/ajustes?a=perfil" className="text-[11px] text-primary-light hover:underline leading-snug">
+                  {t('Viene de tu perfil')}<br />{t('Cambiar')}
+                </Link>
+              </div>
             </div>
 
             {/* Hoja de vida */}
@@ -231,20 +259,34 @@ export default function PerfilTalentoEditor() {
                      className="input rounded-xl py-2.5 text-sm" placeholder={t('servicio al cliente, montaje, sonido')} />
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div className="field">
-                <label className="label text-xs">{t('Ciudad')}</label>
-                <input value={form.ciudad} onChange={e => set({ ciudad: e.target.value })} className="input rounded-xl py-2.5 text-sm" />
+            <div className="field">
+              <label className="label text-xs">{t('Portafolio (URL)')}</label>
+              <input value={form.portfolio_url} onChange={e => set({ portfolio_url: e.target.value })}
+                     className="input rounded-xl py-2.5 text-sm" placeholder="https://" />
+            </div>
+
+            {/* Datos de contacto: se muestran, no se editan aquí. Son de la
+                cuenta, y tenerlos en dos formularios garantiza que un día
+                discrepen. */}
+            <div className="rounded-2xl border border-border bg-surface-2/40 px-4 py-3">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex gap-6 flex-wrap">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">{t('Ciudad')}</p>
+                    <p className="text-sm text-text-1">{usuario?.ciudad || <span className="text-text-3">{t('Sin definir')}</span>}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">{t('Teléfono')}</p>
+                    <p className="text-sm text-text-1">{usuario?.telefono || <span className="text-text-3">{t('Sin definir')}</span>}</p>
+                  </div>
+                </div>
+                <Link to="/ajustes?a=perfil" className="text-xs text-primary-light hover:underline flex-shrink-0">
+                  {t('Editar en mi perfil')} →
+                </Link>
               </div>
-              <div className="field">
-                <label className="label text-xs">{t('Teléfono')}</label>
-                <input value={form.telefono} onChange={e => set({ telefono: e.target.value })} className="input rounded-xl py-2.5 text-sm" />
-              </div>
-              <div className="field">
-                <label className="label text-xs">{t('Portafolio (URL)')}</label>
-                <input value={form.portfolio_url} onChange={e => set({ portfolio_url: e.target.value })}
-                       className="input rounded-xl py-2.5 text-sm" placeholder="https://" />
-              </div>
+              <p className="text-[11px] text-text-3 mt-2 leading-snug">
+                {t('Estos datos son de tu cuenta y se usan en todas tus facetas. Al cambiarlos ahí, cambian aquí.')}
+              </p>
             </div>
 
             <div className="flex justify-end pt-1">
