@@ -203,20 +203,20 @@ function Seguridad() {
 
   return (
     <Seccion titulo="Seguridad" desc="Protección de tu cuenta y tus sesiones.">
-      <form onSubmit={cambiar} className="card p-5 space-y-3 max-w-md">
+      <form onSubmit={cambiar} className="card p-5 space-y-3">
         <h3 className="text-sm font-semibold text-text-1">Cambiar contraseña</h3>
         <input type="password" className="input" placeholder="Nueva contraseña" value={pass.nueva} onChange={e => setPass(p => ({ ...p, nueva: e.target.value }))} autoComplete="new-password" />
         <input type="password" className="input" placeholder="Confirmar contraseña" value={pass.confirmar} onChange={e => setPass(p => ({ ...p, confirmar: e.target.value }))} autoComplete="new-password" />
         <button disabled={working} className="btn-primary btn-sm">Actualizar contraseña</button>
       </form>
 
-      <div className="card p-5 max-w-md">
+      <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-1 mb-1.5">Sesiones</h3>
         <p className="text-xs text-text-3 mb-3">Cierra la sesión en todos los dispositivos donde hayas entrado.</p>
         <button onClick={cerrarTodas} disabled={working} className="btn-danger btn-sm">Cerrar todas las sesiones</button>
       </div>
 
-      <div className="card p-5 max-w-md">
+      <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-1 mb-1.5">Autenticación en dos pasos (2FA)</h3>
         <p className="text-sm text-text-2">Verificación por app Authenticator y llaves físicas — en construcción dentro del rework.</p>
       </div>

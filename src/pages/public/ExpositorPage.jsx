@@ -74,7 +74,7 @@ export default function ExpositorPage() {
   const ev = data.evento || {};
 
   return (
-    <section className="px-5 py-10 max-w-2xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+    <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
       <div className="mb-5">
         <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Tu stand en {ev.titulo}</p>
         <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">{f.nombre || 'Tu expositor'}</h1>
@@ -288,7 +288,7 @@ function MotivosEditor({ codigo, motivos, onListo }) {
     finally { setSaving(false); }
   };
   return (
-    <div className="space-y-3 max-w-xl">
+    <div className="space-y-3">
       <p className="text-sm text-text-3">Tus puntos solo suman. El organizador fija un tope por escaneo.</p>
       {lista.map(m => (
         <div key={m._k} className="flex items-center gap-2 rounded-2xl border border-border bg-surface/40 p-3">
@@ -387,7 +387,7 @@ function PremiosEditor({ codigo }) {
     finally { setSaving(false); }
   };
   return (
-    <div className="space-y-3 max-w-xl">
+    <div className="space-y-3">
       {lista.map(r => (
         <div key={r._k} className="rounded-2xl border border-border bg-surface/40 p-3 space-y-2">
           <div className="flex items-center gap-2">

@@ -145,7 +145,11 @@ export default function CompletarPerfilPage() {
         Salir y volver al login
       </button>
 
-      <div className="relative w-full max-w-xl">
+      {/* max-w-xl son 576px, y las secciones de este formulario ya usan
+          sm:grid-cols-2 por dentro: dos columnas de 270px con su etiqueta, su
+          input y su placeholder. No había que añadir rejillas, había que darles
+          sitio. Los modales se quedan estrechos; una página de formulario no. */}
+      <div className="relative w-full max-w-3xl">
         {/* Header */}
         <div {...stagger(0)} className={`${stagger(0).className} flex items-center gap-3 mb-3`}>
           <img src={logoG} alt="GESTEK" className="w-9 h-9 drop-shadow-[0_0_14px_rgba(224,177,43,0.5)] animate-[float_5s_ease-in-out_infinite]" />
