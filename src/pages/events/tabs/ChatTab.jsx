@@ -10,6 +10,7 @@ import GLoader from '../../../components/ui/GLoader.jsx';
 import { uploadEventImage } from '../../../components/ui/CoverUploader.jsx';
 import { formatoGrabacion, archivoDeAudio } from '../../../lib/grabacion.js';
 import Icono from '../../../components/ui/Icono.jsx';
+import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 
 /* Chat staff por evento — sidebar de canales + área de mensajes con Realtime. */
 
@@ -29,9 +30,15 @@ export default function ChatTab({ evento }) {
   const [loadingChannels, setLoadingChannels] = useState(true);
   const [creating, setCreating] = useState(null); // null | 'root' | parentId
   const [puedeCrear, setPuedeCrear] = useState(false);
+  /* Moderar es borrar mensajes de otros. El propio siempre se puede. */
+  const [puedeModerar, setPuedeModerar] = useState(false);
   const [roles, setRoles] = useState([]);
   const [miembros, setMiembros] = useState([]);
   const [dmPicker, setDmPicker] = useState(false);
+  const [buscaDm, setBuscaDm] = useState('');
+  /* Los archivados se esconden por defecto: la gracia de archivar es que dejen
+     de estorbar. Se pueden volver a ver con el interruptor. */
+  const [verArchivados, setVerArchivados] = useState(false);
 
   /* Cargar canales + roles + miembros al montar */
   useEffect(() => {
@@ -44,6 +51,7 @@ export default function ChatTab({ evento }) {
         const list = d.channels || [];
         setChannels(list);
         setPuedeCrear(Boolean(d.puedeCrear));
+        setPuedeModerar(Boolean(d.puedeModerar));
         setRoles(r.roles || []);
         const staff = [
           ...(eq.owner ? [{ id: eq.owner.id, nombre: eq.owner.nombre || 'Organizador', avatar: eq.owner.avatar_url }] : []),
@@ -82,7 +90,29 @@ export default function ChatTab({ evento }) {
   /* Construye el árbol: padres con sus hijos (los DM van aparte) */
   const padres = channels.filter(c => !c.parent_id && c.tipo !== 'dm');
   const hijosDe = (pid) => channels.filter(c => c.parent_id === pid);
-  const dms = channels.filter(c => c.tipo === 'dm');
+  /* Anclado arriba, y lo archivado fuera salvo que se pida verlo. Las
+     preferencias son de cada persona: vienen de chat_channel_prefs. */
+  const ordenar = (lista) => [...lista].sort((a, b) => (b.anclado ? 1 : 0) - (a.anclado ? 1 : 0));
+  const visible = (c) => verArchivados || !c.archivado;
+
+  const dms = ordenar(channels.filter(c => c.tipo === 'dm' && visible(c)));
+  const nArchivados = channels.filter(c => c.archivado).length;
+
+  /* Cambia una preferencia y la refleja al momento: esperar la respuesta para
+     mover la conversación de sitio se siente roto. */
+  const cambiarPref = async (canal, patch) => {
+    setChannels(cs => cs.map(c => c.id === canal.id ? { ...c, ...patch } : c));
+    try {
+      await chatApi.prefs(evento.id, canal.id, patch);
+    } catch (e) {
+      /* Se revierte lo que se pintó: mejor volver atrás que mentir. */
+      setChannels(cs => cs.map(c => c.id === canal.id ? canal : c));
+      toastErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  const miembrosFiltrados = miembros.filter(m =>
+    !buscaDm.trim() || (m.nombre || '').toLowerCase().includes(buscaDm.trim().toLowerCase()));
 
   if (loadingChannels) return (
     <GLoader message="Cargando canales..." />
@@ -152,14 +182,25 @@ export default function ChatTab({ evento }) {
             {dmPicker && (
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setDmPicker(false)} />
-                <div className="absolute right-0 top-8 z-30 w-52 card-glass rounded-xl p-1 max-h-64 overflow-y-auto no-scrollbar">
-                  {miembros.map(m => (
-                    <button key={m.id} onClick={() => abrirDM(m.id)}
-                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
-                      {m.avatar ? <img src={m.avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-surface-3 text-text-3 text-[10px] flex items-center justify-center">{(m.nombre || '?').charAt(0).toUpperCase()}</span>}
-                      <span className="truncate">{m.nombre}</span>
-                    </button>
-                  ))}
+                <div className="absolute right-0 top-8 z-30 w-60 card-glass rounded-xl p-1.5">
+                  {/* Con un equipo grande, una lista sin buscador no se puede usar. */}
+                  {miembros.length > 6 && (
+                    <input autoFocus value={buscaDm} onChange={e => setBuscaDm(e.target.value)}
+                      placeholder="Buscar en el equipo…"
+                      className="input rounded-lg py-1.5 text-xs mb-1" />
+                  )}
+                  <div className="max-h-56 overflow-y-auto no-scrollbar">
+                    {miembrosFiltrados.length === 0 && (
+                      <p className="px-2.5 py-2 text-[11px] text-text-3">Nadie con ese nombre.</p>
+                    )}
+                    {miembrosFiltrados.map(m => (
+                      <button key={m.id} onClick={() => { abrirDM(m.id); setBuscaDm(''); }}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+                        {m.avatar ? <img src={m.avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-surface-3 text-text-3 text-[10px] flex items-center justify-center">{(m.nombre || '?').charAt(0).toUpperCase()}</span>}
+                        <span className="truncate">{m.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -167,8 +208,16 @@ export default function ChatTab({ evento }) {
           <div className="space-y-0.5">
             {dms.length === 0 && <p className="px-2 text-[11px] text-text-3">Escribe en privado a un miembro con el +.</p>}
             {dms.map(dm => (
-              <ChannelButton key={dm.id} channel={dm} active={activeId === dm.id} onClick={() => setActiveId(dm.id)} />
+              <ChannelButton key={dm.id} channel={dm} active={activeId === dm.id} onClick={() => setActiveId(dm.id)}
+                onAnclar={() => cambiarPref(dm, { anclado: !dm.anclado })}
+                onArchivar={() => cambiarPref(dm, { archivado: !dm.archivado })} />
             ))}
+            {nArchivados > 0 && (
+              <button onClick={() => setVerArchivados(v => !v)}
+                className="w-full text-left px-2.5 py-1.5 text-[11px] text-text-3 hover:text-text-2 transition-colors">
+                {verArchivados ? 'Ocultar' : 'Ver'} {nArchivados} archivada{nArchivados !== 1 ? 's' : ''}
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -176,7 +225,7 @@ export default function ChatTab({ evento }) {
       {/* Mensajes */}
       <section className="rounded-3xl border border-border bg-surface/40 flex flex-col overflow-hidden">
         {activeChannel
-          ? <ChannelView key={activeChannel.id} evento={evento} channel={activeChannel} usuario={usuario} />
+          ? <ChannelView key={activeChannel.id} evento={evento} channel={activeChannel} usuario={usuario} puedeModerar={puedeModerar} />
           : <EmptyState />
         }
       </section>
@@ -186,7 +235,7 @@ export default function ChatTab({ evento }) {
 
 /* ─────────── Vista de un canal ─────────── */
 
-function ChannelView({ evento, channel, usuario }) {
+function ChannelView({ evento, channel, usuario, puedeModerar }) {
   const [messages, setMessages] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [input,    setInput]    = useState('');
@@ -273,6 +322,28 @@ function ChannelView({ evento, channel, usuario }) {
     } finally { setUploading(false); }
   };
 
+  /* Borrado suave: el mensaje se marca y se queda en su sitio como "mensaje
+     eliminado". Si desapareciera, el resto vería un salto en la conversación
+     sin explicación. El servidor deja de mandar el contenido. */
+  const borrarMensaje = async (m) => {
+    const mio = m.user_id === usuario?.id;
+    if (!(await confirmDialog({
+      title: mio ? 'Eliminar tu mensaje' : 'Eliminar el mensaje de otra persona',
+      message: mio
+        ? 'Se marcará como eliminado para todos. No se puede deshacer.'
+        : 'Queda registrado que fuiste tú quien lo eliminó. No se puede deshacer.',
+      confirmLabel: 'Eliminar', danger: true,
+    }))) return;
+    try {
+      await chatApi.borrarMensaje(evento.id, channel.id, m.id);
+      setMessages(prev => prev.map(x => x.id === m.id
+        ? { ...x, borrado: true, contenido: null, file_url: null }
+        : x));
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    }
+  };
+
   const onSubirAudio = async (blob, mimeGrabado) => {
     if (!blob) return;
     setUploading(true);
@@ -327,6 +398,8 @@ function ChannelView({ evento, channel, usuario }) {
                 message={m}
                 showHeader={!sameAuthor}
                 isMine={isMine}
+                puedeBorrar={isMine || puedeModerar}
+                onBorrar={() => borrarMensaje(m)}
               />
             );
           })
@@ -374,21 +447,43 @@ function ChannelView({ evento, channel, usuario }) {
   );
 }
 
-function MessageBubble({ message, showHeader, isMine }) {
+function MessageBubble({ message, showHeader, isMine, puedeBorrar, onBorrar }) {
   const fecha = new Date(message.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   const initials = (message.autor?.nombre || 'U').split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
 
+  /* Un mensaje borrado deja su hueco marcado en vez de desaparecer: si se
+     esfumara, el resto vería un salto en la conversación sin explicación. El
+     contenido no llega del servidor, así que aquí no hay nada que esconder. */
+  if (message.borrado) {
+    const cuerpo = (
+      <p className="text-sm text-text-3 italic">Mensaje eliminado</p>
+    );
+    return showHeader
+      ? <div className="flex items-start gap-3"><div className="w-9 flex-shrink-0" />{cuerpo}</div>
+      : <div className="pl-12">{cuerpo}</div>;
+  }
+
+  const acciones = puedeBorrar ? (
+    <button onClick={onBorrar} aria-label="Eliminar mensaje"
+      className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-text-3 hover:text-danger flex-shrink-0">
+      <Icono name="cerrar" className="w-3 h-3" />
+    </button>
+  ) : null;
+
   if (!showHeader) {
     return (
-      <div className={`pl-12 group animate-[fadeUp_0.2s_ease_both]`}>
-        {message.contenido && <p className="text-sm text-text-1 leading-relaxed break-words">{message.contenido}</p>}
-        {message.file_url && <MessageImage url={message.file_url} />}
+      <div className={`pl-12 group animate-[fadeUp_0.2s_ease_both] flex items-start gap-2`}>
+        <div className="flex-1 min-w-0">
+          {message.contenido && <p className="text-sm text-text-1 leading-relaxed break-words">{message.contenido}</p>}
+          {message.file_url && <MessageImage url={message.file_url} />}
+        </div>
+        {acciones}
       </div>
     );
   }
 
   return (
-    <div className="flex items-start gap-3 animate-[fadeUp_0.25s_ease_both]">
+    <div className="flex items-start gap-3 animate-[fadeUp_0.25s_ease_both] group">
       <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
         {message.autor?.avatar_url
           ? <img src={message.autor.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -401,6 +496,7 @@ function MessageBubble({ message, showHeader, isMine }) {
             {isMine && <span className="ml-1.5 text-xs uppercase tracking-widest text-text-3 font-medium">tú</span>}
           </span>
           <span className="text-xs text-text-3 tabular-nums">{fecha}</span>
+          <span className="ml-auto">{acciones}</span>
         </div>
         {message.contenido && <p className="text-sm text-text-1 leading-relaxed break-words">{message.contenido}</p>}
         {message.file_url && <MessageImage url={message.file_url} />}
@@ -540,7 +636,7 @@ function MicIcon({ className }) {
 
 /* ─────────── Crear canal inline form ─────────── */
 
-function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
+function ChannelButton({ channel, active, onClick, onAddSub, indent, onAnclar, onArchivar }) {
   const esDM = channel.tipo === 'dm';
   const restringido = channel.rol_ids?.length > 0;
   const nombre = esDM ? (channel.dm_nombre || 'Directo') : channel.nombre;
@@ -561,7 +657,8 @@ function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
             : restringido
               ? <LockIcon className="w-3.5 h-3.5 text-warning flex-shrink-0" />
               : <HashIcon className="w-3.5 h-3.5 text-text-3 flex-shrink-0" />}
-        <span className="text-sm font-medium truncate">{nombre}</span>
+        {channel.anclado && <Icono name="chincheta" className="w-3 h-3 text-accent flex-shrink-0" titulo="Anclada" />}
+        <span className={`text-sm font-medium truncate ${channel.archivado ? 'opacity-50' : ''}`}>{nombre}</span>
         {!esDM && channel.tipo !== 'general' && !restringido && (
           <span className="ml-auto text-[10px] uppercase tracking-widest text-text-3">{TIPO_LABEL[channel.tipo] || channel.tipo}</span>
         )}
@@ -569,6 +666,21 @@ function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
           <span className="ml-auto text-[10px] uppercase tracking-widest text-warning">privado</span>
         )}
       </button>
+      {onAnclar && (
+        <button onClick={onAnclar} aria-label={channel.anclado ? 'Quitar de ancladas' : 'Anclar'}
+          title={channel.anclado ? 'Quitar de ancladas' : 'Anclar arriba'}
+          className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all
+            ${channel.anclado ? 'text-accent' : 'text-text-3 opacity-0 group-hover:opacity-100 hover:text-text-1'}`}>
+          <Icono name="chincheta" className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {onArchivar && (
+        <button onClick={onArchivar} aria-label={channel.archivado ? 'Desarchivar' : 'Archivar'}
+          title={channel.archivado ? 'Sacar del archivo' : 'Archivar (solo para ti)'}
+          className="w-7 h-7 rounded-lg text-text-3 opacity-0 group-hover:opacity-100 hover:text-text-1 flex items-center justify-center flex-shrink-0 transition-all">
+          <Icono name={channel.archivado ? 'bandeja' : 'documento'} className="w-3.5 h-3.5" />
+        </button>
+      )}
       {onAddSub && (
         <button
           onClick={onAddSub}
