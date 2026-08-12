@@ -13,27 +13,43 @@ lo que toque backend o base de datos se avisa antes.
 
 ---
 
-> ## ⚠️ Las migraciones 0060–0065 YA ESTÁN APLICADAS. Falta desplegar el código.
+> ## ⚠️ Estado del despliegue
 >
-> Base de datos al día. Lo que falta es subir **backend y frontend a la vez**;
-> hoy corren los viejos y la base va por delante.
+> | Pieza | Estado |
+> |---|---|
+> | Migraciones 0060–0067 | ✅ aplicadas |
+> | Backend (Render) | ✅ desplegado desde `main`, auto-deploy |
+> | **Frontend (Vercel)** | ❌ **falta: no auto-despliega, hay que lanzarlo a mano** |
 >
-> **Hay un puente temporal (0065) que hay que retirar después del despliegue.**
-> Lo que pasó: la 0064 sacó `branding`, `pages` y `navbar` de `page_json` dando
-> por hecho que el código nuevo estaba arriba. No lo estaba —el backend de
-> Render **sí está desplegado**, contra lo que decía `POR-HACER.md`— y sin el
-> `conSitio` que devuelve esas claves al JSON, las páginas públicas de los 31
-> eventos salieron vacías. La 0065 devolvió las copias y añadió un trigger que
-> mantiene las columnas al día mientras siga vivo el código viejo.
+> `main` tiene el código nuevo en los dos repos. Render lo cogió solo; **Vercel
+> no**. Se esperó siete minutos y seguía sirviendo el bundle anterior, así que
+> hay que lanzar el despliegue desde su panel (o desde cPanel con «Deploy HEAD
+> Commit», según cuál esté activo).
 >
-> **Orden para cerrarlo:**
+> Mientras tanto la aplicación funciona: backend nuevo + frontend viejo es una
+> combinación soportada a propósito. Lo que **no** se ve todavía es nada de lo
+> nuevo — iFrame, torneos anidados, buzón, Espacio del evento.
 >
-> 1. Desplegar el backend (`lib/eventoSitio.js` es lo que da la compatibilidad).
-> 2. Desplegar el frontend.
-> 3. Comprobar una página pública y un guardado desde el editor.
-> 4. Sólo entonces, retirar el puente con el `drop` que está al final de la
->    `0065`. Hasta ese paso hay dos copias del mismo dato a propósito, y el
->    trigger es lo que evita que se separen.
+> ### El puente, y por qué hay que retirarlo
+>
+> La 0064 sacó `branding`, `pages` y `navbar` de `page_json` dando por hecho
+> que el código nuevo estaba arriba. No lo estaba —el backend de Render **sí
+> está desplegado**, contra lo que decía `POR-HACER.md`— y sin el `conSitio`
+> que devuelve esas claves al JSON, las páginas públicas de los 31 eventos
+> salieron vacías unos minutos.
+>
+> Las migraciones 0065–0067 son el puente: devuelven las copias al JSON y un
+> trigger mantiene las dos versiones iguales **escriba quien escriba**, en los
+> dos sentidos. Con eso, backend viejo o nuevo y frontend viejo o nuevo son
+> cuatro combinaciones seguras.
+>
+> **Para cerrarlo, en este orden:**
+>
+> 1. Desplegar el frontend.
+> 2. Comprobar una página pública y un guardado desde el editor.
+> 3. Sólo entonces retirar el puente con el `drop` del final de la `0065`.
+>    Hasta ese paso hay dos copias del mismo dato a propósito, y el trigger es
+>    lo único que evita que se separen.
 >
 > Y una gratis: **`0007_event_roles.sql` ya no miente.** Siembra los roles en
 > español, los mismos valores que dejan la 0054 y la 0056. Reconstruir desde
