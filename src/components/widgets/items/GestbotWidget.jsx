@@ -43,6 +43,22 @@ export default function GestbotWidget() {
     });
   }
 
+  /* Publicado y a medias es peor que en borrador: el borrador no lo ve nadie,
+     y esto sí. Se mira sobre los campos del evento que ya vienen en la carga
+     del Inicio, así que no cuesta una petición más. */
+  const incompletos = eventos.filter(e =>
+    ['publicado', 'en_curso'].includes(e.estado) && (!e.cover_url || !e.location_nombre));
+  if (incompletos.length > 0) {
+    const [uno] = incompletos;
+    avisos.push({
+      texto: incompletos.length === 1
+        ? `«${uno.titulo}» está publicado sin ${!uno.cover_url ? 'portada' : 'dirección'}.`
+        : `${incompletos.length} eventos publicados a medias: les falta portada o dirección.`,
+      a: incompletos.length === 1 ? `/eventos/${uno.id}` : '/eventos',
+      urgente: true,
+    });
+  }
+
   const sinLeer = notifs.filter(n => !n.leida);
   if (sinLeer.length > 3) {
     avisos.push({
@@ -73,8 +89,11 @@ export default function GestbotWidget() {
               Todo en orden. Puedo ayudarte a crear tu próximo evento.
             </p>
           ) : (
+            /* Ahora el widget es ancho (lg), así que caben cuatro avisos sin
+               partir frases en tres líneas. Más de cuatro sería una bandeja
+               de entrada, y para eso están las notificaciones. */
             <ul className="space-y-2">
-              {avisos.slice(0, 3).map((a, i) => (
+              {avisos.slice(0, 4).map((a, i) => (
                 <li key={i}>
                   <Link
                     to={a.a}

@@ -15,6 +15,7 @@ import { ANIMACIONES } from './canvas/elementos.jsx';
 import { EventNavbar, blocksVisibles, resolveBranding, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../../components/public/EventChrome.jsx';
 import { BrandHeader } from '../../../components/public/Branding.jsx';
 import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
+import PublicacionSection from '../workspace/PublicacionSection.jsx';
 import ExportIframeModal from './ExportIframeModal.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -91,6 +92,17 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const [branding, setBranding] = useState(() => ({ ...(evento.page_json?.branding || {}) }));
   const initialBranding = useMemo(() => ({ ...(evento.page_json?.branding || {}) }), []); // eslint-disable-line
 
+  /* La publicación (#32) va por el mismo camino que la marca: vive aquí y se
+     escribe con todo lo demás. Sus datos son columnas propias del evento y no
+     `page_json`, así que ni siquiera podrían pisarse entre sí — pero un solo
+     botón de guardar sigue siendo más fácil de explicar que tres. */
+  const publicacionInicial = useMemo(() => ({
+    modo_publico: evento.modo_publico || 'gestek',
+    url_externa: evento.url_externa || '',
+  }), [evento.modo_publico, evento.url_externa]);
+  const [publicacion, setPublicacion] = useState(publicacionInicial);
+  const [pubOpen, setPubOpen] = useState(false);
+
   const { success, error: toastErr } = useToast();
 
   useEffect(() => {
@@ -98,9 +110,10 @@ export default function ExperienceBuilder({ evento, onClose }) {
       JSON.stringify(pages) !== JSON.stringify(initialPages)
       || JSON.stringify(navbar) !== JSON.stringify(initialNavbar)
       || JSON.stringify(branding) !== JSON.stringify(initialBranding)
+      || JSON.stringify(publicacion) !== JSON.stringify(publicacionInicial)
     );
     /* eslint-disable-next-line */
-  }, [pages, navbar, branding]);
+  }, [pages, navbar, branding, publicacion]);
 
   const setNav = (patch) => setNavbar(n => ({ ...n, ...patch }));
 
@@ -190,9 +203,33 @@ export default function ExperienceBuilder({ evento, onClose }) {
   };
 
   const guardar = async () => {
+    /* El servidor rechaza salir de GESTEK sin una web a la que salir. Se avisa
+       aquí antes de intentarlo para que el error no llegue como un 400 seco
+       después de haber perdido el resto del guardado. */
+    if (publicacion.modo_publico !== 'gestek' && !urlWebValida(publicacion.url_externa)) {
+      setPubOpen(true);
+      toastErr('Escribe la dirección de tu web (http:// o https://) o vuelve al modo "La página de GESTEK".');
+      return;
+    }
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), pages, navbar, branding } });
+      /* Cada cosa a su columna (migración 0064). Ya no se manda
+         `{...evento.page_json, …}`: ese patrón —copia vieja del evento entera,
+         reescrita encima— es exactamente lo que borraba la marca sola.
+
+         Ahora las páginas, el navbar y la marca son campos propios: aunque
+         otra pantalla guarde a la vez, no hay nada que puedan pisarse. Y lo
+         que sigue dentro de `page_json` (seo, checkout, mapa…) ni se toca
+         desde aquí, así que tampoco puede perderse. */
+      await eventosApi.update(evento.id, {
+        paginas: pages,
+        navbar,
+        branding,
+        modo_publico: publicacion.modo_publico,
+        url_externa: publicacion.modo_publico === 'gestek'
+          ? (publicacion.url_externa?.trim() || null)
+          : publicacion.url_externa.trim(),
+      });
       success('Página guardada. El sitio público ya está actualizado.');
       setDirty(false);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
@@ -224,6 +261,13 @@ export default function ExperienceBuilder({ evento, onClose }) {
               decisión SOBRE la página que se está editando, no una salida del
               editor como las otras. Arriba quedan solo las que abren otra cosa
               o cierran, y así la barra deja de mezclar dos tipos de acción. */}
+          <button onClick={() => setPubOpen(true)} className="btn-ghost btn-sm" title="Dónde vive la página del evento">
+            <GlobeIcon className="w-4 h-4" />
+            <span className="hidden md:inline">Publicación</span>
+            {publicacion.modo_publico !== 'gestek' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-hidden="true" />
+            )}
+          </button>
           <button onClick={() => setNavOpen(true)} className="btn-ghost btn-sm" title="Editar el navbar del sitio">
             <NavIcon className="w-4 h-4" /><span className="hidden md:inline">Navbar</span>
           </button>
@@ -564,6 +608,29 @@ export default function ExperienceBuilder({ evento, onClose }) {
         document.body,
       )}
 
+      {/* Drawer: Publicación — los tres modos (#32). Controlado, como Marca:
+          informa hacia arriba y guarda el botón de la barra. */}
+      {pubOpen && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998] bg-black/25" onClick={() => setPubOpen(false)} />
+          <aside className="fixed top-0 right-0 z-[9999] h-full w-[720px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
+            <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-text-1">Publicación</h2>
+                <p className="text-xs text-text-3 mt-0.5">Dónde vive la página del evento y qué ve quien abre el enlace.</p>
+              </div>
+              <button onClick={() => setPubOpen(false)} aria-label="Cerrar" className="w-9 h-9 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-5">
+              <PublicacionSection evento={evento} valor={publicacion} onChange={setPublicacion} />
+            </div>
+          </aside>
+        </>,
+        document.body,
+      )}
+
       {/* Drawer: Navbar del sitio (portal al body, igual que Marca) */}
       {navOpen && createPortal(
         <>
@@ -624,6 +691,16 @@ export default function ExperienceBuilder({ evento, onClose }) {
   );
 }
 
+/* Misma comprobación que hace la API antes de aceptar el guardado. */
+function urlWebValida(url) {
+  if (typeof url !== 'string' || !url.trim()) return false;
+  try {
+    const u = new URL(url.trim());
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch { return false; }
+}
+
+function GlobeIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" /></svg>; }
 function PaintIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 00-2 2 2 2 0 104 0m6-11h4a2 2 0 012 2v3a2 2 0 01-2 2h-2" /></svg>; }
 function NavIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="5" width="18" height="6" rx="2" /><path strokeLinecap="round" d="M7 8h4" /></svg>; }
 

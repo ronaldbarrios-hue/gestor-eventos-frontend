@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
 import { pagosApi }   from '../../api/pagos.js';
+import { waitlistApi } from '../../api/waitlist.js';
 import { BLOCKS } from '../events/editor/blocks.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/public/Branding.jsx';
 import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
@@ -22,6 +23,22 @@ export default function EventoPublicoPage() {
   const [waitlistTipo, setWaitlistTipo] = useState(null);
 
   const isStandalone = params.get('standalone') === '1';
+
+  /* Lista de espera: `?cupo=<token>` es el enlace del correo `cupo_liberado`.
+     Se comprueba nada más entrar —antes de que la persona escriba nada— para
+     poder decirle si su cupo sigue guardado y hasta cuándo. `null` mientras se
+     consulta, `false` si ya no vale. */
+  const cupoToken = params.get('cupo') || '';
+  const [cupo, setCupo] = useState(null);
+
+  useEffect(() => {
+    if (!cupoToken) { setCupo(false); return; }
+    let vivo = true;
+    waitlistApi.verificarCupo(cupoToken)
+      .then(d => { if (vivo) setCupo(d?.valida ? d : false); })
+      .catch(() => { if (vivo) setCupo(false); });
+    return () => { vivo = false; };
+  }, [cupoToken]);
 
   useEffect(() => {
     setLoading(true);
@@ -105,6 +122,23 @@ export default function EventoPublicoPage() {
       </Link>
     </section>
   );
+
+  /* ── Modo de publicación (migración 0060) ──
+     Si el organizador dijo que su evento vive en su propia web, aquí no hay
+     landing que pintar: se sale. Dos excepciones, ambas necesarias:
+       - `?standalone=1`, que es como el iframe abre el checkout — si eso
+         rebotara a la web del organizador, comprar desde un embed no
+         terminaría nunca;
+       - `?gestek=1`, para que el propio organizador pueda ver su landing de
+         respaldo sin tener que cambiar el modo de ida y vuelta.
+     Y si la URL está vacía o mal, se pinta la landing igual: dejar al
+     visitante en blanco es peor que enseñarle la página que sí existe. */
+  const salidaExterna = !isStandalone
+    && params.get('gestek') !== '1'
+    && (evento.modo_publico === 'externa' || evento.modo_publico === 'iframe')
+    && urlExternaValida(evento.url_externa);
+
+  if (salidaExterna) return <SalidaAWebPropia evento={evento} />;
 
   const hasCover = Boolean(evento.cover_url);
   const nav = navbarConfig(evento.page_json);
@@ -263,6 +297,17 @@ export default function EventoPublicoPage() {
           </>
         )}
 
+        {/* Lista de espera: el aviso de que este cupo es suyo va arriba del
+            todo y antes de las boletas. Si el enlace ya caducó también se
+            dice, porque la alternativa es que la persona lo descubra tras
+            rellenar el formulario. */}
+        {cupoToken && cupo !== null && (
+          <AvisoCupo cupo={cupo} onTomar={() => {
+            const t = (evento.ticket_types || []).find(x => x.id === cupo?.ticket_type_id);
+            if (t) setReservaTipo(t);
+          }} />
+        )}
+
         {/* Contenido de la página: lienzo libre o bloques ordenados */}
         {activePage?.modo === 'lienzo' && activePage?.canvas?.elementos?.length > 0 ? (
           <div key={activePage?.id} className="animate-[fadeUp_0.4s_ease_both]">
@@ -321,6 +366,9 @@ export default function EventoPublicoPage() {
           slug={slug}
           currency={evento.currency}
           evento={evento}
+          /* Sólo si la oferta es para ESTA boleta: el token guarda un cupo
+             concreto, no una entrada libre a cualquier tipo del evento. */
+          cupoToken={cupo && cupo.ticket_type_id === reservaTipo.id ? cupoToken : ''}
           onClose={() => setReservaTipo(null)}
           onSuccess={(t) => { setReservaTipo(null); setReservaOk(t); }}
         />
@@ -496,7 +544,45 @@ function FormPhotoUploaderLazy(props) {
 }
 
 /* ─────────── Modales de reserva ─────────── */
-function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
+/* Aviso del cupo que llegó por correo. Dos caras: la buena, con el plazo a la
+   vista, y la de "llegaste tarde", que hay que decir igual — enterarse al
+   pulsar Reservar, después de escribirlo todo, es peor. */
+function AvisoCupo({ cupo, onTomar }) {
+  if (!cupo) {
+    return (
+      <div className="mb-8 rounded-2xl border border-warning/30 bg-warning/5 px-5 py-4">
+        <p className="text-sm font-semibold text-text-1">Ese enlace de cupo ya no vale</p>
+        <p className="text-sm text-text-2 mt-1">
+          O se usó, o se pasó el plazo y le tocó al siguiente de la lista. Sigues
+          en la fila: si se libera otro, te volvemos a avisar.
+        </p>
+      </div>
+    );
+  }
+
+  const expira = cupo.expira ? new Date(cupo.expira) : null;
+  const cuando = expira && !Number.isNaN(expira.getTime())
+    ? expira.toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })
+    : null;
+
+  return (
+    <div className="mb-8 rounded-2xl border border-success/40 bg-success/5 px-5 py-4 flex items-start justify-between gap-4 flex-wrap">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-text-1">
+          Se liberó un cupo y es tuyo{cupo.ticket_type_nombre ? ` · ${cupo.ticket_type_nombre}` : ''}
+        </p>
+        <p className="text-sm text-text-2 mt-1">
+          {cuando
+            ? <>Te lo guardamos hasta el <strong className="text-text-1">{cuando}</strong>. Pasado ese momento le toca al siguiente de la lista.</>
+            : 'Te lo guardamos un rato. Después le toca al siguiente de la lista.'}
+        </p>
+      </div>
+      <button onClick={onTomar} className="btn-gradient flex-shrink-0">Tomar mi cupo</button>
+    </div>
+  );
+}
+
+function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
   const [working, setWorking] = useState(false);
@@ -534,15 +620,20 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
     }
     setWorking(true); setErr('');
     try {
+      /* El token del correo viaja con la compra: es lo que le da derecho al
+         cupo que el servidor le está guardando. Sin él, el backend ve el sitio
+         como reservado para otro y la venta se rechaza. */
       if (isFree || tienePagoSimple) {
         const res = await eventosApi.reservar(slug, {
           ticket_type_id: tipo.id,
           nombre: form.nombre, email: form.email, telefono: form.telefono,
           captcha_token: captcha, respuestas,
+          ...(cupoToken ? { waitlist_token: cupoToken } : {}),
         });
         onSuccess({ ...res.ticket, requierePago: !isFree, tipo, pagoSimple: tienePagoSimple && !isFree });
       } else {
-        const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas };
+        const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas,
+          ...(cupoToken ? { waitlist_token: cupoToken } : {}) };
         if (gatewayRef.current === 'wompi') {
           const res = await pagosApi.comprarWompi(slug, body);
           const url = res.checkout?.url;
@@ -759,6 +850,49 @@ function ModalShell({ children, onClose }) {
 function brandingEventoTitulo(evento) {
   const marca = evento.page_json?.branding?.plataforma;
   return marca ? `${evento.titulo} · ${marca}` : `${evento.titulo} · GESTEK`;
+}
+
+/* Sólo http/https. La columna la valida la API al guardarla, pero esto se
+   pinta con lo que devuelve el servidor y acaba en un `href`: una fila vieja
+   o tocada a mano no puede convertirse en un `javascript:` clicable. */
+function urlExternaValida(url) {
+  if (typeof url !== 'string' || !url.trim()) return false;
+  try {
+    const u = new URL(url.trim());
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch { return false; }
+}
+
+/* Pantalla de salida cuando el evento vive en la web del organizador.
+
+   Redirige, pero no en blanco: se dice a dónde va y se deja el enlace a mano.
+   Si el navegador bloquea la redirección —o si tarda— el visitante tiene algo
+   que tocar en vez de una pantalla muerta. `replace` y no `href` para que el
+   botón de atrás vuelva de donde vino y no rebote otra vez hacia fuera. */
+function SalidaAWebPropia({ evento }) {
+  const destino = evento.url_externa.trim();
+  const anfitrion = (() => { try { return new URL(destino).hostname.replace(/^www\./, ''); } catch { return destino; } })();
+
+  useEffect(() => {
+    const id = setTimeout(() => { window.location.replace(destino); }, 400);
+    return () => clearTimeout(id);
+  }, [destino]);
+
+  return (
+    <section className="px-5 py-24 max-w-md mx-auto text-center">
+      <p className="text-xs uppercase tracking-widest text-text-3 mb-3">{evento.titulo}</p>
+      <h1 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-2">
+        Te llevamos a {anfitrion}
+      </h1>
+      <p className="text-sm text-text-2 mb-6">
+        Este evento se publica en la web de su organizador.
+      </p>
+      <a href={destino} rel="noreferrer noopener"
+         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-border-2 text-sm hover:bg-surface">
+        Ir ahora →
+      </a>
+    </section>
+  );
 }
 
 /* Boletas funcionales incrustadas en el lienzo libre */

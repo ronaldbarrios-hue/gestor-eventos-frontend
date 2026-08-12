@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { torneosApi } from '../../../api/torneos.js';
+import { agendaApi } from '../../../api/agenda.js';
+import { aplanar, ramaCompleta, rutaDe } from '../../../lib/torneoCategorias.js';
+import CategoriasTorneo from './CategoriasTorneo.jsx';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
@@ -17,7 +20,22 @@ export default function TorneoTab({ evento, soyOwner }) {
   const [detalle, setDetalle] = useState(null);      // { torneo, equipos, partidos }
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [creando, setCreando] = useState(false);
+  /* #48 · El árbol y por qué rama se está mirando. `null` = todas. */
+  const [categorias, setCategorias] = useState([]);
+  const [ramaSel, setRamaSel] = useState(null);
+  const [editorCats, setEditorCats] = useState(false);
   const { error: toastErr } = useToast();
+
+  const cargarCategorias = async () => {
+    try {
+      const { categorias: cats } = await torneosApi.categorias(evento.id);
+      setCategorias(cats || []);
+    } catch {
+      /* Sin la 0062 aplicada esto falla y no pasa nada: sin árbol, los
+         torneos se listan como siempre. */
+      setCategorias([]);
+    }
+  };
 
   /* Refresca la lista y deja seleccionado `preferId` (o el actual, o el 1º). */
   const refrescar = async (preferId) => {
@@ -41,7 +59,7 @@ export default function TorneoTab({ evento, soyOwner }) {
     finally { setCargandoDetalle(false); }
   };
 
-  useEffect(() => { refrescar(); /* eslint-disable-next-line */ }, [evento.id]);
+  useEffect(() => { refrescar(); cargarCategorias(); /* eslint-disable-next-line */ }, [evento.id]);
 
   const seleccionar = (id) => { setCreando(false); setSelId(id); cargarDetalle(id); };
 
@@ -50,7 +68,7 @@ export default function TorneoTab({ evento, soyOwner }) {
   /* Sin torneos: owner ve el creador directo; visitante, un vacío. */
   if (torneos.length === 0 && !creando) {
     return soyOwner
-      ? <CrearTorneo eventoId={evento.id} onCreado={(t) => refrescar(t?.id)} onCancelar={null} />
+      ? <CrearTorneo eventoId={evento.id} categorias={categorias} onCreado={(t) => refrescar(t?.id)} onCancelar={null} />
       : (
         <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
           <p className="text-sm text-text-3">El organizador todavía no configuró torneos en este evento.</p>
@@ -58,21 +76,81 @@ export default function TorneoTab({ evento, soyOwner }) {
       );
   }
 
+  /* Al elegir una rama se ven también los torneos de sus sub-ramas: pulsar
+     "deportes" y no ver los de "deportes › contacto" convertiría el árbol en
+     un montón de etiquetas sueltas. */
+  const dentroDeRama = ramaCompleta(categorias, ramaSel);
+  const visibles = ramaSel
+    ? torneos.filter(t => t.categoria_id && dentroDeRama.has(String(t.categoria_id)))
+    : torneos;
+  const sinClasificar = torneos.filter(t => !t.categoria_id).length;
+
   return (
     <div className="space-y-5">
+      {/* #48 · Navegación por categorías. Sólo aparece si hay árbol: con dos
+          torneos sueltos, una fila de filtros vacía es ruido. */}
+      {(categorias.length > 0 || soyOwner) && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {categorias.length > 0 && (
+            <>
+              <button onClick={() => setRamaSel(null)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
+                  ${ramaSel === null ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+                Todos ({torneos.length})
+              </button>
+              {aplanar(categorias).map(c => {
+                const cuantos = torneos.filter(t => t.categoria_id && ramaCompleta(categorias, c.id).has(String(t.categoria_id))).length;
+                return (
+                  <button key={c.id} onClick={() => setRamaSel(ramaSel === c.id ? null : c.id)}
+                    /* La sangría dice el nivel sin necesidad de dibujar el
+                       árbol otra vez en una fila de botones. */
+                    style={{ marginLeft: c.profundidad ? c.profundidad * 6 : 0 }}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
+                      ${ramaSel === c.id ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}
+                      ${cuantos === 0 ? 'opacity-50' : ''}`}>
+                    {c.profundidad > 0 && <span className="opacity-50 mr-1">›</span>}
+                    {c.nombre}{cuantos > 0 && <span className="ml-1 opacity-70">{cuantos}</span>}
+                  </button>
+                );
+              })}
+              {sinClasificar > 0 && (
+                <span className="text-[11px] text-text-3 ml-1">
+                  {sinClasificar} sin clasificar
+                </span>
+              )}
+            </>
+          )}
+          {soyOwner && (
+            <button onClick={() => setEditorCats(true)}
+              className="px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-border text-text-3 hover:text-text-1 hover:border-primary/40 transition-colors">
+              {categorias.length > 0 ? 'Editar categorías' : '+ Organizar por categorías'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Selector de torneos + crear */}
       {(torneos.length > 0) && (
         <div className="flex items-center gap-2 flex-wrap">
-          {torneos.map(t => (
-            <button key={t.id} onClick={() => seleccionar(t.id)}
-              className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors text-left
-                ${!creando && selId === t.id ? 'border-primary/50 bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
-              <span className="flex items-center gap-2">
-                🏆 {t.nombre}
-                {t.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-1.5 py-0.5 rounded">{t.disciplina}</span>}
-              </span>
-            </button>
-          ))}
+          {visibles.length === 0 && ramaSel && (
+            <p className="text-sm text-text-3">No hay torneos en esta categoría todavía.</p>
+          )}
+          {visibles.map(t => {
+            const ruta = t.categoria_id ? rutaDe(categorias, t.categoria_id) : [];
+            return (
+              <button key={t.id} onClick={() => seleccionar(t.id)}
+                className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors text-left
+                  ${!creando && selId === t.id ? 'border-primary/50 bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+                <span className="flex items-center gap-2">
+                  🏆 {t.nombre}
+                  {t.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-1.5 py-0.5 rounded">{t.disciplina}</span>}
+                </span>
+                {ruta.length > 0 && (
+                  <span className="block text-[10px] text-text-3 mt-0.5">{ruta.join(' › ')}</span>
+                )}
+              </button>
+            );
+          })}
           {soyOwner && (
             <button onClick={() => setCreando(true)}
               className={`px-3 py-2 rounded-xl text-sm font-medium border border-dashed transition-colors
@@ -83,8 +161,19 @@ export default function TorneoTab({ evento, soyOwner }) {
         </div>
       )}
 
+      {editorCats && (
+        <CategoriasTorneo
+          evento={evento}
+          categorias={categorias}
+          onCambio={cargarCategorias}
+          onClose={() => setEditorCats(false)}
+        />
+      )}
+
       {creando ? (
         <CrearTorneo eventoId={evento.id}
+          categorias={categorias}
+          categoriaSugerida={ramaSel}
           onCreado={(t) => { setCreando(false); refrescar(t?.id); }}
           onCancelar={torneos.length > 0 ? () => setCreando(false) : null} />
       ) : cargandoDetalle || !detalle ? (
@@ -103,9 +192,12 @@ export default function TorneoTab({ evento, soyOwner }) {
   );
 }
 
-function CrearTorneo({ eventoId, onCreado, onCancelar }) {
+function CrearTorneo({ eventoId, onCreado, onCancelar, categorias = [], categoriaSugerida = null }) {
   const [nombre, setNombre] = useState('');
   const [disciplina, setDisciplina] = useState('');
+  /* Si venías filtrando por una rama, el torneo nace ahí: es lo que estabas
+     mirando cuando pulsaste "nuevo". */
+  const [categoriaId, setCategoriaId] = useState(categoriaSugerida || '');
   const [formato, setFormato] = useState('eliminacion');
   const [numGrupos, setNumGrupos] = useState(2);
   const [avanzanPorGrupo, setAvanzanPorGrupo] = useState(2);
@@ -117,7 +209,11 @@ function CrearTorneo({ eventoId, onCreado, onCancelar }) {
     if (!nombre.trim()) { toastErr('El nombre del torneo es requerido.'); return; }
     setWorking(true);
     try {
-      const body = { nombre: nombre.trim(), formato, disciplina: disciplina.trim() || null };
+      const body = {
+        nombre: nombre.trim(), formato,
+        disciplina: disciplina.trim() || null,
+        categoria_id: categoriaId || null,
+      };
       if (formato === 'grupos_eliminacion') {
         body.num_grupos = Number(numGrupos);
         body.avanzan_por_grupo = Number(avanzanPorGrupo);
@@ -151,6 +247,25 @@ function CrearTorneo({ eventoId, onCreado, onCancelar }) {
                 className="input rounded-2xl py-3" placeholder="Ej. Smash Bros, Boxeo, Fútbol" />
             </div>
           </div>
+
+          {/* #48 · Dónde cuelga del árbol. Sólo si hay árbol: preguntar por
+              una categoría cuando no existe ninguna es hacer perder el tiempo.
+              La disciplina de arriba es otra cosa —la etiqueta corta que se
+              pinta al lado del nombre— y por eso conviven. */}
+          {categorias.length > 0 && (
+            <div className="field">
+              <label className="label">Categoría <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <select value={categoriaId} onChange={e => setCategoriaId(e.target.value)}
+                className="input bg-surface-2 rounded-2xl py-3">
+                <option value="">Sin clasificar</option>
+                {aplanar(categorias).map(c => (
+                  <option key={c.id} value={c.id}>
+                    {'  '.repeat(c.profundidad)}{c.profundidad > 0 ? '› ' : ''}{c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="label mb-2">Formato</label>
@@ -208,6 +323,89 @@ function CrearTorneo({ eventoId, onCreado, onCancelar }) {
   );
 }
 
+/* El torneo dentro del calendario.
+
+   `agenda_sessions` tiene `torneo_id` desde siempre, así que un sub-evento
+   podía apuntar a unas llaves. Lo que no había era el camino de vuelta: se
+   creaba el torneo aquí, no aparecía en el Espacio del evento, y para que
+   saliera había que acordarse de crear a mano un sub-evento y elegir el
+   torneo en un selector de otra pantalla. Quien no se acordaba tenía un
+   torneo invisible para el público.
+
+   Esto lo cierra: se dice si el torneo tiene hueco en el calendario y, si no,
+   se crea desde aquí. */
+function HuecoEnCalendario({ evento, torneo, soyOwner }) {
+  const { success, error: toastErr } = useToast();
+  const [sesiones, setSesiones] = useState(null);
+  const [creando, setCreando] = useState(false);
+  const [cuando, setCuando] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  const cargar = useCallback(() => {
+    agendaApi.sessions(evento.id)
+      .then(d => setSesiones((d.sessions || []).filter(s => String(s.torneo_id) === String(torneo.id))))
+      .catch(() => setSesiones([]));
+  }, [evento.id, torneo.id]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const crear = async () => {
+    if (!cuando) { toastErr('Dinos cuándo se juega.'); return; }
+    setGuardando(true);
+    try {
+      await agendaApi.crearSession(evento.id, {
+        titulo: torneo.nombre,
+        inicio: new Date(cuando).toISOString(),
+        tipo: 'competencia',
+        torneo_id: torneo.id,
+        descripcion: torneo.disciplina || null,
+      });
+      success('Listo. El torneo ya aparece en el Espacio del evento y en la agenda pública.');
+      setCreando(false);
+      setCuando('');
+      cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setGuardando(false); }
+  };
+
+  if (sesiones === null) return null;
+
+  if (sesiones.length > 0) {
+    const [s] = sesiones;
+    const fecha = s.inicio
+      ? new Date(s.inicio).toLocaleString('es-CO', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : 'sin hora';
+    return (
+      <p className="text-[11px] text-text-3">
+        📅 En el calendario: <span className="text-text-2">{fecha}</span>
+        {sesiones.length > 1 && ` · y ${sesiones.length - 1} franja${sesiones.length > 2 ? 's' : ''} más`}
+      </p>
+    );
+  }
+
+  if (!soyOwner) return null;
+
+  if (!creando) {
+    return (
+      <button onClick={() => setCreando(true)}
+        className="text-[11px] text-warning hover:underline text-left">
+        ⚠ No está en el calendario — el público no lo ve. Ponerle hora
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <input type="datetime-local" value={cuando} onChange={e => setCuando(e.target.value)}
+        className="input !h-9 text-xs w-auto" autoFocus />
+      <button onClick={crear} disabled={guardando} className="btn btn-sm">
+        {guardando ? 'Creando…' : 'Añadir al calendario'}
+      </button>
+      <button onClick={() => setCreando(false)} className="btn-ghost btn-sm">Cancelar</button>
+    </div>
+  );
+}
+
 function TorneoView({ evento, torneo, equipos, partidos, soyOwner, onReload }) {
   const esGrupos = torneo.formato === 'grupos_eliminacion';
   const defaultSub = esGrupos
@@ -236,6 +434,9 @@ function TorneoView({ evento, torneo, equipos, partidos, soyOwner, onReload }) {
           <p className="text-sm text-text-2 mt-1">
             {torneo.estado === 'armando' ? 'Agregando equipos — todavía no inició' : 'Torneo en curso'}
           </p>
+          <div className="mt-1.5">
+            <HuecoEnCalendario evento={evento} torneo={torneo} soyOwner={soyOwner} />
+          </div>
         </div>
         {soyOwner && torneo.estado === 'armando' && (
           <BorrarTorneoBtn evento={evento} torneo={torneo} onDone={onReload} />

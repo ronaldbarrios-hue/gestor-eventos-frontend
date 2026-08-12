@@ -5,6 +5,7 @@ import { agendaApi } from '../../api/agenda.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo } from '../../lib/espacio.js';
+import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 
 /* Página pública /explorar/:slug/agenda — "Espacio del evento": el calendario
    público de todo lo que pasa dentro (charlas, stands, competencias, shows…),
@@ -20,10 +21,21 @@ export default function AgendaPublicaPage() {
   const [soloFavoritos, setSoloFavoritos] = useState(false);
   const [bloqueado, setBloqueado] = useState(null);
   const [error, setError] = useState('');
+  /* Inscripción a sub-eventos: qué preguntas tiene cada uno y cuál se está
+     abriendo ahora. `inscritas` recuerda las de esta visita para que el botón
+     no siga diciendo "Apuntarme" después de haberse apuntado — el servidor lo
+     sabe, pero la agenda pública no vuelve a preguntárselo. */
+  const [preguntas, setPreguntas] = useState({});
+  const [inscribiendo, setInscribiendo] = useState(null);
+  const [inscritas, setInscritas] = useState(new Set());
 
   useEffect(() => {
     eventosApi.agendaPublica(slug)
-      .then(d => { setEvento({ id: d.evento_id }); setSessions(d.sessions || []); })
+      .then(d => {
+        setEvento({ id: d.evento_id });
+        setSessions(d.sessions || []);
+        setPreguntas(d.preguntas || {});
+      })
       .catch(e => setError(e.message));
   }, [slug]);
 
@@ -195,28 +207,50 @@ export default function AgendaPublicaPage() {
         <AgendaGridSalas
           sesiones={sesionesDelDia} tracks={tracks} favoritos={favoritos}
           puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito} slug={slug}
+          inscritas={inscritas} onInscribir={setInscribiendo}
         />
       ) : (
         <AgendaLista
           sesiones={sesionesDelDia} favoritos={favoritos}
           puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito} slug={slug}
+          inscritas={inscritas} onInscribir={setInscribiendo}
+        />
+      )}
+
+      {inscribiendo && (
+        <InscripcionSesionModal
+          slug={slug}
+          sesion={inscribiendo}
+          preguntas={preguntas[inscribiendo.id] || []}
+          onClose={() => setInscribiendo(null)}
+          onInscrito={(id) => {
+            setInscritas(prev => new Set(prev).add(id));
+            /* El contador local sube solo: recargar la agenda entera por una
+               inscripción sería tirar la lista y el día que se estaba mirando. */
+            setSessions(prev => prev.map(s => s.id === id
+              ? { ...s, inscritos: (s.inscritos || 0) + 1,
+                  libres: s.libres == null ? null : Math.max(0, s.libres - 1),
+                  lleno: s.cupo != null && (s.inscritos || 0) + 1 >= s.cupo }
+              : s));
+          }}
         />
       )}
     </section>
   );
 }
 
-function AgendaLista({ sesiones, favoritos, puedeMarcar, onToggle, slug }) {
+function AgendaLista({ sesiones, favoritos, puedeMarcar, onToggle, slug, inscritas, onInscribir }) {
   return (
     <div className="rounded-3xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
       {sesiones.map(s => (
-        <SesionRow key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug} />
+        <SesionRow key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug}
+          yaInscrito={inscritas?.has(s.id)} onInscribir={onInscribir} />
       ))}
     </div>
   );
 }
 
-function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle, slug }) {
+function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle, slug, inscritas, onInscribir }) {
   const horas = [...new Set(sesiones.map(s => new Date(s.inicio).getHours()))].sort((a, b) => a - b);
 
   return (
@@ -240,7 +274,8 @@ function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle, s
               return (
                 <div key={t} className="flex-1 min-w-[220px] border-l border-border px-2 py-2 space-y-1.5">
                   {items.map(s => (
-                    <SesionChipPublica key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug} />
+                    <SesionChipPublica key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug}
+                      yaInscrito={inscritas?.has(s.id)} onInscribir={onInscribir} />
                   ))}
                 </div>
               );
@@ -252,7 +287,42 @@ function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle, s
   );
 }
 
-function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug }) {
+/* Botón de apuntarse. Sólo aparece en los sub-eventos que lo piden: en los
+   demás la entrada al evento basta, y un botón de inscripción donde no hace
+   falta hace dudar de si la boleta sirve. */
+function BotonInscribir({ sesion, yaInscrito, onInscribir, compacto }) {
+  if (!sesion.requiere_inscripcion) return null;
+
+  const clase = compacto
+    ? 'text-[11px] font-medium px-2 py-0.5 rounded-full border'
+    : 'btn-sm rounded-full';
+
+  if (yaInscrito) {
+    return (
+      <span className={`${clase} border-success/40 bg-success/10 text-success ${compacto ? '' : 'px-3 py-1.5 border'}`}>
+        ✓ Apuntado
+      </span>
+    );
+  }
+  if (sesion.lleno) {
+    return (
+      <span className={`${clase} border-border text-text-3 ${compacto ? '' : 'px-3 py-1.5 border'}`}>
+        Sin lugares
+      </span>
+    );
+  }
+  return (
+    <button onClick={() => onInscribir?.(sesion)}
+      className={compacto
+        ? 'text-[11px] font-medium px-2 py-0.5 rounded-full border border-accent/50 bg-accent/10 text-text-1 hover:bg-accent/20 transition-colors'
+        : 'btn-primary btn-sm rounded-full'}>
+      Apuntarme
+      {sesion.libres != null && sesion.libres <= 5 && ` · quedan ${sesion.libres}`}
+    </button>
+  );
+}
+
+function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito, onInscribir }) {
   const hi = new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   const hf = sesion.fin ? new Date(sesion.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
   const tip = tipoEspacio(sesion.tipo);
@@ -289,6 +359,11 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug }) {
             </Link>
           )}
         </div>
+        {sesion.requiere_inscripcion && (
+          <div className="mt-3">
+            <BotonInscribir sesion={sesion} yaInscrito={yaInscrito} onInscribir={onInscribir} />
+          </div>
+        )}
       </div>
       {puedeMarcar && (
         <button onClick={() => onToggle(sesion.id)} aria-label="Marcar favorita"
@@ -302,7 +377,7 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug }) {
   );
 }
 
-function SesionChipPublica({ sesion, esFavorita, puedeMarcar, onToggle, slug }) {
+function SesionChipPublica({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito, onInscribir }) {
   const tip = tipoEspacio(sesion.tipo);
   return (
     <div className="rounded-xl border px-2.5 py-2 relative"
@@ -314,6 +389,11 @@ function SesionChipPublica({ sesion, esFavorita, puedeMarcar, onToggle, slug }) 
       {sesion.speaker?.nombre && <p className="text-xs text-text-3 truncate">{sesion.speaker.nombre}</p>}
       {sesion.torneo_id && slug && (
         <Link to={`/explorar/${slug}/torneo`} className="text-[11px] text-primary-light hover:underline font-medium">🏆 Ver llaves</Link>
+      )}
+      {sesion.requiere_inscripcion && (
+        <div className="mt-1.5">
+          <BotonInscribir sesion={sesion} yaInscrito={yaInscrito} onInscribir={onInscribir} compacto />
+        </div>
       )}
       {puedeMarcar && (
         <button onClick={() => onToggle(sesion.id)} aria-label="Marcar favorita"

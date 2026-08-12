@@ -9,6 +9,7 @@ import DateTimePicker  from '../../components/ui/DateTimePicker.jsx';
 import LinksEditor     from '../../components/ui/LinksEditor.jsx';
 import CoverUploader   from '../../components/ui/CoverUploader.jsx';
 import GalleryUploader from '../../components/ui/GalleryUploader.jsx';
+import BuzonSugerencia from '../../components/ui/BuzonSugerencia.jsx';
 
 const STEPS = ['Información básica', 'Imágenes', 'Fecha y lugar', 'Revisión'];
 
@@ -302,6 +303,12 @@ export default function EventCreatePage() {
                     <option value="">Sin categoría</option>
                     {cats.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
+                  {/* #49 · Aquí es donde se descubre que la lista se queda
+                      corta: cuando alguien la abre buscando lo suyo. */}
+                  <BuzonSugerencia
+                    catalogo="evento"
+                    contexto={{ desde: 'crear-evento', titulo: form.titulo || '', eligio: cats.find(c => c.id === form.categoria_id)?.nombre || 'ninguna' }}
+                  />
                 </div>
                 <div className="field">
                   <label className="label">Modalidad *</label>

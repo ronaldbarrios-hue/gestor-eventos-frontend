@@ -408,7 +408,18 @@ function PermisosSelector({ value = [], onChange }) {
                       className="mt-0.5 w-4 h-4 rounded border-border bg-surface-2 accent-primary flex-shrink-0"
                     />
                     <span className="flex-1 min-w-0">
-                      <span className="text-sm text-text-1 font-medium block">{p.label}</span>
+                      <span className="text-sm text-text-1 font-medium block">
+                        {p.label}
+                        {/* Concederlo no cambia nada todavía. Decirlo aquí
+                            evita que alguien dé un permiso, se quede
+                            tranquilo, y descubra dentro de un mes que no
+                            hacía nada. */}
+                        {p.aplicado === false && (
+                          <span className="ml-1.5 text-[10px] uppercase tracking-wide text-warning border border-warning/30 bg-warning/10 px-1.5 py-0.5 rounded">
+                            sin efecto aún
+                          </span>
+                        )}
+                      </span>
                       <span className="text-xs text-text-3 block mt-0.5">{p.desc}</span>
                     </span>
                   </label>

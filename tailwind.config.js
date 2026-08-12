@@ -47,6 +47,12 @@ export default {
           2      : 'rgb(var(--color-sidebar-2) / <alpha-value>)',
           3      : 'rgb(var(--color-sidebar-3) / <alpha-value>)',
         },
+        /* Plano propio para la barra superior del panel: con `surface` a secas
+           se fundía con el fondo en modo oscuro (#42). */
+        topbar     : {
+          DEFAULT: 'rgb(var(--color-topbar) / <alpha-value>)',
+          line   : 'rgb(var(--color-topbar-line) / var(--topbar-line-alpha))',
+        },
         'text-1'   : 'rgb(var(--color-text-1) / <alpha-value>)',
         'text-2'   : 'rgb(var(--color-text-2) / <alpha-value>)',
         'text-3'   : 'rgb(var(--color-text-3) / <alpha-value>)',

@@ -13,10 +13,17 @@ export const EMBED_ALIAS = {
   'como-llegar': 'mapa',
   ubicacion: 'mapa',
   mapa: 'mapa',
+  'mapa-evento': 'mapa_evento',
+  'plano': 'mapa_evento',
+  mapa_evento: 'mapa_evento',
   ponentes: 'speakers',
   speakers: 'speakers',
   patrocinadores: 'sponsors',
   sponsors: 'sponsors',
+  expositores: 'expositores',
+  directorio: 'expositores',
+  premios: 'recompensas',
+  recompensas: 'recompensas',
   preguntas: 'faq',
   faq: 'faq',
   'cuenta-regresiva': 'countdown',
@@ -29,22 +36,68 @@ export const EMBED_ALIAS = {
 export const EMBED_SLUG_AMIGABLE = {
   tickets: 'boletas',
   mapa: 'como-llegar',
+  mapa_evento: 'mapa-evento',
   speakers: 'ponentes',
   sponsors: 'patrocinadores',
+  expositores: 'directorio',
+  recompensas: 'premios',
   faq: 'preguntas',
   countdown: 'cuenta-regresiva',
   info: 'informacion',
 };
 
 /* Bloques que se pueden servir aunque el organizador los haya quitado de la
-   landing: se alimentan de los datos del evento, no de configuración propia. */
-export const EMBED_SIN_CONFIG = ['tickets', 'info', 'direccion', 'titulo', 'descripcion', 'galeria_evento', 'links'];
-
-/* Secciones del evento que no viven en la landing pero también se incrustan. */
-export const EMBED_ESPECIALES = [
-  { seccion: 'torneo',  label: 'Llaves del torneo',  nota: 'El bracket o la tabla de la liga, en vivo.' },
-  { seccion: 'espacio', label: 'Espacio del evento', nota: 'El calendario de charlas, stands, competencias y shows.' },
+   landing: se alimentan de los datos del evento, no de configuración propia.
+   Se sirven con sus `defaults` (títulos incluidos), no con data vacía: si no,
+   una sección incrustada llegaría sin encabezado y parecería rota. */
+export const EMBED_SIN_CONFIG = [
+  'tickets', 'info', 'direccion', 'titulo', 'descripcion', 'galeria_evento', 'links',
+  'mapa', 'mapa_evento', 'expositores', 'recompensas',
 ];
+
+/* Secciones del evento que no viven en la landing pero también se incrustan.
+   Este es el catálogo que ve el organizador en el modal de exportar. */
+export const EMBED_ESPECIALES = [
+  { seccion: 'espacio',     label: 'Espacio del evento',    nota: 'El calendario de charlas, stands, competencias y shows.' },
+  { seccion: 'torneo',      label: 'Llaves del torneo',     nota: 'El bracket o la tabla de la liga, en vivo.' },
+  { seccion: 'torneos',     label: 'Torneos y campeones',   nota: 'Cada torneo con su ganador y los equipos que jugaron.' },
+  { seccion: 'ranking',     label: 'Ranking de expositores',nota: 'Quién dio más puntos en su stand. Sólo empresas, nunca asistentes.' },
+  { seccion: 'directorio',  label: 'Directorio de expositores', nota: 'Las marcas del evento con su stand y su cronograma.' },
+  { seccion: 'mapa-evento', label: 'Mapa del evento',       nota: 'El plano con los stands y las actividades ubicadas.' },
+  { seccion: 'como-llegar', label: 'Cómo llegar',           nota: 'La dirección del evento sobre Google Maps.' },
+  { seccion: 'boletas',     label: 'Boletas',               nota: 'Los tipos de entrada con su precio. Comprar abre GESTEK aparte.' },
+];
+
+/* ── Los tres modos de publicación (columna eventos.modo_publico) ──
+   A dónde lleva el enlace público del evento. Lo define la migración 0060 y
+   lo respeta EventoPublicoPage. */
+export const MODOS_PUBLICACION = [
+  {
+    value: 'gestek',
+    label: 'La página de GESTEK',
+    resumen: 'El evento vive aquí.',
+    detalle: 'La página que armas en este editor es la del evento. No necesitas web propia ni tocar nada más.',
+    pideUrl: false,
+  },
+  {
+    value: 'externa',
+    label: 'Mi propia web',
+    resumen: 'El enlace lleva a tu sitio.',
+    detalle: 'Ya tienes la página del evento hecha en otro sitio. GESTEK se queda con la gestión —boletas, asistentes, check-in— y quien llegue por aquí sale a tu web.',
+    pideUrl: true,
+  },
+  {
+    value: 'iframe',
+    label: 'Mi web, con GESTEK dentro',
+    resumen: 'Tu sitio, nuestras secciones.',
+    detalle: 'Tu página, pero las boletas, la agenda, el mapa o el torneo se sirven desde GESTEK incrustados y se actualizan solos. Copia el código de cada sección abajo y pégalo en tu web.',
+    pideUrl: true,
+  },
+];
+
+export function modoPublicacion(valor) {
+  return MODOS_PUBLICACION.find(m => m.value === valor) || MODOS_PUBLICACION[0];
+}
 
 export const EMBED_TEMAS = [
   { value: 'auto',   label: 'Seguir al sitio que lo incrusta' },

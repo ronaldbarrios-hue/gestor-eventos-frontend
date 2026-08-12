@@ -607,6 +607,9 @@ export default {
     'Only what the page needs to work the way you left it: theme, language, and your session if you sign in. No analytics, no pixels and no third-party trackers — which is why we never ask you to accept cookies.',
   'Claro': 'Light',
   'Oscuro': 'Dark',
+  /* El monitor de Gestbot (#40) lleva idioma y tema; "Apariencia" ya existe,
+     pero el rótulo de esa pantalla es más corto. */
+  'Tema': 'Theme',
   'Ocultar': 'Hide',
   'El asistente de GESTEK en su escritorio': 'The GESTEK assistant at their desk',
 

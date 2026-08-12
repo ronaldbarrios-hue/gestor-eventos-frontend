@@ -15,4 +15,11 @@ export const waitlistApi = {
 
   remove: (eventoId, waitlistId) =>
     client.delete(`/eventos/${eventoId}/waitlist/${waitlistId}`).then(r => r.data),
+
+  /* ¿Sigue en pie el cupo que le ofrecimos por correo? Se consulta ANTES de
+     que la persona rellene nada, para no dejarla escribir un formulario
+     entero y avisarle al final de que llegó tarde. Sin auth: el token es la
+     credencial, y quien recibió el correo puede no tener cuenta. */
+  verificarCupo: (token) =>
+    client.get(`/eventos/publicos/cupo/${encodeURIComponent(token)}`).then(r => r.data),
 };

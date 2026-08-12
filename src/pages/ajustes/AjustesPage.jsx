@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { eventosApi } from '../../api/eventos.js';
+import { equipoApi } from '../../api/equipo.js';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { supabase } from '../../lib/supabase.js';
@@ -83,47 +85,152 @@ function Seccion({ titulo, desc, children }) {
   );
 }
 
-/* ── 2. Organización ── */
+/* ── 2. Organización ──
+
+   #46 · Esto decía "Solo para administradores" y al administrador tampoco le
+   salía nada. Dos fallos encadenados:
+
+   1. La puerta era imposible de cruzar. Pedía `hasPermiso('usuarios:ver')` o
+      el rol `admin_global`, y ninguna cuenta real los tiene: toda cuenta nace
+      como 'organizador' y ese rol no incluye ningún permiso `usuarios:*`. El
+      dueño de la cuenta veía el mismo cartel que un invitado.
+   2. Al otro lado no había nada que ver: dos tarjetas explicando que los
+      roles globales todavía no existen.
+
+   La puerta se quita porque no hay a qué darle acceso: en GESTEK los roles
+   son POR EVENTO, no de organización. Y en vez de dos avisos, se pone lo
+   único que sí existe a nivel de cuenta y sí se usa: la identidad de la
+   organización —que sale en todas las páginas públicas— y quién está en tus
+   equipos, sacado de los eventos de verdad. */
 function Organizacion() {
-  const { hasPermiso, usuario } = useAuth();
-  const esAdmin = hasPermiso('usuarios:ver') || usuario?.rol === 'admin_global';
-  if (!esAdmin) {
-    return (
-      <Seccion titulo="Organización" desc="Miembros, roles globales y auditoría de tu organización.">
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold text-text-1 mb-1.5">Solo para administradores</h3>
-          <p className="text-sm text-text-2">La gestión de miembros y roles globales de la organización está disponible únicamente para cuentas administradoras. Si necesitas acceso, pídele a tu administrador que te lo otorgue.</p>
-        </div>
-      </Seccion>
-    );
-  }
-  /* Aquí vivía una tabla de usuarios que SIEMPRE decía "0 usuarios
-     registrados": su API era un stub declarado (list() devolvía [] y toda
-     escritura rechazaba) y no existe routes/usuarios.js en el backend.
-     Una tabla vacía se lee como "no tienes a nadie", que es falso y peor
-     que no mostrar nada. Se dice lo que hay y se manda a donde sí funciona. */
   return (
-    <Seccion titulo="Organización" desc="Miembros, roles globales y auditoría de tu organización.">
-      <div className="card p-6">
-        <h3 className="text-base font-semibold text-text-1 mb-2">El equipo se gestiona por evento</h3>
-        <p className="text-sm text-text-2 leading-relaxed mb-4">
-          Hoy invitas gente, le das un rol y le asignas permisos dentro de cada evento,
-          en <strong className="text-text-1">Organización → Equipo y roles</strong>. Ahí es donde
-          de verdad importa: alguien puede ser de logística en un evento y no tener nada que ver
-          con el siguiente.
-        </p>
-        <Link to="/eventos" className="btn-secondary btn-sm">Ir a mis eventos</Link>
+    <Seccion titulo="Organización" desc="La identidad de tu cuenta y quién trabaja contigo.">
+      <EquipoDeLaOrganizacion />
+
+      {/* La marca de la cuenta: lo que se ve en cada página pública que no
+          tenga marca propia de evento. Es el ajuste de organización con más
+          consecuencias, y estaba escondido en otra pestaña. */}
+      <div className="card p-5">
+        <h3 className="text-sm font-semibold text-text-1 mb-3">Identidad de la organización</h3>
+        <WhiteLabelTab />
       </div>
 
-      <div className="card p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-1.5">Roles de toda la organización</h3>
-        <p className="text-sm text-text-2 leading-relaxed">
-          Perfiles que apliquen a la cuenta entera (Administrador, Gerente, Producción,
-          Marketing, Finanzas, Soporte) y un registro global de acciones todavía no existen.
-          Cuando existan, aparecerán aquí.
-        </p>
-      </div>
+      <p className="text-xs text-text-3 leading-relaxed">
+        Los roles no son de la organización sino de cada evento: alguien puede ser de
+        logística en uno y no tener nada que ver con el siguiente. Por eso se invita y
+        se dan permisos desde <strong className="text-text-2">el evento → Equipo y roles</strong>.
+        Un registro global de acciones para toda la cuenta todavía no existe.
+      </p>
     </Seccion>
+  );
+}
+
+/* Quién está en mis equipos, juntando los miembros de todos mis eventos.
+
+   No hay tabla de "usuarios de la organización" —ni endpoint— porque la
+   pertenencia es por evento. Así que se compone: se piden los eventos y el
+   equipo de cada uno, y se agrupa por persona. Es lo que alguien viene a
+   buscar aquí ("¿quién tiene acceso a mis cosas?") y hasta ahora no se podía
+   responder desde ninguna pantalla. */
+function EquipoDeLaOrganizacion() {
+  const [gente, setGente] = useState(null);   // null = cargando
+  const [parcial, setParcial] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { eventos = [] } = await eventosApi.list({ limit: 50 });
+        const mios = eventos.filter(e => e.soyOwner);
+        /* Un equipo por evento es una petición por evento. Se cortan en doce
+           para no disparar cincuenta llamadas desde una pantalla de ajustes,
+           y se avisa cuando se corta en vez de enseñar una lista incompleta
+           como si fuera todo. */
+        const TOPE = 12;
+        const usados = mios.slice(0, TOPE);
+        if (vivo) setParcial(mios.length > TOPE);
+
+        const equipos = await Promise.allSettled(usados.map(e => equipoApi.list(e.id)));
+        const porPersona = new Map();
+        equipos.forEach((r, i) => {
+          if (r.status !== 'fulfilled') return;
+          for (const m of (r.value.miembros || [])) {
+            /* Quien aún no ha aceptado no tiene perfil: sólo el correo al que
+               se le mandó la invitación. Se agrupa por eso para que no salga
+               dos veces cuando por fin entre. */
+            const id = m.profile?.id || m.email;
+            if (!id) continue;
+            const previo = porPersona.get(id) || {
+              id,
+              nombre: m.profile?.nombre || m.nombre_invitado || m.email || 'Sin nombre',
+              email : m.profile?.email || m.email || '',
+              avatar: m.profile?.avatar_url || null,
+              donde : [],
+            };
+            previo.donde.push({
+              evento: usados[i].titulo,
+              eventoId: usados[i].id,
+              rol: m.rol_detail?.nombre || m.rol || 'Miembro',
+              activo: m.status === 'active',
+            });
+            porPersona.set(id, previo);
+          }
+        });
+        if (vivo) setGente([...porPersona.values()].sort((a, b) => b.donde.length - a.donde.length));
+      } catch {
+        if (vivo) setGente([]);
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-sm font-semibold text-text-1">Quién trabaja contigo</h3>
+        <Link to="/eventos" className="text-xs text-accent hover:underline">Gestionar por evento →</Link>
+      </div>
+
+      {gente === null ? (
+        <p className="text-sm text-text-3 py-4">Juntando los equipos de tus eventos…</p>
+      ) : gente.length === 0 ? (
+        <p className="text-sm text-text-2 leading-relaxed">
+          Todavía no has invitado a nadie. Se invita desde cada evento, en
+          <strong className="text-text-1"> Organización → Equipo y roles</strong>.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border -mx-5">
+          {gente.map(p => (
+            <li key={p.id} className="flex items-start gap-3 px-5 py-3">
+              <span className="w-9 h-9 rounded-xl bg-surface-2 overflow-hidden flex items-center justify-center text-xs font-bold text-text-2 flex-shrink-0">
+                {p.avatar ? <img src={p.avatar} alt="" className="w-full h-full object-cover" /> : (p.nombre[0] || '?').toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-text-1 truncate">{p.nombre}</p>
+                {p.email && <p className="text-[11px] text-text-3 truncate">{p.email}</p>}
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {p.donde.map((d, i) => (
+                    <Link key={i} to={`/eventos/${d.eventoId}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors
+                        ${d.activo
+                          ? 'border-border text-text-2 hover:text-text-1 hover:border-accent/50'
+                          : 'border-warning/40 text-warning'}`}>
+                      {d.rol} · {d.evento}{d.activo ? '' : ' (sin aceptar)'}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {parcial && (
+        <p className="text-[11px] text-text-3 mt-3">
+          Se muestran los equipos de tus doce eventos más recientes.
+        </p>
+      )}
+    </div>
   );
 }
 

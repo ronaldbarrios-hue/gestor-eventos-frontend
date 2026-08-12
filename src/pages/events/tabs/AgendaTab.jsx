@@ -8,6 +8,7 @@ import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } from '../../../lib/espacio.js';
+import PreguntasSubEvento from './PreguntasSubEvento.jsx';
 
 /* "Espacio del evento" — el calendario de TODO lo que pasa dentro del evento:
    charlas, stands, competencias, shows… (antes solo "agenda"). Cada sub-evento
@@ -257,6 +258,7 @@ export default function AgendaTab({ evento }) {
         <SessionForm
           speakers={speakers}
           torneos={torneos}
+          evento={evento}
           prefillDate={prefillDate}
           onCancel={() => { setCreating(false); setPrefillDate(null); }}
           onSave={async (payload) => {
@@ -314,6 +316,7 @@ export default function AgendaTab({ evento }) {
               editing={editing}
               speakers={speakers}
               torneos={torneos}
+              evento={evento}
               onEdit={setEditing}
               onSave={async (id, payload) => {
                 try { await agendaApi.editarSession(evento.id, id, payload); success('Sub-evento actualizado.'); setEditing(null); reload(); }
@@ -461,7 +464,7 @@ function SalasGrid({ cursor, sesiones, onCrearAt, onEditar }) {
 
 /* ─────────── Vista Lista ─────────── */
 
-function SessionsList({ sessions, editing, speakers, torneos, onEdit, onSave, onDelete }) {
+function SessionsList({ sessions, editing, speakers, torneos, evento, onEdit, onSave, onDelete }) {
   const grupos = sessions.reduce((acc, s) => {
     const d = new Date(s.inicio).toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     (acc[d] = acc[d] || []).push(s);
@@ -475,7 +478,7 @@ function SessionsList({ sessions, editing, speakers, torneos, onEdit, onSave, on
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">{dia}</p>
           <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
             {items.map((s, i) => editing === s.id
-              ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
+              ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} evento={evento} onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
               : <SessionRow key={s.id} session={s} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s)} isLast={i === items.length - 1} />
             )}
           </div>
@@ -507,6 +510,16 @@ function SessionRow({ session, onEdit, onDelete, isLast }) {
           )}
           {session.torneo_id && (
             <span className="text-[10px] uppercase tracking-wide text-text-3 border border-border px-2 py-0.5 rounded-full">🏆 con llaves</span>
+          )}
+          {/* Que pida inscripción cambia lo que ve el público: sin decirlo
+              aquí, el organizador tiene que abrir cada sub-evento para saber
+              cuáles la piden y cuáles no. */}
+          {session.requiere_inscripcion && (
+            <span className="text-[10px] uppercase tracking-wide text-accent border border-accent/40 bg-accent/10 px-2 py-0.5 rounded-full">
+              Inscripción
+              {session.cupo != null && ` · ${session.inscritos || 0}/${session.cupo}`}
+              {session.cupo == null && (session.inscritos || 0) > 0 && ` · ${session.inscritos}`}
+            </span>
           )}
         </div>
         {session.descripcion && <p className="text-sm text-text-2 mt-1 leading-relaxed">{session.descripcion}</p>}
@@ -735,7 +748,7 @@ function SessionChip({ session, detailed }) {
 
 /* ─────────── Form sesión ─────────── */
 
-function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onCancel }) {
+function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, onSave, onCancel }) {
   const [form, setForm] = useState({
     titulo     : initial?.titulo || '',
     descripcion: initial?.descripcion || '',
@@ -746,8 +759,12 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
     speaker_id : initial?.speaker_id || '',
     tipo       : initial?.tipo || TIPO_DEFECTO,
     torneo_id  : initial?.torneo_id || '',
+    requiere_inscripcion: Boolean(initial?.requiere_inscripcion),
+    cupo       : initial?.cupo ?? '',
+    formulario_modo: initial?.formulario_modo || 'ninguno',
   });
   const [saving, setSaving] = useState(false);
+  const [preguntasOpen, setPreguntasOpen] = useState(false);
   const competitivo = esCompetitivo(form.tipo);
 
   const submit = async (e) => {
@@ -764,6 +781,11 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
       speaker_id : form.speaker_id || null,
       tipo       : form.tipo,
       torneo_id  : competitivo ? (form.torneo_id || null) : null,
+      requiere_inscripcion: form.requiere_inscripcion,
+      /* Vacío = sin límite. No se convierte a 0, que significaría "lleno
+         desde el primer minuto". */
+      cupo       : form.requiere_inscripcion && form.cupo !== '' ? Number(form.cupo) : null,
+      formulario_modo: form.requiere_inscripcion ? form.formulario_modo : 'ninguno',
     });
     setSaving(false);
   };
@@ -841,12 +863,94 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
           </select>
         </div>
       </div>
+      {/* ── Inscripción a este sub-evento ──
+          La boleta del evento sigue siendo la llave; esto es apuntarse a esta
+          actividad concreta, con su cupo aparte. Sirve para responder la
+          pregunta que importa al reportar: cuánta gente vino al evento y
+          cuánta participó en cada taller. */}
+      <div className="rounded-2xl border border-border bg-surface-2/40 p-3.5 space-y-3">
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input type="checkbox" checked={form.requiere_inscripcion}
+            onChange={e => setForm(f => ({ ...f, requiere_inscripcion: e.target.checked }))}
+            className="w-4 h-4 mt-0.5 accent-[#8B5CF6]" />
+          <span className="text-sm">
+            <span className="font-medium text-text-1 block">Pide inscripción aparte</span>
+            <span className="text-xs text-text-3">
+              Con la entrada al evento no basta: hay que apuntarse a esta actividad.
+            </span>
+          </span>
+        </label>
+
+        {form.requiere_inscripcion && (
+          <div className="space-y-3 pl-6.5">
+            <div className="field">
+              <label className="label">Cupo <span className="lowercase tracking-normal font-normal text-text-3">(vacío = sin límite)</span></label>
+              <input type="number" min={1} value={form.cupo}
+                onChange={e => setForm(f => ({ ...f, cupo: e.target.value }))}
+                placeholder="Sin límite"
+                className="input bg-surface-2 rounded-2xl py-2.5 text-base w-40" />
+              {initial?.inscritos > 0 && (
+                <p className="text-[11px] text-text-3 mt-1">Ya hay {initial.inscritos} inscritos.</p>
+              )}
+            </div>
+
+            <div className="field">
+              <label className="label">Qué se le pregunta al apuntarse</label>
+              <div className="space-y-1.5">
+                {[
+                  ['ninguno', 'Nada, un botón y listo', 'Lo normal: la boleta ya sabe quién es. Volver a pedirle sus datos es hacerle escribir dos veces lo mismo.'],
+                  ['propio',  'Preguntas propias de esta actividad', 'Cortas y sobre lo que pasa aquí: talla, si trae equipo, nivel.'],
+                  ['evento',  'El formulario completo del evento', 'El mismo que se llena al comprar la boleta. Largo.'],
+                ].map(([v, titulo, nota]) => (
+                  <label key={v}
+                    className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer border transition-colors
+                                ${form.formulario_modo === v ? 'border-accent/60 bg-accent/5' : 'border-border hover:bg-surface-2'}`}>
+                    <input type="radio" name="formulario_modo" checked={form.formulario_modo === v}
+                      onChange={() => setForm(f => ({ ...f, formulario_modo: v }))}
+                      className="mt-0.5 accent-[#8B5CF6]" />
+                    <span className="text-xs">
+                      <span className="font-medium text-text-1 block">{titulo}</span>
+                      <span className="text-text-3">{nota}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {form.formulario_modo === 'propio' && (
+                initial?.id ? (
+                  <button type="button" onClick={() => setPreguntasOpen(true)}
+                    className="btn-secondary btn-sm mt-2">
+                    Escribir las preguntas
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-warning mt-2">
+                    Crea el sub-evento primero y luego vuelve a editarlo para escribir sus preguntas.
+                  </p>
+                )
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-end gap-2 pt-1">
         <button type="button" onClick={onCancel} className="btn-ghost btn-sm">Cancelar</button>
         <button type="submit" disabled={saving || !form.titulo.trim() || !form.inicio} className="btn-primary btn-sm">
           {saving ? <><Spinner size="sm" /> Guardando...</> : (initial ? 'Guardar' : 'Crear sesión')}
         </button>
       </div>
+
+      {preguntasOpen && initial?.id && (
+        <PreguntasSubEvento
+          evento={evento}
+          sesion={initial}
+          onClose={() => setPreguntasOpen(false)}
+          /* Si el editor deja el sub-evento sin ninguna pregunta, el servidor
+             lo devuelve a 'ninguno' — y el selector tiene que enterarse, o
+             enseñaría "propio" sobre una lista vacía. */
+          onGuardado={d => { if (d?.formulario_modo) setForm(f => ({ ...f, formulario_modo: d.formulario_modo })); }}
+        />
+      )}
     </form>
   );
 }

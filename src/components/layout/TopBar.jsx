@@ -131,9 +131,12 @@ export default function TopBar({ onMenu }) {
   const initials = usuario?.nombre
     ?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
 
+  /* `bg-topbar` y no `bg-surface`: de noche `surface` (#1B1811) y `bg`
+     (#12100B) se tocan, y la barra desaparecía contra el fondo (#42). El filo
+     también es suyo, más marcado que el borde general del panel. */
   return (
     <header
-      className="flex-shrink-0 bg-surface border-b border-border flex items-center gap-3 px-4 sm:px-6 relative z-40"
+      className="flex-shrink-0 bg-topbar border-b border-topbar-line flex items-center gap-3 px-4 sm:px-6 relative z-40"
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)',
         minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))',

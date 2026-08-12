@@ -90,8 +90,12 @@ export default function WhiteLabelSection({ evento, reload, valor, onChange }) {
   const guardar = async () => {
     setSaving(true);
     try {
-      const page_json = { ...(evento.page_json || {}), branding: b };
-      await eventosApi.update(evento.id, { page_json });
+      /* Sólo la marca, en su propia columna (migración 0064). Antes esto
+         mandaba `{...evento.page_json, branding}`: la copia entera del JSON
+         compartido, escrita encima. Si el editor de la página había guardado
+         entretanto, este botón le borraba las páginas — y al revés. Ahora
+         cada uno escribe su campo y no hay nada que pisarse. */
+      await eventosApi.update(evento.id, { branding: b });
       success('White Label guardado. El sitio público ya usa tu marca.');
       reload?.();
     } catch (e) { error(e.response?.data?.error || e.message); }
@@ -241,7 +245,11 @@ export default function WhiteLabelSection({ evento, reload, valor, onChange }) {
               {saving ? 'Guardando…' : 'Guardar White Label'}
             </button>
           )}
-          <a href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer" className="btn-secondary">Ver sitio público</a>
+          {/* `?gestek=1` cuando el evento publica hacia fuera (#32): esto enseña
+              la marca que se está editando, y esa vive en la landing de GESTEK.
+              Sin el parámetro el botón saltaría a la web del organizador. */}
+          <a href={`/explorar/${evento.slug}${evento.modo_publico && evento.modo_publico !== 'gestek' ? '?gestek=1' : ''}`}
+             target="_blank" rel="noreferrer" className="btn-secondary">Ver sitio público</a>
         </div>
       </div>
 

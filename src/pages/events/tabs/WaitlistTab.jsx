@@ -8,8 +8,9 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 
 const ESTADO_LABEL = {
   active   : 'En espera',
-  contacted: 'Notificado',
+  contacted: 'Con oferta',
   purchased: 'Compró',
+  expired  : 'Dejó pasar',
   cancelled: 'Cancelado',
 };
 
@@ -17,8 +18,19 @@ const ESTADO_CLS = {
   active   : 'bg-warning/10 text-warning border-warning/20',
   contacted: 'bg-primary/10 text-primary-light border-primary/20',
   purchased: 'bg-success/10 text-success border-success/20',
+  expired  : 'bg-text-3/10 text-text-2 border-border',
   cancelled: 'bg-text-3/10 text-text-2 border-border',
 };
+
+/* Cuánto queda de una oferta viva, en palabras. Un timestamp crudo obliga al
+   organizador a hacer la resta mentalmente cada vez que mira la lista. */
+function restante(iso) {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const h = Math.floor(ms / 3600000);
+  if (h >= 1) return `${h} h`;
+  return `${Math.max(1, Math.round(ms / 60000))} min`;
+}
 
 export default function WaitlistTab({ evento }) {
   const [data, setData]       = useState(null);
@@ -53,12 +65,24 @@ export default function WaitlistTab({ evento }) {
     } catch (e) { toastErr(e.message); }
   };
 
+  /* Ofrecer el cupo. El servidor decide a quién: siempre al primero de la
+     fila, aunque el organizador haya pulsado en otra persona — el orden es la
+     promesa que se le hizo a todos los demás. Si no coincide, se dice. */
   const notificar = async (waitlistId) => {
     try {
       const r = await waitlistApi.notify(evento.id, waitlistId);
-      success(r.pushSent > 0 ? 'Notificación enviada.' : 'Estado actualizado (sin push activo).');
+      if (!r.era_quien_pediste) {
+        success(`El cupo le tocaba a ${r.ofrecido_a}, que va antes en la fila. Ya tiene su enlace.`);
+      } else if (r.email_ok) {
+        success(`Correo enviado a ${r.ofrecido_a}. Le guardamos el cupo ${r.horas} horas.`);
+      } else {
+        /* El cupo queda guardado igual, pero si el correo no salió la persona
+           no se entera. Decirlo aquí evita que el organizador dé por hecho
+           que avisó. */
+        toastErr(`Cupo reservado para ${r.ofrecido_a}, pero el correo no salió (${r.email_motivo || 'sin proveedor'}). Avísale por otro medio.`);
+      }
       reload();
-    } catch (e) { toastErr(e.message); }
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
   const eliminar = async (waitlistId) => {
@@ -71,23 +95,28 @@ export default function WaitlistTab({ evento }) {
   };
 
   const lista = data?.waitlist || [];
-  const stats = data?.stats || { total: 0, active: 0, contacted: 0, purchased: 0, cancelled: 0 };
+  const stats = data?.stats || { total: 0, active: 0, contacted: 0, purchased: 0, cancelled: 0, expired: 0, ofertas_vivas: 0 };
+  const horas = data?.horas_oferta || 24;
 
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Lista de espera</h2>
-          <p className="text-sm text-text-2 mt-1">Personas que quieren asistir cuando se libere un cupo.</p>
+          <p className="text-sm text-text-2 mt-1">
+            Cuando se libera un cupo, el primero de la fila recibe un correo con un
+            enlace que caduca a las {horas} horas. Mientras tanto ese cupo no se lo
+            puede llevar nadie más. Si no lo usa, le toca al siguiente.
+          </p>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatBox label="En espera"  value={stats.active}    />
-        <StatBox label="Notificados" value={stats.contacted} />
+        <StatBox label="Con oferta viva" value={stats.ofertas_vivas ?? stats.contacted} />
         <StatBox label="Compraron"  value={stats.purchased} />
-        <StatBox label="Cancelados" value={stats.cancelled} />
+        <StatBox label="Dejaron pasar" value={stats.expired ?? 0} />
       </div>
 
       {/* Filtros */}
@@ -153,6 +182,7 @@ function WaitlistRow({ entry, style, onCambiarEstado, onNotificar, onEliminar })
   const email    = entry.guest_email;
   const initials = (nombre || 'U').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const fecha    = new Date(entry.added_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  const queda    = entry.oferta_viva && entry.oferta_expira ? restante(entry.oferta_expira) : null;
 
   const handleNotify = async () => {
     setNotifying(true);
@@ -202,19 +232,23 @@ function WaitlistRow({ entry, style, onCambiarEstado, onNotificar, onEliminar })
       {/* Fecha */}
       <div className="hidden sm:block text-right text-[11px] text-text-3 tabular-nums w-20">{fecha}</div>
 
-      {/* Badge estado */}
+      {/* Badge estado. Con oferta viva se dice cuánto queda: "Notificado" a
+          secas no distinguía a quien tiene el enlace en la mano de quien lo
+          tuvo hace tres semanas. */}
       <span className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-full border whitespace-nowrap ${ESTADO_CLS[entry.estado] || ESTADO_CLS.active}`}>
-        {ESTADO_LABEL[entry.estado] || entry.estado}
+        {entry.oferta_viva && queda
+          ? `Cupo suyo · ${queda}`
+          : (ESTADO_LABEL[entry.estado] || entry.estado)}
       </span>
 
       {/* Acciones */}
       <div className="relative flex items-center gap-1">
-        {/* Botón de notificación rápida */}
-        {['active', 'contacted'].includes(entry.estado) && (
+        {/* Ofrecer el cupo al primero de la fila */}
+        {['active', 'contacted', 'expired'].includes(entry.estado) && (
           <button
             onClick={handleNotify}
             disabled={notifying}
-            title="Notificar a esta persona"
+            title="Ofrecer el cupo al primero de la fila"
             className="w-8 h-8 rounded-lg text-text-3 hover:text-primary-light hover:bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           >
             {notifying ? <Spinner size="sm" /> : <BellIcon className="w-4 h-4" />}

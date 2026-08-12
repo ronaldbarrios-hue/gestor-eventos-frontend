@@ -8,7 +8,15 @@ export const torneosApi = {
   /* RETROCOMPAT: primer torneo del evento (+ lista en `torneos`). */
   get              : (eventoId) => client.get(`/eventos/${eventoId}/torneo`).then(r => r.data),
   crear            : (eventoId, body) => client.post(`/eventos/${eventoId}/torneo`, body).then(r => r.data),
+  editar           : (eventoId, torneoId, body) => client.patch(`/eventos/${eventoId}/torneo/${torneoId}`, body).then(r => r.data),
   borrar           : (eventoId, torneoId) => client.delete(`/eventos/${eventoId}/torneo/${torneoId}`).then(r => r.data),
+
+  /* #48 · El árbol de categorías del evento. Llega plano, con `padre_id`:
+     el panel y la página pública lo arman de formas distintas. */
+  categorias       : (eventoId) => client.get(`/eventos/${eventoId}/torneo-categorias`).then(r => r.data),
+  crearCategoria   : (eventoId, body) => client.post(`/eventos/${eventoId}/torneo-categorias`, body).then(r => r.data),
+  editarCategoria  : (eventoId, id, body) => client.patch(`/eventos/${eventoId}/torneo-categorias/${id}`, body).then(r => r.data),
+  borrarCategoria  : (eventoId, id) => client.delete(`/eventos/${eventoId}/torneo-categorias/${id}`).then(r => r.data),
 
   crearEquipo      : (eventoId, torneoId, body) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/equipos`, body).then(r => r.data),
   borrarEquipo     : (eventoId, torneoId, equipoId) => client.delete(`/eventos/${eventoId}/torneo/${torneoId}/equipos/${equipoId}`).then(r => r.data),

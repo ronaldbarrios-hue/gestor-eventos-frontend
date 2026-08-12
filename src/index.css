@@ -29,10 +29,27 @@
                                            anterior se quedaba en 2.97:1 y las
                                            etiquetas pequeñas se perdían */
 
-    /* ── Sidebar (la noche identitaria, IGUAL en ambos modos) ──── */
-    --color-sidebar     : 18 16 11;   /* #12100B — la misma noche cálida */
-    --color-sidebar-2   : 33 29 21;   /* hover/superficie interna */
-    --color-sidebar-3   : 48 42 31;   /* activo */
+    /* ── Sidebar · la noche identitaria ─────────────────────────────
+       Era EXACTAMENTE la misma en los dos modos (#12100B). En la noche eso
+       está bien: es el fondo de la casa. Sobre papel (#EBE7DC) es un tablón
+       casi negro pegado al lado de la pantalla, y eso es lo que el equipo
+       describió como "demasiado negro en modo claro" (#43).
+
+       No se abandona la identidad: sigue siendo noche cálida, con el rojo por
+       delante del azul y el mismo latón encima. Sólo se sube tres escalones,
+       lo justo para que se lea como madera oscura y no como un agujero. El
+       texto claro que va encima mantiene 11:1 de contraste, así que no se
+       pierde nada por el camino. En modo oscuro se queda como estaba. */
+    --color-sidebar     : 36 31 22;   /* #241F16 */
+    --color-sidebar-2   : 51 44 32;   /* #332C20 — hover/superficie interna */
+    --color-sidebar-3   : 69 60 43;   /* #453C2B — activo */
+
+    /* ── Barra superior del panel ───────────────────────────────────
+       Token propio y no `surface` a secas: en la noche esos dos colores se
+       tocan y la barra desaparecía (#42). Ver el bloque de modo oscuro. */
+    --color-topbar      : 246 243 236; /* #F6F3EC — papel, sobre el fondo más apagado */
+    --color-topbar-line : 33 30 24;    /* mismo filo que el resto en día */
+    --topbar-line-alpha : 0.10;
 
     /* ── Latón · el acento de marca. En día se oscurece para que
        tenga contraste sobre los fondos claros. ── */
@@ -78,6 +95,25 @@
     --color-text-1      : 245 240 230; /* #F5F0E6 */
     --color-text-2      : 173 165 149; /* #ADA595 */
     --color-text-3      : 125 118 104; /* #7D7668 */
+
+    /* En la noche el sidebar SÍ es el fondo de la casa: vuelve a ser el mismo
+       #12100B del `bg`, que es lo que le daba continuidad. */
+    --color-sidebar     : 18 16 11;   /* #12100B */
+    --color-sidebar-2   : 33 29 21;
+    --color-sidebar-3   : 48 42 31;
+
+    /* ── #42 · La barra superior se perdía ──────────────────────────
+       Iba en `surface` (#1B1811) sobre un fondo de `bg` (#12100B): nueve
+       puntos de diferencia y un filo al 7%. De noche eso no es una barra, es
+       la misma superficie con una raya encima, y al hacer scroll el contenido
+       parecía pasar por debajo de nada.
+
+       Se sube al escalón siguiente (#2B261B, por encima de surface-2) y el
+       filo pasa del 7% al 18%. Ahora hay 25 puntos de separación con el
+       fondo: se lee como un plano aparte sin dejar de ser noche. */
+    --color-topbar      : 43 38 27;    /* #2B261B */
+    --color-topbar-line : 255 244 214; /* filo cálido, como el resto de la noche */
+    --topbar-line-alpha : 0.18;
 
     /* Sobre la noche el latón puede ir a pleno brillo */
     --color-primary       : 224 177 43;   /* #E0B12B */

@@ -13,6 +13,30 @@ lo que toque backend o base de datos se avisa antes.
 
 ---
 
+> ## ⚠️ Hay cinco migraciones sin aplicar
+>
+> Esta ronda cerró casi todo lo pendiente, y buena parte necesita base de
+> datos. **Nada de lo nuevo funciona hasta aplicarlas, en este orden:**
+>
+> | | Qué desbloquea |
+> |---|---|
+> | `0060_evento_modo_publico` | #32 · los tres modos de publicación |
+> | `0061_waitlist_oferta_con_caducidad` | La lista de espera de verdad |
+> | `0062_torneo_categorias_anidadas` | #48 · categorías de torneos |
+> | `0063_buzon_sugerencias_catalogo` | #49 · el buzón |
+> | `0064_sacar_marca_paginas_navbar_de_page_json` | La deuda de `page_json` |
+>
+> El código aguanta sin ellas sin reventar —las consultas que fallan caen a
+> lista vacía y el resto sigue—, pero **la 0064 es la excepción que importa**:
+> hasta que se aplique, el editor guarda la marca en una columna que no existe
+> y el guardado falla entero. Frontend y backend de esta ronda van juntos.
+>
+> Y una gratis: **`0007_event_roles.sql` ya no miente.** Siembra los roles en
+> español, los mismos valores que dejan la 0054 y la 0056. Reconstruir desde
+> cero da por fin el mismo resultado que la base de hoy.
+
+---
+
 ## 1 · Lo que hay que hacer
 
 ### Bloque A — Editor de la página pública (prioridad declarada)
@@ -28,64 +52,92 @@ página de su evento) no está entera.
   columna flex que los cajones de Marca y Navbar, que sí funcionaban.
 - ~~**#29 · Mover el botón de editar** junto a `+ Página`.~~ **Hecho.** Los dos
   van juntos, destacados y separados de las pestañas por una línea.
-- **#32 · iFrame: los tres modos de publicación.** Enlazar la web propia del
-  organizador, incrustar iFrame, o llevar directo a la landing de GESTEK.
-  Necesita migración (`eventos.modo_publico`, `url_externa`). Ampliar el
-  catálogo con mapa, torneos con ganador y participantes, ranking y
-  expositores. **Backend: avisar antes de tocar producción.**
+- ~~**#32 · iFrame: los tres modos de publicación.**~~ **Hecho.** Migración
+  0060 (`eventos.modo_publico`, `url_externa`), pestaña **Publicación** en el
+  espacio de trabajo y cajón en el editor. La página pública respeta el modo:
+  en «mi propia web» sale fuera con una pantalla que dice a dónde va, y
+  `?gestek=1` deja ver la landing de respaldo (lo usan el editor y la vista
+  previa de Marca). `?standalone=1` nunca rebota, o comprar desde un embed no
+  terminaría nunca. Catálogo ampliado a ocho secciones: espacio, llaves,
+  **torneos con campeón y participantes**, **ranking de expositores**,
+  directorio, mapa del evento, cómo llegar y boletas.
 
 ### Bloque B — Landing
 
 Después de esto la landing queda cerrada salvo videos e imágenes.
 
-- **#33 · Producto por secciones.** Hoy es una lista plana. Que cada módulo
-  tenga su sección (Eventos → asistentes ilimitados, wizard, presencial…) con
-  hueco preparado para capturas reales.
-- **#34 · Privacidad, cookies y términos** dentro del botón de configuración,
-  que ya tiene idioma y tema.
-- **#35 · Desde el login, entrar a términos te deja sin vuelta atrás.**
-- **#36 · "Cambiar propósito" se pierde** en el registro, y la casilla del
-  teléfono de "solo quiero asistir" va demasiado apretada.
+- ~~**#33 · Producto por secciones.**~~ **Hecho.** Doce secciones con su visual.
+- ~~**#34 · Privacidad, cookies y términos**~~ **Hecho.**
+- ~~**#35 · Desde el login, entrar a términos te deja sin vuelta atrás.**~~ **Hecho.**
+- ~~**#36 · "Cambiar propósito" se pierde**~~ **Hecho.**
 
 ### Bloque C — Gestbot y la lámpara
 
-- **#41 · La lámpara, tercera vez.** En la foto de referencia hay un tirador
-  corto colgando del brazo y el cordón **no** cruza la bombilla. Rehacer
-  contra esa foto en vez de seguir parcheando.
-- **#37 · Agrandar el widget de Inicio** y meter al bot dentro.
-- **#38 · Quitar la caja "¿Necesitas ayuda? / Abrir Gestbot"** y poner al bot
-  trabajando, que de vez en cuando saque un bocadillo con animación.
-- **#39 · Avisos según el estado real del evento:** sin tipos de boleta, sin
-  logo, sin dirección, solicitudes sin responder.
-- **#40 · Dos pantallas:** la suya, que no muestra nada, y un monitor girado
-  hacia el usuario con idioma y tema.
+- ~~**#41 · La lámpara, tercera vez.**~~ **Hecho.**
+- ~~**#37 · Agrandar el widget de Inicio** y meter al bot dentro.~~ **Hecho.**
+  El bot ya estaba dentro; el widget pasa de `md` a `lg` y caben cuatro avisos
+  sin partir frases. Ojo: sólo cambia el DEFAULT — quien ya tenga un layout
+  guardado en su navegador no verá nada hasta darle a «Restablecer».
+- ~~**#38 · Quitar la caja "¿Necesitas ayuda?"**~~ **Hecho.**
+- ~~**#39 · Avisos según el estado real del evento.**~~ **Hecho.** Faltaban dos
+  de los cuatro que se pidieron: **sin logo** (mira la marca del evento y la
+  del organizador; sin ninguna, la página sale con el logo de GESTEK) y
+  **solicitudes sin responder**. En el Inicio se añade el aviso de eventos
+  **publicados a medias**, que es peor que un borrador porque ese sí se ve.
+- ~~**#40 · Dos pantallas.**~~ **Hecho.** El portátil del bot se ve ahora POR
+  DETRÁS —tapa, marca y nada más: si él lo mira, nosotros estamos al otro
+  lado— y al lado hay un monitor girado al usuario con idioma y tema, que son
+  controles de verdad (`MonitorGestbot.jsx`).
 
 ### Bloque D — Panel interno
 
-- **#46 · Ajustes.** Organización dice "solo para administradores" y al
-  administrador no le sale nada. El resto repite o no aporta. Auditar qué
-  ajustes necesita de verdad la plataforma.
-- **#45 · Vista Colaborador.** No dice en qué evento colaboro ni qué
-  pendientes tengo. Es media aplicación vacía.
-- **#47 · Vacantes.** El formulario ocupa media pantalla y deja el resto en
-  blanco. Aprovechar el ancho y meter vista previa de la vacante publicada
-  con la marca del organizador, editable desde ahí.
-- **#44 · El menú de los tres puntos** de los widgets sale cortado en los
-  widgets bajos: se recorta contra el alto en vez de flotar por encima.
-- **#42 · El navbar del panel se pierde** con el fondo en modo oscuro.
-- **#43 · El sidebar se queda demasiado negro** en modo claro.
+- ~~**#46 · Ajustes.**~~ **Hecho.** Eran dos fallos encadenados: la puerta
+  pedía `hasPermiso('usuarios:ver')` o el rol `admin_global`, y **ninguna
+  cuenta real los tiene** —toda cuenta nace como `organizador`—, así que el
+  dueño veía el mismo cartel que un invitado; y al otro lado sólo había dos
+  tarjetas diciendo que los roles globales no existen. Se quita la puerta
+  (no hay roles de organización: son por evento) y se pone lo que sí existe:
+  **quién trabaja contigo**, componiendo los equipos de tus eventos con su
+  rol y su enlace, y la identidad de la cuenta.
+- ~~**#45 · Vista Colaborador.**~~ **Hecho.** La causa: `EspacioData` fusionaba
+  las dos listas de eventos con `if (!mapa.has(id))` y los propios iban
+  primero, así que la fila que traía `mi_rol` **nunca entraba** y el rol se
+  perdía siempre. Además las tareas se cortaban a seis eventos por el orden de
+  llegada, dejando fuera justo los de colaboración. Ahora se combinan los dos
+  objetos, los eventos donde colaboras van primero en la cola, la lista es
+  «lo que me toca a mí» de verdad, cada evento dice tu papel y cuántas tareas
+  tienes ahí, y se añade lo que pediste y sigue sin respuesta.
+- ~~**#47 · Vacantes.**~~ **Hecho.** La mitad vacía es ahora la vista previa de
+  la vacante con la marca del organizador, y el título y la descripción se
+  escriben desde ahí (mismo estado que el formulario).
+- ~~**#44 · El menú de los tres puntos.**~~ **Hecho.** No era z-index: iba
+  `absolute` dentro de una tarjeta con `overflow-hidden`, y nada que viva ahí
+  dentro puede salir. Va por portal al body, colocado desde el botón, y se
+  voltea hacia arriba si no cabe debajo.
+- ~~**#42 · El navbar del panel se pierde en oscuro.**~~ **Hecho.** Iba en
+  `surface` (#1B1811) sobre `bg` (#12100B): nueve puntos y un filo al 7%.
+  Token propio `topbar` (#2B261B, 25 puntos) y filo al 18%.
+- ~~**#43 · El sidebar demasiado negro en claro.**~~ **Hecho.** Era el mismo
+  #12100B en los dos modos. En la noche está bien —es el fondo de la casa—;
+  sobre papel era un tablón. Sube tres escalones sólo en claro (#241F16),
+  sigue siendo noche cálida y el texto conserva 11:1.
 
 ### Bloque E — Módulos
 
-- **#51 · Verificar los QR de punta a punta.** Ver sección 3.
-- **#48 · Dinámicas: torneos por categorías anidadas.** Torneos → deportes /
-  juegos de mesa / gaming → contacto, pesca, caminata… y de ahí a los torneos
-  concretos, con tantos niveles como haga falta.
-- **#50 · Emails: alias, plantillas y variables.** Que insertar una variable
-  sea elegirla de una lista y no escribir `{{nombre}}` a mano. **Backend:**
-  además hay que cerrar la cascada de email contra el SMTP de cPanel.
-- **#49 · Buzón de sugerencias** para tipos de evento y de vacante. Es la
-  forma barata de descubrir qué falta sin adivinar.
+- **#51 · Verificar los QR de punta a punta.** Ver sección 3. *(Sin hacer: es
+  un recorrido con cuenta real, no código.)*
+- ~~**#48 · Torneos por categorías anidadas.**~~ **Hecho.** Migración 0062:
+  `torneo_categorias` con `padre_id` a sí misma (profundidad libre, tope de
+  seis por sentido, no por técnica) y `torneos.categoria_id`. Borrar una rama
+  se lleva sus hijas pero **ningún torneo**: quedan sin clasificar. Editor de
+  árbol en el panel, con árbol sugerido de un clic, y navegación por rama en
+  el panel y en público — elegir «deportes» incluye lo que cuelga de él.
+- **#50 · Emails: alias, plantillas y variables.** *(Sin hacer.)* La cascada
+  contra el SMTP de cPanel sigue bloqueada por credenciales.
+- ~~**#49 · Buzón de sugerencias.**~~ **Hecho.** Migración 0063. Va pegado al
+  selector que se queda corto —la categoría al crear el evento, el rol al
+  publicar una vacante— y no en una pantalla de contacto: preguntado tres
+  pantallas después, ya nadie recuerda qué buscaba.
 - **#10 · Vacantes: integraciones externas** (KYC, Calendar, pagos), a la
   espera de credenciales.
 
@@ -130,6 +182,28 @@ escribe con ellas en una sola llamada. El panel funciona ahora de dos maneras:
 suelto —con su botón, como se usa desde el espacio de trabajo— o controlado,
 que informa hacia arriba y no guarda nada por su cuenta. Dentro del editor va
 controlado, así que ya no hay un segundo botón que pueda pisar al primero.
+
+**Y arreglado de raíz (migración 0064).** Lo de arriba quitaba el segundo
+botón; esto quita la posibilidad. La marca, las páginas y el navbar salen de
+`page_json` a columnas propias: ya no comparten campo, así que no pueden
+pisarse ni queriendo. Además el `PATCH` deja de REEMPLAZAR `page_json` y pasa
+a **mezclar por claves de primer nivel**, que es lo que protege a las otras
+trece pantallas que siguen guardando con `{...evento.page_json, loMío}`.
+
+Dos detalles que costaron decidir y conviene no deshacer:
+
+- Las tres claves **se quitan** de `page_json` al migrar. Mientras haya dos
+  copias hay que elegir cuál gana, y la regla tentadora —«si la columna está
+  vacía, usa la del JSON»— **resucita la marca borrada**: la quitas a
+  propósito y la copia legada te la devuelve.
+- Si llega un `page_json` con `branding` dentro, **se descarta, no se
+  asciende** a la columna. Ascender reconstruiría el fallo original con trece
+  culpables en vez de dos: cada pantalla reenvía su fotografía del JSON, y la
+  suya puede ser de hace media hora. No guardar se ve y se reintenta; borrar
+  sin avisar no se ve hasta que alguien abre la página pública.
+
+La compatibilidad la da la API: al LEER vuelve a meter las tres dentro de
+`page_json`, así que quien siga leyendo `page_json.branding` no se entera.
 
 Y de paso, la vista previa no mentía: **estaba pintando unos defaults que ya
 no existen.** El preset llamado "GESTEK" y los colores por defecto del panel
@@ -198,10 +272,12 @@ puede funcionar, pero nadie lo ha visto funcionar de principio a fin.
 | **Escanear QR → check-in → métricas** | Sin probar | `CheckinTab` llama a `clientesApi.checkin` y `reingreso`; existe el camino, no se ha ejecutado |
 | **Vacante pública → candidato aplica** | **Roto en producción** | El backend nunca se desplegó en Render: sigue devolviendo 401 |
 | Emails automáticos (recordatorios, recibos) | Sin cerrar | Falta atar la cascada al SMTP de cPanel |
-| iFrame incrustado en una web externa | Sin construir | #32 |
-| Cambio de idioma en toda la app | Verificado | Auditor: 297 usadas / 297 traducidas / 0 faltan |
-| Modo claro y oscuro | Parcial | Contraste medido en los tokens; quedan #42 y #43 |
-| Colaborador invitado → acepta → ve sus tareas | Sin probar | La vista está vacía (#45) |
+| iFrame incrustado en una web externa | Construido, sin probar fuera | #32 hecho: ocho secciones y los tres modos. Falta pegarlo en una web real |
+| **Cupo liberado → correo → el siguiente compra** | Construido, sin probar | Todo el ciclo existe (0061). **No se puede ver funcionar sin proveedor de correo** |
+| **Apuntarse a un sub-evento desde fuera** | Construido, sin probar | La pantalla que faltaba ya está; el endpoint llevaba tiempo sin usar |
+| Cambio de idioma en toda la app | Verificado | Auditor: 302 usadas / 302 traducidas / 0 faltan |
+| Modo claro y oscuro | Parcial | Contraste medido en los tokens; #42 y #43 corregidos, sin ver en pantalla real |
+| Colaborador invitado → acepta → ve sus tareas | Sin probar | La vista ya no está vacía (#45), pero hace falta una segunda cuenta |
 
 ### Cómo propongo probarlos
 

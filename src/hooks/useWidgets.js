@@ -17,11 +17,16 @@ export const TAMANOS = ['sm', 'md', 'lg', 'full'];
    5) qué pasó (actividad), 6) el asistente (gestbot). */
 export const WIDGETS_META = [
   { id: 'eventos',       titulo: 'Eventos activos',    descripcion: 'Eventos en los que participas, con acceso rápido.', defaultSize: 'lg',  defaultVisible: true  },
-  /* Gestbot pasa de 'sm' a 'md'. En la ranura pequeña no cabía más que un
-     aviso y un botón, y con el bot dentro quedaba estrangulado. Es además el
-     widget que MÁS avisos acumula, así que era el que peor llevaba ser el
-     más estrecho. */
-  { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'md',  defaultVisible: true  },
+  /* Gestbot pasa de 'sm' a 'lg'. En la ranura pequeña no cabía más que un
+     aviso y un botón, y con el bot dentro quedaba estrangulado; en 'md'
+     seguía sin caber la lista de avisos sin partir frases en tres líneas. Es
+     el widget que MÁS avisos acumula, así que era el que peor llevaba ser el
+     más estrecho.
+
+     Ojo: esto sólo cambia el default. A quien ya tenga un layout guardado en
+     su navegador no le mueve nada — lo suyo manda, y para eso está el
+     "Restablecer" del panel de Personalizar. */
+  { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'lg',  defaultVisible: true  },
   { id: 'mi-trabajo',    titulo: 'Mi trabajo',         descripcion: 'Tareas, solicitudes y aprobaciones pendientes.',    defaultSize: 'md',  defaultVisible: true  },
   { id: 'ventas',        titulo: 'Ventas',             descripcion: 'Resumen de boletas vendidas y ocupación.',          defaultSize: 'sm',  defaultVisible: true  },
   { id: 'calendario',    titulo: 'Calendario',         descripcion: 'Próximos compromisos relacionados contigo.',        defaultSize: 'sm',  defaultVisible: true  },

@@ -4,6 +4,8 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import { BrandingProvider, BrandHeader, PoweredBy } from '../../../components/public/Branding.jsx';
+import BuzonSugerencia from '../../../components/ui/BuzonSugerencia.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Vacantes — lado ORGANIZADOR (dentro del evento).
@@ -146,10 +148,17 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
 
   const comision = Math.round((Number(f.pago_monto) || 0) * 0.05);
 
+  /* #47 · El formulario ocupaba media pantalla y dejaba la otra media en
+     blanco: `max-w-2xl` y nada al lado. Ahora la mitad libre es la vista
+     previa de lo que verá el candidato, con la marca del organizador, y el
+     título y la descripción se escriben ahí mismo. Es lo que hace que la
+     vista previa sirva para algo y no sea un espejo decorativo. */
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="space-y-4">
       <button onClick={onCancel} className="text-sm text-text-3 hover:text-text-1">← Volver a vacantes</button>
-      <div className="rounded-3xl border border-border bg-surface/40 p-5 space-y-4">
+
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)] gap-5 items-start">
+      <div className="rounded-3xl border border-border bg-surface/40 p-5 space-y-4 min-w-0">
         <h3 className="text-base font-semibold text-text-1">{vacante ? 'Editar vacante' : 'Nueva vacante'}</h3>
 
         <div className="field">
@@ -168,6 +177,13 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
               <input value={nuevoRol} onChange={e => setNuevoRol(e.target.value)} placeholder="Crear rol propio" className="input rounded-lg py-1.5 text-xs flex-1" />
               <button type="button" onClick={crearRol} className="btn-ghost btn-sm text-xs">+ Crear</button>
             </div>
+            {/* #49 · Aquí un rol propio se crea sólo para este organizador. Si
+                lo que falta es del catálogo común, esto es lo que lo cuenta. */}
+            <BuzonSugerencia
+              catalogo="vacante"
+              etiqueta="¿Debería estar en la lista de todos? Dinos cuál"
+              contexto={{ desde: 'vacantes', evento: evento?.titulo || '', vacante: f.titulo || '' }}
+            />
           </div>
           <div className="field">
             <label className="label text-xs">Modalidad</label>
@@ -239,7 +255,121 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
           <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">{saving ? <><Spinner size="sm" /> Guardando…</> : (vacante ? 'Guardar' : 'Publicar vacante')}</button>
         </div>
       </div>
+
+      <VistaPreviaVacante evento={evento} f={f} set={set} roles={roles} />
+      </div>
     </div>
+  );
+}
+
+/* La vacante como la ve el candidato, con la marca del organizador.
+
+   El título y la descripción son campos de verdad, no texto pintado: se
+   escriben aquí igual que en el formulario y los dos lados comparten estado.
+   Una vista previa que sólo mira obliga a ir y venir entre las dos mitades
+   para ajustar una frase. */
+function VistaPreviaVacante({ evento, f, set, roles }) {
+  const branding = evento.page_json?.branding || {};
+  const organizador = {
+    ...(evento.organizador || {}),
+    branding: { ...((evento.organizador || {}).branding || {}), ...branding },
+    ...(branding.logo_url ? { empresa_logo_url: branding.logo_url } : {}),
+  };
+  const rol = roles.find(r => String(r.id) === String(f.rol_id));
+  const modalidad = MODALIDADES.find(([v]) => v === f.modalidad)?.[1] || f.modalidad;
+  const periodo = PERIODOS.find(([v]) => v === f.pago_periodo)?.[1] || '';
+
+  return (
+    <div className="xl:sticky xl:top-4 space-y-2">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">
+        Así la ve el candidato
+      </p>
+
+      <BrandingProvider organizador={organizador}>
+        <article className="rounded-3xl border border-border bg-surface overflow-hidden shadow-card">
+          <div className="px-5 py-4 border-b border-border">
+            <BrandHeader organizador={organizador} size="sm" />
+          </div>
+
+          <div className="px-5 py-4 space-y-3">
+            {/* Editable desde aquí: mismo estado que el formulario. */}
+            <input
+              value={f.titulo}
+              onChange={e => set({ titulo: e.target.value })}
+              placeholder="Título de la vacante"
+              aria-label="Título de la vacante"
+              className="w-full bg-transparent border-0 p-0 text-xl font-bold font-display tracking-tight
+                         text-text-1 placeholder:text-text-3/60 focus:outline-none focus:ring-0" />
+
+            <div className="flex flex-wrap gap-1.5">
+              {rol && <Chip>{rol.nombre}</Chip>}
+              <Chip>{modalidad}</Chip>
+              {f.ciudad && <Chip>{f.ciudad}</Chip>}
+              {Number(f.cupos) > 1 && <Chip>{f.cupos} cupos</Chip>}
+              {f.estado !== 'abierta' && <Chip alerta>{f.estado === 'pausada' ? 'Pausada' : 'Cerrada'}</Chip>}
+            </div>
+
+            <div>
+              <p className="text-2xl font-bold font-display text-text-1 tabular-nums leading-none">
+                {Number(f.pago_monto) > 0
+                  ? formatoPago(Number(f.pago_monto), f.pago_moneda)
+                  : <span className="text-text-3 text-base font-normal">Sin pago definido</span>}
+              </p>
+              {Number(f.pago_monto) > 0 && periodo && (
+                <p className="text-[11px] text-text-3 mt-0.5">{periodo}</p>
+              )}
+            </div>
+
+            <textarea
+              value={f.descripcion}
+              onChange={e => set({ descripcion: e.target.value })}
+              rows={4}
+              placeholder="Qué se hará, horarios, requisitos generales."
+              aria-label="Descripción de la vacante"
+              className="w-full bg-transparent border-0 p-0 text-sm leading-relaxed resize-none
+                         text-text-2 placeholder:text-text-3/60 focus:outline-none focus:ring-0" />
+
+            {f.preguntas.filter(p => p.label.trim()).length > 0 && (
+              <div className="pt-3 border-t border-border">
+                <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">
+                  Te preguntaremos
+                </p>
+                <ul className="space-y-1">
+                  {f.preguntas.filter(p => p.label.trim()).map(p => (
+                    <li key={p.id} className="text-xs text-text-2 flex items-start gap-1.5">
+                      <span className="text-text-3 mt-0.5">·</span>
+                      {p.label}{p.requerido && <span className="text-danger">*</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <button type="button" disabled className="btn-primary btn-sm w-full justify-center opacity-70 cursor-default">
+              Postularme
+            </button>
+          </div>
+
+          <div className="px-5 pb-4">
+            <PoweredBy organizador={organizador} />
+          </div>
+        </article>
+      </BrandingProvider>
+
+      <p className="text-[11px] text-text-3 leading-relaxed">
+        El título y la descripción se pueden escribir aquí mismo. Los demás datos salen
+        del formulario de la izquierda. Se publica con «{f.estado === 'abierta' ? 'Publicar vacante' : 'Guardar'}».
+      </p>
+    </div>
+  );
+}
+
+function Chip({ children, alerta }) {
+  return (
+    <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border
+      ${alerta ? 'border-warning/40 bg-warning/10 text-warning' : 'border-border bg-surface-2 text-text-2'}`}>
+      {children}
+    </span>
   );
 }
 

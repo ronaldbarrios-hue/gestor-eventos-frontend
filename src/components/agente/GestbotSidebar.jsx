@@ -19,11 +19,15 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { solicitudesApi } from '../../api/solicitudes.js';
 import Criatura from './Criatura.jsx';
 
 const SEGUNDOS_POR_AVISO = 9;
 
-export function avisosDelEvento(evento) {
+/* `solicitudesPendientes` llega de fuera porque no vive en el evento: son
+   filas de otra tabla. Se pasa como número para que esta función siga siendo
+   pura y se pueda leer de un vistazo qué dispara cada aviso. */
+export function avisosDelEvento(evento, { solicitudesPendientes = 0 } = {}) {
   if (!evento) return [];
   const avisos = [];
 
@@ -31,8 +35,26 @@ export function avisosDelEvento(evento) {
   if (tipos.length === 0) {
     avisos.push({ id: 'boletas', texto: 'Este evento todavía no tiene tipos de boleta. Sin eso nadie puede inscribirse.' });
   }
+  /* Alguien esperando respuesta es lo único de la lista que le pasa a una
+     PERSONA y no al evento, así que va justo detrás de lo que impide vender.
+     El resto puede esperar a mañana; esto no. */
+  if (solicitudesPendientes > 0) {
+    avisos.push({
+      id: 'solicitudes',
+      texto: solicitudesPendientes === 1
+        ? 'Hay una solicitud sin responder.'
+        : `Hay ${solicitudesPendientes} solicitudes sin responder.`,
+    });
+  }
   if (!evento.cover_url) {
     avisos.push({ id: 'portada', texto: 'Le falta la portada. Es lo primero que ve quien abre la página.' });
+  }
+  /* La marca del evento pisa la del organizador; si no hay ninguna de las
+     dos, la página pública sale con el logo de GESTEK y el evento parece de
+     otro. */
+  const logo = evento.page_json?.branding?.logo_url || evento.organizador?.empresa_logo_url;
+  if (!logo) {
+    avisos.push({ id: 'logo', texto: 'No hay logo. Sin él tu página sale con la marca de GESTEK, no con la tuya.' });
   }
   if (!evento.location_nombre) {
     avisos.push({ id: 'sitio', texto: 'No has puesto el sitio. Es de lo primero que preguntan.' });
@@ -48,7 +70,26 @@ export function avisosDelEvento(evento) {
 }
 
 export default function GestbotSidebar({ evento }) {
-  const avisos = avisosDelEvento(evento);
+  /* Las solicitudes se piden aquí y no se reciben de arriba: el workspace no
+     las carga, y hacer que las cargue para pasárselas al bot obligaría a que
+     todas las pestañas esperasen por una consulta que sólo usa una esquina.
+     Si falla, se queda en cero y los demás avisos siguen saliendo. */
+  const [solicitudesPendientes, setSolicitudes] = useState(0);
+  useEffect(() => {
+    if (!evento?.id) return undefined;
+    let vivo = true;
+    solicitudesApi.list(evento.id)
+      .then(d => {
+        if (!vivo) return;
+        const abiertas = (d.solicitudes || d || [])
+          .filter(s => s.estado === 'pendiente' || s.estado === 'abierta');
+        setSolicitudes(abiertas.length);
+      })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [evento?.id]);
+
+  const avisos = avisosDelEvento(evento, { solicitudesPendientes });
   const [i, setI] = useState(0);
 
   /* Van rotando, porque tres bocadillos a la vez no se leen y uno fijo se

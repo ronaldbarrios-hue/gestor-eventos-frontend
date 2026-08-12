@@ -32,8 +32,23 @@ export function EspacioDataProvider({ children }) {
 
     const propios = mios.status === 'fulfilled' ? (mios.value.eventos || []) : [];
     const comoMiembro = equipo.status === 'fulfilled' ? (equipo.value.eventos || []) : [];
+
+    /* Las dos listas se SUPERPONEN: `GET /eventos` ya devuelve tanto los
+       míos como aquellos donde soy miembro, y `/me/equipo/eventos` sólo
+       estos últimos —pero es la única que trae `mi_rol`.
+
+       Antes se hacía `if (!mapa.has(id))` sobre `[...propios, ...miembro]`:
+       como los propios iban primero, la fila con `mi_rol` NUNCA entraba y el
+       rol se perdía siempre. Por eso la vista Colaborador no podía decir en
+       qué evento colaboras ni con qué papel (#45).
+
+       Ahora se combinan los dos objetos en vez de quedarse con uno. */
     const mapa = new Map();
-    [...propios, ...comoMiembro].forEach(e => { if (e?.id && !mapa.has(e.id)) mapa.set(e.id, e); });
+    for (const e of propios) if (e?.id) mapa.set(e.id, { ...e });
+    for (const e of comoMiembro) {
+      if (!e?.id) continue;
+      mapa.set(e.id, { ...(mapa.get(e.id) || {}), ...e });
+    }
     const todos = [...mapa.values()];
     setEventos(todos);
 
@@ -42,8 +57,16 @@ export function EspacioDataProvider({ children }) {
     if (bo.status  === 'fulfilled') setBoletas(bo.value.boletas || bo.value.tickets || []);
     if (loy.status === 'fulfilled') setLoyalty(loy.value);
 
-    /* Tareas de los eventos activos (máx. 6 eventos para no saturar) */
-    const activos = todos.filter(e => !['finalizado', 'archivado', 'cancelado'].includes(e.estado)).slice(0, 6);
+    /* Tareas de los eventos activos (máx. 6 eventos para no saturar).
+
+       Los eventos donde COLABORO van primero en la cola. Antes se cortaba por
+       el orden que trajera la lista —los propios— y a quien colabora en el
+       séptimo evento no le llegaba ninguna tarea: la vista Colaborador salía
+       vacía sin que nada explicara por qué. */
+    const activos = todos
+      .filter(e => !['finalizado', 'archivado', 'cancelado'].includes(e.estado))
+      .sort((a, b) => Number(Boolean(a.soyOwner)) - Number(Boolean(b.soyOwner)))
+      .slice(0, 6);
     const porEvento = await Promise.allSettled(activos.map(e => tareasApi.list(e.id)));
     const agregadas = [];
     porEvento.forEach((r, i) => {

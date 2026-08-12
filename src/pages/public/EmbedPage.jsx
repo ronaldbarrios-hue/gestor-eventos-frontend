@@ -7,18 +7,27 @@ import { useTheme } from '../../context/ThemeContext.jsx';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import TorneoPublicoPage from './TorneoPublicoPage.jsx';
 import AgendaPublicaPage from './AgendaPublicaPage.jsx';
+import { TarjetaTorneo } from './TorneosResumenPage.jsx';
+import { TablaRanking } from './RankingPublicoPage.jsx';
 import { EMBED_ALIAS, EMBED_SIN_CONFIG } from '../../lib/embed.js';
 
 /* Secciones que no son bloques de la landing sino páginas propias del evento
    (llaves del torneo, agenda). También se pueden incrustar: leen el :slug de
-   la misma ruta, así que funcionan tal cual. */
+   la misma ruta, así que funcionan tal cual.
+
+   Las dos últimas usan una versión sin cabecera ni enlace de vuelta: dentro
+   de la web de otro, un "← Volver a explorar" saca al visitante del sitio que
+   estaba mirando. */
 const ESPECIALES = {
-  torneo:  TorneoPublicoPage,
-  llaves:  TorneoPublicoPage,
-  bracket: TorneoPublicoPage,
-  agenda:  AgendaPublicaPage,
-  programa: AgendaPublicaPage,
-  espacio: AgendaPublicaPage,
+  torneo:    TorneoPublicoPage,
+  llaves:    TorneoPublicoPage,
+  bracket:   TorneoPublicoPage,
+  agenda:    AgendaPublicaPage,
+  programa:  AgendaPublicaPage,
+  espacio:   AgendaPublicaPage,
+  torneos:   TorneosEmbed,
+  campeones: TorneosEmbed,
+  ranking:   RankingEmbed,
 };
 
 /* ──────────────────────────────────────────────────────────────────
@@ -124,9 +133,14 @@ export default function EmbedPage() {
     const porTipo = todos.find(b => b.type === tipo && !b.data?.oculto);
     if (porTipo) return porTipo;
 
-    /* La sección no está en la landing pero se alimenta del evento:
-       la servimos igual, así el embed no depende de cómo esté armada. */
-    if (BLOCKS[tipo] && EMBED_SIN_CONFIG.includes(tipo)) return { id: tipo, type: tipo, data: {} };
+    /* La sección no está en la landing pero se alimenta del evento: la
+       servimos igual, así el embed no depende de cómo esté armada.
+       Con sus `defaults`, no con data vacía: si no, "Directorio de
+       expositores" o "Mapa del evento" llegarían sin encabezado y quien la
+       incrustó pensaría que está rota. */
+    if (BLOCKS[tipo] && EMBED_SIN_CONFIG.includes(tipo)) {
+      return { id: tipo, type: tipo, data: structuredClone(BLOCKS[tipo].defaults || {}) };
+    }
     return null;
   }, [evento, seccion]);
 
@@ -175,6 +189,48 @@ export default function EmbedPage() {
       </div>
     </BrandingProvider>
   );
+}
+
+/* ── Secciones propias del embed ──────────────────────────────────────
+   Reutilizan el cuerpo de las páginas públicas (TarjetaTorneo, TablaRanking)
+   sin la cabecera, el ancho máximo ni el enlace de vuelta, que dentro de un
+   recuadro ajeno estorban o sacan al visitante del sitio. */
+
+function TorneosEmbed() {
+  const { slug } = useParams();
+  const [torneos, setTorneos] = useState(undefined);
+
+  useEffect(() => {
+    let vivo = true;
+    eventosApi.torneosResumen(slug)
+      .then(d => { if (vivo) setTorneos(d.torneos || []); })
+      .catch(() => { if (vivo) setTorneos([]); });
+    return () => { vivo = false; };
+  }, [slug]);
+
+  if (torneos === undefined) return <p className="text-sm text-text-3 py-6 text-center">Cargando torneos…</p>;
+  if (!torneos.length) return <p className="text-sm text-text-3 py-6 text-center">Este evento todavía no tiene torneos.</p>;
+  return (
+    <div className="space-y-4">
+      {torneos.map(t => <TarjetaTorneo key={t.id} torneo={t} />)}
+    </div>
+  );
+}
+
+function RankingEmbed() {
+  const { slug } = useParams();
+  const [ranking, setRanking] = useState(undefined);
+
+  useEffect(() => {
+    let vivo = true;
+    eventosApi.rankingPublico(slug)
+      .then(d => { if (vivo) setRanking(d.ranking || []); })
+      .catch(() => { if (vivo) setRanking([]); });
+    return () => { vivo = false; };
+  }, [slug]);
+
+  if (ranking === undefined) return <p className="text-sm text-text-3 py-6 text-center">Cargando ranking…</p>;
+  return <TablaRanking ranking={ranking} />;
 }
 
 /* El lienzo puede contener una pieza "boletas": se le pasa el mismo bloque

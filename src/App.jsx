@@ -18,6 +18,8 @@ const ExplorarPage       = lazy(() => import('./pages/public/ExplorarPage.jsx'))
 const EventoPublicoPage  = lazy(() => import('./pages/public/EventoPublicoPage.jsx'));
 const NetworkingPublicPage = lazy(() => import('./pages/public/NetworkingPublicPage.jsx'));
 const TorneoPublicoPage  = lazy(() => import('./pages/public/TorneoPublicoPage.jsx'));
+const TorneosResumenPage = lazy(() => import('./pages/public/TorneosResumenPage.jsx'));
+const RankingPublicoPage = lazy(() => import('./pages/public/RankingPublicoPage.jsx'));
 const AgendaPublicaPage  = lazy(() => import('./pages/public/AgendaPublicaPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
 const EmbedPage          = lazy(() => import('./pages/public/EmbedPage.jsx'));
@@ -89,6 +91,8 @@ export default function App() {
                 <Route path="/explorar/:slug"    element={<EventoPublicoPage />} />
                 <Route path="/explorar/:slug/networking" element={<NetworkingPublicPage />} />
                 <Route path="/explorar/:slug/torneo" element={<TorneoPublicoPage />} />
+                <Route path="/explorar/:slug/torneos" element={<TorneosResumenPage />} />
+                <Route path="/explorar/:slug/ranking" element={<RankingPublicoPage />} />
                 <Route path="/explorar/:slug/agenda" element={<AgendaPublicaPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
                 <Route path="/expositor/:codigo"  element={<ExpositorPage />} />

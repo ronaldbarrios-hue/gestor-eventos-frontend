@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Criatura from '../../components/agente/Criatura.jsx';
+import MonitorGestbot from '../../components/agente/MonitorGestbot.jsx';
 import VolverAlEvento from '../../components/layout/VolverAlEvento.jsx';
 import { agenteApi } from '../../api/agente.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -241,6 +242,15 @@ export default function GestbotPage() {
           {provider && (
             <span className="relative text-[10px] uppercase tracking-widest text-text-3 border border-border rounded-full px-2.5 py-1">{provider}</span>
           )}
+
+          {/* #40 · La segunda pantalla, la que sí mira al usuario. La del bot
+              se ve por detrás y no enseña nada; ésta lleva idioma y tema, que
+              es lo único que tiene sentido en una pantalla compartida.
+              Se esconde en móvil: ahí no cabe y los dos controles siguen
+              estando en Ajustes. */}
+          <div className="relative hidden xl:block flex-shrink-0 -my-1">
+            <MonitorGestbot compacto />
+          </div>
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-3">

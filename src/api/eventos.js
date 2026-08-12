@@ -26,7 +26,14 @@ export const eventosApi = {
   guardarFichaExpositor: (codigo, body)   => client.put(`/eventos/publicos/expositor/${codigo}`, body).then(r => r.data),
   torneoPublico: (slug) => client.get(`/eventos/publicos/slug/${slug}/torneo`).then(r => r.data),
   torneoPublicoUno: (slug, torneoId) => client.get(`/eventos/publicos/slug/${slug}/torneos/${torneoId}`).then(r => r.data),
+  torneosResumen: (slug) => client.get(`/eventos/publicos/slug/${slug}/torneos-resumen`).then(r => r.data),
+  rankingPublico: (slug) => client.get(`/eventos/publicos/slug/${slug}/ranking`).then(r => r.data),
   agendaPublica: (slug) => client.get(`/eventos/publicos/slug/${slug}/agenda`).then(r => r.data),
+  /* Apuntarse a un sub-evento desde fuera del panel. Con `codigo` de boleta se
+     cuelga de ella y no hay que volver a escribir los datos; sin código hacen
+     falta nombre y correo. */
+  inscribirSesion: (slug, sesionId, body) =>
+    client.post(`/eventos/publicos/slug/${slug}/sesiones/${sesionId}/inscribir`, body).then(r => r.data),
   /* Catálogo */
   categorias: () => client.get('/categorias').then(r => r.data),
 };

@@ -115,7 +115,11 @@ export default function PageBuilder({ evento, onClose }) {
   const onGuardar = async () => {
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), pages } });
+      /* Las páginas viven en su propia columna desde la 0064. Mandarlas
+         dentro de `page_json` ya no guarda nada: el servidor las descarta de
+         ahí a propósito, para que trece pantallas que reenvían su copia vieja
+         del JSON no se pisen la landing entre ellas. */
+      await eventosApi.update(evento.id, { paginas: pages });
       success('Página guardada.');
       setDirty(false);
     } catch (e) { toastErr(e.message); }

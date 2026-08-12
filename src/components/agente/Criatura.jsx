@@ -324,14 +324,36 @@ export default function Criatura({ mood = 'idle', size = 96, seguirCursor = fals
           )}
         </g>
 
-        {/* MODO TRABAJANDO: portátil */}
+        {/* MODO TRABAJANDO: su portátil, visto POR DETRÁS.
+
+            Antes se veía la pantalla de frente con líneas de código
+            moviéndose, y eso es imposible: si él lo está mirando, nosotros
+            estamos detrás. Lo que se ve desde aquí es la tapa —su cara
+            exterior, con el nudo de la marca— y nada más. Lo que hay en su
+            pantalla es asunto suyo.
+
+            Lo que sí mira al usuario es el otro monitor, el de al lado, que
+            lleva idioma y tema y está en MonitorGestbot.jsx. Dos pantallas,
+            cada una girada hacia quien le corresponde. */}
         {working && conPortatil && (
           <g>
+            {/* Base y teclado, en escorzo: se ve el canto, no las teclas. */}
             <path d="M40 132 L100 132 L108 144 L32 144 Z" fill="#2A303B" stroke={LATON} strokeWidth="1.1" strokeOpacity="0.4" />
-            <rect x="46" y="104" width="48" height="30" rx="4" fill="#0B0E12" stroke={LATON} strokeWidth="1.1" strokeOpacity="0.4" />
-            <rect className="gb-scanl"  x="52" y="110" width="22" height="3.5" rx="1.75" fill="#39D38C" />
-            <rect className="gb-scanl gb-scanl2" x="52" y="117" width="30" height="3.5" rx="1.75" fill={LATON_CLARO} />
-            <rect className="gb-scanl gb-scanl3" x="52" y="124" width="26" height="3.5" rx="1.75" fill={LATON} />
+            <path d="M44 136 L96 136 L100 141 L40 141 Z" fill="#1A1F28" opacity="0.85" />
+            {/* La tapa por fuera. Sin contenido: es la parte de atrás. */}
+            <rect x="46" y="104" width="48" height="30" rx="4" fill="#232833" stroke={LATON} strokeWidth="1.1" strokeOpacity="0.45" />
+            <rect x="49.5" y="107.5" width="41" height="23" rx="2.5" fill="none" stroke={LATON} strokeWidth="0.7" strokeOpacity="0.18" />
+            {/* El nudo de la marca en la tapa, del tamaño de una pegatina.
+                Anidado con su propio viewBox, igual que el del pecho: así no
+                hay que reescalar el trazado a mano. */}
+            <svg x="63" y="112" width="14" height="14" viewBox={NUDO_VIEWBOX} overflow="visible" opacity="0.5">
+              <g transform={NUDO_TRANSFORM} fill={LATON_CLARO}>
+                <path d={NUDO_PATH} />
+              </g>
+            </svg>
+            {/* El resplandor que se escapa por los lados delata que está
+                encendida sin enseñar qué hay dentro. */}
+            <ellipse className="gb-scanl" cx="70" cy="134" rx="26" ry="2.6" fill={LATON_CLARO} opacity="0.22" />
           </g>
         )}
       </svg>

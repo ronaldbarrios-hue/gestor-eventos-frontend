@@ -12,6 +12,7 @@ import TopBar from '../../../components/layout/TopBar.jsx';
 
 import ResumenSection    from './ResumenSection.jsx';
 import WhiteLabelSection from './WhiteLabelSection.jsx';
+import PublicacionSection from './PublicacionSection.jsx';
 import GestbotSidebar from '../../../components/agente/GestbotSidebar.jsx';
 import PagosSection        from './comercial/PagosSection.jsx';
 import CheckoutSection      from './comercial/CheckoutSection.jsx';
@@ -64,19 +65,41 @@ const SECCIONES = [
     { id: 'general', label: 'Resumen', perm: null },
   ]},
   { id: 'experience', label: 'Event Experience', icon: SparkIcon, tabs: [
-    { id: 'landing',    label: 'Landing',            perm: 'editar_pagina_publica' },
-    { id: 'checkout',   label: 'Proceso de compra',  perm: 'gestionar_tickets' },
-    { id: 'emails',     label: 'Emails',             perm: 'editar_pagina_publica' },
-    { id: 'seo',        label: 'SEO',                perm: 'editar_pagina_publica' },
+    { id: 'landing',     label: 'Landing',            perm: 'editar_pagina_publica' },
+    { id: 'publicacion', label: 'Publicación',        perm: 'editar_pagina_publica' },
+    { id: 'checkout',    label: 'Proceso de compra',  perm: 'gestionar_tickets' },
+    { id: 'emails',      label: 'Emails',             perm: 'editar_pagina_publica' },
+    { id: 'seo',         label: 'SEO',                perm: 'editar_pagina_publica' },
+  ]},
+  /* ── Espacio del evento ──────────────────────────────────────────────
+     Aquí vive TODO lo que pasa dentro del evento: charlas, competencias,
+     stands, shows, y el plano donde ocurren.
+
+     Antes estaba partido en dos sitios que no se hablaban: la "Agenda" colgaba
+     de Organización —junto a Vacantes y Documentos, que son papeleo— y los
+     torneos vivían en una sección aparte llamada "Dinámicas", con la rueda de
+     negocios y el mapa. Eran las mismas cosas en dos menús: `agenda_sessions`
+     ya tiene un `tipo` competitivo y un `torneo_id` que apunta a las llaves,
+     así que un torneo SIEMPRE fue un sub-evento más — sólo que había que
+     acordarse de crearlo dos veces, en dos pantallas distintas, y nada
+     garantizaba que coincidieran.
+
+     Esta es la decisión de navegación que el refactor pedía tomar antes de
+     mover código: una sola sección, y dentro las vistas de lo mismo. El
+     calendario es "cuándo", las llaves son "cómo va", el mapa es "dónde". */
+  { id: 'espacio', label: 'Espacio del evento', icon: TrophyIcon, tabs: [
+    { id: 'calendario', label: 'Calendario',        perm: null },
+    { id: 'torneos',    label: 'Torneos',           perm: ['gestionar_torneo'] },
+    { id: 'networking', label: 'Rueda de negocios', perm: null },
+    { id: 'mapa',       label: 'Mapa del evento',   perm: 'editar_evento' },
+    { id: 'ranking',    label: 'Ranking',           perm: null },
   ]},
   { id: 'organizacion', label: 'Organización', icon: UsersIcon, tabs: [
     { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
     { id: 'vacantes',    label: 'Vacantes',    perm: 'editar_evento' },
     { id: 'tareas',      label: 'Tareas',      perm: null },
     { id: 'solicitudes', label: 'Sugerencias', perm: null },
-    { id: 'agenda',      label: 'Agenda',      perm: null },
     { id: 'documentos',  label: 'Documentos',  perm: null },
-    { id: 'ranking',     label: 'Ranking',     perm: null },
     { id: 'reporte',     label: 'Reporte',     perm: 'ver_analytics' },
   ]},
   { id: 'comercial', label: 'Comercial', icon: WalletIcon, tabs: [
@@ -95,11 +118,6 @@ const SECCIONES = [
     { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes' },
     { id: 'credenciales', label: 'Credenciales',    perm: 'checkin' },
     { id: 'tarjeta',      label: 'Tarjeta',         perm: 'ver_clientes' },
-  ]},
-  { id: 'dinamicas', label: 'Dinámicas', icon: TrophyIcon, tabs: [
-    { id: 'networking', label: 'Rueda de negocios', perm: null },
-    { id: 'torneo',     label: 'Torneo',            perm: ['gestionar_torneo'] },
-    { id: 'mapa',       label: 'Mapa del evento',   perm: 'editar_evento' },
   ]},
   { id: 'comunicacion', label: 'Comunicación', icon: ChatIcon, tabs: [
     { id: 'chat',     label: 'Chats',    perm: null },
@@ -138,8 +156,19 @@ export default function EventWorkspace() {
   const [drawer, setDrawer]     = useState(false);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
 
-  const seccionId = searchParams.get('s') || 'resumen';
-  const tabId     = searchParams.get('t') || '';
+  /* Direcciones de antes de fusionar Dinámicas en Espacio del evento. Un
+     enlace guardado, un correo o un botón de otra pantalla seguían apuntando
+     a `dinamicas/torneo`; sin esto caerían en el Resumen sin explicación. */
+  const REUBICADAS = {
+    'dinamicas/torneo'     : ['espacio', 'torneos'],
+    'dinamicas/networking' : ['espacio', 'networking'],
+    'dinamicas/mapa'       : ['espacio', 'mapa'],
+    'organizacion/agenda'  : ['espacio', 'calendario'],
+    'organizacion/ranking' : ['espacio', 'ranking'],
+  };
+  const sBruto = searchParams.get('s') || 'resumen';
+  const tBruto = searchParams.get('t') || '';
+  const [seccionId, tabId] = REUBICADAS[`${sBruto}/${tBruto}`] || [sBruto, tBruto];
 
   useEffect(() => {
     setLoading(true);
@@ -343,6 +372,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
   switch (k) {
     case 'resumen/general'          : return <ResumenSection evento={evento} soyOwner={soyOwner} reload={reload} onEditar={onEditar} onAnuncio={onAnuncio} onEliminar={onEliminar} />;
     case 'experience/landing'       : return <PaginaPublicaTab evento={evento} />;
+    case 'experience/publicacion'   : return <PublicacionSection evento={evento} reload={reload} />;
     case 'experience/formularios'   : return <FormularioTab evento={evento} />;
     case 'experience/checkout'      : return <CheckoutSection evento={evento} />;
     case 'experience/seo'           : return <SeoSection evento={evento} />;
@@ -352,10 +382,15 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'organizacion/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
     case 'organizacion/tareas'      : return <TareasTab evento={evento} />;
     case 'organizacion/solicitudes' : return <SolicitudesTab evento={evento} />;
-    case 'organizacion/agenda'      : return <AgendaTab evento={evento} />;
     case 'organizacion/documentos'  : return <DocumentosSection evento={evento} />;
-    case 'organizacion/ranking'     : return <RankingTab evento={evento} />;
     case 'organizacion/reporte'     : return <ReporteTab evento={evento} />;
+
+    /* Espacio del evento: las cuatro vistas de lo mismo. */
+    case 'espacio/calendario'       : return <AgendaTab evento={evento} />;
+    case 'espacio/torneos'          : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
+    case 'espacio/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
+    case 'espacio/mapa'             : return <MapaSection evento={evento} />;
+    case 'espacio/ranking'          : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
     case 'comercial/analytics'      : return <AnalyticsTab evento={evento} />;
@@ -369,9 +404,6 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'asistentes/credenciales'  : return <CredencialesSection evento={evento} />;
     case 'asistentes/invitaciones'  : return <InvitacionesSection evento={evento} />;
     case 'asistentes/tarjeta'       : return <TarjetaSection evento={evento} />;
-    case 'dinamicas/networking'     : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
-    case 'dinamicas/torneo'         : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
-    case 'dinamicas/mapa'           : return <MapaSection evento={evento} />;
     case 'comunicacion/chat'        : return <ChatTab evento={evento} />;
     case 'comunicacion/anuncios'    : return (
       <div className="card p-8 text-center max-w-lg mx-auto">

@@ -15,7 +15,13 @@ export default function PaginaPublicaTab({ evento }) {
   const [device, setDevice] = useState('desktop');
   const [reloadKey, setReloadKey] = useState(0);
 
-  const url = `/explorar/${evento.slug}`;
+  /* `?gestek=1` fuerza la landing de GESTEK aunque el evento esté publicado
+     hacia fuera (#32). Sin esto, un evento en modo "mi propia web" haría que
+     su propio editor se fuera a la web del organizador y no habría manera de
+     ver lo que se está editando. Lo que ve el público se dice aparte. */
+  const modo = evento.modo_publico || 'gestek';
+  const publicaFuera = modo !== 'gestek' && Boolean(evento.url_externa);
+  const url = `/explorar/${evento.slug}${publicaFuera ? '?gestek=1' : ''}`;
   const previewWidth = DEVICES.find(d => d.id === device)?.w || '100%';
 
   if (mode === 'edit') {
@@ -31,6 +37,12 @@ export default function PaginaPublicaTab({ evento }) {
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-warning/10 border border-warning/30 text-[11px] text-warning font-medium">
               <DotIcon className="w-1.5 h-1.5 fill-warning" />
               Modo preview · solo tú ves esto
+            </span>
+          )}
+          {publicaFuera && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-[11px] text-text-1 font-medium">
+              <DotIcon className="w-1.5 h-1.5 fill-accent" />
+              El público sale a tu web · esto es el respaldo
             </span>
           )}
           <span className="text-xs text-text-3 font-mono truncate hidden sm:inline">{url}</span>
