@@ -13,6 +13,54 @@ lo que toque backend o base de datos se avisa antes.
 
 ---
 
+## 0 · Estado a 12 de agosto de 2026
+
+Esta ronda cerró las fases 1 a 4, 6 y 7 del plan de traspaso, más lo que se
+pidió del formulario y de los sub-eventos. Lo que sigue abierto está al final.
+
+**Migraciones 0052 a 0058 aplicadas y verificadas** contra Supabase. Ya no hay
+nada pendiente de aplicar. Detalle y comprobaciones en `DESPLIEGUE.md` del
+backend.
+
+### Hecho
+
+- **Correo unificado.** Un solo renderizador con la marca del evento, diez
+  tipos, los siete envíos automáticos cableados, y vista previa con el HTML real
+  en un iframe. Antes el panel editaba cinco tipos que el servidor no conocía:
+  se diseñaba un correo y llegaba otro.
+- **Formulario con fichas.** Ficha de caracterización de 22 preguntas (datos
+  generales, ubicación, identidad de género, autorreconocimiento étnico,
+  situación actual, discapacidad) que se agrega de un clic. El tope de campos
+  era 20, así que no cabía; ahora son 60. Cinco tipos de campo nuevos y
+  validación por tipo, que no existía.
+- **Registro por sub-evento.** La boleta sigue siendo la llave; encima va la
+  inscripción por actividad con su cupo. Responde cuánta gente fue al evento y
+  cuánta a cada taller.
+- **Iconografía propia** y ESLint, que al primer pase encontró el `GLoader is not
+  defined` de vacantes y cuatro claves duplicadas en el diccionario de inglés.
+- **Stands:** la tarjeta dice si el stand puede operar, cuánto ha dado y enlaza a
+  su portal. Bolsa de puntos con cuota por stand, con el tope aplicado en la base.
+- **Chat:** la RLS deja pasar al staff —era el "no llegan sin recargar"— y aísla
+  los DM, que cualquiera con boleta podía leer por Realtime. Anclar, archivar,
+  buscador en el equipo y borrar mensajes.
+- **Páginas públicas del evento** (rueda de negocios, agenda, torneo): tenían
+  título y nada más, sin forma de volver. Ahora comparten cabecera y vuelta.
+- **Reservar una cita** pregunta antes, y avisa por correo.
+
+### Lo que sigue abierto
+
+- **#32 iFrame con tres modos de publicación** y el resto del bloque #33–#49.
+- **Partir `AuthPage`** en «solo quiero asistir» y «voy a organizar», con el
+  ascenso de cuenta. Los anchos de formulario ya están.
+- **Lista de espera real** (avisar al primero con enlace que caduca) y la fusión
+  de Dinámicas dentro de Espacio del evento.
+- **Sub-eventos, la parte visible:** pantalla de participación, marcar asistencia
+  con el QR y el interruptor de «pide inscripción» en AgendaTab.
+- **Nada de correo se ha visto salir.** No hay proveedor SMTP configurado: los
+  envíos se descartan en silencio. Es lo primero de `DESPLIEGUE.md`.
+
+---
+
 ## 1 · Lo que hay que hacer
 
 ### Bloque A — Editor de la página pública (prioridad declarada)
