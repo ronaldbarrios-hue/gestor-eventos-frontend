@@ -5,6 +5,7 @@ import { clientesApi } from '../../../../api/clientes.js';
 import { equipoApi } from '../../../../api/equipo.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
+import Icono from '../../../../components/ui/Icono.jsx';
 
 /* Asistentes · Accesos — control de ingresos por puerta.
    El organizador define cuántas entradas hay, qué tipos de boleta admite cada
@@ -182,7 +183,7 @@ export default function AccesosSection({ evento }) {
               <span className="text-xs text-text-3 w-5">{i + 1}.</span>
               <input value={a.nombre} onChange={e => set(a._k, { nombre: e.target.value })}
                 placeholder="Ej. Entrada principal, Entrada VIP, Puerta Norte" className="input flex-1" />
-              <button onClick={() => quitar(a._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center">✕</button>
+              <button onClick={() => quitar(a._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center"><Icono name="cerrar" className="w-4 h-4" /></button>
             </div>
 
             {tipos.length > 0 && (
@@ -261,7 +262,7 @@ export default function AccesosSection({ evento }) {
                 placeholder="Nombre de la zona" className="input flex-1" />
               <input type="number" min="0" value={z.aforo_max} onChange={e => setZona(z._k, { aforo_max: e.target.value })}
                 placeholder="Aforo máx" className="input w-28" />
-              <button onClick={() => quitarZona(z._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
+              <button onClick={() => quitarZona(z._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0"><Icono name="cerrar" className="w-4 h-4" /></button>
             </div>
           ))}
           <button onClick={agregarZona} className="btn-ghost btn-sm">+ Añadir zona</button>

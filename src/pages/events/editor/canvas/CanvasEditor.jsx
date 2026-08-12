@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { ELEMENTOS, ElementoRender, ANCHO_DISENO, FUENTES_CANVAS, ANIMACIONES, BLOQUES_INCRUSTABLES, FIGURAS } from './elementos.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
+import Icono from '../../../../components/ui/Icono.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Lienzo libre v2 — el lienzo ES la vista previa (Rework)
@@ -141,7 +142,7 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
                       <MiniBtn title="Subir capa" onClick={() => traer(el.id, +1)}>▲</MiniBtn>
                       <MiniBtn title="Bajar capa" onClick={() => traer(el.id, -1)}>▼</MiniBtn>
                       <MiniBtn title="Duplicar" onClick={() => duplicar(el.id)}>⧉</MiniBtn>
-                      <MiniBtn title="Eliminar" danger onClick={() => eliminar(el.id)}>✕</MiniBtn>
+                      <MiniBtn title="Eliminar" danger onClick={() => eliminar(el.id)}><Icono name="cerrar" className="w-3.5 h-3.5" /></MiniBtn>
                     </div>
                   </>
                 )}
@@ -175,7 +176,7 @@ export default function CanvasEditor({ canvas, onChange, evento }) {
         <aside className="flex-shrink-0 w-[300px] xl:w-[340px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[76px] z-20">
           <header className="flex items-center justify-between px-4 py-3 border-b border-border">
             <h3 className="text-[13px] font-semibold text-text-1">{ELEMENTOS[sel.type].label}</h3>
-            <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs">✕</button>
+            <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs"><Icono name="cerrar" className="w-4 h-4" /></button>
           </header>
           <div className="p-4 space-y-3.5 max-h-[64vh] overflow-y-auto no-scrollbar">
             {(['titulo', 'texto'].includes(sel.type)) && (<>

@@ -30,7 +30,12 @@ function useReveal(threshold = 0.15) {
   return [ref, visible];
 }
 
-const Icono = ({ d, className = '' }) => (
+/* Envoltorio de un trazo suelto: recibe el <path> ya escrito y le pone el
+   <svg> con las medidas del sistema. Se llama Trazo y no Icono para no chocar
+   con components/ui/Icono.jsx, que es el registro con nombres
+   (<Trazo name="trofeo" />). Este de aquí no tiene registro: dibuja lo que le
+   pasen. */
+const Trazo = ({ d, className = '' }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
        strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     {d}
@@ -101,7 +106,7 @@ export function PasoAPaso() {
                 <div className="relative flex-shrink-0 lg:mx-auto">
                   <div className="h-[68px] w-[68px] rounded-2xl border border-primary/30 bg-surface
                                   shadow-card flex items-center justify-center text-primary">
-                    <Icono d={p.icono} className="h-7 w-7" />
+                    <Trazo d={p.icono} className="h-7 w-7" />
                   </div>
                   <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-gradient-primary
                                    text-[#15171C] text-[13px] font-bold flex items-center justify-center shadow-glow-sm">
@@ -182,7 +187,7 @@ export function IncrustarEnTuWeb() {
               <li key={v} className="flex items-start gap-3 text-sm text-text-1">
                 <span className="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full bg-primary/15 text-primary
                                  flex items-center justify-center">
-                  <Icono d={<path d="M4 12.5l5 5L20 6.5" />} className="h-3 w-3" />
+                  <Trazo d={<path d="M4 12.5l5 5L20 6.5" />} className="h-3 w-3" />
                 </span>
                 {t(v)}
               </li>
@@ -296,7 +301,7 @@ export function CasosDeUso() {
             >
               <div className="h-12 w-12 rounded-2xl bg-primary/12 border border-primary/25 text-primary
                               flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <Icono d={c.icono} className="h-6 w-6" />
+                <Trazo d={c.icono} className="h-6 w-6" />
               </div>
               <h3 className="mt-5 text-lg font-semibold text-text-1">{t(c.titulo)}</h3>
               <p className="mt-2.5 text-sm leading-relaxed text-text-2">{t(c.desc)}</p>
@@ -311,7 +316,7 @@ export function CasosDeUso() {
                        text-sm font-medium text-text-1 hover:bg-surface-2 hover:border-primary/40 transition-all"
           >
             {t('Ver un evento de ejemplo')}
-            <Icono d={<path d="M5 12h14M13 6l6 6-6 6" />} className="h-4 w-4" />
+            <Trazo d={<path d="M5 12h14M13 6l6 6-6 6" />} className="h-4 w-4" />
           </Link>
         </div>
       </div>
@@ -414,7 +419,7 @@ export function VideoDemo() {
    panel del evento, para que lo que se promete y lo que se abre al
    entrar sean la misma cosa.
 
-   ⚠️ REGLA: aquí solo va lo que EXISTE y funciona. Lo que está en el
+   REGLA: aquí solo va lo que EXISTE y funciona. Lo que está en el
    plan pero no construido va en /producto con su marca de "Próximamente",
    nunca aquí.
    ══════════════════════════════════════════════════════════════════ */
@@ -514,14 +519,14 @@ export function InventarioModulos() {
               <div className="flex items-center gap-3 mb-5">
                 <span className="h-10 w-10 flex-shrink-0 rounded-xl bg-primary/12 border border-primary/25
                                  text-primary flex items-center justify-center">
-                  <Icono d={a.icono} className="h-5 w-5" />
+                  <Trazo d={a.icono} className="h-5 w-5" />
                 </span>
                 <h3 className="text-base font-semibold text-text-1 leading-snug">{t(a.area)}</h3>
               </div>
               <ul className="space-y-2.5">
                 {a.items.map((it) => (
                   <li key={it} className="flex items-start gap-2.5 text-sm text-text-2">
-                    <Icono d={<path d="M4 12.5l5 5L20 6.5" />} className="h-3.5 w-3.5 mt-1 flex-shrink-0 text-primary" />
+                    <Trazo d={<path d="M4 12.5l5 5L20 6.5" />} className="h-3.5 w-3.5 mt-1 flex-shrink-0 text-primary" />
                     {t(it)}
                   </li>
                 ))}

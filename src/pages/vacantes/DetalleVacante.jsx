@@ -8,6 +8,12 @@ import { vacantesApi, formatoPago, ETAPAS_VACANTE } from '../../api/vacantes.js'
 import { useToast } from '../../context/ToastContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
+/* Faltaba este import y el detalle de vacante reventaba al abrirse con
+   "GLoader is not defined". El build no se queja: para Vite es un
+   identificador válido y solo falla al ejecutarse. Lo caza el lint nuevo
+   (react/jsx-no-undef), que es justo por lo que se añadió. */
+import GLoader from '../../components/ui/GLoader.jsx';
+import Icono from '../../components/ui/Icono.jsx';
 
 export default function DetalleVacante({ id, onClose, onPostulado }) {
   const { t } = useI18n();
@@ -47,7 +53,7 @@ export default function DetalleVacante({ id, onClose, onPostulado }) {
               <h2 className="text-lg font-bold font-display text-text-1">{v.titulo}</h2>
               <p className="text-xs text-text-3">{v.evento?.titulo}</p>
             </div>
-            <button onClick={onClose} className="text-text-3 hover:text-text-1">✕</button>
+            <button onClick={onClose} className="text-text-3 hover:text-text-1"><Icono name="cerrar" className="w-4 h-4" /></button>
           </div>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {v.rol?.nombre && <span className="text-[11px] bg-surface-2 text-text-2 px-2 py-0.5 rounded-full">{v.rol.nombre}</span>}

@@ -4,6 +4,7 @@ import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Tab Formulario — campos personalizados que se piden en el formulario de compra
    (cédula, edad, ciudad, talla, foto, etc). Se guardan preservando el `id` de cada
@@ -206,7 +207,7 @@ export default function FormularioTab({ evento }) {
 
             {c.tipo === 'foto' && (
               <p className="text-xs text-text-3 bg-surface-2/60 rounded-xl px-3 py-2">
-                📷 La persona podrá subir una foto (JPG, PNG o WEBP, máx. 4 MB) al llenar el formulario. La foto quedará guardada junto a su respuesta y podrás verla/descargarla desde el detalle del asistente.
+                <Icono name="camara" className="w-3.5 h-3.5 inline-block align-[-2px] mr-1" />La persona podrá subir una foto (JPG, PNG o WEBP, máx. 4 MB) al llenar el formulario. La foto quedará guardada junto a su respuesta y podrás verla/descargarla desde el detalle del asistente.
               </p>
             )}
 

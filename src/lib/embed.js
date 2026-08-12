@@ -1,3 +1,8 @@
+/* eslint-disable no-useless-escape -- los `<\/script>` de este archivo son
+   deliberados y no se pueden simplificar: estas cadenas se inyectan dentro de
+   un <script> del HTML anfitrión, y un </script> sin escapar cerraría ahí la
+   etiqueta y partiría el snippet en dos. */
+
 /* Exportación de secciones como iframe (iFrame).
    Una sección de la landing puede vivir dentro de la web de otra empresa:
    /embed/<slug>/<seccion>. Este módulo es la única fuente de verdad del

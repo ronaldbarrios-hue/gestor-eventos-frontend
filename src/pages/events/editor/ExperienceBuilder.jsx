@@ -17,6 +17,7 @@ import { EventNavbar, blocksVisibles, resolveBranding, coverLayout, navbarConfig
 import { BrandHeader } from '../../../components/public/Branding.jsx';
 import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
 import ExportIframeModal from './ExportIframeModal.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Event Experience · Editor UNIFICADO (Rework v3)
@@ -483,7 +484,7 @@ export default function ExperienceBuilder({ evento: eventoBase, onClose }) {
           <aside className="hidden lg:flex flex-col flex-shrink-0 w-[400px] xl:w-[460px] rounded-2xl border border-border bg-surface/80 backdrop-blur overflow-hidden sticky top-[64px] h-[calc(100vh-90px)]">
             <header className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
               <h3 className="text-[13px] font-semibold text-text-1 truncate">{labelDe(sel.type)}</h3>
-              <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs">✕</button>
+              <button onClick={() => setSelId(null)} aria-label="Cerrar" className="text-text-3 hover:text-text-1 text-xs"><Icono name="cerrar" className="w-4 h-4" /></button>
             </header>
             <div className="flex-1 min-h-0 p-4 space-y-4 overflow-y-auto">
               {(() => {
@@ -710,8 +711,8 @@ function BarraSeccion({ onUp, onDown, onDup, onDel, onEmbed, onCerrar }) {
       <B title="Bajar" onClick={onDown}>▼</B>
       <B title="Duplicar" onClick={onDup}>⧉</B>
       {onEmbed && <B title="Exportar como iframe (incrustar en otra web)" onClick={onEmbed}>{'</>'}</B>}
-      <B title="Quitar" danger onClick={onDel}>✕</B>
-      <B title="Cerrar edición" onClick={onCerrar}>✓</B>
+      <B title="Quitar" danger onClick={onDel}><Icono name="cerrar" className="w-3.5 h-3.5" /></B>
+      <B title="Cerrar edición" onClick={onCerrar}><Icono name="check" className="w-3.5 h-3.5" /></B>
     </div>
   );
 }
@@ -744,9 +745,9 @@ function EditorTopChrome({ evento, pages, onPortada, portadaData, navbar = {} })
           </Chip>
         ) : <span />}
         <div className="flex items-center gap-2 flex-wrap">
-          {evento.tiene_networking && <Chip>🤝 Rueda de Negocios</Chip>}
+          {evento.tiene_networking && <Chip><Icono name="acuerdo" className="w-3.5 h-3.5" />Rueda de Negocios</Chip>}
           {evento.tiene_torneo && <Chip>Ver Torneo</Chip>}
-          {evento.tiene_agenda && <Chip>📅 Ver Agenda</Chip>}
+          {evento.tiene_agenda && <Chip><Icono name="calendario" className="w-3.5 h-3.5" />Ver Agenda</Chip>}
           {nav.enlaces.map((l, i) => <Chip key={i}>{l.label}</Chip>)}
           {nav.mostrar_compartir && (
             <Chip>

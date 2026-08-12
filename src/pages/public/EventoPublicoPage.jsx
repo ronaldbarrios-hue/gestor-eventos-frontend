@@ -9,6 +9,7 @@ import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '..
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import { useT } from '../../lib/i18n.js';
+import Icono from '../../components/ui/Icono.jsx';
 
 export default function EventoPublicoPage() {
   const { slug } = useParams();
@@ -175,7 +176,7 @@ export default function EventoPublicoPage() {
             <Link to={`/explorar/${slug}/networking`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30
                          bg-primary/10 text-sm text-primary-light hover:bg-primary/20 transition-colors">
-              🤝 Rueda de Negocios
+              <Icono name="acuerdo" className="w-4 h-4" />Rueda de Negocios
             </Link>
           )}
           {evento.tiene_torneo && (
@@ -189,7 +190,7 @@ export default function EventoPublicoPage() {
             <Link to={`/explorar/${slug}/agenda`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-success/30
                          bg-success/10 text-sm text-success hover:bg-success/20 transition-colors">
-              📅 Espacio del evento
+              <Icono name="calendario" className="w-4 h-4" />Espacio del evento
             </Link>
           )}
           {nav.mostrar_compartir && <ShareButton />}

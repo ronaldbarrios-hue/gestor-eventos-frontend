@@ -6,6 +6,7 @@ import { agendaApi } from '../../../api/agenda.js';
 import { equipoApi } from '../../../api/equipo.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Resumen del evento — Rework Fase 3 (según PDF)
@@ -202,7 +203,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
           {/* Gestbot */}
           <div className="rounded-3xl border border-accent/25 bg-gradient-to-br from-accent/15 to-transparent p-5">
             <div className="flex items-center gap-2.5 mb-3">
-              <span className="w-8 h-8 rounded-xl bg-accent/25 text-accent flex items-center justify-center">✦</span>
+              <span className="w-8 h-8 rounded-xl bg-accent/25 text-accent flex items-center justify-center"><Icono name="destello" className="w-4 h-4" /></span>
               <h3 className="text-sm font-semibold text-text-1">Gestbot</h3>
             </div>
             <ul className="space-y-2 mb-4">

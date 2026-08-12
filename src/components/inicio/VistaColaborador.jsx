@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEspacioData } from '../widgets/espacio/EspacioData.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { EstadoBadge } from '../ui/Badge.jsx';
+import Icono from '../../components/ui/Icono.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Inicio · Vista Colaborador — panorama generalizado de TODO en lo
@@ -45,7 +46,7 @@ export default function VistaColaborador() {
             <Link to="/mi-espacio" className="text-xs text-accent hover:underline">Ir a Mi Espacio →</Link>
           </header>
           {proximas.length === 0 ? (
-            <p className="text-sm text-text-2 text-center py-10">Sin tareas pendientes. ✦</p>
+            <p className="text-sm text-text-2 text-center py-10">Sin tareas pendientes.</p>
           ) : (
             <ul className="divide-y divide-border">
               {proximas.map(t => {

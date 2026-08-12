@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { embedUrl, embedSnippet, embedFrameId, EMBED_TEMAS, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Exportar UNA sección de la landing como iframe: la empresa arma su web
    donde quiera y trae de GESTEK solo lo que le sirve (boletas, cómo llegar,
@@ -61,7 +62,7 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
           <h3 className="text-base font-semibold text-text-1">Exportar «{label}» como iframe</h3>
           <p className="text-xs text-text-3 mt-0.5">Pega este código en cualquier web y la sección aparece ahí, siempre actualizada.</p>
         </div>
-        <button onClick={onClose} aria-label="Cerrar" className="text-text-3 hover:text-text-1">✕</button>
+        <button onClick={onClose} aria-label="Cerrar" className="text-text-3 hover:text-text-1"><Icono name="cerrar" className="w-4 h-4" /></button>
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-0 max-h-[75vh] overflow-y-auto">

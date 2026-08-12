@@ -4,6 +4,7 @@ import { clientesApi } from '../../../../api/clientes.js';
 import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
+import Icono from '../../../../components/ui/Icono.jsx';
 
 /* Asistentes · Credenciales — diseñador de escarapelas imprimibles.
    El organizador elige tamaño, logo, qué datos se imprimen y el color por
@@ -167,7 +168,7 @@ export default function CredencialesSection({ evento }) {
                         onChange={e => set({ campos_libres: cfg.campos_libres.map((x, j) => j === i ? { ...x, valor: e.target.value } : x) })}
                         className="input !h-9 flex-1" />
                       <button onClick={() => set({ campos_libres: cfg.campos_libres.filter((_, j) => j !== i) })}
-                        className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
+                        className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0"><Icono name="cerrar" className="w-4 h-4" /></button>
                     </div>
                   ))}
                 </div>

@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import { COVER_ASPECTOS, coverLayout } from '../../../components/public/EventChrome.jsx';
 import { tipoEspacio } from '../../../lib/espacio.js';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* ─────────── reordenar sub-elementos EN la vista previa (Rework #2) ───────────
    Cuando un bloque con lista está seleccionado en el editor, sus items se pueden
@@ -1348,7 +1349,7 @@ function MapaEventoPreview({ data, evento }) {
                   {sel.data.categoria_negocio && <p className="text-xs text-text-3">{sel.data.categoria_negocio}</p>}
                   {sel.data.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {sel.data.stand}</span>}
                 </div>
-                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
+                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1"><Icono name="cerrar" className="w-4 h-4" /></button>
               </div>
               {sel.data.descripcion && <p className="text-sm text-text-2 mt-3 leading-relaxed">{sel.data.descripcion}</p>}
               {Array.isArray(sel.data.franjas) && sel.data.franjas.length > 0 && (
@@ -1367,7 +1368,7 @@ function MapaEventoPreview({ data, evento }) {
                   <p className="text-base font-semibold text-text-1">{sel.data.titulo}</p>
                   <p className="text-xs text-text-3">{tipoEspacio(sel.data.tipo).label}</p>
                 </div>
-                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
+                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1"><Icono name="cerrar" className="w-4 h-4" /></button>
               </div>
               <div className="mt-3 space-y-1 text-sm text-text-2">
                 {sel.data.inicio && <p><span className="text-text-3">Hora:</span> {new Date(sel.data.inicio).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>}
@@ -1380,7 +1381,7 @@ function MapaEventoPreview({ data, evento }) {
                   <p className="text-base font-semibold text-text-1">{sel.data.nombre || 'Punto de interés'}</p>
                   {sel.data.codigo && <p className="text-xs text-text-3">Referencia {sel.data.codigo}</p>}
                 </div>
-                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
+                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1"><Icono name="cerrar" className="w-4 h-4" /></button>
               </div>
             </>)}
           </div>
@@ -1501,7 +1502,7 @@ function RegistrarStandPreview({ data }) {
         <ul className="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-5">
           {beneficios.map((b, i) => (
             <li key={i} className="flex items-center gap-1.5 text-sm text-text-2">
-              <span className="text-success">✓</span> {b}
+              <Icono name="check" className="w-3.5 h-3.5 text-success inline-block align-[-2px] mr-1" />{b}
             </li>
           ))}
         </ul>

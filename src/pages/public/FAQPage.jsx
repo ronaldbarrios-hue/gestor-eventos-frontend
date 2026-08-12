@@ -108,7 +108,12 @@ const GRUPOS = [
   },
 ];
 
-const Icono = ({ d, className = '' }) => (
+/* Envoltorio de un trazo suelto: recibe el <path> ya escrito y le pone el
+   <svg> con las medidas del sistema. Se llama Trazo y no Icono para no chocar
+   con components/ui/Icono.jsx, que es el registro con nombres
+   (<Trazo name="trofeo" />). Este de aquí no tiene registro: dibuja lo que le
+   pasen. */
+const Trazo = ({ d, className = '' }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"
        strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">{d}</svg>
 );
@@ -146,7 +151,7 @@ export default function FAQPage() {
                       className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-surface/60 transition-colors"
                     >
                       <span className="text-[15px] sm:text-base font-medium text-text-1">{t(f.q)}</span>
-                      <Icono d={<path d="M19 9l-7 7-7-7" />}
+                      <Trazo d={<path d="M19 9l-7 7-7-7" />}
                              className={`w-4 h-4 text-text-2 transition-transform flex-shrink-0 ${esta ? 'rotate-180' : ''}`} />
                     </button>
                     <div className={`grid transition-all duration-300 ${esta ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>

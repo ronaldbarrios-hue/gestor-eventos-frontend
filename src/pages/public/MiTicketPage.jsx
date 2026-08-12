@@ -5,6 +5,7 @@ import { eventosApi } from '../../api/eventos.js';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { googleCalendarUrl } from '../../lib/calendario.js';
+import Icono from '../../components/ui/Icono.jsx';
 
 /* Página pública /mi-ticket/:codigo
    Cualquiera con el código puede ver su QR. */
@@ -93,7 +94,7 @@ export default function MiTicketPage() {
       {ticket.tipo?.es_expositor && (
         <Link to={`/expositor/${ticket.codigo}`}
           className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 hover:bg-accent/10 transition-colors">
-          <span className="text-sm text-text-1">🏢 <strong>Tienes un stand.</strong> Edita tu ficha de expositor.</span>
+          <span className="text-sm text-text-1 inline-flex items-center gap-1.5"><Icono name="stand" className="w-4 h-4 flex-shrink-0" /><span><strong>Tienes un stand.</strong> Edita tu ficha de expositor.</span></span>
           <span className="text-accent-light text-sm font-medium whitespace-nowrap">Editar →</span>
         </Link>
       )}
@@ -106,7 +107,7 @@ export default function MiTicketPage() {
         <div className="mt-3 flex items-center justify-center gap-3">
           <button onClick={() => window.print()}
             className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
-            🖨️ Imprimir mi escarapela
+            <Icono name="impresora" className="w-4 h-4" />Imprimir mi escarapela
           </button>
         </div>
         <p className="text-[11px] text-text-3 text-center mt-1">Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.</p>
@@ -136,7 +137,7 @@ export default function MiTicketPage() {
               return (
                 <li key={it.id} className="flex items-center gap-3 px-4 py-3">
                   <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${neg ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
-                    {neg ? '⚠' : '★'}
+                    <Icono name={neg ? 'aviso' : 'estrella'} className="w-4 h-4" />
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-text-1 truncate">
@@ -233,7 +234,7 @@ function PasaporteCard({ p }) {
 
       {p.completo && (
         <div className="mt-4 rounded-2xl border border-success/30 bg-success/10 px-4 py-3">
-          <p className="text-sm font-semibold text-text-1">¡Pasaporte completo! 🎉</p>
+          <p className="text-sm font-semibold text-text-1 flex items-center justify-center gap-1.5"><Icono name="ceremonia" className="w-4 h-4 text-accent" />¡Pasaporte completo!</p>
           {p.premio_texto && <p className="text-xs text-text-2 mt-0.5">{p.premio_texto}</p>}
         </div>
       )}

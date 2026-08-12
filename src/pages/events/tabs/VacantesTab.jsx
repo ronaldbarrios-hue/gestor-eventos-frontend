@@ -4,6 +4,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Vacantes — lado ORGANIZADOR (dentro del evento).
@@ -228,7 +229,7 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
               <label className="flex items-center gap-1 text-xs text-text-2 cursor-pointer">
                 <input type="checkbox" checked={p.requerido} onChange={e => setPregunta(p.id, { requerido: e.target.checked })} className="w-4 h-4 rounded accent-primary" /> Obligatoria
               </label>
-              <button onClick={() => delPregunta(p.id)} className="w-7 h-7 rounded-lg text-text-3 hover:text-danger flex items-center justify-center">✕</button>
+              <button onClick={() => delPregunta(p.id)} className="w-7 h-7 rounded-lg text-text-3 hover:text-danger flex items-center justify-center"><Icono name="cerrar" className="w-4 h-4" /></button>
             </div>
           ))}
           <button type="button" onClick={addPregunta} className="btn-ghost btn-sm text-xs">+ Agregar pregunta</button>
@@ -384,7 +385,9 @@ function ResenaTrabajadorModal({ evento, vacante, post, onClose }) {
         <h3 className="text-base font-bold text-text-1 mb-1">Reseñar a {post.candidato?.nombre || 'el trabajador'}</h3>
         <p className="text-xs text-text-3 mb-4">Será pública en su perfil de talento.</p>
         <div className="flex gap-1 mb-4">
-          {[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => setEstrellas(n)} className={`text-2xl ${n <= estrellas ? 'text-warning' : 'text-text-3'}`}>★</button>)}
+          {[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => setEstrellas(n)} aria-label={`${n} de 5`} className="p-0.5">
+                <Icono name="estrella" className={`w-6 h-6 ${n <= estrellas ? 'text-warning' : 'text-text-3'}`} />
+              </button>)}
         </div>
         <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={3} className="input rounded-xl py-2.5 text-sm resize-none w-full mb-4" placeholder="¿Cómo fue su desempeño?" />
         <div className="flex justify-end gap-2"><button onClick={onClose} className="btn-ghost btn-sm">Cancelar</button><button onClick={enviar} disabled={saving} className="btn-primary btn-sm">{saving ? <Spinner size="sm" /> : 'Publicar reseña'}</button></div>

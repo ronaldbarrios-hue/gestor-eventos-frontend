@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Automatizaciones — "cuando pasa X, haz Y". Reglas guardadas en
    page_json.automatizaciones; el backend las dispara en check-in y aforo lleno. */
@@ -62,7 +63,7 @@ export default function AutomatizacionesSection({ evento }) {
                     <input type="checkbox" checked={r.activo !== false} onChange={e => set(r._k, { activo: e.target.checked })} className="w-4 h-4 rounded accent-primary" />
                     Activa
                   </label>
-                  <button onClick={() => quitar(r._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center">✕</button>
+                  <button onClick={() => quitar(r._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center"><Icono name="cerrar" className="w-4 h-4" /></button>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div className="field">

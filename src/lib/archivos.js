@@ -4,7 +4,7 @@
    la hoja de vida del candidato, copiarlas habría dejado dos listas de
    bloqueo que se desincronizan en la primera prisa: se saca aquí.
 
-   ⚠️ Esto es validación de CLIENTE. Frena el error honesto y el intento
+   OJO: esto es validación de CLIENTE. Frena el error honesto y el intento
    perezoso, no a un atacante — cualquiera puede saltarse el navegador y
    hablarle directo a Storage. El escaneo real de malware va en el servidor
    (ClamAV o un servicio de scanning) y sigue pendiente. Para documentos

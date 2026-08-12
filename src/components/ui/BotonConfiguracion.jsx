@@ -13,7 +13,12 @@ import { useTheme } from '../../context/ThemeContext.jsx';
 import { Link } from 'react-router-dom';
 import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 
-const Icono = ({ d, className = '' }) => (
+/* Envoltorio de un trazo suelto: recibe el <path> ya escrito y le pone el
+   <svg> con las medidas del sistema. Se llama Trazo y no Icono para no chocar
+   con components/ui/Icono.jsx, que es el registro con nombres
+   (<Trazo name="trofeo" />). Este de aquí no tiene registro: dibuja lo que le
+   pasen. */
+const Trazo = ({ d, className = '' }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"
        strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     {d}
@@ -85,7 +90,7 @@ export default function BotonConfiguracion() {
                     : 'border-border text-text-2 hover:text-text-1 hover:bg-surface-2'
                 }`}
               >
-                <Icono d={o.icono} className="h-4 w-4" />
+                <Trazo d={o.icono} className="h-4 w-4" />
                 {t(o.label)}
               </button>
             ))}
@@ -125,7 +130,7 @@ export default function BotonConfiguracion() {
               className="w-full flex items-center justify-between gap-2 text-[11px] text-text-3 hover:text-text-2 transition-colors"
             >
               {t('Qué guardamos en tu navegador')}
-              <Icono d={<path d="M19 9l-7 7-7-7" />}
+              <Trazo d={<path d="M19 9l-7 7-7-7" />}
                      className={`h-3 w-3 transition-transform ${verDatos ? 'rotate-180' : ''}`} />
             </button>
 
@@ -175,7 +180,7 @@ export default function BotonConfiguracion() {
                     flex items-center justify-center transition-all
                     ${abierto ? 'border-primary text-primary rotate-45' : 'border-border text-text-2 hover:text-text-1 hover:border-primary/50'}`}
       >
-        <Icono d={ENGRANAJE} className="h-[19px] w-[19px]" />
+        <Trazo d={ENGRANAJE} className="h-[19px] w-[19px]" />
       </button>
     </div>
   );

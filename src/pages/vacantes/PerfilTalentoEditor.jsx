@@ -18,7 +18,12 @@ import GLoader from '../../components/ui/GLoader.jsx';
    encajonado en max-w-2xl contra el borde izquierdo, dejando media pantalla
    vacía mientras los campos se apretaban. */
 
-const Icono = ({ d, className = '' }) => (
+/* Envoltorio de un trazo suelto: recibe el <path> ya escrito y le pone el
+   <svg> con las medidas del sistema. Se llama Trazo y no Icono para no chocar
+   con components/ui/Icono.jsx, que es el registro con nombres
+   (<Trazo name="trofeo" />). Este de aquí no tiene registro: dibuja lo que le
+   pasen. */
+const Trazo = ({ d, className = '' }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"
        strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">{d}</svg>
 );
@@ -168,7 +173,7 @@ export default function PerfilTalentoEditor() {
                   <div className="flex items-start gap-2.5">
                     <span className="mt-0.5 h-8 w-8 flex-shrink-0 rounded-lg bg-primary/12 border border-primary/25
                                      text-primary flex items-center justify-center">
-                      <Icono d={<><path d="M14 2v6h6" /><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></>} className="h-4 w-4" />
+                      <Trazo d={<><path d="M14 2v6h6" /><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></>} className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-text-1 truncate">{form.cv_nombre || t('Hoja de vida')}</p>
@@ -192,7 +197,7 @@ export default function PerfilTalentoEditor() {
                     <span className="inline-flex items-center gap-2 text-xs text-text-2"><Spinner size="sm" /> {t('Subiendo…')}</span>
                   ) : (
                     <>
-                      <Icono d={<><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></>}
+                      <Trazo d={<><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></>}
                              className="h-5 w-5 mx-auto text-text-3 mb-1.5" />
                       <span className="block text-xs font-medium text-text-2">{t('Subir hoja de vida')}</span>
                     </>

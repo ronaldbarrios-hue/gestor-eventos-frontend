@@ -4,6 +4,7 @@ import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Tab Tickets — tipos de boleta del evento. Minimalista Apple. */
 
@@ -314,7 +315,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
         <input type="checkbox" checked={form.es_expositor}
           onChange={e => update('es_expositor', e.target.checked)} className="mt-0.5 accent-[#8B5CF6]" />
         <span className="text-sm">
-          <span className="font-medium text-text-1 block">🏢 Es una boleta de stand / expositor</span>
+          <span className="font-medium text-text-1 flex items-center gap-1.5"><Icono name="stand" className="w-4 h-4" />Es una boleta de stand / expositor</span>
           <span className="text-text-3 text-xs">Cada empresa que la compra recibe su propia ficha de expositor (logo, descripción, contacto) que edita ella misma y aparece en el evento. Con el toggle persona / empresa.</span>
         </span>
       </label>

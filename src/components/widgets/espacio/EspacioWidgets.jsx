@@ -5,6 +5,7 @@ import { useAuth } from '../../../context/AuthContext.jsx';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { tareasApi } from '../../../api/tareas.js';
 import { uploadEventImage } from '../../../components/ui/CoverUploader.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Widgets de Mi Espacio — Rework Fase 4
@@ -175,7 +176,7 @@ export function MisRecursosWidget() {
               {i.nombre}
             </a>
             <button onClick={() => quitar(i.id)} aria-label="Quitar"
-                    className="opacity-0 group-hover:opacity-100 text-text-3 hover:text-danger transition-all text-xs px-1">✕</button>
+                    className="opacity-0 group-hover:opacity-100 text-text-3 hover:text-danger transition-all text-xs px-1"><Icono name="cerrar" className="w-4 h-4" /></button>
           </li>
         ))}
         {items.length === 0 && <p className="text-sm text-text-2 text-center py-6 px-4">Guarda aquí tu material de trabajo.</p>}
@@ -211,7 +212,7 @@ export function MisNotasWidget() {
           <li key={n.id} className="flex items-start gap-2 group rounded-xl bg-surface-2/60 px-3 py-2">
             <p className="text-sm text-text-1 leading-snug flex-1">{n.texto}</p>
             <button onClick={() => persist(items.filter(i => i.id !== n.id))} aria-label="Borrar"
-                    className="opacity-0 group-hover:opacity-100 text-text-3 hover:text-danger transition-all text-xs">✕</button>
+                    className="opacity-0 group-hover:opacity-100 text-text-3 hover:text-danger transition-all text-xs"><Icono name="cerrar" className="w-4 h-4" /></button>
           </li>
         ))}
         {items.length === 0 && <p className="text-sm text-text-2 text-center py-4">Sin notas.</p>}

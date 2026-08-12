@@ -6,6 +6,7 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Tab Check-in — escanea boletas con cámara o ingresa código manual. */
 
@@ -284,7 +285,7 @@ function ResultadoCard({ result, compact }) {
   if (result.syncResumen) return (
     <div className={`rounded-3xl border-2 border-success/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-success/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-success text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">✓</div>
+        <div className="w-12 h-12 rounded-2xl bg-success text-white flex items-center justify-center text-2xl font-bold flex-shrink-0"><Icono name="check" className="w-6 h-6" strokeWidth={2.4} /></div>
         <div><h3 className="text-xl font-bold font-display text-text-1">Sincronizado</h3><p className="text-sm text-text-2">{result.syncResumen.ok} registrados{result.syncResumen.fallidas ? ` · ${result.syncResumen.fallidas} rechazados (ya usados o inválidos)` : ''}.</p></div>
       </div>
     </div>
@@ -296,7 +297,7 @@ function ResultadoCard({ result, compact }) {
     : yaUsada
       ? 'border-warning/40 bg-warning/10'
       : 'border-danger/40 bg-danger/10';
-  const icon = ok ? '✓' : yaUsada ? '⚠' : '✕';
+  const icono = ok ? 'check' : yaUsada ? 'aviso' : 'cerrar';
   const iconCls = ok ? 'bg-success text-white' : yaUsada ? 'bg-warning text-white' : 'bg-danger text-white';
   const title = ok
     ? '¡Bienvenido!'
@@ -309,8 +310,8 @@ function ResultadoCard({ result, compact }) {
   return (
     <div className={`rounded-3xl border-2 ${cls} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-start gap-4">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 ${iconCls}`}>
-          {icon}
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${iconCls}`}>
+          <Icono name={icono} className="w-6 h-6" strokeWidth={2.4} />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-bold font-display text-text-1 mb-1">{title}</h3>
@@ -338,14 +339,16 @@ function ReingresoCard({ result, compact }) {
   const ok = result.ok;
   const dentro = result.dentro;
   const cls = !ok ? 'border-danger/40 bg-danger/10' : dentro ? 'border-success/40 bg-success/10' : 'border-warning/40 bg-warning/10';
-  const icon = !ok ? '✕' : dentro ? '↳' : '↰';
+  const icono = !ok ? 'cerrar' : dentro ? 'entrar' : 'salir';
   const iconCls = !ok ? 'bg-danger text-white' : dentro ? 'bg-success text-white' : 'bg-warning text-white';
   const title = !ok ? 'No se pudo registrar' : dentro ? 'Reingreso registrado' : 'Salida registrada';
   const ticket = result.ticket;
   return (
     <div className={`rounded-3xl border-2 ${cls} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-start gap-4">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 ${iconCls}`}>{icon}</div>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${iconCls}`}>
+          <Icono name={icono} className="w-6 h-6" strokeWidth={2.2} />
+        </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-bold font-display text-text-1 mb-1">{title}</h3>
           {result.error && <p className="text-sm text-text-2">{result.error}</p>}
@@ -369,7 +372,7 @@ function HistorialRow({ item }) {
   return (
     <div className={`flex items-center gap-3 px-5 py-3 ${!item.ok ? 'opacity-70' : ''}`}>
       <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${item.ok ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
-        {item.ok ? '✓' : '✕'}
+        <Icono name={item.ok ? 'check' : 'cerrar'} className="w-3.5 h-3.5" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-text-1 truncate">{item.guest_nombre || item.guest_email || 'Sin nombre'}</p>

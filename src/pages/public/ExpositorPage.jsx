@@ -6,6 +6,7 @@ import ImagePicker from '../../components/ui/ImagePicker.jsx';
 import QrScanner from '../../components/ui/QrScanner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
+import Icono from '../../components/ui/Icono.jsx';
 
 /* Página pública /expositor/:codigo
    La empresa que compró una boleta-Stand edita su propia ficha con el código
@@ -232,7 +233,7 @@ function PuntosTab({ codigo, nombre }) {
               <button key={m.id} onClick={() => setSel(m)}
                 className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-2
                   ${sel?.id === m.id ? 'border-success bg-success/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
-                ★ {m.nombre} <span className="text-[10px] font-mono text-success">+{m.puntos}</span>
+                <Icono name="estrella" className="w-3.5 h-3.5" />{m.nombre} <span className="text-[10px] font-mono text-success">+{m.puntos}</span>
               </button>
             ))}
           </div>
@@ -261,7 +262,7 @@ function ResultadoExpo({ r }) {
     <div className={`rounded-2xl border-2 p-4 backdrop-blur-xl bg-surface/90 ${ok ? 'border-success/40' : 'border-danger/40'} animate-[fadeUp_0.3s_ease_both]`}>
       {ok ? (
         <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-success text-white flex items-center justify-center text-xl font-bold">✓</span>
+          <span className="w-10 h-10 rounded-xl bg-success text-white flex items-center justify-center text-xl font-bold"><Icono name="check" className="w-4 h-4" /></span>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-text-1 truncate">{r.ticket?.nombre}</p>
             <p className="text-xs text-text-3">+{r.interaccion?.puntos} pts · saldo contigo: <strong className="text-text-1">{r.total_puntos}</strong></p>
@@ -294,7 +295,7 @@ function MotivosEditor({ codigo, motivos, onListo }) {
           <input value={m.nombre} onChange={e => set(m._k, { nombre: e.target.value })} placeholder="Ej. Visitó mi stand" className="input flex-1" />
           <input type="number" min="0" value={Math.abs(Number(m.puntos) || 0)} onChange={e => set(m._k, { puntos: Number(e.target.value) || 0 })} className="input w-20 text-right" />
           <span className="text-xs text-text-3">pts</span>
-          <button onClick={() => setLista(l => l.filter(x => x._k !== m._k))} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center">✕</button>
+          <button onClick={() => setLista(l => l.filter(x => x._k !== m._k))} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center"><Icono name="cerrar" className="w-4 h-4" /></button>
         </div>
       ))}
       {msg && <p className="text-sm text-danger">{msg}</p>}
@@ -393,7 +394,7 @@ function PremiosEditor({ codigo }) {
             <input value={r.titulo} onChange={e => set(r._k, { titulo: e.target.value })} placeholder="Ej. Sticker, Descuento 10%" className="input flex-1" />
             <input type="number" min="0" value={r.costo_puntos ?? 0} onChange={e => set(r._k, { costo_puntos: Number(e.target.value) || 0 })} className="input w-24 text-right" />
             <span className="text-xs text-text-3">pts</span>
-            <button onClick={() => setLista(l => l.filter(x => x._k !== r._k))} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center">✕</button>
+            <button onClick={() => setLista(l => l.filter(x => x._k !== r._k))} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center"><Icono name="cerrar" className="w-4 h-4" /></button>
           </div>
           <div className="flex items-center gap-2">
             <input value={r.descripcion || ''} onChange={e => set(r._k, { descripcion: e.target.value })} placeholder="Descripción (opcional)" className="input flex-1 text-sm" />
@@ -457,7 +458,7 @@ function CronogramaTab({ codigo }) {
                 <p className="text-sm font-medium text-text-1 truncate">{fr.titulo}</p>
                 <p className="text-[11px] text-text-3">{new Date(fr.inicio).toLocaleDateString('es-CO', { weekday: 'short', day: '2-digit', month: 'short' })}</p>
               </div>
-              <button onClick={() => borrar(fr.id)} className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
+              <button onClick={() => borrar(fr.id)} className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0"><Icono name="cerrar" className="w-4 h-4" /></button>
             </div>
           ))}
         </div>

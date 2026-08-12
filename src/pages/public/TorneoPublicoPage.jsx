@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
+import Icono from '../../components/ui/Icono.jsx';
 
 /* Página pública /explorar/:slug/torneo — vista de SOLO LECTURA del
    bracket/tabla del torneo de un evento, accesible a cualquiera (no
@@ -71,7 +72,7 @@ export default function TorneoPublicoPage() {
             <button key={t.id} onClick={() => cambiarTorneo(t.id)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors flex items-center gap-1.5
                 ${selId === t.id ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
-              🏆 {t.nombre}
+              <Icono name="trofeo" className="w-4 h-4 flex-shrink-0" />{t.nombre}
               {t.disciplina && <span className="text-[10px] uppercase tracking-wide opacity-70">{t.disciplina}</span>}
             </button>
           ))}
@@ -124,7 +125,7 @@ function BracketPublico({ partidos, equipoPorId }) {
                   <EquipoSlotPublico equipo={equipoB} marcador={p.estado === 'jugado' ? p.marcador_b : null} gano={ganoB} />
                   {(fechaTxt || p.cancha) && p.estado === 'pendiente' && (
                     <div className="px-3 py-1.5 bg-surface-2/60 border-t border-border text-[11px] text-text-3 truncate">
-                      📅 {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}
+                      <Icono name="calendario" className="w-3 h-3 inline-block align-[-1px] mr-1" />{fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}
                     </div>
                   )}
                 </div>
@@ -230,7 +231,7 @@ function LigaPublica({ partidos, equipos, equipoPorId }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-text-1 truncate">{eqA?.nombre} <span className="text-text-3">vs</span> {eqB?.nombre}</p>
                   {(fechaTxt || p.cancha) && p.estado === 'pendiente' && (
-                    <p className="text-[11px] text-text-3 mt-0.5">📅 {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
+                    <p className="text-[11px] text-text-3 mt-0.5"><Icono name="calendario" className="w-3 h-3 inline-block align-[-1px] mr-1" />{fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
                   )}
                 </div>
                 {p.estado === 'jugado' ? (

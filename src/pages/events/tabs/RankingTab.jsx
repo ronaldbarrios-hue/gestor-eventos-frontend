@@ -5,8 +5,15 @@ import { loyaltyApi } from '../../../api/loyalty.js';
 import { interaccionesApi } from '../../../api/interacciones.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
-const medalla = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`);
+/* Las tres primeras posiciones llevan medalla; el resto, su número. El color
+   distingue oro, plata y bronce sin necesitar tres dibujos distintos. */
+const COLOR_MEDALLA = ['text-warning', 'text-text-2', 'text-accent'];
+function Medalla({ i, className = 'w-5 h-5' }) {
+  if (i > 2) return <span className="text-sm font-mono tabular-nums text-text-3">{`#${i + 1}`}</span>;
+  return <Icono name="medalla" titulo={`Puesto ${i + 1}`} className={`${className} ${COLOR_MEDALLA[i]}`} />;
+}
 
 export default function RankingTab({ evento }) {
   const { error: toastErr } = useToast();
@@ -62,7 +69,7 @@ function ListaEquipo({ ranking }) {
     <div className="rounded-2xl border border-border bg-surface/40 divide-y divide-border">
       {ranking.map((r, i) => (
         <div key={r.user_id} className={`flex items-center gap-3 px-4 py-3 ${r.es_yo ? 'bg-primary/10' : ''}`}>
-          <span className="w-9 text-center text-sm font-bold text-text-2">{medalla(i)}</span>
+          <span className="w-9 flex items-center justify-center"><Medalla i={i} /></span>
           <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-primary flex items-center justify-center flex-shrink-0">
             {r.avatar_url ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" /> : <span className="text-white text-sm font-semibold">{(r.nombre || 'U').charAt(0).toUpperCase()}</span>}
           </div>
@@ -85,7 +92,7 @@ function ListaExpositores({ ranking }) {
     <div className="rounded-2xl border border-border bg-surface/40 divide-y divide-border">
       {ranking.map((r, i) => (
         <div key={r.expositor_id} className="flex items-center gap-3 px-4 py-3">
-          <span className="w-9 text-center text-sm font-bold text-text-2">{medalla(i)}</span>
+          <span className="w-9 flex items-center justify-center"><Medalla i={i} /></span>
           <div className="w-9 h-9 rounded-xl overflow-hidden bg-surface-2 flex items-center justify-center flex-shrink-0">
             {r.logo_url ? <img src={r.logo_url} alt="" className="w-full h-full object-cover" /> : <span className="text-text-3 text-sm font-semibold">{(r.nombre || 'E').charAt(0).toUpperCase()}</span>}
           </div>

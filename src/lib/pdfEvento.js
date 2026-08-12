@@ -61,7 +61,7 @@ const RE = {
   /* 17 de septiembre de 2026 / 5 de mayo 2026 */
   fechaLarga: /(\d{1,2})\s+de\s+([a-záéíóú]+)(?:\s+de)?\s+(\d{4})/gi,
   /* 17/09/2026 · 17-09-2026 · 2026-09-17 */
-  fechaNum:  /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b|\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/g,
+  fechaNum:  /\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b|\b(\d{4})[/-](\d{1,2})[/-](\d{1,2})\b/g,
   hora:      /\b(\d{1,2})(?::(\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?|h(?:oras)?|hrs?)\b/gi,
   precio:    /(?:\$|COP|USD|ARS|MXN|precio[:\s]*)\s?([\d][\d.,]{1,12})/gi,
   email:     /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/i,
@@ -69,7 +69,7 @@ const RE = {
   aforo:     /(?:aforo|cupo|capacidad|hasta)\s*(?:de|:)?\s*([\d.,]{2,7})\s*(?:personas|asistentes|cupos|pers)?/i,
   /* Etiqueta al inicio de línea + dos puntos/guion — evita cazar la palabra
      "lugar" cuando aparece a mitad de una frase de la descripción. */
-  lugarEtiqueta: /^\s*(?:lugar|sede|ubicaci[oó]n|d[oó]nde|venue|direcci[oó]n)\s*[:\-]\s*(.{3,90})$/i,
+  lugarEtiqueta: /^\s*(?:lugar|sede|ubicaci[oó]n|d[oó]nde|venue|direcci[oó]n)\s*[:-]\s*(.{3,90})$/i,
   /* Sustantivos de recinto: valen aunque no lleven etiqueta, si la línea es corta. */
   lugarRecinto:  /^\s*((?:auditorio|teatro|coliseo|centro de convenciones|hotel|estadio|arena|sal[oó]n)\b.{0,70})$/i,
 };

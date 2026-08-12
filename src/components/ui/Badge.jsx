@@ -4,7 +4,7 @@ const ESTADO_MAP = {
   cancelado : { cls: 'badge-red',    label: 'Cancelado'  },
   finalizado: { cls: 'badge-gray',   label: 'Finalizado' },
   cerrado   : { cls: 'badge-gray',   label: 'Cerrado'    },
-  configuracion: { cls: 'badge-blue', label: 'Configuración' },
+  configuracion: { cls: 'badge-blue', label: 'En configuración' },
   en_curso  : { cls: 'badge-purple', label: 'En curso'   },
   archivado : { cls: 'badge-gray',   label: 'Archivado'  },
 };

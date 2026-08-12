@@ -9,6 +9,7 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import { uploadEventImage } from '../../../components/ui/CoverUploader.jsx';
 import { formatoGrabacion, archivoDeAudio } from '../../../lib/grabacion.js';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Chat staff por evento — sidebar de canales + área de mensajes con Realtime. */
 
@@ -556,7 +557,7 @@ function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
               ? <img src={channel.dm_avatar} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
               : <span className="w-4 h-4 rounded-full bg-surface-3 text-text-3 text-[9px] flex items-center justify-center flex-shrink-0">{(nombre || '?').charAt(0).toUpperCase()}</span>)
           : indent
-            ? <span className="w-3.5 h-3.5 flex items-center justify-center text-text-3 text-xs">↳</span>
+            ? <Icono name="subcanal" className="w-3.5 h-3.5 text-text-3 flex-shrink-0" />
             : restringido
               ? <LockIcon className="w-3.5 h-3.5 text-warning flex-shrink-0" />
               : <HashIcon className="w-3.5 h-3.5 text-text-3 flex-shrink-0" />}

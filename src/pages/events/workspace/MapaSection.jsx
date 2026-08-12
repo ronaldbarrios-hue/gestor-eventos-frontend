@@ -5,6 +5,7 @@ import { agendaApi } from '../../../api/agenda.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Mapa del evento — plano del recinto con las UBICACIONES de todo.
    Marcadores en círculo (SIN emojis, look de mapa profesional):
@@ -211,7 +212,7 @@ function EditorMarcador({ sel, expo, ses, onChange, onQuitar, onCerrar }) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Editar</p>
-        <button onClick={onCerrar} className="text-text-3 hover:text-text-1 text-sm">✕</button>
+        <button onClick={onCerrar} className="text-text-3 hover:text-text-1 text-sm"><Icono name="cerrar" className="w-4 h-4" /></button>
       </div>
 
       {sel.tipo === 'punto' ? (

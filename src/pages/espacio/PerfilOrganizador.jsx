@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext.jsx';
 import ImagePicker from '../../components/ui/ImagePicker.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
+import Icono from '../../components/ui/Icono.jsx';
 
 /* Perfil PÚBLICO del organizador (cuenta administradora): la identidad con la
    que la gente lo ve, más su reputación (reseñas que le dejaron los
@@ -54,7 +55,7 @@ export default function PerfilOrganizador() {
         <div className="text-center">
           <p className="text-3xl font-bold font-display text-text-1 tabular-nums leading-none">{prom != null ? prom.toFixed(1) : '—'}</p>
           <div className="flex gap-0.5 mt-1 justify-center">
-            {[1, 2, 3, 4, 5].map(n => <span key={n} className={`text-sm ${prom != null && n <= Math.round(prom) ? 'text-warning' : 'text-text-3'}`}>★</span>)}
+            {[1, 2, 3, 4, 5].map(n => <Icono key={n} name="estrella" className={`w-3.5 h-3.5 ${prom != null && n <= Math.round(prom) ? 'text-warning' : 'text-text-3'}`} />)}
           </div>
         </div>
         <div className="text-sm text-text-2">
@@ -99,7 +100,11 @@ export default function PerfilOrganizador() {
           {rep.resenas.map((r, i) => (
             <div key={i} className="border-t border-border pt-3 first:border-0 first:pt-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm text-warning">{'★'.repeat(r.estrellas)}<span className="text-text-3">{'★'.repeat(5 - r.estrellas)}</span></span>
+                <span className="inline-flex items-center gap-0.5" aria-label={`${r.estrellas} de 5`}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <Icono key={n} name="estrella" className={`w-3.5 h-3.5 ${n <= r.estrellas ? 'text-warning' : 'text-text-3'}`} />
+              ))}
+            </span>
                 <span className="text-xs text-text-3">{r.de?.nombre || 'Trabajador'}{r.evento?.titulo ? ` · ${r.evento.titulo}` : ''}</span>
               </div>
               {r.comentario && <p className="text-sm text-text-2">{r.comentario}</p>}

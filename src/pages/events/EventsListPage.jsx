@@ -28,7 +28,7 @@ const FILTRO_ESTADOS = [
   { value: '',            label: 'Todos'         },
   { value: 'publicado',   label: 'Publicados'    },
   { value: 'borrador',    label: 'Borradores'    },
-  { value: 'configuracion', label: 'Configuración' },
+  { value: 'configuracion', label: 'En configuración' },
   { value: 'en_curso',    label: 'En curso'      },
   { value: 'finalizado',  label: 'Finalizados'   },
   { value: 'archivado',   label: 'Archivados'    },

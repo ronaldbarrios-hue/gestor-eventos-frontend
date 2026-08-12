@@ -47,6 +47,7 @@ import MapaSection       from './MapaSection.jsx';
 import ChatTab           from '../tabs/ChatTab.jsx';
 import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Workspace del evento — Rework Fase 3
@@ -416,7 +417,7 @@ function ConfigGeneral({ evento }) {
         <div className="card-body border-t border-border flex flex-wrap gap-2">
           <Link to={`/eventos/${evento.id}/editar`} className="btn-secondary btn-sm">Editar información completa</Link>
           <button onClick={togglePlantilla} disabled={guardando} className={`btn-sm ${esPlantilla ? 'btn-secondary' : 'btn-ghost'}`}>
-            {guardando ? 'Guardando…' : esPlantilla ? '✓ Es plantilla — quitar' : 'Usar como plantilla'}
+            {guardando ? 'Guardando…' : esPlantilla ? 'Es plantilla — quitar' : 'Usar como plantilla'}
           </button>
         </div>
       </div>

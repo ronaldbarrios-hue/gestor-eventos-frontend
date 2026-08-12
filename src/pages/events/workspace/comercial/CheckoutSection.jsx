@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import FormularioTab from '../../tabs/FormularioTab.jsx';
+import Icono from '../../../../components/ui/Icono.jsx';
 
 /* Event Experience · Proceso de compra — configura el PASO A PASO:
    1) Datos del comprador (formulario embebido)
@@ -181,7 +182,7 @@ function PreviewCompra({ evento, f, vista, tienePago }) {
   if (vista === 'confirmacion') {
     return (
       <div className="rounded-2xl border border-border-2 bg-surface p-5 text-center">
-        <div className="w-12 h-12 rounded-2xl bg-success/15 border border-success/30 mx-auto mb-3 flex items-center justify-center text-success text-xl">✓</div>
+        <div className="w-12 h-12 rounded-2xl bg-success/15 border border-success/30 mx-auto mb-3 flex items-center justify-center text-success text-xl"><Icono name="check" className="w-6 h-6" strokeWidth={2.4} /></div>
         <p className="text-lg font-bold font-display text-text-1">{f.confirmacion_titulo?.trim() || '¡Reserva confirmada!'}</p>
         <p className="text-sm text-text-2 mt-2 leading-relaxed">{f.confirmacion_texto?.trim() || 'Muestra este QR en la entrada del evento. También puedes mostrar el código.'}</p>
         <div className="bg-white rounded-xl w-28 h-28 mx-auto my-4 flex items-center justify-center text-[10px] text-slate-400">QR</div>

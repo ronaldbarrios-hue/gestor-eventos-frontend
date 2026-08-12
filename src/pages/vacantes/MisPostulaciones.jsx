@@ -11,6 +11,7 @@ import { useI18n } from '../../context/I18nContext.jsx';
 import { confirmDialog } from '../../components/ui/Confirm.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
+import Icono from '../../components/ui/Icono.jsx';
 
 export default function MisPostulaciones() {
   const { t, lang } = useI18n();
@@ -87,7 +88,9 @@ function ResenaModal({ postulacion, onClose, onListo }) {
         <p className="text-xs text-text-3 mb-4">{postulacion.vacante?.evento?.titulo}</p>
         <div className="flex gap-1 mb-4">
           {[1, 2, 3, 4, 5].map(n => (
-            <button key={n} onClick={() => setEstrellas(n)} className={`text-2xl ${n <= estrellas ? 'text-warning' : 'text-text-3'}`}>★</button>
+            <button key={n} onClick={() => setEstrellas(n)} aria-label={`${n} de 5`} className="p-0.5">
+            <Icono name="estrella" className={`w-6 h-6 ${n <= estrellas ? 'text-warning' : 'text-text-3'}`} />
+          </button>
           ))}
         </div>
         <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={3} className="input rounded-xl py-2.5 text-sm resize-none w-full mb-4" placeholder={t('¿Cómo fue trabajar en este evento?')} />

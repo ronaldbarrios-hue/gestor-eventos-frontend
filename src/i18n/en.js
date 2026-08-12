@@ -537,7 +537,6 @@ export default {
   '{n} funciones, no una promesa': '{n} features, not a promise',
   'Todo lo de esta lista existe hoy y se abre al entrar. Lo que todavía está en el plan lo marcamos como tal en la página de producto.':
     'Everything on this list exists today and opens when you log in. Whatever is still on the roadmap is marked as such on the product page.',
-  'Próximamente': 'Coming soon',
   'En construcción': 'In progress',
 
   'Boletería y dinero': 'Ticketing and money',
@@ -739,7 +738,6 @@ export default {
   'Todavía no cobramos nada de esto': 'We do not charge for any of this yet',
 
   /* ── Producto · pagos internos ──────────────────────────────── */
-  'Plan gratuito': 'Free plan',
   'Pagos internos': 'In-app payments',
   'Casi todo': 'Almost everything',
   'Por uso': 'Pay per use',
@@ -754,7 +752,6 @@ export default {
   'El modelo está construido y cada cobro se registra, pero la pasarela aún no está conectada. Preferimos decirlo a que te enteres cuando te llegue una factura que no esperabas.':
     'The model is built and every charge is recorded, but the payment gateway is not connected yet. We would rather say so than have you find out from an invoice you did not expect.',
 
-  'Cómo funciona': 'How it works',
   'Sin suscripción ni mensualidad: pagas solo lo que uses':
     'No subscription, no monthly fee: you pay only for what you use',
   'El precio se ve antes de confirmar, nunca después':
@@ -935,7 +932,7 @@ export default {
   'Todos': 'All',
   'Publicados': 'Published',
   'Borradores': 'Drafts',
-  'Configuración': 'Setup',
+  'En configuración': 'Setup',
   'En curso': 'In progress',
   'Finalizados': 'Finished',
   'Archivados': 'Archived',

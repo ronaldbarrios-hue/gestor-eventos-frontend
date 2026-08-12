@@ -4,6 +4,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Tab Torneo — VARIOS torneos por evento (Smash, Tekken, boxeo, fútbol…),
    cada uno con su disciplina. Disponible para cualquier evento (ya no solo
@@ -68,7 +69,7 @@ export default function TorneoTab({ evento, soyOwner }) {
               className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors text-left
                 ${!creando && selId === t.id ? 'border-primary/50 bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
               <span className="flex items-center gap-2">
-                🏆 {t.nombre}
+                <Icono name="trofeo" className="w-4 h-4 flex-shrink-0" />{t.nombre}
                 {t.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-1.5 py-0.5 rounded">{t.disciplina}</span>}
               </span>
             </button>
@@ -337,7 +338,7 @@ function EquiposView({ evento, torneo, equipos, soyOwner, onReload }) {
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => setFormOpen(true)} className="btn-gradient btn-sm">+ Agregar equipo</button>
             <button onClick={() => setImportarOpen(true)} className="btn-secondary btn-sm">
-              📥 Importar desde boletas
+              <Icono name="bandeja" className="w-4 h-4" />Importar desde boletas
             </button>
           </div>
           {equipos.length >= minRequerido && (
@@ -762,7 +763,7 @@ function ProgramarModal({ evento, torneo, partido, equipoA, equipoB, onClose, on
             <label className="label">Cancha / sede <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
             <input value={cancha} onChange={e => setCancha(e.target.value)} className="input rounded-2xl py-3" placeholder="Ej. Cancha 2" />
           </div>
-          <p className="text-xs text-text-3">📣 Se le avisará por correo (y push si tiene cuenta) al capitán de ambos equipos.</p>
+          <p className="text-xs text-text-3 flex items-start gap-1.5"><Icono name="megafono" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />Se le avisará por correo (y push si tiene cuenta) al capitán de ambos equipos.</p>
           <button type="submit" disabled={working}
             className="w-full py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
             {working ? <><Spinner size="sm" /> Guardando...</> : 'Guardar horario'}
@@ -816,7 +817,7 @@ function ResultadoModal({ evento, torneo, partido, equipoA, equipoB, onClose, on
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           {fechaTxt && (
-            <p className="text-xs text-text-3 -mt-1 capitalize">📅 {fechaTxt}{partido.cancha ? ` · ${partido.cancha}` : ''}</p>
+            <p className="text-xs text-text-3 -mt-1 capitalize"><Icono name="calendario" className="w-3 h-3 inline-block align-[-1px] mr-1" />{fechaTxt}{partido.cancha ? ` · ${partido.cancha}` : ''}</p>
           )}
           <div className="flex items-center gap-3">
             <div className="flex-1 text-center">
@@ -891,7 +892,7 @@ function LigaView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
                 >
                   <p className="text-sm text-text-1 truncate">{eqA?.nombre} <span className="text-text-3">vs</span> {eqB?.nombre}</p>
                   {(fechaTxt || p.cancha) && (
-                    <p className="text-[11px] text-text-3 mt-0.5">📅 {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
+                    <p className="text-[11px] text-text-3 mt-0.5"><Icono name="calendario" className="w-3 h-3 inline-block align-[-1px] mr-1" />{fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
                   )}
                 </button>
                 {p.estado === 'jugado' ? (
@@ -1039,7 +1040,7 @@ function GruposView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
               : `Faltan ${partidos.filter(p => p.estado !== 'jugado').length} partido(s) de grupo por jugar.`}
           </p>
           <button onClick={cerrarGrupos} disabled={!todosJugados || cerrando} className="btn-primary btn-sm whitespace-nowrap disabled:opacity-50">
-            {cerrando ? <><Spinner size="sm" /> Cerrando...</> : '🏁 Cerrar fase de grupos'}
+            {cerrando ? <><Spinner size="sm" /> Cerrando...</> : <><Icono name="bandera" className="w-4 h-4" />Cerrar fase de grupos</>}
           </button>
         </div>
       )}
@@ -1063,7 +1064,7 @@ function GruposView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
                       className="flex-1 text-left disabled:cursor-default min-w-0">
                       <p className="text-sm text-text-1 truncate">{eqA?.nombre} <span className="text-text-3">vs</span> {eqB?.nombre}</p>
                       {(fechaTxt || p.cancha) && (
-                        <p className="text-[11px] text-text-3 mt-0.5">📅 {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
+                        <p className="text-[11px] text-text-3 mt-0.5"><Icono name="calendario" className="w-3 h-3 inline-block align-[-1px] mr-1" />{fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
                       )}
                     </button>
                     {p.estado === 'jugado' ? (

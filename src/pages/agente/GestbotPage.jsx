@@ -7,6 +7,7 @@ import VolverAlEvento from '../../components/layout/VolverAlEvento.jsx';
 import { agenteApi } from '../../api/agente.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { alertDialog } from '../../components/ui/Confirm.jsx';
+import Icono from '../../components/ui/Icono.jsx';
 
 /* Cuentas con acceso especial a Gestbot — uso personal
    del desarrollador para pruebas, mientras el resto de usuarios sigue
@@ -15,7 +16,7 @@ import { alertDialog } from '../../components/ui/Confirm.jsx';
 const LS_KEY = 'gestbot:convs';
 const SALUDO = {
   role: 'assistant',
-  content: '¡Hola! Soy Gestbot 🤖 Puedo crear y publicar eventos, armar boletas, ver ventas, gestionar tu equipo y hasta leer un PDF o fotos para armar el evento. ¿En qué trabajamos?',
+  content: '¡Hola! Soy Gestbot. Puedo crear y publicar eventos, armar boletas, ver ventas, gestionar tu equipo y hasta leer un PDF o fotos para armar el evento. ¿En qué trabajamos?',
 };
 const SUGERENCIAS = [
   '¿Qué eventos tengo?',
@@ -174,7 +175,7 @@ export default function GestbotPage() {
 
   const moodActual = cargando ? 'thinking' : mood;
   const estadoTxt = cargando ? FASES[faseIdx]
-    : mood === 'happy' ? '¡Listo! Resultado correcto ✓'
+    : mood === 'happy' ? '¡Listo! Resultado correcto.'
     : mood === 'error' ? 'Hubo un problema con la solicitud'
     : mood === 'talking' ? 'Respondiendo…' : 'Listo para ayudarte';
 
@@ -232,7 +233,9 @@ export default function GestbotPage() {
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                 {FASES.map((f, i) => (
                   <span key={i} className={`text-[11px] ${i === faseIdx ? 'text-text-1' : i < faseIdx ? 'text-primary' : 'text-text-3'}`}>
-                    {i < faseIdx ? '✓ ' : i === faseIdx ? '• ' : '○ '}{f.replace('…', '')}
+                    {i < faseIdx
+                      ? <Icono name="check" className="w-3 h-3 inline-block align-[-1px] mr-1" />
+                      : <span className="mr-1">{i === faseIdx ? '•' : '○'}</span>}{f.replace('…', '')}
                   </span>
                 ))}
               </div>
@@ -251,7 +254,7 @@ export default function GestbotPage() {
                 {Array.isArray(m.adjuntos) && m.adjuntos.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {m.adjuntos.map((n, j) => (
-                      <span key={j} className="text-[10px] bg-white/15 rounded px-2 py-0.5">📎 {n}</span>
+                      <span key={j} className="text-[10px] bg-white/15 rounded px-2 py-0.5 inline-flex items-center gap-1"><Icono name="adjunto" className="w-2.5 h-2.5" />{n}</span>
                     ))}
                   </div>
                 )}
@@ -260,7 +263,7 @@ export default function GestbotPage() {
                     <div className="flex flex-wrap gap-1.5">
                       {m.acciones.map((a, j) => (
                         <span key={j} className={`text-[10px] px-2 py-0.5 rounded-full border ${a.ok ? 'border-success/40 text-success' : 'border-danger/40 text-danger'}`}>
-                          {a.ok ? '✓' : '✕'} {a.tool}
+                          <Icono name={a.ok ? 'check' : 'cerrar'} className="w-3 h-3 inline-block align-[-1px] mr-1" />{a.tool}
                         </span>
                       ))}
                     </div>
@@ -303,8 +306,8 @@ export default function GestbotPage() {
           <div className="px-4 pt-2 flex flex-wrap gap-2">
             {adjuntos.map((a, i) => (
               <span key={i} className="flex items-center gap-1.5 text-xs bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-text-2">
-                📎 {a.nombre.slice(0, 22)}
-                <button onClick={() => setAdjuntos(x => x.filter((_, j) => j !== i))} className="text-text-3 hover:text-danger" aria-label="Quitar">✕</button>
+                <Icono name="adjunto" className="w-3 h-3" />{a.nombre.slice(0, 22)}
+                <button onClick={() => setAdjuntos(x => x.filter((_, j) => j !== i))} className="text-text-3 hover:text-danger" aria-label="Quitar"><Icono name="cerrar" className="w-4 h-4" /></button>
               </span>
             ))}
           </div>
@@ -400,7 +403,7 @@ function EventoPreview({ ev }) {
         <span className="text-5xl font-display font-bold text-white/80">{titulo.slice(0, 1).toUpperCase()}</span>
       </div>
       <span className={`inline-block text-[11px] px-2.5 py-1 rounded-full border ${ev._ok ? 'border-success/40 text-success' : 'border-warning/40 text-warning'}`}>
-        {ev._ok ? 'guardado en GESTEK ✓' : 'en proceso'}
+        {ev._ok ? 'guardado en GESTEK' : 'en proceso'}
       </span>
       <h3 className="text-2xl font-display font-bold text-text-1 leading-tight">{titulo}</h3>
       {ev.descripcion && <p className="text-sm text-text-2">{ev.descripcion}</p>}

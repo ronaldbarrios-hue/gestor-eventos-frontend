@@ -8,6 +8,7 @@ import QrScanner from '../../../components/ui/QrScanner.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import Icono from '../../../components/ui/Icono.jsx';
 
 /* Tab Stands — el otro lado de la escarapela.
    En la puerta el QR sirve para entrar (Check-in); aquí, en cada stand o
@@ -123,7 +124,7 @@ export default function StandsTab({ evento, soyOwner }) {
                           ${sel
                             ? (neg ? 'border-danger bg-danger/10 text-text-1' : 'border-success bg-success/10 text-text-1')
                             : 'border-border text-text-3 hover:text-text-1'}`}>
-                        <span>{neg ? '⚠' : '★'}</span>
+                        <Icono name={neg ? 'aviso' : 'estrella'} className="w-3.5 h-3.5" />
                         {m.nombre}
                         <span className={`text-[10px] font-mono ${neg ? 'text-danger' : 'text-success'}`}>
                           {m.puntos > 0 ? `+${m.puntos}` : m.puntos}
@@ -259,7 +260,7 @@ function StandsEditor({ evento, soyOwner }) {
         <div className="rounded-3xl border-2 border-primary/30 bg-primary/5 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-text-1">{editando === 'nuevo' ? 'Nuevo stand' : 'Editar stand'}</p>
-            <button onClick={cerrar} className="text-text-3 hover:text-text-1 text-sm">✕</button>
+            <button onClick={cerrar} className="text-text-3 hover:text-text-1 text-sm"><Icono name="cerrar" className="w-4 h-4" /></button>
           </div>
           <div className="grid sm:grid-cols-[1fr_180px] gap-3">
             <div className="field">
@@ -427,13 +428,15 @@ function ResultadoStand({ r, compact }) {
   const neg = ok && r.interaccion?.tipo === 'negativo';
   const cls = !ok ? 'border-danger/40 bg-danger/10'
     : neg ? 'border-warning/40 bg-warning/10' : 'border-success/40 bg-success/10';
-  const icon = !ok ? '✕' : neg ? '⚠' : '✓';
+  const icono = !ok ? 'cerrar' : neg ? 'aviso' : 'check';
   const iconCls = !ok ? 'bg-danger text-white' : neg ? 'bg-warning text-white' : 'bg-success text-white';
 
   return (
     <div className={`rounded-3xl border-2 ${cls} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-start gap-4">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 ${iconCls}`}>{icon}</div>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${iconCls}`}>
+          <Icono name={icono} className="w-6 h-6" strokeWidth={2.4} />
+        </div>
         <div className="flex-1 min-w-0">
           {!ok ? (
             <>
@@ -722,13 +725,13 @@ function Historial({ evento, items, soyOwner, onCambio }) {
           return (
             <li key={it.id} className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2/30 group">
               <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${neg ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
-                {neg ? '⚠' : '★'}
+                <Icono name={neg ? 'aviso' : 'estrella'} className="w-4 h-4" />
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-text-1 truncate">
                   {it.motivo_texto || 'Registro'}
                   {it.lugar && <span className="text-text-3"> · {it.lugar}</span>}
-                  {it.expositor?.nombre && <span className="ml-1.5 text-[10px] uppercase tracking-wide bg-accent/10 text-accent-light px-1.5 py-0.5 rounded">🏢 {it.expositor.nombre}</span>}
+                  {it.expositor?.nombre && <span className="ml-1.5 text-[10px] uppercase tracking-wide bg-accent/10 text-accent-light px-1.5 py-0.5 rounded inline-flex items-center gap-1"><Icono name="edificio" className="w-3 h-3" />{it.expositor.nombre}</span>}
                 </p>
                 <p className="text-xs text-text-3 truncate">
                   {it.ticket?.guest_nombre || 'Asistente'} · <span className="font-mono">{it.ticket?.codigo}</span> · {new Date(it.created_at).toLocaleString('es-CO')}
