@@ -13,27 +13,33 @@ lo que toque backend o base de datos se avisa antes.
 
 ---
 
-> ## ⚠️ Hay cinco migraciones sin aplicar
+> ## ⚠️ Las migraciones 0060–0065 YA ESTÁN APLICADAS. Falta desplegar el código.
 >
-> Esta ronda cerró casi todo lo pendiente, y buena parte necesita base de
-> datos. **Nada de lo nuevo funciona hasta aplicarlas, en este orden:**
+> Base de datos al día. Lo que falta es subir **backend y frontend a la vez**;
+> hoy corren los viejos y la base va por delante.
 >
-> | | Qué desbloquea |
-> |---|---|
-> | `0060_evento_modo_publico` | #32 · los tres modos de publicación |
-> | `0061_waitlist_oferta_con_caducidad` | La lista de espera de verdad |
-> | `0062_torneo_categorias_anidadas` | #48 · categorías de torneos |
-> | `0063_buzon_sugerencias_catalogo` | #49 · el buzón |
-> | `0064_sacar_marca_paginas_navbar_de_page_json` | La deuda de `page_json` |
+> **Hay un puente temporal (0065) que hay que retirar después del despliegue.**
+> Lo que pasó: la 0064 sacó `branding`, `pages` y `navbar` de `page_json` dando
+> por hecho que el código nuevo estaba arriba. No lo estaba —el backend de
+> Render **sí está desplegado**, contra lo que decía `POR-HACER.md`— y sin el
+> `conSitio` que devuelve esas claves al JSON, las páginas públicas de los 31
+> eventos salieron vacías. La 0065 devolvió las copias y añadió un trigger que
+> mantiene las columnas al día mientras siga vivo el código viejo.
 >
-> El código aguanta sin ellas sin reventar —las consultas que fallan caen a
-> lista vacía y el resto sigue—, pero **la 0064 es la excepción que importa**:
-> hasta que se aplique, el editor guarda la marca en una columna que no existe
-> y el guardado falla entero. Frontend y backend de esta ronda van juntos.
+> **Orden para cerrarlo:**
+>
+> 1. Desplegar el backend (`lib/eventoSitio.js` es lo que da la compatibilidad).
+> 2. Desplegar el frontend.
+> 3. Comprobar una página pública y un guardado desde el editor.
+> 4. Sólo entonces, retirar el puente con el `drop` que está al final de la
+>    `0065`. Hasta ese paso hay dos copias del mismo dato a propósito, y el
+>    trigger es lo que evita que se separen.
 >
 > Y una gratis: **`0007_event_roles.sql` ya no miente.** Siembra los roles en
 > español, los mismos valores que dejan la 0054 y la 0056. Reconstruir desde
-> cero da por fin el mismo resultado que la base de hoy.
+> cero da por fin el mismo resultado que la base de hoy. **No se aplicó a
+> producción a propósito:** aquí corre la versión de la 0056, con diez roles;
+> reaplicar el 0007 la sustituiría por la de seis y sería un retroceso.
 
 ---
 
