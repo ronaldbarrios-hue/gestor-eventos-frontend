@@ -747,6 +747,10 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
     speaker_id : initial?.speaker_id || '',
     tipo       : initial?.tipo || TIPO_DEFECTO,
     torneo_id  : initial?.torneo_id || '',
+    /* La boleta del evento sigue siendo la llave de entrada. Esto es otra cosa:
+       apuntarse a ESTA actividad, para poder contar quién participó en qué. */
+    requiere_inscripcion: initial?.requiere_inscripcion === true,
+    cupo       : initial?.cupo != null ? String(initial.cupo) : '',
   });
   const [saving, setSaving] = useState(false);
   const competitivo = esCompetitivo(form.tipo);
@@ -765,6 +769,9 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
       speaker_id : form.speaker_id || null,
       tipo       : form.tipo,
       torneo_id  : competitivo ? (form.torneo_id || null) : null,
+      requiere_inscripcion: form.requiere_inscripcion,
+      /* Cupo vacío = sin límite, no cero. */
+      cupo       : form.requiere_inscripcion && form.cupo !== '' ? Number(form.cupo) : null,
     });
     setSaving(false);
   };
@@ -842,6 +849,38 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], onSave, onC
           </select>
         </div>
       </div>
+      {/* ── Inscripción a esta actividad ──
+          Hasta ahora esto solo se podía activar escribiendo en la base. */}
+      <div className="rounded-2xl border border-border bg-surface-2/40 p-4 space-y-3">
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input type="checkbox" checked={form.requiere_inscripcion}
+            onChange={e => setForm(f => ({ ...f, requiere_inscripcion: e.target.checked }))}
+            className="w-4 h-4 mt-0.5 rounded accent-primary flex-shrink-0" />
+          <span>
+            <span className="text-sm text-text-1 font-medium">Pide inscripción aparte</span>
+            <span className="block text-[11px] text-text-3 leading-snug mt-0.5">
+              La boleta del evento sigue dando la entrada. Esto añade apuntarse a
+              esta actividad concreta, para saber cuánta gente participó en ella y
+              no solo cuánta entró al evento.
+            </span>
+          </span>
+        </label>
+
+        {form.requiere_inscripcion && (
+          <div className="pl-7">
+            <label className="label text-xs">Cupo</label>
+            <input type="number" min="0" value={form.cupo}
+              onChange={e => setForm(f => ({ ...f, cupo: e.target.value }))}
+              placeholder="Sin límite"
+              className="input rounded-xl py-2.5 text-sm max-w-[180px]" />
+            <p className="text-[11px] text-text-3 mt-1">
+              Vacío = sin límite. Al llenarse, deja de aceptar inscripciones.
+              {initial?.inscritos > 0 && ` Ya hay ${initial.inscritos} inscrito${initial.inscritos !== 1 ? 's' : ''}.`}
+            </p>
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-end gap-2 pt-1">
         <button type="button" onClick={onCancel} className="btn-ghost btn-sm">Cancelar</button>
         <button type="submit" disabled={saving || !form.titulo.trim() || !form.inicio} className="btn-primary btn-sm">

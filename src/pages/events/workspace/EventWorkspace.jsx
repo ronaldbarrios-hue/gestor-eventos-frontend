@@ -30,6 +30,7 @@ import EquipoTab         from '../tabs/EquipoTab.jsx';
 import TareasTab         from '../tabs/TareasTab.jsx';
 import SolicitudesTab    from '../tabs/SolicitudesTab.jsx';
 import AgendaTab         from '../tabs/AgendaTab.jsx';
+import ParticipacionTab  from '../tabs/ParticipacionTab.jsx';
 import StandsTab         from '../tabs/StandsTab.jsx';
 import VacantesTab       from '../tabs/VacantesTab.jsx';
 import ReporteTab        from '../tabs/ReporteTab.jsx';
@@ -90,6 +91,9 @@ const SECCIONES = [
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
     { id: 'clientes',     label: 'Clientes',        perm: 'ver_clientes' },
     { id: 'checkin',      label: 'Control de ingreso', perm: 'checkin' },
+    /* Cuánta gente fue al evento y cuánta a cada actividad. Va junto al control
+       de ingreso porque es la misma pregunta a otra escala. */
+    { id: 'participacion', label: 'Participación',   perm: 'ver_clientes' },
     { id: 'accesos',      label: 'Accesos e ingresos', perm: '__solo_owner__' },
     { id: 'stands',       label: 'Stands y puntos',  perm: 'checkin' },
     { id: 'waitlist',     label: 'Lista de espera', perm: '__solo_owner__' },
@@ -364,6 +368,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
+    case 'asistentes/participacion' : return <ParticipacionTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/accesos'       : return <AccesosSection evento={evento} />;
     case 'asistentes/stands'        : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
