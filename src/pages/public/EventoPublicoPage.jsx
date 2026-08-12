@@ -10,6 +10,7 @@ import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import { useT } from '../../lib/i18n.js';
 import Icono from '../../components/ui/Icono.jsx';
+import CampoFormulario from '../../components/public/CampoFormulario.jsx';
 
 export default function EventoPublicoPage() {
   const { slug } = useParams();
@@ -443,58 +444,7 @@ function WaitlistModal({ tipo, slug, onClose }) {
   );
 }
 
-function CampoDinamico({ campo, value, onChange, eventoId }) {
-  const req = campo.requerido;
-  if (campo.tipo === 'checkbox') {
-    return (
-      <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer py-1">
-        <input type="checkbox" checked={Boolean(value)} onChange={e => onChange(e.target.checked)}
-          className="w-4 h-4 mt-0.5 rounded accent-primary" />
-        <span>{campo.etiqueta}{req && <span className="text-danger-light"> *</span>}</span>
-      </label>
-    );
-  }
-  if (campo.tipo === 'seleccion') {
-    return (
-      <div className="field">
-        <label className="label">{campo.etiqueta}{req && ' *'}</label>
-        <select required={req} value={value || ''} onChange={e => onChange(e.target.value)}
-          className="input bg-surface-2 rounded-2xl py-3 text-base">
-          <option value="" disabled>Selecciona una opción</option>
-          {(campo.opciones || []).map(op => <option key={op} value={op}>{op}</option>)}
-        </select>
-      </div>
-    );
-  }
-  if (campo.tipo === 'foto') {
-    return (
-      <div className="field">
-        <label className="label">{campo.etiqueta}{req && ' *'}</label>
-        <FormPhotoUploaderLazy value={value} onChange={onChange} eventoId={eventoId} campoId={campo.id} />
-      </div>
-    );
-  }
-  const tipoInput = campo.tipo === 'numero' ? 'number' : campo.tipo === 'fecha' ? 'date' : 'text';
-  return (
-    <div className="field">
-      <label className="label">{campo.etiqueta}{req && ' *'}</label>
-      <input required={req} type={tipoInput} value={value || ''} onChange={e => onChange(e.target.value)}
-        className="input rounded-2xl py-3 text-base" />
-    </div>
-  );
-}
 
-/* Carga diferida: el uploader de fotos usa Supabase Storage directo desde
-   el navegador, así que solo lo importamos si realmente hay un campo tipo
-   "foto" en el formulario — evita cargarlo de más en eventos que no lo usan. */
-function FormPhotoUploaderLazy(props) {
-  const [Comp, setComp] = useState(null);
-  useEffect(() => {
-    import('../../components/ui/FormPhotoUploader.jsx').then(m => setComp(() => m.default));
-  }, []);
-  if (!Comp) return <div className="h-40 rounded-2xl bg-surface-2/40 animate-pulse" />;
-  return <Comp {...props} />;
-}
 
 /* ─────────── Modales de reserva ─────────── */
 function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
@@ -595,7 +545,7 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
         </div>
 
         {camposForm.map(c => (
-          <CampoDinamico key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={evento?.id} />
+          <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={evento?.id} />
         ))}
 
         {checkout.edad_minima > 0 && (
