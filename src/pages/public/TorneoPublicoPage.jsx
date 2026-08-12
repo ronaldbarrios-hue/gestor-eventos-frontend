@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import Icono from '../../components/ui/Icono.jsx';
+import EventoSubPagina from '../../components/public/EventoSubPagina.jsx';
 
 /* Página pública /explorar/:slug/torneo — vista de SOLO LECTURA del
    bracket/tabla del torneo de un evento, accesible a cualquiera (no
@@ -55,15 +56,12 @@ export default function TorneoPublicoPage() {
     : torneo.formato === 'liga' ? 'Liga' : 'Grupos + Eliminación';
 
   return (
-    <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
-      <div className="mb-6">
-        <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Torneo</p>
-        <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">{torneo.nombre}</h1>
-          {torneo.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-2 py-0.5 rounded">{torneo.disciplina}</span>}
-          <span className="badge badge-blue text-[10px]">{nombreFormato}</span>
-        </div>
-      </div>
+    <EventoSubPagina
+      evento={data?.evento}
+      slug={slug}
+      titulo={torneo.nombre}
+      descripcion={[torneo.disciplina, nombreFormato].filter(Boolean).join(' · ')}
+    >
 
       {/* Selector cuando el evento tiene varios torneos */}
       {torneosLista.length > 1 && (
@@ -88,7 +86,7 @@ export default function TorneoPublicoPage() {
       ) : (
         <LigaPublica partidos={partidos} equipos={equipos} equipoPorId={equipoPorId} />
       )}
-    </section>
+    </EventoSubPagina>
   );
 }
 

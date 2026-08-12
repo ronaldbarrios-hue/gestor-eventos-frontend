@@ -62,14 +62,35 @@ export function ExplorarView({ evento }) {
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [evento.id]);
 
-  const reservar = async (horarioId) => {
-    setBusy(horarioId);
+  /* Antes esto reservaba con un solo clic, sin decir con quién ni a qué hora y
+     sin vuelta atrás. Un toque por error en el móvil te dejaba una cita puesta
+     y encima quitaba el horario a otra persona. */
+  const reservar = async (exp, horario) => {
+    const cuando = new Date(horario.inicio);
+    const hora = cuando.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+    const dia = cuando.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+    const fin = horario.fin
+      ? new Date(horario.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+      : null;
+
+    if (!(await confirmDialog({
+      title: `Reservar con ${exp.nombre}`,
+      message: `${dia}, a las ${hora}${fin ? ` (hasta las ${fin})` : ''}`
+        + `${exp.stand ? ` · Stand ${exp.stand}` : ''}.`
+        + '\n\nEl horario queda tomado para ti y deja de estar disponible para el resto. Puedes cancelarla después desde «Mis citas».',
+      confirmLabel: 'Reservar la cita',
+    }))) return;
+
+    setBusy(horario.id);
     try {
-      await networkingApi.reservar(evento.id, horarioId);
-      success('¡Cita confirmada!');
+      await networkingApi.reservar(evento.id, horario.id);
+      success(`Cita con ${exp.nombre} a las ${hora}. Te llega un correo.`);
       cargar();
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
+      /* Si alguien la tomó en el intervalo, se recarga para que el hueco se vea
+         ocupado en vez de seguir ofreciéndolo. */
+      cargar();
     } finally {
       setBusy(null);
     }
@@ -89,7 +110,7 @@ export function ExplorarView({ evento }) {
       {data.map(exp => (
         <div key={exp.id} className="rounded-3xl border border-border bg-surface/40 p-5 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold flex-shrink-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold flex-shrink-0">
               {exp.logo_url ? <img src={exp.logo_url} alt="" className="w-full h-full object-cover" /> : exp.nombre?.[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -122,7 +143,7 @@ export function ExplorarView({ evento }) {
                     );
                   }
                   return (
-                    <button key={h.id} onClick={() => reservar(h.id)} disabled={busy === h.id}
+                    <button key={h.id} onClick={() => reservar(exp, h)} disabled={busy === h.id}
                       className="px-3 py-1.5 rounded-full text-xs font-semibold border border-primary/30 bg-primary/10 text-primary-light hover:bg-primary/20 disabled:opacity-50 transition-all">
                       {busy === h.id ? <Spinner size="sm" /> : hora}
                     </button>
@@ -180,7 +201,7 @@ export function MisCitasView({ evento }) {
         const fin = new Date(c.horario?.fin);
         return (
           <div key={c.id} className={`flex items-center gap-3 px-5 py-3.5 ${i > 0 ? 'border-t border-border' : ''}`}>
-            <div className="w-11 h-11 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold flex-shrink-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold flex-shrink-0">
               {c.horario?.expositor?.logo_url
                 ? <img src={c.horario.expositor.logo_url} alt="" className="w-full h-full object-cover" />
                 : c.horario?.expositor?.nombre?.[0]?.toUpperCase()}

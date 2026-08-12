@@ -5,6 +5,7 @@ import { networkingApi } from '../../api/networking.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { ExplorarView, MisCitasView } from '../events/tabs/NetworkingTab.jsx';
+import EventoSubPagina from '../../components/public/EventoSubPagina.jsx';
 
 /* Página pública /explorar/:slug/networking — acceso a la Rueda de Negocios
    desde afuera del panel interno. Requiere: 1) sesión iniciada, 2) tener
@@ -99,25 +100,17 @@ export default function NetworkingPublicPage() {
   }
 
   return (
-    <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
-      <div className="mb-6">
-        <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">{evento.titulo}</p>
-        <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">Rueda de Negocios</h1>
-      </div>
-
-      <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit mb-6">
-        <button onClick={() => setSub('explorar')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sub === 'explorar' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
-          Explorar
-        </button>
-        <button onClick={() => setSub('mis-citas')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sub === 'mis-citas' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
-          Mis citas
-        </button>
-      </div>
-
+    <EventoSubPagina
+      evento={evento}
+      slug={slug}
+      titulo="Rueda de Negocios"
+      descripcion="Reserva una cita con los expositores del evento."
+      tabs={[{ id: 'explorar', label: 'Explorar' }, { id: 'mis-citas', label: 'Mis citas' }]}
+      tabActiva={sub}
+      onTab={setSub}
+    >
       {sub === 'explorar'  && <ExplorarView evento={evento} />}
       {sub === 'mis-citas' && <MisCitasView evento={evento} />}
-    </section>
+    </EventoSubPagina>
   );
 }
