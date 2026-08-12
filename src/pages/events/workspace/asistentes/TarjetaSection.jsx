@@ -77,7 +77,7 @@ export default function TarjetaSection({ evento }) {
     setSaving(true);
     try {
       await eventosApi.update(evento.id, {
-        page_json: { ...(evento.page_json || {}), wallet: { variantes }, puntos },
+        page_json: { wallet: { variantes }, puntos },
       });
       success('Tarjetas y puntos guardados.');
     } catch (e) { error(e.response?.data?.error || e.message); }

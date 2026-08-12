@@ -154,7 +154,7 @@ export default function EventsListPage() {
     setAccionando(e.id);
     try {
       const esPlantilla = !!e.page_json?.plantilla;
-      await eventosApi.update(e.id, { page_json: { ...(e.page_json || {}), plantilla: !esPlantilla } });
+      await eventosApi.update(e.id, { page_json: { plantilla: !esPlantilla } });
       success(esPlantilla ? 'Ya no es plantilla.' : 'Guardado como plantilla. Aparecerá al crear eventos.');
       cargar();
     } catch (x) { err(x.response?.data?.error || x.message); }

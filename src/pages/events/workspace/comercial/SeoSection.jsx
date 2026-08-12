@@ -23,7 +23,7 @@ export default function SeoSection({ evento }) {
   const guardar = async () => {
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), seo: f } });
+      await eventosApi.update(evento.id, { page_json: { seo: f } });
       success('SEO guardado. Ya aplica en el sitio público.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }

@@ -361,7 +361,7 @@ function PasaporteConfig({ evento, soyOwner }) {
     setSaving(true);
     try {
       await eventosApi.update(evento.id, {
-        page_json: { ...(evento.page_json || {}), pasaporte: { ...form, meta: Number(form.meta) || 0 } },
+        page_json: { pasaporte: { ...form, meta: Number(form.meta) || 0 } },
       });
       success('Pasaporte guardado.');
     } catch (e) { toastErr(e.response?.data?.error || e.message); }

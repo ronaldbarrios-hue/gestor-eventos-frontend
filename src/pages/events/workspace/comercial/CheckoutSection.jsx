@@ -42,7 +42,7 @@ export default function CheckoutSection({ evento }) {
         edad_minima      : f.edad_minima === '' ? null : Number(f.edad_minima),
         limite_por_compra: f.limite_por_compra === '' ? null : Number(f.limite_por_compra),
       };
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), checkout } });
+      await eventosApi.update(evento.id, { page_json: { checkout } });
       success('Proceso de compra guardado. Ya aplica en la compra pública.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }

@@ -428,7 +428,7 @@ function ConfigGeneral({ evento }) {
     const nuevo = !esPlantilla;
     setGuardando(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), plantilla: nuevo } });
+      await eventosApi.update(evento.id, { page_json: { plantilla: nuevo } });
       setEsPlantilla(nuevo);
       success(nuevo ? 'Marcado como plantilla. Aparecerá al crear un evento nuevo.' : 'Quitado de plantillas.');
     } catch (e) { toastErr(e.response?.data?.error || e.message); }

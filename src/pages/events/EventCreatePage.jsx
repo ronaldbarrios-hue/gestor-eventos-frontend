@@ -114,7 +114,7 @@ export default function EventCreatePage() {
       const r = await eventosApi.duplicar(ev.id, `${ev.titulo.replace(' (copia)', '')} — nuevo`);
       /* el clon no debe quedar marcado como plantilla */
       try {
-        await eventosApi.update(r.evento.id, { page_json: { ...(r.evento.page_json || {}), plantilla: false } });
+        await eventosApi.update(r.evento.id, { page_json: { plantilla: false } });
       } catch { /* noop */ }
       success('Evento creado desde la plantilla. Ajusta fechas y detalles.');
       navigate(`/eventos/${r.evento.id}/editar`);

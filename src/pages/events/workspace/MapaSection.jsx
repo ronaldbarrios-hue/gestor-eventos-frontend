@@ -92,7 +92,7 @@ export default function MapaSection({ evento }) {
     setSaving(true);
     try {
       const limpios = marcadores.map(({ _k, ...m }) => m);
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), mapa: { imagen_url: imagen || '', marcadores: limpios } } });
+      await eventosApi.update(evento.id, { page_json: { mapa: { imagen_url: imagen || '', marcadores: limpios } } });
       success('Mapa guardado. Agrégalo a la landing con el bloque “Mapa del evento”.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }

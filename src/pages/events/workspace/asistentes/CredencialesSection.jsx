@@ -86,7 +86,7 @@ export default function CredencialesSection({ evento }) {
   const guardar = async () => {
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), credenciales: cfg } });
+      await eventosApi.update(evento.id, { page_json: { credenciales: cfg } });
       success('Diseño de escarapela guardado.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }

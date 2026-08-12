@@ -29,7 +29,7 @@ export default function AutomatizacionesSection({ evento }) {
     setSaving(true);
     try {
       const limpio = reglas.map(({ id, activo, trigger, accion, mensaje }) => ({ id, activo: activo !== false, trigger, accion, mensaje: mensaje || '' }));
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), automatizaciones: limpio } });
+      await eventosApi.update(evento.id, { page_json: { automatizaciones: limpio } });
       success('Automatizaciones guardadas.');
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setSaving(false); }

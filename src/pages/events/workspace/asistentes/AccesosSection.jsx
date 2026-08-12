@@ -96,7 +96,7 @@ export default function AccesosSection({ evento }) {
     try {
       const limpio = accesos.map(({ id, nombre, tipos, staff }) => ({ id, nombre: nombre.trim(), tipos: tipos || [], staff: staff || [] }));
       const zonasLimpio = zonas.map(({ id, nombre, aforo_max }) => ({ id, nombre: nombre.trim(), aforo_max: Number(aforo_max) || null }));
-      await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), accesos: limpio, zonas: zonasLimpio } });
+      await eventosApi.update(evento.id, { page_json: { accesos: limpio, zonas: zonasLimpio } });
       success('Accesos guardados. En el check-in cada puerta y zona ya se pueden elegir.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }

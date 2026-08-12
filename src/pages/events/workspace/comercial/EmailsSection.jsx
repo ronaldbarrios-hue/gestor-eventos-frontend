@@ -50,7 +50,7 @@ export default function EmailsSection({ evento }) {
   const setP = (patch) => setData(d => ({ ...d, [tipo]: { ...plantilla, ...patch } }));
 
   const persistir = async () => {
-    await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), emails: data } });
+    await eventosApi.update(evento.id, { page_json: { emails: data } });
   };
 
   const guardar = async () => {

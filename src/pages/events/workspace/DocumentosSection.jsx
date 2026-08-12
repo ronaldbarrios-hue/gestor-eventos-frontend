@@ -45,7 +45,7 @@ export default function DocumentosSection({ evento }) {
 
   const persistir = async (lista) => {
     setDocs(lista);
-    try { await eventosApi.update(evento.id, { page_json: { ...(evento.page_json || {}), documentos: lista } }); }
+    try { await eventosApi.update(evento.id, { page_json: { documentos: lista } }); }
     catch (e) { error('No se pudo guardar la lista: ' + (e.response?.data?.error || e.message)); }
   };
 
