@@ -184,30 +184,18 @@ function Carril({ estado, siguiente, numero }) {
   return (
     <div ref={caja} className="relative hidden lg:block w-[190px] flex-shrink-0" aria-hidden="true">
       {siguiente && alto > 0 && (
-        <svg
-          className="absolute left-0 top-0 overflow-visible pointer-events-none"
-          width={ANCHO_CARRIL} height={alto}
-        >
-          {/* Curva en S: sale del eslabón hacia abajo y entra en el siguiente
-              también por arriba. Una recta diagonal se leería como un palo
-              cruzado; la curva se lee como cuerda que cuelga y acompaña el
-              giro de la hélice. */}
-          <path
-            d={`M ${x1} ${y1} C ${x1} ${y1 + (y2 - y1) * 0.45}, ${x2} ${y2 - (y2 - y1) * 0.45}, ${x2} ${y2}`}
-            fill="none"
-            stroke="rgb(var(--color-primary))"
-            strokeWidth="3"
-            strokeLinecap="round"
-            /* La opacidad del tramo sigue a la MENOR de las dos puntas: si
-               uno de los dos eslabones está detrás, el tramo también. */
-            opacity={Math.min(estado.opacidad, siguiente.opacidad) * 0.75}
-          />
-        </svg>
+        <TramoCadena
+          ancho={ANCHO_CARRIL}
+          altoSvg={alto}
+          x1={x1} y1={y1} x2={x2} y2={y2}
+          opacidad={Math.min(estado.opacidad, siguiente.opacidad)}
+          aplastadoA={estado.aplastado}
+          aplastadoB={siguiente.aplastado}
+        />
       )}
 
-      {/* El eslabón va encima del tramo, y como tiene el hueco calado, el
-          hilo se ve pasar por dentro. Eso es lo que lo convierte en cadena
-          y no en figuras sueltas con una raya al lado. */}
+      {/* El eslabón numerado va encima del tramo. El primer eslabón del tramo
+          nace solapado con él, así que se leen enganchados. */}
       <span
         className="absolute left-1/2 z-10 block"
         style={{
@@ -221,6 +209,115 @@ function Carril({ estado, siguiente, numero }) {
         <Eslabon n={numero} aplastado={estado.aplastado} inclinacion={estado.inclinacion} />
       </span>
     </div>
+  );
+}
+
+/* ─────────── El tramo de cadena entre dos pasos ───────────
+
+   Antes esto era UNA LÍNEA: una curva en S del centro de un eslabón al centro
+   del siguiente, con el eslabón pintado encima para que el hilo se viera pasar
+   por dentro del ojo. Leído de cerca no era una cadena, era una cuerda con
+   anillos ensartados — y una raya que cruza por encima de las piezas es justo
+   lo contrario de lo que hace el nudo del logo, donde lo que hay son dos
+   lazadas AGARRADAS entre sí.
+
+   Ahora el tramo son eslabones de verdad, encadenados. Tres cosas lo consiguen,
+   y las tres hacen falta:
+
+   1. SE SOLAPAN. Cada eslabón avanza menos de su propia altura, así que el
+      siguiente nace dentro del ojo del anterior. Sin solape quedan piezas en
+      fila, tocándose de punta, que es un collar y no una cadena.
+
+   2. ALTERNAN DE CANTO. Los pares van de frente y los impares de perfil, como
+      cualquier cadena real: dos eslabones consecutivos no pueden estar en el
+      mismo plano o no podrían haberse enhebrado.
+
+   3. SE PINTAN EN DOS PASADAS. Primero los impares, luego los pares. Como en
+      SVG manda el orden de pintado, los pares quedan encima de los impares en
+      todos los cruces: por encima, por debajo, por encima. Ese alternado es lo
+      único que hace que el ojo lea "enganchados" en vez de "apilados". Pintarlos
+      en un solo bucle deja a cada uno tapando al anterior y se ve una escama.
+
+   La opacidad del tramo sigue a la MENOR de las dos puntas: si uno de los dos
+   pasos está girado hacia atrás, el tramo también. */
+
+const T_RADIO_Y   = 21;   // media altura de un eslabón del tramo
+const T_RADIO_X   = 13;   // media anchura, de frente
+const T_RADIO_MIN = 2.5;  // media anchura, de canto
+const T_GROSOR    = 5;
+/* Cuánto avanza cada eslabón respecto a su propia altura. Por debajo de 1 hay
+   solape, que es lo que los engancha. 0.58 deja algo más de un tercio metido
+   dentro del ojo del anterior: suficiente para leerse enlazado sin que la
+   cadena se vea comprimida. */
+const T_AVANCE = 0.58;
+
+function TramoCadena({ ancho, altoSvg, x1, y1, x2, y2, opacidad, aplastadoA, aplastadoB }) {
+  const alto = T_RADIO_Y * 2;
+  const paso = alto * T_AVANCE;
+  const distancia = y2 - y1;
+
+  /* Cuántos caben entre las dos puntas. Se descuenta uno por cada extremo
+     porque los eslabones numerados ya ocupan su sitio. */
+  const cuantos = Math.max(1, Math.round(distancia / paso) - 1);
+
+  const piezas = [];
+  for (let i = 1; i <= cuantos; i++) {
+    const p = i / (cuantos + 1);              // 0 → 1 entre las dos puntas
+    /* El vaivén horizontal se interpola con una curva suave y no en línea
+       recta, para que la cadena acompañe el giro de la hélice en vez de
+       cortar en diagonal. */
+    const suave = p < 0.5
+      ? 2 * p * p
+      : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    piezas.push({
+      i,
+      cx: x1 + (x2 - x1) * suave,
+      cy: y1 + distancia * p,
+      /* De frente o de canto, alternando. Se mezcla con el aplastado de las
+         puntas para que el tramo pertenezca al mismo giro que ellas. */
+      aplastado: i % 2 === 0
+        ? 0.15 + 0.2 * ((aplastadoA + aplastadoB) / 2)
+        : 0.7 + 0.3 * ((aplastadoA + aplastadoB) / 2),
+    });
+  }
+
+  const dibujar = (z) => piezas
+    .filter(q => (q.i % 2 === 0) === z)
+    .map(q => {
+      const rx = T_RADIO_MIN + q.aplastado * (T_RADIO_X - T_RADIO_MIN);
+      return (
+        <ellipse
+          key={q.i}
+          cx={q.cx} cy={q.cy} rx={rx} ry={T_RADIO_Y}
+          fill="none"
+          stroke="url(#laton-tramo)"
+          strokeWidth={T_GROSOR}
+          strokeLinejoin="round"
+        />
+      );
+    });
+
+  return (
+    <svg
+      className="absolute left-0 top-0 overflow-visible pointer-events-none"
+      width={ancho} height={altoSvg}
+      opacity={opacidad * 0.9}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="laton-tramo" x1="0" y1="0" x2="1" y2="0.3">
+          <stop offset="0%"   stopColor="#8A6E19" />
+          <stop offset="42%"  stopColor="#F2D66B" />
+          <stop offset="100%" stopColor="#A5811A" />
+        </linearGradient>
+      </defs>
+
+      {/* Primero los impares, después los pares: el orden de pintado ES el
+          entrelazado. Si se pintan en un solo bucle, cada uno tapa al anterior
+          y la cadena se ve como una escama. */}
+      <g>{dibujar(false)}</g>
+      <g>{dibujar(true)}</g>
+    </svg>
   );
 }
 
