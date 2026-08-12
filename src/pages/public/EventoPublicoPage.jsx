@@ -10,7 +10,7 @@ import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import { useT } from '../../lib/i18n.js';
 import Icono from '../../components/ui/Icono.jsx';
-import CampoFormulario from '../../components/public/CampoFormulario.jsx';
+import { CamposFormulario } from '../../components/public/CampoFormulario.jsx';
 
 export default function EventoPublicoPage() {
   const { slug } = useParams();
@@ -464,6 +464,9 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   const gatewayRef = useRef(pagoWompi ? 'wompi' : 'mp');
   /* Campos aplicables a ESTE tipo de boleta: los globales + los propios del tipo. */
   const camposForm = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
+  /* A partir de cinco preguntas propias, el modal se ensancha y se reparte en
+     zonas. Por debajo de eso, estrecho se lee mejor. */
+  const formularioGrande = camposForm.length >= 5;
   const checkout = evento?.page_json?.checkout || {};
 
   const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
@@ -511,7 +514,10 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
   };
 
   return (
-    <ModalShell onClose={onClose}>
+    /* Con muchas preguntas el modal se ensancha y el formulario se reparte en
+       zonas. Con tres campos se queda estrecho, que es lo que le va. El umbral
+       es el número de preguntas del organizador, no una decisión fija. */
+    <ModalShell onClose={onClose} ancho={formularioGrande ? 'max-w-3xl' : 'max-w-md'}>
       <form onSubmit={submit} className="space-y-5">
         <div>
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">
@@ -526,27 +532,46 @@ function ReservaModal({ tipo, slug, currency, evento, onClose, onSuccess }) {
           </div>
         </div>
         {err && <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
-        <div className="field">
-          <label className="label">Nombre completo *</label>
-          <input required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
-            className="input rounded-2xl py-3 text-base" placeholder="Tu nombre" autoFocus />
-        </div>
-        <div className="field">
-          <label className="label">Email *</label>
-          <input required type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
-            className="input rounded-2xl py-3 text-base" placeholder="tu@email.com" />
-        </div>
-        <div className="field">
-          <label className="label">Teléfono {checkout.requiere_telefono
-            ? <span className="text-danger-light">*</span>
-            : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
-          <input value={form.telefono} required={Boolean(checkout.requiere_telefono)} onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
-            className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" />
+
+        {/* Zona 1 — quién eres. Son los tres de siempre y van juntos. */}
+        <div className={formularioGrande ? 'grid sm:grid-cols-2 gap-4 items-start' : 'space-y-5'}>
+          <div className="field">
+            <label className="label">Nombre completo *</label>
+            <input required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+              className="input rounded-2xl py-3 text-base" placeholder="Tu nombre" autoFocus />
+          </div>
+          <div className="field">
+            <label className="label">Email *</label>
+            <input required type="email" inputMode="email" autoComplete="email" value={form.email}
+              onChange={e => setForm(f => ({...f, email: e.target.value}))}
+              className="input rounded-2xl py-3 text-base" placeholder="tu@email.com" />
+          </div>
+          <div className="field">
+            <label className="label">Teléfono {checkout.requiere_telefono
+              ? <span className="text-danger-light">*</span>
+              : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
+            <input value={form.telefono} type="tel" inputMode="tel" autoComplete="tel"
+              required={Boolean(checkout.requiere_telefono)}
+              onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
+              className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" />
+          </div>
         </div>
 
-        {camposForm.map(c => (
-          <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={evento?.id} />
-        ))}
+        {/* Zona 2 — lo que pide el organizador, agrupado por bloques.
+            CamposFormulario ya corta por `grupo`: datos generales, ubicación,
+            identidad de género, etc. Antes se pintaban del tirón, una debajo de
+            otra, y una ficha completa era un muro de veintidós preguntas. */}
+        {camposForm.length > 0 && (
+          <div className="pt-1 border-t border-border">
+            <CamposFormulario
+              campos={camposForm}
+              valores={respuestas}
+              onChange={setRespuesta}
+              eventoId={evento?.id}
+              columnas={formularioGrande ? 2 : 1}
+            />
+          </div>
+        )}
 
         {checkout.edad_minima > 0 && (
           <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
@@ -680,7 +705,11 @@ function ConfirmacionModal({ ticket, checkout = {}, onClose }) {
   );
 }
 
-function ModalShell({ children, onClose }) {
+/* `ancho` deja que un modal de formulario largo sea ancho sin cambiarles el
+   tamaño a los cortos. Un aviso o una confirmación se leen mejor estrechos; una
+   inscripción con la ficha de caracterización son más de veinte preguntas, y en
+   una columna de 448px eso es un scroll interminable. */
+function ModalShell({ children, onClose, ancho = 'max-w-md' }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -690,7 +719,7 @@ function ModalShell({ children, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
       <div
-        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[90vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[90vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
         onClick={e => e.stopPropagation()}
       >
         <button onClick={onClose} aria-label="Cerrar"

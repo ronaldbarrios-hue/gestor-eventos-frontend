@@ -222,13 +222,26 @@ export default function CompletarPerfilPage() {
               </div>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-7">
+            <form onSubmit={onSubmit} className="space-y-6">
               {err && (
                 <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm animate-[fadeUp_0.3s_ease_both]">
                   {err}
                 </div>
               )}
 
+              {/* ── Las secciones, repartidas por zonas ──
+                  Iban una debajo de otra, así que en un portátil el formulario
+                  era una columna estrecha con mucho scroll y media pantalla
+                  vacía al lado. Ahora cada bloque de información es una zona y
+                  se reparten en dos columnas cuando hay sitio.
+
+                  El orden importa: "Tu identidad" es corta y "Contacto" es la
+                  más alta, así que la rejilla las pone una en cada columna y
+                  "Sobre tus eventos" cae debajo de la corta. Así las dos
+                  columnas terminan parejas en vez de dejar un hueco largo.
+
+                  En móvil sigue siendo una columna, que es lo correcto ahí. */}
+              <div className="grid lg:grid-cols-2 gap-5 items-start">
               {/* SECCIÓN 1 — Foto y nombre */}
               <div {...stagger(4)} className={`${stagger(4).className} rounded-3xl border border-border bg-surface/40 p-6`}>
                 <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-4">Tu identidad</p>
@@ -328,6 +341,7 @@ export default function CompletarPerfilPage() {
                   </div>
                 </div>
               )}
+              </div>
 
               {/* Aceptar términos */}
               <label {...stagger(7)} className={`${stagger(7).className} flex items-start gap-3 cursor-pointer`}>
