@@ -59,6 +59,31 @@ lo que toque backend o base de datos se avisa antes.
 
 ---
 
+> ## 🏠 Infraestructura propia (nuevo, 13 de agosto)
+>
+> Pedido: **base de datos y servicios nuestros**, en nuestro panel, porque al
+> evento entran ~7.000 personas y el plan gratis se cae. Plan completo en
+> **[MIGRACION-SUPABASE.md](MIGRACION-SUPABASE.md)**. Lo medido, en corto:
+>
+> - **El plan gratis está confirmado**, pero **no se va a caer por los datos**:
+>   la base son **20 MB** de 500, y hay **28 usuarios** y **24 MB** de archivos.
+>   Lo que se toca primero es el **egress**, porque las imágenes de las páginas
+>   públicas salen de Supabase Storage y los tres buckets son públicos.
+> - **«En cPanel» no se sostiene para el motor si el cPanel es compartido**: no
+>   hay PostgreSQL con `pg_cron`/`pg_net`, ni forma de correr GoTrue, PostgREST
+>   o Realtime. Para el frontend estático y el SMTP sí sirve — ya sirve. Hace
+>   falta un VPS con root, y hay una comprobación de diez minutos que lo decide.
+> - **No hay que reescribir las 773 llamadas `.from(`.** Levantando las mismas
+>   piezas (Postgres + PostgREST + GoTrue + Storage) `supabase-js` sigue igual y
+>   sólo cambian la URL y las llaves. La migración mueve el servidor, no
+>   reescribe la aplicación.
+> - **Recomendación:** hacer ya las tres etapas que no dependen de la máquina
+>   (borrar el cron muerto, JWT local, imágenes fuera de Storage), pagar los
+>   ~25 USD de Pro el mes del evento, y migrar el motor **después**. Migrar la
+>   semana del evento es hoy el mayor riesgo del proyecto.
+
+---
+
 ## 1 · Lo que hay que hacer
 
 ### Bloque A — Editor de la página pública (prioridad declarada)
@@ -156,6 +181,15 @@ Después de esto la landing queda cerrada salvo videos e imágenes.
   el panel y en público — elegir «deportes» incluye lo que cuelga de él.
 - **#50 · Emails: alias, plantillas y variables.** *(Sin hacer.)* La cascada
   contra el SMTP de cPanel sigue bloqueada por credenciales.
+
+  **Corrección (13 de agosto):** los recordatorios no estaban sólo esperando el
+  SMTP. El job `send-reminders-hourly` de `pg_cron` lleva **1.949 ejecuciones y
+  1.949 fallos** —medido en `cron.job_run_details`— porque su comando nunca se
+  rellenó: sigue apuntando a `https://<TU_PROJECT_REF>.supabase.co` con
+  `Bearer <TU_ANON_KEY>`. **No ha enviado un recordatorio en su vida.** El
+  reemplazo ya existe (`node-cron` en `lib/recordatorios.js:10`), así que el job
+  y la Edge Function se borran sin romper nada. Ver
+  [MIGRACION-SUPABASE.md](MIGRACION-SUPABASE.md) §2.
 - ~~**#49 · Buzón de sugerencias.**~~ **Hecho.** Migración 0063. Va pegado al
   selector que se queda corto —la categoría al crear el evento, el rol al
   publicar una vacante— y no en una pantalla de contacto: preguntado tres
