@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { leerQr } from '../../lib/qrEscaneado.js';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import { expositorApi } from '../../api/interacciones.js';
@@ -207,7 +208,7 @@ function PuntosTab({ codigo, nombre }) {
     finally { setTimeout(() => setWorking(false), 600); }
   }, [codigo, sel, working]);
 
-  const onScan = useCallback((qr) => registrar({ qr_token: qr }), [registrar]);
+  const onScan = useCallback((qr) => registrar(leerQr(qr)), [registrar]);
 
   if (motivos === null) return <GLoader message="Cargando…" />;
   if (editando) return <MotivosEditor codigo={codigo} motivos={motivos} onListo={(m) => { setMotivos(m); setEditando(false); }} />;
@@ -318,7 +319,7 @@ function PremiosTab({ codigo }) {
     try { setDatos(await expositorApi.saldo(codigo, params)); }
     catch (e) { setDatos(null); setMsg(e.response?.data?.error || e.message); }
   }, [codigo]);
-  const onScan = useCallback((qr) => buscar({ qr_token: qr }), [buscar]);
+  const onScan = useCallback((qr) => buscar(leerQr(qr)), [buscar]);
 
   const entregar = async (r) => {
     setEntregando(r.id);

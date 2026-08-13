@@ -33,6 +33,19 @@ const DEFECTO = {
   campos_extra: [],           // ids de campos_formulario (ej. Empresa, Cargo)
   campos_libres: [],          // { etiqueta, valor } — texto fijo que el organizador escribe
   colores: {},                // { 'VIP': '#d4af37', 'Staff': '#ef4444' }
+
+  /* ── Diseño ──
+     La escarapela era blanca con una banda azul marino y no había más:
+     lo único configurable era el color de esa banda por tipo de asistente.
+     Estos campos son el resto del diseño. Los valores por defecto reproducen
+     exactamente lo de antes, así que nadie ve cambiar su escarapela sin
+     haberla tocado. */
+  fondo: '#FFFFFF',           // papel de la escarapela
+  texto: '#0F172A',           // color del nombre y los datos
+  banda_texto: '#FFFFFF',     // texto sobre la banda de color
+  marca_agua_url: '',         // imagen de fondo, tenue
+  marca_agua_opacidad: 12,    // %  — tenue de verdad: el QR tiene que leerse
+  borde: true,
 };
 
 export default function CredencialesSection({ evento }) {
@@ -66,6 +79,9 @@ export default function CredencialesSection({ evento }) {
       nombre: c.guest_nombre || c.usuario?.nombre || 'Asistente',
       tipo  : c.tipo?.nombre || c.ticket_nombre || 'General',
       codigo: c.codigo || String(c.id),
+      /* El token firmado de la boleta: es lo que se imprime en el QR para que
+         la escarapela valga en el control de ingreso. */
+      qr_token: c.qr_token || null,
       respuestas: c.respuestas || {},
     }))
     .filter(f => !filtro
@@ -176,6 +192,59 @@ export default function CredencialesSection({ evento }) {
                 <p className="text-[11px] text-text-3 mt-1">Texto fijo igual para todas las escarapelas (o del tipo que imprimas). Ej. “Acceso: General”, “Wifi: gestek2026”.</p>
               </div>
 
+              {/* ── Diseño ──
+                  La escarapela era blanca con una banda azul marino y punto:
+                  lo único configurable era el color de esa banda. Esto es el
+                  resto. Los valores por defecto son los de siempre, así que a
+                  nadie le cambia la escarapela sin tocarla. */}
+              <div className="pt-3 border-t border-border">
+                <label className="label">Diseño</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    ['fondo',       'Papel',        '#FFFFFF'],
+                    ['texto',       'Texto',        '#0F172A'],
+                    ['banda_texto', 'Sobre la banda', '#FFFFFF'],
+                  ].map(([k, etiqueta, porDefecto]) => (
+                    <div key={k}>
+                      <p className="text-[11px] text-text-3 mb-1">{etiqueta}</p>
+                      <input type="color" value={cfg[k] || porDefecto}
+                        onChange={e => set({ [k]: e.target.value })}
+                        className="w-full h-8 rounded-md border border-border bg-surface cursor-pointer p-0.5" />
+                    </div>
+                  ))}
+                </div>
+
+                <label className="flex items-center gap-2 mt-3 text-sm text-text-2 cursor-pointer">
+                  <input type="checkbox" checked={cfg.borde !== false}
+                    onChange={e => set({ borde: e.target.checked })}
+                    className="w-4 h-4 accent-[#8B5CF6]" />
+                  Borde fino alrededor
+                  <span className="text-[11px] text-text-3">— ayuda a recortar</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="label">Marca de agua <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+                <ImagePicker value={cfg.marca_agua_url} onChange={(u) => set({ marca_agua_url: u })}
+                  ownerId={evento.id} placeholder="Imagen de fondo de la escarapela" />
+                {cfg.marca_agua_url && (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-text-3">Intensidad</p>
+                      <p className="text-[11px] text-text-2 tabular-nums">{cfg.marca_agua_opacidad ?? 12}%</p>
+                    </div>
+                    {/* Tope al 35%: por encima se come el contraste del QR, y
+                        un QR que no lee convierte la escarapela en un adorno. */}
+                    <input type="range" min={0} max={35} value={cfg.marca_agua_opacidad ?? 12}
+                      onChange={e => set({ marca_agua_opacidad: Number(e.target.value) })}
+                      className="w-full accent-[#8B5CF6]" />
+                    <p className="text-[11px] text-text-3">
+                      El tope es 35%: más oscura y el lector deja de ver el QR.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {tiposPresentes.length > 0 && (
                 <div>
                   <label className="label">Color por tipo de asistente</label>
@@ -196,7 +265,13 @@ export default function CredencialesSection({ evento }) {
           </div>
 
           <div className="rounded-2xl border border-border bg-surface/40 px-4 py-3 text-xs text-text-2 leading-relaxed">
-            El <strong className="text-text-1">QR es el mismo del ticket</strong>: sirve para el control de ingreso y para sumar puntos al escanear en stands o actividades. Los puntos no se imprimen (quedarían desactualizados) — el asistente los ve en su tarjeta digital.
+            <strong className="text-text-1">Un solo QR para todo.</strong> El que se imprime aquí
+            es exactamente el mismo de la boleta digital: sirve para entrar, para sumar puntos
+            en un stand y para canjear un premio. No hay dos códigos que llevar encima.
+            <span className="block mt-1.5 text-text-3">
+              Los puntos no se imprimen —el papel quedaría desactualizado a la primera—:
+              el asistente los ve en su tarjeta, en /mi-ticket, con este mismo QR.
+            </span>
           </div>
 
           <div className="flex justify-end">
@@ -265,42 +340,80 @@ export default function CredencialesSection({ evento }) {
    al imprimir, el CSS de arriba le fija los milímetros exactos. */
 function Escarapela({ f, cfg, evento, campos, tam }) {
   const color = cfg.colores?.[f.tipo] || '#0A0F1A';
+  const fondo = cfg.fondo || '#FFFFFF';
+  const texto = cfg.texto || '#0F172A';
+  const bandaTexto = cfg.banda_texto || '#FFFFFF';
   const vertical = tam.h > tam.w;
   const extras = (cfg.campos_extra || [])
     .map(id => ({ etiqueta: campos.find(c => c.id === id)?.etiqueta, valor: f.respuestas?.[id] }))
     .filter(x => x.etiqueta && x.valor);
 
+  /* EL MISMO QR QUE LA BOLETA DIGITAL.
+
+     Antes aquí se imprimía `${origin}/mi-ticket/${codigo}` — una URL. Pero el
+     escáner manda lo que lee como token FIRMADO, así que la escarapela
+     impresa no pasaba el control de ingreso: el servidor recibía una URL
+     donde esperaba una firma y contestaba "QR inválido". Un papel con un QR
+     que no abría ninguna puerta.
+
+     Ahora lleva el `qr_token`, exactamente lo mismo que /mi-ticket. Con eso
+     el mismo QR sirve para las tres cosas —entrar, sumar puntos en un stand
+     y canjear un premio—, que es la unificación que se pedía: una sola cosa
+     que escanear.
+
+     Si por lo que sea no hubiera token, se cae al código corto, que el
+     servidor también acepta. Lo que no vuelve es la URL. */
+  const valorQr = f.qr_token || f.codigo;
+
   return (
-    <div className="escarapela rounded-xl overflow-hidden bg-white text-slate-900 flex flex-col"
-      style={{ aspectRatio: `${tam.w} / ${tam.h}` }}>
-      <div className="px-3 py-2 flex items-center gap-2" style={{ background: color }}>
+    <div className={`escarapela rounded-xl overflow-hidden flex flex-col relative ${cfg.borde === false ? '' : 'ring-1 ring-black/10'}`}
+      style={{ aspectRatio: `${tam.w} / ${tam.h}`, background: fondo, color: texto }}>
+
+      {/* Marca de agua: debajo de todo y sin capturar clics. La opacidad se
+          limita al 35% porque por encima empieza a comerse el contraste del
+          QR, y un QR que no lee convierte la escarapela en un adorno. */}
+      {cfg.marca_agua_url && (
+        <img
+          src={cfg.marca_agua_url}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style={{ opacity: Math.min(35, Math.max(0, Number(cfg.marca_agua_opacidad) || 0)) / 100 }}
+        />
+      )}
+
+      <div className="px-3 py-2 flex items-center gap-2 relative" style={{ background: color }}>
         {cfg.mostrar?.logo && cfg.logo_url && (
           <img src={cfg.logo_url} alt="" className="h-5 w-auto object-contain flex-shrink-0" />
         )}
-        <p className="text-[8px] uppercase tracking-widest text-white/70 truncate">{evento.titulo}</p>
+        <p className="text-[8px] uppercase tracking-widest truncate" style={{ color: bandaTexto, opacity: 0.75 }}>
+          {evento.titulo}
+        </p>
       </div>
 
-      <div className={`flex-1 p-3 flex ${vertical ? 'flex-col' : 'flex-row'} items-center justify-center gap-2 text-center min-h-0`}>
+      <div className={`flex-1 p-3 flex ${vertical ? 'flex-col' : 'flex-row'} items-center justify-center gap-2 text-center min-h-0 relative`}>
         {cfg.mostrar?.qr && (
-          <div className="flex-shrink-0">
-            <QRCodeSVG value={`${window.location.origin}/mi-ticket/${f.codigo}`} size={vertical ? 96 : 66} />
+          /* Fondo blanco propio bajo el QR: si el papel es oscuro o hay marca
+             de agua, el lector necesita el contraste. */
+          <div className="flex-shrink-0 bg-white p-1 rounded">
+            <QRCodeSVG value={valorQr} size={vertical ? 96 : 66} level="M" />
           </div>
         )}
         <div className="min-w-0 flex-1">
           {cfg.mostrar?.nombre && <p className="text-[13px] font-bold leading-tight break-words">{f.nombre}</p>}
           {extras.map((x, i) => (
-            <p key={i} className="text-[9px] text-slate-600 leading-tight truncate">{String(x.valor)}</p>
+            <p key={i} className="text-[9px] leading-tight truncate" style={{ opacity: 0.7 }}>{String(x.valor)}</p>
           ))}
           {(cfg.campos_libres || []).filter(c => (c.etiqueta || c.valor)).map((c, i) => (
-            <p key={`l${i}`} className="text-[9px] text-slate-600 leading-tight truncate">
+            <p key={`l${i}`} className="text-[9px] leading-tight truncate" style={{ opacity: 0.7 }}>
               {c.etiqueta ? <span className="font-semibold">{c.etiqueta}: </span> : null}{c.valor}
             </p>
           ))}
           {cfg.mostrar?.tipo && (
-            <span className="inline-block mt-1 text-[8px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full text-white"
-              style={{ background: color }}>{f.tipo}</span>
+            <span className="inline-block mt-1 text-[8px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full"
+              style={{ background: color, color: bandaTexto }}>{f.tipo}</span>
           )}
-          {cfg.mostrar?.codigo && <p className="text-[8px] font-mono text-slate-500 mt-1">{f.codigo}</p>}
+          {cfg.mostrar?.codigo && <p className="text-[8px] font-mono mt-1" style={{ opacity: 0.55 }}>{f.codigo}</p>}
         </div>
       </div>
     </div>

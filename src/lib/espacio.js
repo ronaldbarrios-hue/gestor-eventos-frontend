@@ -9,18 +9,28 @@
    Única fuente de verdad de los tipos: la usan el editor, la página pública
    y el embed, para que un "stand" se vea igual en los tres sitios. */
 
+/* `icono` es el nombre de un trazo de components/ui/Iconos.jsx, no un emoji.
+
+   Antes esto eran emoji del sistema (🎤 🛠️ 💬 🏆 …) y salían en cuatro sitios
+   a la vez: el selector al crear un sub-evento, el calendario del panel, la
+   agenda pública y el embed. Tres problemas, ninguno de gusto: cada sistema
+   los dibuja distinto, traen su propio color —así que rompían la paleta justo
+   donde había once seguidos— y no se alinean con el texto de al lado.
+
+   Los trazos heredan `currentColor`, de modo que cada tipo se pinta con SU
+   color de aquí abajo en vez de con el que traiga el sistema operativo. */
 export const TIPOS_ESPACIO = [
-  { id: 'charla',      label: 'Charla',        icon: '🎤', color: '#3B82F6' },
-  { id: 'taller',      label: 'Taller',        icon: '🛠️', color: '#8B5CF6' },
-  { id: 'panel',       label: 'Panel',         icon: '💬', color: '#0EA5E9' },
-  { id: 'competencia', label: 'Competencia',   icon: '🏆', color: '#F59E0B', competitivo: true },
-  { id: 'show',        label: 'Show',          icon: '🎭', color: '#EC4899' },
-  { id: 'stand',       label: 'Stand',         icon: '🏬', color: '#10B981' },
-  { id: 'activacion',  label: 'Activación',    icon: '🎯', color: '#F43F5E' },
-  { id: 'proyeccion',  label: 'Proyección',    icon: '🎬', color: '#6366F1' },
-  { id: 'meetgreet',   label: 'Meet & Greet',  icon: '⭐', color: '#EAB308' },
-  { id: 'ceremonia',   label: 'Ceremonia',     icon: '🎉', color: '#14B8A6' },
-  { id: 'otro',        label: 'Otro',          icon: '📌', color: '#64748B' },
+  { id: 'charla',      label: 'Charla',        icono: 'micro',      color: '#3B82F6' },
+  { id: 'taller',      label: 'Taller',        icono: 'taller',     color: '#8B5CF6' },
+  { id: 'panel',       label: 'Panel',         icono: 'panel',      color: '#0EA5E9' },
+  { id: 'competencia', label: 'Competencia',   icono: 'trofeo',     color: '#F59E0B', competitivo: true },
+  { id: 'show',        label: 'Show',          icono: 'show',       color: '#EC4899' },
+  { id: 'stand',       label: 'Stand',         icono: 'stand',      color: '#10B981' },
+  { id: 'activacion',  label: 'Activación',    icono: 'diana',      color: '#F43F5E' },
+  { id: 'proyeccion',  label: 'Proyección',    icono: 'proyeccion', color: '#6366F1' },
+  { id: 'meetgreet',   label: 'Meet & Greet',  icono: 'estrella',   color: '#EAB308' },
+  { id: 'ceremonia',   label: 'Ceremonia',     icono: 'ceremonia',  color: '#14B8A6' },
+  { id: 'otro',        label: 'Otro',          icono: 'pin',        color: '#64748B' },
 ];
 
 export const TIPO_DEFECTO = 'charla';

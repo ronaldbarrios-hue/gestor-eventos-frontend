@@ -5,7 +5,7 @@ import Spinner from '../../components/ui/Spinner.jsx';
 
 /* Modal para enviar push broadcast al equipo del evento. */
 
-export default function BroadcastModal({ evento, onClose }) {
+export default function BroadcastModal({ evento, onClose, onEnviado }) {
   const { success, error } = useToast();
   const [titulo, setTitulo]   = useState('');
   const [mensaje, setMensaje] = useState('');
@@ -18,18 +18,19 @@ export default function BroadcastModal({ evento, onClose }) {
     setWorking(true);
     try {
       const r = await pushApi.broadcast(evento.id, { titulo, mensaje, url });
-      if (r.sin_subs) {
-        error('Nadie del equipo tiene notificaciones activadas en su navegador.');
-      } else {
-        success(`Push enviado a ${r.enviadas} dispositivo${r.enviadas === 1 ? '' : 's'} (${r.destinatarios} miembro${r.destinatarios === 1 ? '' : 's'}).`);
-        onClose();
-      }
+      /* El anuncio llega SIEMPRE por la campana del panel. El push es un
+         extra: antes era al revés, y si no había claves VAPID el anuncio
+         fallaba entero sin llegarle a nadie. */
+      const gente = `${r.destinatarios} ${r.destinatarios === 1 ? 'persona' : 'personas'}`;
+      success(
+        r.enviadas > 0
+          ? `Anuncio enviado a ${gente}, y ${r.enviadas} lo recibieron también como notificación del navegador.`
+          : `Anuncio enviado a ${gente}. Les aparece en su campana de notificaciones.`
+      );
+      onEnviado?.(r.anuncio);
+      onClose();
     } catch (e) {
-      if (e.response?.status === 402) {
-        error(e.response?.data?.error || 'No se pudo enviar el anuncio.');
-      } else {
-        error(e.response?.data?.error || e.message);
-      }
+      error(e.response?.data?.error || e.message);
     } finally { setWorking(false); }
   };
 
@@ -39,7 +40,7 @@ export default function BroadcastModal({ evento, onClose }) {
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 bg-surface px-5 py-4 border-b border-border flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Notificación push</p>
+            <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Anuncio</p>
             <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Avisar al equipo del evento</h2>
           </div>
           <button onClick={onClose} aria-label="Cerrar"
@@ -50,7 +51,9 @@ export default function BroadcastModal({ evento, onClose }) {
 
         <form onSubmit={submit} className="p-5 space-y-4">
           <div className="rounded-2xl bg-primary/5 border border-primary/20 px-4 py-3 text-sm text-text-2 leading-relaxed">
-            Llega a vos y a los miembros activos del equipo que hayan activado notificaciones desde su Configuración.
+            Le llega a ti y a los miembros activos del equipo, en su campana de
+            notificaciones. A quien además tenga activadas las del navegador le
+            salta también ahí.
           </div>
 
           <div className="field">

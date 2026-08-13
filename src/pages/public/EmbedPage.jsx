@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import { BLOCKS } from '../events/editor/blocks.jsx';
-import { BrandingProvider, PoweredBy } from '../../components/public/Branding.jsx';
+import { BrandingProvider } from '../../components/public/Branding.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import TorneoPublicoPage from './TorneoPublicoPage.jsx';
@@ -183,9 +183,15 @@ export default function EmbedPage() {
             onWaitlist={abrirCompra}
           />
         )}
-        <div className="mt-4 text-center">
-          <PoweredBy organizador={organizador} />
-        </div>
+        {/* Sin "Eventos gestionados con GESTEK".
+
+            Esto se incrusta en la web de otro. Ahí nuestra marca no pinta
+            nada: el visitante está en la página del organizador y lo que ve
+            tiene que ser suya. El footer propio del organizador sí se
+            respeta, porque ése lo puso él. */}
+        {organizador?.branding?.footer && (
+          <p className="text-xs text-text-3 mt-4 text-center">{organizador.branding.footer}</p>
+        )}
       </div>
     </BrandingProvider>
   );

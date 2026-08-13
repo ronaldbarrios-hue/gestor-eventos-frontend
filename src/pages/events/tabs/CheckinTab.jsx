@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import Icono from '../../../components/ui/Iconos.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -6,6 +7,7 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
+import { leerQr } from '../../../lib/qrEscaneado.js';
 
 /* Tab Check-in — escanea boletas con cámara o ingresa código manual. */
 
@@ -129,7 +131,7 @@ export default function CheckinTab({ evento }) {
   /* onScan estable (misma identidad siempre): QrScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
   const onScanQr = useCallback((qr) =>
-    (accion === 'reingreso' ? handleReingreso({ qr_token: qr }) : handleCheckin({ qr_token: qr })),
+    (accion === 'reingreso' ? handleReingreso(leerQr(qr)) : handleCheckin(leerQr(qr))),
     [accion, handleCheckin, handleReingreso]);
   const onSubmitCodigo = (codigo) =>
     (accion === 'reingreso' ? handleReingreso({ codigo }) : handleCheckin({ codigo }));
@@ -296,7 +298,7 @@ function ResultadoCard({ result, compact }) {
     : yaUsada
       ? 'border-warning/40 bg-warning/10'
       : 'border-danger/40 bg-danger/10';
-  const icon = ok ? '✓' : yaUsada ? '⚠' : '✕';
+  const icon = ok ? '✓' : yaUsada ? '!' : '✕';
   const iconCls = ok ? 'bg-success text-white' : yaUsada ? 'bg-warning text-white' : 'bg-danger text-white';
   const title = ok
     ? '¡Bienvenido!'

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Medalla } from '../../components/ui/Iconos.jsx';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
@@ -11,7 +12,7 @@ import GLoader from '../../components/ui/GLoader.jsx';
    que es dato de la persona y no información del evento. Aquí las filas son
    empresas, que están en el evento precisamente para que se las vea. */
 
-const MEDALLA = ['🥇', '🥈', '🥉'];
+
 
 export default function RankingPublicoPage() {
   const { slug } = useParams();
@@ -75,7 +76,7 @@ export function TablaRanking({ ranking, titulo = 'Ranking de expositores' }) {
         {ranking.map((x, i) => (
           <li key={x.expositor_id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
             <span className={`w-8 flex-shrink-0 text-center tabular-nums ${i < 3 ? 'text-xl' : 'text-sm text-text-3 font-semibold'}`}>
-              {MEDALLA[i] || `#${i + 1}`}
+              {i < 3 ? <Medalla puesto={i + 1} className="w-5 h-5 mx-auto text-accent" /> : `#${i + 1}`}
             </span>
 
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-surface-2 flex items-center justify-center text-sm font-bold text-text-3 flex-shrink-0">

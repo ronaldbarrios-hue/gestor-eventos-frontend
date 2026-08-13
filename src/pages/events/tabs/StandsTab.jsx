@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
+import Icono from '../../../components/ui/Iconos.jsx';
+import { leerQr } from '../../../lib/qrEscaneado.js';
 import { interaccionesApi } from '../../../api/interacciones.js';
 import { networkingApi } from '../../../api/networking.js';
 import { eventosApi } from '../../../api/eventos.js';
@@ -75,7 +77,7 @@ export default function StandsTab({ evento, soyOwner }) {
     }
   }, [evento.id, motivoSel, lugar, working, toastErr]);
 
-  const onScanQr = useCallback((qr) => registrar({ qr_token: qr }), [registrar]);
+  const onScanQr = useCallback((qr) => registrar(leerQr(qr)), [registrar]);
 
   if (loading) return <GLoader message="Cargando stands..." />;
 
@@ -123,7 +125,7 @@ export default function StandsTab({ evento, soyOwner }) {
                           ${sel
                             ? (neg ? 'border-danger bg-danger/10 text-text-1' : 'border-success bg-success/10 text-text-1')
                             : 'border-border text-text-3 hover:text-text-1'}`}>
-                        <span>{neg ? '⚠' : '★'}</span>
+                        <span>{neg ? <Icono nombre="aviso" className="w-3.5 h-3.5" /> : <Icono nombre="estrella" className="w-3.5 h-3.5" />}</span>
                         {m.nombre}
                         <span className={`text-[10px] font-mono ${neg ? 'text-danger' : 'text-success'}`}>
                           {m.puntos > 0 ? `+${m.puntos}` : m.puntos}
@@ -427,7 +429,7 @@ function ResultadoStand({ r, compact }) {
   const neg = ok && r.interaccion?.tipo === 'negativo';
   const cls = !ok ? 'border-danger/40 bg-danger/10'
     : neg ? 'border-warning/40 bg-warning/10' : 'border-success/40 bg-success/10';
-  const icon = !ok ? '✕' : neg ? '⚠' : '✓';
+  const icon = !ok ? '✕' : neg ? '!' : '✓';
   const iconCls = !ok ? 'bg-danger text-white' : neg ? 'bg-warning text-white' : 'bg-success text-white';
 
   return (
@@ -492,7 +494,7 @@ function CanjearVista({ evento }) {
     } finally { setBuscando(false); }
   }, [evento.id, toastErr]);
 
-  const onScanQr = useCallback((qr) => buscar({ qr_token: qr }), [buscar]);
+  const onScanQr = useCallback((qr) => buscar(leerQr(qr)), [buscar]);
 
   const entregar = async (r) => {
     setEntregando(r.id);
@@ -722,13 +724,13 @@ function Historial({ evento, items, soyOwner, onCambio }) {
           return (
             <li key={it.id} className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2/30 group">
               <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${neg ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
-                {neg ? '⚠' : '★'}
+                {neg ? <Icono nombre="aviso" className="w-3.5 h-3.5" /> : <Icono nombre="estrella" className="w-3.5 h-3.5" />}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-text-1 truncate">
                   {it.motivo_texto || 'Registro'}
                   {it.lugar && <span className="text-text-3"> · {it.lugar}</span>}
-                  {it.expositor?.nombre && <span className="ml-1.5 text-[10px] uppercase tracking-wide bg-accent/10 text-accent-light px-1.5 py-0.5 rounded">🏢 {it.expositor.nombre}</span>}
+                  {it.expositor?.nombre && <span className="ml-1.5 text-[10px] uppercase tracking-wide bg-accent/10 text-accent-light px-1.5 py-0.5 rounded"><Icono nombre="empresa" className="w-3 h-3 inline-block align-[-2px]" /> {it.expositor.nombre}</span>}
                 </p>
                 <p className="text-xs text-text-3 truncate">
                   {it.ticket?.guest_nombre || 'Asistente'} · <span className="font-mono">{it.ticket?.codigo}</span> · {new Date(it.created_at).toLocaleString('es-CO')}

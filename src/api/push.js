@@ -1,5 +1,11 @@
 import client from './client.js';
 
+/* Los anuncios ya enviados. Antes no se guardaban en ningún sitio, así que
+   esta lista no podía existir. */
+export const anunciosApi = {
+  list: (eventoId) => client.get(`/eventos/${eventoId}/anuncios`).then(r => r.data),
+};
+
 export const pushApi = {
   vapidKey   : ()                => client.get('/push/vapid-key').then(r => r.data),
   subscribe  : (body)            => client.post('/me/push/subscribe', body).then(r => r.data),

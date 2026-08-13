@@ -8,6 +8,7 @@ import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } from '../../../lib/espacio.js';
+import Icono from '../../../components/ui/Iconos.jsx';
 import PreguntasSubEvento from './PreguntasSubEvento.jsx';
 
 /* "Espacio del evento" — el calendario de TODO lo que pasa dentro del evento:
@@ -301,7 +302,7 @@ export default function AgendaTab({ evento }) {
               style={filtroTipo === t.id ? tipoEstilo(t.id) : undefined}
               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
                 ${filtroTipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
-              <span>{t.icon}</span>{t.label}
+              <Icono nombre={t.icono} className="w-3.5 h-3.5" />{t.label}
             </button>
           ))}
         </div>
@@ -438,7 +439,7 @@ function SalasGrid({ cursor, sesiones, onCrearAt, onEditar }) {
                       style={{ ...tipoEstilo(s.tipo), borderStyle: 'solid', borderWidth: 1 }}
                       className="w-full text-left rounded-xl transition-colors px-2.5 py-2 hover:brightness-110">
                       <p className="text-[11px] font-mono tabular-nums opacity-80">
-                        {tipoEspacio(s.tipo).icon}{' '}
+                        <Icono nombre={tipoEspacio(s.tipo).icono} className="w-3 h-3 inline-block align-[-2px]" />{' '}
                         {new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                         {s.fin ? ` – ${new Date(s.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}` : ''}
                       </p>
@@ -502,14 +503,14 @@ function SessionRow({ session, onEdit, onDelete, isLast }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1" style={tipoEstilo(session.tipo)}>
-            <span>{tip.icon}</span>{tip.label}
+            <Icono nombre={tip.icono} className="w-3.5 h-3.5" />{tip.label}
           </span>
           <h3 className="text-base font-semibold text-text-1">{session.titulo}</h3>
           {session.track && session.track !== 'principal' && (
             <span className="text-xs uppercase tracking-widest text-primary-light bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{session.track}</span>
           )}
           {session.torneo_id && (
-            <span className="text-[10px] uppercase tracking-wide text-text-3 border border-border px-2 py-0.5 rounded-full">🏆 con llaves</span>
+            <span className="text-[10px] uppercase tracking-wide text-text-3 border border-border px-2 py-0.5 rounded-full"><Icono nombre="trofeo" className="w-3 h-3 inline-block align-[-2px]" /> con llaves</span>
           )}
           {/* Que pida inscripción cambia lo que ve el público: sin decirlo
               aquí, el organizador tiene que abrir cada sub-evento para saber
@@ -524,7 +525,7 @@ function SessionRow({ session, onEdit, onDelete, isLast }) {
         </div>
         {session.descripcion && <p className="text-sm text-text-2 mt-1 leading-relaxed">{session.descripcion}</p>}
         <div className="flex items-center gap-3 mt-2 text-sm text-text-3 flex-wrap">
-          {session.ubicacion && <span className="inline-flex items-center gap-1">📍 {session.ubicacion}</span>}
+          {session.ubicacion && <span className="inline-flex items-center gap-1"><Icono nombre="pin" className="w-3.5 h-3.5" />{session.ubicacion}</span>}
           {session.speaker && (
             <span className="inline-flex items-center gap-2">
               {session.speaker.foto_url
@@ -803,7 +804,7 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, onS
               style={form.tipo === t.id ? tipoEstilo(t.id) : undefined}
               className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
                 ${form.tipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
-              <span>{t.icon}</span>{t.label}
+              <Icono nombre={t.icono} className="w-3.5 h-3.5" />{t.label}
             </button>
           ))}
         </div>

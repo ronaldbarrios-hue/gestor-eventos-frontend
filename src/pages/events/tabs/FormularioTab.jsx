@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Icono from '../../../components/ui/Iconos.jsx';
 import { eventosApi } from '../../../api/eventos.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -206,7 +207,7 @@ export default function FormularioTab({ evento }) {
 
             {c.tipo === 'foto' && (
               <p className="text-xs text-text-3 bg-surface-2/60 rounded-xl px-3 py-2">
-                📷 La persona podrá subir una foto (JPG, PNG o WEBP, máx. 4 MB) al llenar el formulario. La foto quedará guardada junto a su respuesta y podrás verla/descargarla desde el detalle del asistente.
+                La persona podrá subir una foto (JPG, PNG o WEBP, máx. 4 MB) al llenar el formulario. La foto quedará guardada junto a su respuesta y podrás verla/descargarla desde el detalle del asistente.
               </p>
             )}
 

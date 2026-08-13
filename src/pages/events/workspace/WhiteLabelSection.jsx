@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import Icono from '../../../components/ui/Iconos.jsx';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
@@ -152,7 +153,7 @@ export default function WhiteLabelSection({ evento, reload, valor, onChange }) {
           <div className="rounded-2xl border border-border bg-surface-2/30 p-3 mb-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-text-1">🎨 Tomar colores de una imagen</p>
+                <p className="text-xs font-semibold text-text-1 flex items-center gap-1.5"><Icono nombre="paleta" className="w-3.5 h-3.5" />Tomar colores de una imagen</p>
                 <p className="text-[11px] text-text-3 mt-0.5">Saca la paleta de tu logo o de una foto. La imagen no se sube a ningún lado.</p>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">

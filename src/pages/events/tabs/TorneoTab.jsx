@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import Icono from '../../../components/ui/Iconos.jsx';
 import { torneosApi } from '../../../api/torneos.js';
 import { agendaApi } from '../../../api/agenda.js';
 import { aplanar, ramaCompleta, rutaDe } from '../../../lib/torneoCategorias.js';
@@ -142,7 +143,7 @@ export default function TorneoTab({ evento, soyOwner }) {
                 className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors text-left
                   ${!creando && selId === t.id ? 'border-primary/50 bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
                 <span className="flex items-center gap-2">
-                  🏆 {t.nombre}
+                  <Icono nombre="trofeo" className="w-3.5 h-3.5" />{t.nombre}
                   {t.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-1.5 py-0.5 rounded">{t.disciplina}</span>}
                 </span>
                 {ruta.length > 0 && (
@@ -377,7 +378,7 @@ function HuecoEnCalendario({ evento, torneo, soyOwner }) {
       : 'sin hora';
     return (
       <p className="text-[11px] text-text-3">
-        📅 En el calendario: <span className="text-text-2">{fecha}</span>
+        <Icono nombre="calendario" className="w-3 h-3 inline-block align-[-2px]" /> En el calendario: <span className="text-text-2">{fecha}</span>
         {sesiones.length > 1 && ` · y ${sesiones.length - 1} franja${sesiones.length > 2 ? 's' : ''} más`}
       </p>
     );
@@ -389,7 +390,7 @@ function HuecoEnCalendario({ evento, torneo, soyOwner }) {
     return (
       <button onClick={() => setCreando(true)}
         className="text-[11px] text-warning hover:underline text-left">
-        ⚠ No está en el calendario — el público no lo ve. Ponerle hora
+        <Icono nombre="aviso" className="w-3.5 h-3.5 inline-block align-[-2px]" /> No está en el calendario — el público no lo ve. Ponerle hora
       </button>
     );
   }
@@ -538,7 +539,7 @@ function EquiposView({ evento, torneo, equipos, soyOwner, onReload }) {
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => setFormOpen(true)} className="btn-gradient btn-sm">+ Agregar equipo</button>
             <button onClick={() => setImportarOpen(true)} className="btn-secondary btn-sm">
-              📥 Importar desde boletas
+              Importar desde boletas
             </button>
           </div>
           {equipos.length >= minRequerido && (
@@ -963,7 +964,7 @@ function ProgramarModal({ evento, torneo, partido, equipoA, equipoB, onClose, on
             <label className="label">Cancha / sede <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
             <input value={cancha} onChange={e => setCancha(e.target.value)} className="input rounded-2xl py-3" placeholder="Ej. Cancha 2" />
           </div>
-          <p className="text-xs text-text-3">📣 Se le avisará por correo (y push si tiene cuenta) al capitán de ambos equipos.</p>
+          <p className="text-xs text-text-3">Se le avisará por correo (y push si tiene cuenta) al capitán de ambos equipos.</p>
           <button type="submit" disabled={working}
             className="w-full py-3.5 rounded-2xl text-base font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
             {working ? <><Spinner size="sm" /> Guardando...</> : 'Guardar horario'}
@@ -1017,7 +1018,7 @@ function ResultadoModal({ evento, torneo, partido, equipoA, equipoB, onClose, on
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           {fechaTxt && (
-            <p className="text-xs text-text-3 -mt-1 capitalize">📅 {fechaTxt}{partido.cancha ? ` · ${partido.cancha}` : ''}</p>
+            <p className="text-xs text-text-3 -mt-1 capitalize"><Icono nombre="calendario" className="w-3 h-3 inline-block align-[-2px]" /> {fechaTxt}{partido.cancha ? ` · ${partido.cancha}` : ''}</p>
           )}
           <div className="flex items-center gap-3">
             <div className="flex-1 text-center">
@@ -1092,7 +1093,7 @@ function LigaView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
                 >
                   <p className="text-sm text-text-1 truncate">{eqA?.nombre} <span className="text-text-3">vs</span> {eqB?.nombre}</p>
                   {(fechaTxt || p.cancha) && (
-                    <p className="text-[11px] text-text-3 mt-0.5">📅 {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
+                    <p className="text-[11px] text-text-3 mt-0.5"><Icono nombre="calendario" className="w-3 h-3 inline-block align-[-2px]" /> {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
                   )}
                 </button>
                 {p.estado === 'jugado' ? (
@@ -1240,7 +1241,7 @@ function GruposView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
               : `Faltan ${partidos.filter(p => p.estado !== 'jugado').length} partido(s) de grupo por jugar.`}
           </p>
           <button onClick={cerrarGrupos} disabled={!todosJugados || cerrando} className="btn-primary btn-sm whitespace-nowrap disabled:opacity-50">
-            {cerrando ? <><Spinner size="sm" /> Cerrando...</> : '🏁 Cerrar fase de grupos'}
+            {cerrando ? <><Spinner size="sm" /> Cerrando...</> : 'Cerrar fase de grupos'}
           </button>
         </div>
       )}
@@ -1264,7 +1265,7 @@ function GruposView({ evento, torneo, partidos, equipos, soyOwner, onReload }) {
                       className="flex-1 text-left disabled:cursor-default min-w-0">
                       <p className="text-sm text-text-1 truncate">{eqA?.nombre} <span className="text-text-3">vs</span> {eqB?.nombre}</p>
                       {(fechaTxt || p.cancha) && (
-                        <p className="text-[11px] text-text-3 mt-0.5">📅 {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
+                        <p className="text-[11px] text-text-3 mt-0.5"><Icono nombre="calendario" className="w-3 h-3 inline-block align-[-2px]" /> {fechaTxt}{p.cancha ? ` · ${p.cancha}` : ''}</p>
                       )}
                     </button>
                     {p.estado === 'jugado' ? (

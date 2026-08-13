@@ -65,7 +65,12 @@ export default function PromocionesSection({ evento }) {
   const nombreTipo = (id) => tipos.find(t => String(t.id) === String(id))?.nombre || 'Todas las boletas';
 
   return (
-    <div className="grid lg:grid-cols-[380px_1fr] gap-5 items-start">
+    /* La columna del formulario era de 380px fijos, y dentro hay pares de
+       campos: cada uno se quedaba en ~170px, donde no cabe "% de descuento"
+       ni "Todas las boletas" — se leían cortados. Ahora es elástica entre 400
+       y 520, y en pantalla estrecha el formulario pasa a ocupar todo el ancho
+       en vez de competir con la lista. */
+    <div className="grid xl:grid-cols-[minmax(400px,520px)_1fr] gap-5 items-start">
       {/* Crear */}
       <form onSubmit={crear} className="card">
         <div className="card-header"><h3 className="text-base font-semibold text-text-1">Nueva promoción</h3></div>
@@ -79,7 +84,7 @@ export default function PromocionesSection({ evento }) {
             <input className="input" value={f.descripcion} onChange={e => setF(x => ({ ...x, descripcion: e.target.value }))} placeholder="Preventa hasta agotar cupos" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="label">Tipo</label>
               <select className="input" value={f.tipo} onChange={e => setF(x => ({ ...x, tipo: e.target.value }))}>
                 <option value="porcentaje">% de descuento</option>
@@ -92,7 +97,7 @@ export default function PromocionesSection({ evento }) {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="label">Aplica a</label>
               <select className="input" value={f.ticket_id} onChange={e => setF(x => ({ ...x, ticket_id: e.target.value }))}>
                 <option value="">Todas las boletas</option>

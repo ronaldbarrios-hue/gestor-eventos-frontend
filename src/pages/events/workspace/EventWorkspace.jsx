@@ -13,6 +13,7 @@ import TopBar from '../../../components/layout/TopBar.jsx';
 import ResumenSection    from './ResumenSection.jsx';
 import WhiteLabelSection from './WhiteLabelSection.jsx';
 import PublicacionSection from './PublicacionSection.jsx';
+import AnunciosSection from './AnunciosSection.jsx';
 import GestbotSidebar from '../../../components/agente/GestbotSidebar.jsx';
 import PagosSection        from './comercial/PagosSection.jsx';
 import CheckoutSection      from './comercial/CheckoutSection.jsx';
@@ -155,6 +156,7 @@ export default function EventWorkspace() {
   const [working, setWorking]   = useState(false);
   const [drawer, setDrawer]     = useState(false);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [anunciosVersion, setAnunciosVersion] = useState(0);
 
   /* Direcciones de antes de fusionar Dinámicas en Espacio del evento. Un
      enlace guardado, un correo o un botón de otra pantalla seguían apuntando
@@ -359,7 +361,13 @@ export default function EventWorkspace() {
         </main>
       </div>
 
-      {broadcastOpen && <BroadcastModal evento={evento} onClose={() => setBroadcastOpen(false)} />}
+      {broadcastOpen && (
+        <BroadcastModal
+          evento={evento}
+          onClose={() => setBroadcastOpen(false)}
+          onEnviado={() => setAnunciosVersion(v => v + 1)}
+        />
+      )}
     </div>
   );
 }
@@ -405,13 +413,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'asistentes/invitaciones'  : return <InvitacionesSection evento={evento} />;
     case 'asistentes/tarjeta'       : return <TarjetaSection evento={evento} />;
     case 'comunicacion/chat'        : return <ChatTab evento={evento} />;
-    case 'comunicacion/anuncios'    : return (
-      <div className="card p-8 text-center max-w-lg mx-auto">
-        <h3 className="text-lg font-semibold text-text-1 mb-2">Anuncios del evento</h3>
-        <p className="text-sm text-text-2 mb-5">Envía un comunicado oficial a todo el equipo del evento (push + in-app).</p>
-        <button onClick={onAnuncio} className="btn-primary">Redactar anuncio</button>
-      </div>
-    );
+    case 'comunicacion/anuncios'    : return <AnunciosSection evento={evento} onAnuncio={onAnuncio} recargar={anunciosVersion} />;
     case 'configuracion/general'    : return <ConfigGeneral evento={evento} />;
     case 'configuracion/automatizaciones': return <AutomatizacionesSection evento={evento} />;
     case 'configuracion/integraciones': return <IntegracionesSection />;

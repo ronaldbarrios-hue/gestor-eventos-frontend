@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Icono from '../../components/ui/Iconos.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import { agenteApi } from '../../api/agente.js';
@@ -175,7 +176,7 @@ export default function EventCreatePage() {
         <div className="rounded-3xl border border-border bg-surface/40 p-5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-text-1 flex items-center gap-2">📄 Importar desde un PDF</h3>
+              <h3 className="text-sm font-semibold text-text-1 flex items-center gap-2"><Icono nombre="documento" className="w-4 h-4" />Importar desde un PDF</h3>
               <p className="text-xs text-text-3 mt-0.5">Sube el flyer o la ficha del evento y leemos título, fechas, lugar y aforo. El PDF no sale de tu navegador.</p>
             </div>
             <label className={`btn-secondary btn-sm cursor-pointer flex-shrink-0 ${pdfCargando ? 'opacity-60 pointer-events-none' : ''}`}>

@@ -1,6 +1,7 @@
 /* Gestbot — sección dedicada. */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Icono from '../../components/ui/Iconos.jsx';
 import { Link } from 'react-router-dom';
 import Criatura from '../../components/agente/Criatura.jsx';
 import MonitorGestbot from '../../components/agente/MonitorGestbot.jsx';
@@ -16,7 +17,7 @@ import { alertDialog } from '../../components/ui/Confirm.jsx';
 const LS_KEY = 'gestbot:convs';
 const SALUDO = {
   role: 'assistant',
-  content: '¡Hola! Soy Gestbot 🤖 Puedo crear y publicar eventos, armar boletas, ver ventas, gestionar tu equipo y hasta leer un PDF o fotos para armar el evento. ¿En qué trabajamos?',
+  content: '¡Hola! Soy Gestbot. Puedo crear y publicar eventos, armar boletas, ver ventas, gestionar tu equipo y hasta leer un PDF o fotos para armar el evento. ¿En qué trabajamos?',
 };
 const SUGERENCIAS = [
   '¿Qué eventos tengo?',
@@ -261,7 +262,7 @@ export default function GestbotPage() {
                 {Array.isArray(m.adjuntos) && m.adjuntos.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {m.adjuntos.map((n, j) => (
-                      <span key={j} className="text-[10px] bg-white/15 rounded px-2 py-0.5">📎 {n}</span>
+                      <span key={j} className="text-[10px] bg-white/15 rounded px-2 py-0.5"><Icono nombre="adjunto" className="w-3 h-3 inline-block align-[-2px]" /> {n}</span>
                     ))}
                   </div>
                 )}
@@ -313,7 +314,7 @@ export default function GestbotPage() {
           <div className="px-4 pt-2 flex flex-wrap gap-2">
             {adjuntos.map((a, i) => (
               <span key={i} className="flex items-center gap-1.5 text-xs bg-surface-2 border border-border rounded-lg px-2.5 py-1.5 text-text-2">
-                📎 {a.nombre.slice(0, 22)}
+                <Icono nombre="adjunto" className="w-3 h-3 inline-block align-[-2px]" /> {a.nombre.slice(0, 22)}
                 <button onClick={() => setAdjuntos(x => x.filter((_, j) => j !== i))} className="text-text-3 hover:text-danger" aria-label="Quitar">✕</button>
               </span>
             ))}

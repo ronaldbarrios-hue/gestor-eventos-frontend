@@ -160,18 +160,24 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
           {Array.isArray(actividad) && actividad.length > 0 && (
             <Card titulo="Actividad reciente">
               <ul className="space-y-2.5">
-                {actividad.slice(0, 8).map((a, i) => (
-                  <li key={a.id || i} className="flex items-start gap-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-text-1 leading-snug">
-                        <span className="font-medium">{a.usuario?.nombre || a.autor?.nombre || 'Alguien'}</span>
-                        {' '}<span className="text-text-2">{describirAccion(a.accion)}</span>
-                      </p>
-                      <p className="text-[11px] text-text-3">{a.created_at ? relativo(a.created_at) : ''}</p>
-                    </div>
-                  </li>
-                ))}
+                {actividad.slice(0, 8).map((a, i) => {
+                  const detalle = detalleAccion(a);
+                  return (
+                    <li key={a.id || i} className="flex items-start gap-2.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-text-1 leading-snug">
+                          <span className="font-medium">{nombreDelActor(a)}</span>
+                          {' '}<span className="text-text-2">{describirAccion(a.accion)}</span>
+                        </p>
+                        <p className="text-[11px] text-text-3">
+                          {detalle && <span className="text-text-2">{detalle} · </span>}
+                          {a.created_at ? relativo(a.created_at) : ''}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
           )}
@@ -298,11 +304,65 @@ function relativo(iso) {
   if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
   return `hace ${Math.floor(diff / 86400)}d`;
 }
+/* Cada acción que el backend audita, dicha como se lo contarías a alguien.
+
+   El diccionario cubría ocho y el backend registra catorce, así que las que
+   faltaban caían al `replace(/\./g,' ')` de abajo y salían como
+   «alguien equipo invitar»: el identificador interno con los puntos
+   cambiados por espacios. No es que estuviera mal traducido — es que no
+   estaba traducido.
+
+   Si mañana aparece una acción nueva sin entrada aquí, se dice «hizo un
+   cambio (id.interno)»: sigue siendo legible y además delata que falta
+   añadirla, en vez de disfrazarse de frase. */
+const ACCIONES = {
+  'evento.crear'            : 'creó el evento',
+  'evento.editar'           : 'editó el evento',
+  'evento.borrar'           : 'borró el evento',
+  'evento.estado'           : 'cambió el estado del evento',
+  'evento.publicar'         : 'publicó el evento',
+  'evento.formulario.editar': 'cambió el formulario de compra',
+  'pagina.editar'           : 'editó la página pública',
+  'equipo.invitar'          : 'invitó a alguien al equipo',
+  'equipo.quitar'           : 'quitó a alguien del equipo',
+  'equipo.rol'              : 'cambió el rol de un miembro',
+  'rol.crear'               : 'creó un rol',
+  'rol.editar'              : 'editó un rol',
+  'rol.borrar'              : 'borró un rol',
+  'ticket.crear'            : 'creó un tipo de boleta',
+  'ticket.editar'           : 'editó un tipo de boleta',
+  'ticket.borrar'           : 'borró un tipo de boleta',
+  'tarea.crear'             : 'creó una tarea',
+  'tarea.editar'            : 'actualizó una tarea',
+};
+
 function describirAccion(a) {
-  const mapa = {
-    'evento.crear': 'creó el evento', 'evento.editar': 'editó el evento', 'evento.estado': 'cambió el estado',
-    'evento.publicar': 'publicó el evento', 'tarea.crear': 'creó una tarea', 'tarea.editar': 'actualizó una tarea',
-    'ticket.crear': 'creó una boleta', 'pagina.editar': 'editó la página pública',
-  };
-  return mapa[a] || (a || 'hizo un cambio').replace(/\./g, ' ');
+  if (!a) return 'hizo un cambio';
+  return ACCIONES[a] || `hizo un cambio (${a})`;
+}
+
+/* A quién señalar. La API devuelve el perfil en `actor` —así se llama la
+   relación en la consulta— y la pantalla leía `usuario` y `autor`, que no
+   existen. Por eso TODAS las líneas decían «Alguien», incluso las del propio
+   dueño del evento.
+
+   Si el perfil se borró queda el correo, que se guarda aparte justo para
+   esto; y sólo si tampoco está, «Alguien». */
+function nombreDelActor(a) {
+  const n = a?.actor?.nombre?.trim();
+  if (n) return n;
+  const correo = a?.actor_email?.trim();
+  if (correo) return correo.split('@')[0];
+  return 'Alguien';
+}
+
+/* Lo que se tocó, cuando el registro lo sabe. «editó el evento» es cierto
+   pero no dice nada; «editó el evento · título, aforo» sí. */
+function detalleAccion(a) {
+  const d = a?.detalle;
+  if (!d || typeof d !== 'object') return '';
+  if (Array.isArray(d.campos) && d.campos.length) {
+    return d.campos.slice(0, 4).join(', ') + (d.campos.length > 4 ? '…' : '');
+  }
+  return [d.titulo, d.nombre, d.email, d.rol, d.estado].find(v => typeof v === 'string' && v.trim()) || '';
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import Icono from '../../../components/ui/Iconos.jsx';
 import { createPortal } from 'react-dom';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -814,9 +815,9 @@ function EditorTopChrome({ evento, pages, onPortada, portadaData, navbar = {} })
           </Chip>
         ) : <span />}
         <div className="flex items-center gap-2 flex-wrap">
-          {evento.tiene_networking && <Chip>🤝 Rueda de Negocios</Chip>}
+          {evento.tiene_networking && <Chip><Icono nombre="manos" className="w-3.5 h-3.5" />Rueda de Negocios</Chip>}
           {evento.tiene_torneo && <Chip>Ver Torneo</Chip>}
-          {evento.tiene_agenda && <Chip>📅 Ver Agenda</Chip>}
+          {evento.tiene_agenda && <Chip><Icono nombre="calendario" className="w-3.5 h-3.5" />Ver Agenda</Chip>}
           {nav.enlaces.map((l, i) => <Chip key={i}>{l.label}</Chip>)}
           {nav.mostrar_compartir && (
             <Chip>

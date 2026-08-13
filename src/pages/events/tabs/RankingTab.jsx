@@ -1,12 +1,13 @@
 /* Tab Ranking — clasificación del equipo y de los expositores por puntos. */
 
 import { useEffect, useState, useCallback } from 'react';
+import { Medalla } from '../../../components/ui/Iconos.jsx';
 import { loyaltyApi } from '../../../api/loyalty.js';
 import { interaccionesApi } from '../../../api/interacciones.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 
-const medalla = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`);
+const medalla = (i) => (i < 3 ? <Medalla puesto={i + 1} className="w-5 h-5 mx-auto text-accent" /> : `#${i + 1}`);
 
 export default function RankingTab({ evento }) {
   const { error: toastErr } = useToast();

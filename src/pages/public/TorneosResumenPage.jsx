@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Icono from '../../components/ui/Iconos.jsx';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
@@ -144,7 +145,7 @@ export function TarjetaTorneo({ torneo, slug, ruta = [] }) {
           antes de tiempo. */}
       {campeon ? (
         <div className="px-5 py-5 flex items-center gap-4 bg-success/5 border-b border-border">
-          <span className="text-3xl leading-none" aria-hidden="true">🏆</span>
+          <Icono nombre="trofeo" className="w-8 h-8 text-success flex-shrink-0" />
           <div className="flex items-center gap-3 min-w-0">
             <Escudo equipo={campeon} size="lg" />
             <div className="min-w-0">

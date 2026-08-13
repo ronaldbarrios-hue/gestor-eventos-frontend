@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Icono from '../../../components/ui/Iconos.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -314,7 +315,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
         <input type="checkbox" checked={form.es_expositor}
           onChange={e => update('es_expositor', e.target.checked)} className="mt-0.5 accent-[#8B5CF6]" />
         <span className="text-sm">
-          <span className="font-medium text-text-1 block">🏢 Es una boleta de stand / expositor</span>
+          <span className="font-medium text-text-1 block flex items-center gap-1.5"><Icono nombre="empresa" className="w-3.5 h-3.5" />Es una boleta de stand / expositor</span>
           <span className="text-text-3 text-xs">Cada empresa que la compra recibe su propia ficha de expositor (logo, descripción, contacto) que edita ella misma y aparece en el evento. Con el toggle persona / empresa.</span>
         </span>
       </label>

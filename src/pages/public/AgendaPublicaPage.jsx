@@ -5,6 +5,7 @@ import { agendaApi } from '../../api/agenda.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo } from '../../lib/espacio.js';
+import Icono from '../../components/ui/Iconos.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 
 /* Página pública /explorar/:slug/agenda — "Espacio del evento": el calendario
@@ -141,7 +142,7 @@ export default function AgendaPublicaPage() {
               style={filtroTipo === t.id ? tipoEstilo(t.id) : undefined}
               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
                 ${filtroTipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
-              <span>{t.icon}</span>{t.label}
+              <Icono nombre={t.icono} className="w-3.5 h-3.5" />{t.label}
             </button>
           ))}
         </div>
@@ -160,7 +161,7 @@ export default function AgendaPublicaPage() {
               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5
                 ${filtroExpo === x.id ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
               {x.logo_url && <img src={x.logo_url} alt="" className="w-4 h-4 rounded object-cover" />}
-              🏢 {x.nombre}
+              <Icono nombre="empresa" className="w-3.5 h-3.5" />{x.nombre}
             </button>
           ))}
         </div>
@@ -335,7 +336,7 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1" style={tipoEstilo(sesion.tipo)}>
-            <span>{tip.icon}</span>{tip.label}
+            <Icono nombre={tip.icono} className="w-3.5 h-3.5" />{tip.label}
           </span>
           <h3 className="text-base font-semibold text-text-1">{sesion.titulo}</h3>
           {sesion.track && sesion.track !== 'principal' && (
@@ -344,7 +345,7 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito
         </div>
         {sesion.descripcion && <p className="text-sm text-text-2 mt-1 leading-relaxed">{sesion.descripcion}</p>}
         <div className="flex items-center gap-3 mt-2 text-sm text-text-3 flex-wrap">
-          {sesion.ubicacion && <span>📍 {sesion.ubicacion}</span>}
+          {sesion.ubicacion && <span className="inline-flex items-center gap-1"><Icono nombre="pin" className="w-3.5 h-3.5" />{sesion.ubicacion}</span>}
           {sesion.speaker && (
             <span className="inline-flex items-center gap-2">
               {sesion.speaker.foto_url
@@ -355,7 +356,7 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito
           )}
           {sesion.torneo_id && slug && (
             <Link to={`/explorar/${slug}/torneo`} className="inline-flex items-center gap-1 text-primary-light hover:underline font-medium">
-              🏆 Ver llaves
+              <Icono nombre="trofeo" className="w-3.5 h-3.5" />Ver llaves
             </Link>
           )}
         </div>
@@ -383,12 +384,12 @@ function SesionChipPublica({ sesion, esFavorita, puedeMarcar, onToggle, slug, ya
     <div className="rounded-xl border px-2.5 py-2 relative"
       style={esFavorita ? { borderColor: 'rgba(234,179,8,0.4)', background: 'rgba(234,179,8,0.1)' } : tipoEstilo(sesion.tipo)}>
       <p className="text-[11px] font-mono tabular-nums opacity-80 pr-6">
-        {tip.icon} {new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+        <Icono nombre={tip.icono} className="w-3 h-3 inline-block align-[-2px]" /> {new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
       </p>
       <p className="text-sm font-semibold text-text-1 truncate pr-6">{sesion.titulo}</p>
       {sesion.speaker?.nombre && <p className="text-xs text-text-3 truncate">{sesion.speaker.nombre}</p>}
       {sesion.torneo_id && slug && (
-        <Link to={`/explorar/${slug}/torneo`} className="text-[11px] text-primary-light hover:underline font-medium">🏆 Ver llaves</Link>
+        <Link to={`/explorar/${slug}/torneo`} className="text-[11px] text-primary-light hover:underline font-medium"><Icono nombre="trofeo" className="w-3.5 h-3.5" />Ver llaves</Link>
       )}
       {sesion.requiere_inscripcion && (
         <div className="mt-1.5">
