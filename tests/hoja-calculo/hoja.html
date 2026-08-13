@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Prueba del lector de hojas</title>
+<style>body{font:14px/1.6 ui-monospace,Consolas,monospace;padding:20px;background:#12100B;color:#F1ECE0}
+.ok{color:#86A874}.mal{color:#D4795A;font-weight:700}h2{color:#C89B4A;font-size:14px;margin:18px 0 6px}
+pre{background:#1B1811;padding:10px;border-radius:4px;overflow:auto;color:#B7AF9C}</style></head>
+<body>
+<h1 id="resumen">corriendo…</h1>
+<div id="salida"></div>
+
+<script type="module">
+import { leerHoja, columnaAOpciones } from '/src/lib/hojaCalculo.js';
+
+const out = document.getElementById('salida');
+let pasan = 0, fallan = 0;
+
+function comprobar(nombre, real, esperado) {
+  const a = JSON.stringify(real), b = JSON.stringify(esperado);
+  const ok = a === b;
+  ok ? pasan++ : fallan++;
+  const d = document.createElement('div');
+  d.className = ok ? 'ok' : 'mal';
+  d.textContent = `${ok ? 'BIEN' : 'MAL '}  ${nombre}` + (ok ? '' : `\n        esperado: ${b}\n        real:     ${a}`);
+  d.style.whiteSpace = 'pre';
+  out.appendChild(d);
+}
+function titulo(t) { const h = document.createElement('h2'); h.textContent = t; out.appendChild(h); }
+
+try {
+  /* ── XLSX ── */
+  titulo('XLSX generado con openpyxl');
+  const blob = await (await fetch('/inscritos.xlsx')).blob();
+  const hoja = await leerHoja(new File([blob], 'inscritos.xlsx'));
+
+  const pre = document.createElement('pre');
+  pre.textContent = JSON.stringify(hoja, null, 1);
+  out.appendChild(pre);
+
+  comprobar('lee la PRIMERA hoja, no la segunda', hoja.hoja, 'Inscritos');
+  comprobar('encabezado duplicado se desambigua',
+    hoja.columnas, ['Nombre completo','Correo','Documento','Fecha de nacimiento','Edad','Acepta','Correo (2)']);
+  comprobar('la fila totalmente vacía se descarta', hoja.filas.length, 4);
+  comprobar('no se cuela nada de la hoja «Otra»',
+    hoja.filas.some(f => Object.values(f).includes('debe')), false);
+
+  const [ana, luis, nandu, zoe] = hoja.filas;
+  comprobar('texto normal', ana['Nombre completo'], 'Ana Gómez');
+  comprobar('fecha real → ISO (no el serial 33646)', ana['Fecha de nacimiento'], '1992-03-14');
+  comprobar('número', ana['Edad'], '33');
+  comprobar('booleano', ana['Acepta'], 'true');
+  comprobar('número de fila original', ana.__fila, 2);
+  comprobar('se recortan los espacios sobrantes', luis['Nombre completo'], 'Luis Pérez');
+  comprobar('fecha escrita como texto se respeta', luis['Fecha de nacimiento'], '1988-11-02');
+  comprobar('booleano falso no se pierde', luis['Acepta'], 'false');
+  comprobar('acentos y eñes', nandu['Nombre completo'], 'Ñandú Ürrutia');
+  comprobar('celda vacía → cadena vacía', nandu['Edad'], '');
+  comprobar('comillas y comas dentro de una celda', zoe['Nombre completo'], 'Zoé "comillas", coma');
+  comprobar('fin de año no se corre un día', zoe['Fecha de nacimiento'], '2000-12-31');
+  comprobar('no se marcó recorte', hoja.recortado, 0);
+
+  /* ── CSV ── */
+  titulo('CSV con punto y coma (el que produce Excel en español)');
+  const csv = '﻿Nombre;Correo;Notas\r\n'
+            + 'Ana;a@b.co;"dice ""hola""; y coma"\r\n'
+            + 'Luis;l@b.co;\r\n';
+  const h2 = await leerHoja(new File([csv], 'x.csv'));
+  comprobar('adivina el punto y coma', h2.columnas, ['Nombre','Correo','Notas']);
+  comprobar('quita el BOM del primer encabezado', h2.columnas[0], 'Nombre');
+  comprobar('comillas escapadas y delimitador dentro de comillas',
+    h2.filas[0]['Notas'], 'dice "hola"; y coma');
+  comprobar('última celda vacía', h2.filas[1]['Notas'], '');
+
+  titulo('CSV con coma');
+  const h3 = await leerHoja(new File(['a,b\n1,2\n'], 'y.csv'));
+  comprobar('coma por defecto', [h3.columnas, h3.filas[0]['b']], [['a','b'], '2']);
+
+  /* ── opciones ── */
+  titulo('Pegar una columna como opciones');
+  comprobar('salto de línea, sin repetidos',
+    columnaAOpciones('S\nM\nL\nM\n'), ['S','M','L']);
+  comprobar('tabuladores (pegado desde Excel)',
+    columnaAOpciones('Rojo\tVerde\tAzul'), ['Rojo','Verde','Azul']);
+  comprobar('comas sueltas', columnaAOpciones('XS, S, M'), ['XS','S','M']);
+  comprobar('comillas de sobra', columnaAOpciones('"Sí"\n\'No\''), ['Sí','No']);
+
+  /* ── errores con mensaje útil ── */
+  titulo('Errores');
+  try { await leerHoja(new File(['x'], 'viejo.xls')); comprobar('.xls avisa', 'no lanzó', 'lanza'); }
+  catch (e) { comprobar('.xls dice cómo arreglarlo', /Guardar como/.test(e.message), true); }
+  try { await leerHoja(new File(['x'], 'raro.pdf')); comprobar('formato raro avisa', 'no lanzó', 'lanza'); }
+  catch (e) { comprobar('formato no reconocido', /Formato no reconocido/.test(e.message), true); }
+} catch (e) {
+  fallan++;
+  const d = document.createElement('div');
+  d.className = 'mal';
+  d.textContent = 'EXCEPCIÓN: ' + e.message + '\n' + e.stack;
+  d.style.whiteSpace = 'pre-wrap';
+  out.appendChild(d);
+}
+
+document.getElementById('resumen').textContent = `RESULTADO: ${pasan} bien, ${fallan} mal`;
+document.getElementById('resumen').style.color = fallan ? '#D4795A' : '#86A874';
+</script>
+</body></html>

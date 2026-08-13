@@ -18,6 +18,9 @@ export const eventosApi = {
   /* Públicas (sin auth) */
   publicos     : (params = {}) => client.get('/eventos/publicos', { params }).then(r => r.data),
   publicoBySlug: (slug)        => client.get(`/eventos/publicos/slug/${slug}`).then(r => r.data),
+  /* Términos y privacidad PROPIOS del evento (migración 0059). El formulario
+     de inscripción los enlaza siempre. */
+  legalPublico : (slug)        => client.get(`/eventos/publicos/slug/${slug}/legal`).then(r => r.data),
   reservar     : (slug, body)  => client.post(`/eventos/publicos/slug/${slug}/reservar`, body).then(r => r.data),
   ticketByCode : (codigo)      => client.get(`/eventos/publicos/ticket/${codigo}`).then(r => r.data),
   completarFormularioTicket: (codigo, respuestas) =>

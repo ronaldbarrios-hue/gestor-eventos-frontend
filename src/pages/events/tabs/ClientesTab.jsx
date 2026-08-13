@@ -6,6 +6,8 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { clientesApi } from '../../../api/clientes.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
+import ImportarAsistentes from '../workspace/asistentes/ImportarAsistentes.jsx';
+import RepartoSinCorreo from '../workspace/asistentes/RepartoSinCorreo.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 
@@ -31,6 +33,7 @@ export default function ClientesTab({ evento }) {
   const [q, setQ]             = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
   const [importOpen, setImportOpen] = useState(false);
+  const [repartoOpen, setRepartoOpen] = useState(false);
   const [detalleCliente, setDetalleCliente] = useState(null);
   const { success, error: toastErr } = useToast();
 
@@ -88,8 +91,15 @@ export default function ClientesTab({ evento }) {
             title="Descarga un CSV con todos los clientes (respeta filtros activos)">
             <DownloadIcon className="w-3.5 h-3.5" /> Exportar CSV
           </button>
-          <button onClick={() => setImportOpen(true)} className="btn-secondary btn-sm">
-            <UploadIcon className="w-3.5 h-3.5" /> Importar CSV
+          <button onClick={() => setImportOpen(true)} className="btn-secondary btn-sm"
+            title="Excel o CSV, con mapeo de columnas a las preguntas del formulario">
+            <UploadIcon className="w-3.5 h-3.5" /> Importar Excel
+          </button>
+          {/* La salida si el correo no llega a tiempo: imprimir y repartir a mano. */}
+          <button onClick={() => setRepartoOpen(true)} className="btn-secondary btn-sm"
+            disabled={clientes.length === 0}
+            title="Imprimir invitaciones con QR o mandarlas por WhatsApp, sin depender del correo">
+            Reparto sin correo
           </button>
         </div>
       </div>
@@ -142,15 +152,15 @@ export default function ClientesTab({ evento }) {
       )}
 
       {importOpen && (
-        <ImportModal
-          eventoId={evento.id}
+        <ImportarAsistentes
+          evento={evento}
           onClose={() => setImportOpen(false)}
-          onDone={(stats) => {
-            setImportOpen(false);
-            success(`${stats.creados} cliente${stats.creados === 1 ? '' : 's'} importado${stats.creados === 1 ? '' : 's'}.`);
-            reload();
-          }}
+          onDone={() => { reload(); }}
         />
+      )}
+
+      {repartoOpen && (
+        <RepartoSinCorreo evento={evento} onClose={() => setRepartoOpen(false)} />
       )}
 
       {detalleCliente && (
@@ -444,221 +454,6 @@ function EmptyState({ hasFilter }) {
 }
 
 /* ─────────── Import CSV modal ─────────── */
-function ImportModal({ eventoId, onClose, onDone }) {
-  const { error: toastErr } = useToast();
-  const [tipos, setTipos]       = useState([]);
-  const [tipoId, setTipoId]     = useState('');
-  const [marcarPagado, setMarcarPagado] = useState(true);
-  const [filas, setFilas]       = useState(null); // [{nombre, email, telefono}]
-  const [working, setWorking]   = useState(false);
-  const [resultado, setResultado] = useState(null);
-
-  useEffect(() => {
-    ticketsApi.list(eventoId)
-      .then(d => {
-        const list = d.tickets || [];
-        setTipos(list);
-        if (list.length === 1) setTipoId(list[0].id);
-      })
-      .catch(e => toastErr(e.message));
-    /* eslint-disable-next-line */
-  }, [eventoId]);
-
-  const onFile = async (file) => {
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsed = parseCSV(text);
-      if (parsed.length === 0) throw new Error('El archivo no tiene filas válidas.');
-      setFilas(parsed);
-    } catch (e) { toastErr(e.message); }
-  };
-
-  const submit = async () => {
-    if (!tipoId) { toastErr('Elegí el tipo de boleta.'); return; }
-    if (!filas || filas.length === 0) { toastErr('Cargá un CSV primero.'); return; }
-    setWorking(true);
-    try {
-      const r = await clientesApi.importar(eventoId, {
-        ticket_type_id: tipoId,
-        marcar_pagado : marcarPagado,
-        rows          : filas,
-      });
-      setResultado(r);
-      if (r.errores.length === 0) {
-        onDone({ creados: r.creados });
-      }
-    } catch (e) { toastErr(e.response?.data?.error || e.message); }
-    finally    { setWorking(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/70 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
-      <div className="relative w-full max-w-2xl rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[88vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
-        onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 bg-surface px-5 py-4 border-b border-border flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Importar</p>
-            <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Asistentes desde CSV</h2>
-          </div>
-          <button onClick={onClose} aria-label="Cerrar"
-            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-
-        <div className="p-5 space-y-5">
-          {!resultado && (
-            <>
-              <div className="rounded-2xl bg-primary/5 border border-primary/20 px-4 py-3 text-sm text-text-2 leading-relaxed">
-                <p className="font-medium text-text-1 mb-1">Formato esperado</p>
-                <p>El archivo debe tener columnas <code className="font-mono text-xs">nombre</code>, <code className="font-mono text-xs">email</code> y opcionalmente <code className="font-mono text-xs">telefono</code>. La primera fila puede ser encabezado.</p>
-                <button onClick={() => downloadTemplate()} className="mt-2 text-xs text-primary-light hover:underline">Descargar plantilla CSV</button>
-              </div>
-
-              <div className="field">
-                <label className="label">Tipo de boleta</label>
-                <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="input bg-surface-2 rounded-2xl py-3 text-base">
-                  <option value="">— Selecciona —</option>
-                  {tipos.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.nombre} {t.precio ? `· $${Number(t.precio).toLocaleString('es-CO')}` : '· Gratis'}
-                    </option>
-                  ))}
-                </select>
-                {tipos.length === 0 && (
-                  <p className="text-xs text-warning mt-1">Primero creá tipos de boleta en la tab Tickets.</p>
-                )}
-              </div>
-
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={marcarPagado} onChange={e => setMarcarPagado(e.target.checked)}
-                  className="w-4 h-4 rounded mt-1" />
-                <div>
-                  <p className="text-sm text-text-1 font-medium">Marcar como pagados</p>
-                  <p className="text-xs text-text-3 leading-relaxed">Las boletas se crean en estado <strong>pagado</strong>. Si no, quedan como <strong>emitido</strong> (sin pago confirmado).</p>
-                </div>
-              </label>
-
-              <div className="field">
-                <label className="label">Archivo CSV</label>
-                <input type="file" accept=".csv,text/csv"
-                  onChange={e => onFile(e.target.files?.[0])}
-                  className="block w-full text-sm text-text-2 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary-light hover:file:bg-primary/20 file:cursor-pointer" />
-              </div>
-
-              {filas && (
-                <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-border bg-surface-2/40">
-                    <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Preview · {filas.length} fila{filas.length === 1 ? '' : 's'}</p>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto">
-                    {filas.slice(0, 20).map((f, i) => (
-                      <div key={i} className="px-4 py-2 text-sm border-b border-border last:border-0 flex items-center gap-3">
-                        <span className="text-xs text-text-3 tabular-nums w-6">{i + 1}</span>
-                        <span className="text-text-1 truncate flex-1">{f.nombre}</span>
-                        <span className="text-text-2 truncate flex-1">{f.email}</span>
-                        {f.telefono && <span className="text-xs text-text-3 truncate">{f.telefono}</span>}
-                      </div>
-                    ))}
-                    {filas.length > 20 && (
-                      <div className="px-4 py-2 text-xs text-text-3 text-center">+{filas.length - 20} más</div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button onClick={onClose} className="btn-ghost btn-sm">Cancelar</button>
-                <button onClick={submit} disabled={working || !filas || !tipoId} className="btn-primary btn-sm">
-                  {working ? <><Spinner size="sm" /> Importando...</> : `Importar ${filas?.length || 0}`}
-                </button>
-              </div>
-            </>
-          )}
-
-          {resultado && (
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-success/30 bg-success/10 px-4 py-3">
-                <p className="text-base font-semibold text-success-light">{resultado.creados} boleta{resultado.creados === 1 ? '' : 's'} creada{resultado.creados === 1 ? '' : 's'}</p>
-                {resultado.errores.length > 0 && (
-                  <p className="text-xs text-text-2 mt-1">{resultado.errores.length} fila{resultado.errores.length === 1 ? '' : 's'} con errores (ver abajo).</p>
-                )}
-              </div>
-
-              {resultado.errores.length > 0 && (
-                <div className="rounded-2xl border border-danger/30 bg-danger/5 overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-danger/20 bg-danger/10">
-                    <p className="text-xs uppercase tracking-widest text-danger-light font-semibold">Errores</p>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto">
-                    {resultado.errores.map((er, i) => (
-                      <div key={i} className="px-4 py-2 text-sm border-b border-danger/10 last:border-0">
-                        <span className="text-xs text-text-3 mr-2">Fila {er.fila}:</span>
-                        <span className="text-text-1">{er.motivo}</span>
-                        {er.row?.email && <span className="text-xs text-text-3 ml-2">({er.row.email})</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2">
-                <button onClick={() => onDone({ creados: resultado.creados })} className="btn-primary btn-sm">Cerrar</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function parseCSV(text) {
-  const sep = (text.match(/;/g)?.length || 0) > (text.match(/,/g)?.length || 0) ? ';' : ',';
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (lines.length === 0) return [];
-
-  const parseLine = (line) => {
-    const out = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQ = !inQ;
-      } else if (ch === sep && !inQ) {
-        out.push(cur); cur = '';
-      } else cur += ch;
-    }
-    out.push(cur);
-    return out.map(c => c.trim());
-  };
-
-  const firstCells = parseLine(lines[0]).map(c => c.toLowerCase());
-  const hasHeader = firstCells.some(c => c.includes('email') || c.includes('nombre') || c.includes('correo'));
-  let nombreIdx = 0, emailIdx = 1, telIdx = 2;
-  if (hasHeader) {
-    nombreIdx = firstCells.findIndex(c => c.includes('nombre'));
-    emailIdx  = firstCells.findIndex(c => c.includes('email') || c.includes('correo'));
-    telIdx    = firstCells.findIndex(c => c.includes('tel') || c.includes('phone') || c.includes('celular'));
-    if (nombreIdx === -1) nombreIdx = 0;
-    if (emailIdx  === -1) emailIdx  = 1;
-  }
-
-  const rows = [];
-  for (let i = hasHeader ? 1 : 0; i < lines.length; i++) {
-    const cells = parseLine(lines[i]);
-    if (cells.length === 0) continue;
-    rows.push({
-      nombre  : cells[nombreIdx] || '',
-      email   : cells[emailIdx]  || '',
-      telefono: telIdx >= 0 ? (cells[telIdx] || '') : '',
-    });
-  }
-  return rows;
-}
-
 function downloadTemplate() {
   const csv = 'nombre,email,telefono\nJuan Pérez,juan@example.com,300 000 0000\nMaría García,maria@example.com,';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });

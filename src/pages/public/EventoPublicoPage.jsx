@@ -10,6 +10,8 @@ import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/publi
 import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
+import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
+import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { useT } from '../../lib/i18n.js';
 
 export default function EventoPublicoPage() {
@@ -491,58 +493,6 @@ function WaitlistModal({ tipo, slug, onClose }) {
   );
 }
 
-function CampoDinamico({ campo, value, onChange, eventoId }) {
-  const req = campo.requerido;
-  if (campo.tipo === 'checkbox') {
-    return (
-      <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer py-1">
-        <input type="checkbox" checked={Boolean(value)} onChange={e => onChange(e.target.checked)}
-          className="w-4 h-4 mt-0.5 rounded accent-primary" />
-        <span>{campo.etiqueta}{req && <span className="text-danger-light"> *</span>}</span>
-      </label>
-    );
-  }
-  if (campo.tipo === 'seleccion') {
-    return (
-      <div className="field">
-        <label className="label">{campo.etiqueta}{req && ' *'}</label>
-        <select required={req} value={value || ''} onChange={e => onChange(e.target.value)}
-          className="input bg-surface-2 rounded-2xl py-3 text-base">
-          <option value="" disabled>Selecciona una opción</option>
-          {(campo.opciones || []).map(op => <option key={op} value={op}>{op}</option>)}
-        </select>
-      </div>
-    );
-  }
-  if (campo.tipo === 'foto') {
-    return (
-      <div className="field">
-        <label className="label">{campo.etiqueta}{req && ' *'}</label>
-        <FormPhotoUploaderLazy value={value} onChange={onChange} eventoId={eventoId} campoId={campo.id} />
-      </div>
-    );
-  }
-  const tipoInput = campo.tipo === 'numero' ? 'number' : campo.tipo === 'fecha' ? 'date' : 'text';
-  return (
-    <div className="field">
-      <label className="label">{campo.etiqueta}{req && ' *'}</label>
-      <input required={req} type={tipoInput} value={value || ''} onChange={e => onChange(e.target.value)}
-        className="input rounded-2xl py-3 text-base" />
-    </div>
-  );
-}
-
-/* Carga diferida: el uploader de fotos usa Supabase Storage directo desde
-   el navegador, así que solo lo importamos si realmente hay un campo tipo
-   "foto" en el formulario — evita cargarlo de más en eventos que no lo usan. */
-function FormPhotoUploaderLazy(props) {
-  const [Comp, setComp] = useState(null);
-  useEffect(() => {
-    import('../../components/ui/FormPhotoUploader.jsx').then(m => setComp(() => m.default));
-  }, []);
-  if (!Comp) return <div className="h-40 rounded-2xl bg-surface-2/40 animate-pulse" />;
-  return <Comp {...props} />;
-}
 
 /* ─────────── Modales de reserva ─────────── */
 /* Aviso del cupo que llegó por correo. Dos caras: la buena, con el plazo a la
@@ -604,21 +554,22 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
 
   const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
 
+  /* Términos PROPIOS del evento (0059). Si el organizador los publicó, la
+     casilla es obligatoria y la aceptación queda registrada con la boleta. */
+  const legal = useLegalEvento(slug);
+
   const submit = async (e) => {
     e.preventDefault();
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
     if (checkout.requiere_telefono && !form.telefono.trim()) { setErr('El teléfono es obligatorio.'); return; }
     if (checkout.edad_minima && !confirmaEdad) { setErr(`Debes confirmar que tienes al menos ${checkout.edad_minima} años.`); return; }
-    if (checkout.terminos_activo && !acepta) { setErr('Debes aceptar los términos para continuar.'); return; }
-    for (const c of camposForm) {
-      if (c.requerido) {
-        const v = respuestas[c.id];
-        if (v === undefined || v === null || v === '' || v === false) {
-          setErr(`El campo "${c.etiqueta}" es obligatorio.`);
-          return;
-        }
-      }
-    }
+    if ((legal.exige || checkout.terminos_activo) && !acepta) { setErr('Debes aceptar los términos para continuar.'); return; }
+    /* Misma regla que aplica el servidor (lib/formularioCampos.js). Antes aquí
+       sólo se miraba el hueco: un correo mal escrito o una selección fuera de
+       la lista pasaban el filtro y el rechazo llegaba del backend con las 22
+       preguntas ya llenas. */
+    const fallo = primerFallo(camposForm, respuestas, tipo.id);
+    if (fallo) { setErr(fallo); return; }
     setWorking(true); setErr('');
     try {
       /* El token del correo viaja con la compra: es lo que le da derecho al
@@ -629,11 +580,13 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
           ticket_type_id: tipo.id,
           nombre: form.nombre, email: form.email, telefono: form.telefono,
           captcha_token: captcha, respuestas,
+          ...(acepta ? { legal_aceptado: true } : {}),
           ...(cupoToken ? { waitlist_token: cupoToken } : {}),
         });
         onSuccess({ ...res.ticket, requierePago: !isFree, tipo, pagoSimple: tienePagoSimple && !isFree });
       } else {
         const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas,
+          ...(acepta ? { legal_aceptado: true } : {}),
           ...(cupoToken ? { waitlist_token: cupoToken } : {}) };
         if (gatewayRef.current === 'wompi') {
           const res = await pagosApi.comprarWompi(slug, body);
@@ -686,7 +639,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
         </div>
 
         {camposForm.map(c => (
-          <CampoDinamico key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={evento?.id} />
+          <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={evento?.id} />
         ))}
 
         {checkout.edad_minima > 0 && (
@@ -695,7 +648,12 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
             <span>Confirmo que tengo al menos <strong className="text-text-1">{checkout.edad_minima}</strong> años.</span>
           </label>
         )}
-        {checkout.terminos_activo && (
+        {/* Los del EVENTO (0059). Si el organizador no publicó los suyos, este
+            componente enlaza los de GESTEK y no bloquea. El `terminos_activo`
+            viejo de page_json se respeta como casilla extra sólo si el
+            organizador lo dejó encendido y no tiene documentos propios. */}
+        <AceptarTerminos slug={slug} estado={legal} aceptado={acepta} onChange={setAcepta} />
+        {!legal.exige && checkout.terminos_activo && (
           <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
             <input type="checkbox" checked={acepta} onChange={e => setAcepta(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-primary" />
             <span>
@@ -704,11 +662,6 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
             </span>
           </label>
         )}
-        <p className="text-[11px] text-text-3 leading-relaxed">
-          Al continuar aceptas los{' '}
-          <a href="/terminos" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">términos y condiciones</a> y la{' '}
-          <a href="/privacidad" target="_blank" rel="noreferrer noopener" className="underline hover:text-text-2">política de privacidad</a> de GESTEK.
-        </p>
         {!isFree && tienePagoSimple && (
           <div className="rounded-2xl bg-warning/10 border border-warning/25 px-4 py-3 text-xs text-text-2 leading-relaxed space-y-2">
             <p className="font-semibold text-warning-light">Pago manual vía Mercado Pago</p>

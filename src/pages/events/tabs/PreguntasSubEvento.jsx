@@ -23,18 +23,25 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 /* Sólo los tipos que tienen sentido en una pregunta corta. El catálogo
    completo viaja en la respuesta del servidor, pero ofrecerlo entero aquí
    invita a montar la ficha de caracterización en el sitio equivocado. */
-const TIPOS = [
-  { id: 'texto',    label: 'Texto corto' },
-  { id: 'textarea', label: 'Texto largo' },
-  { id: 'numero',   label: 'Número' },
-  { id: 'select',   label: 'Elegir una' },
-  { id: 'multiple', label: 'Elegir varias' },
-  { id: 'checkbox', label: 'Sí / no' },
-  { id: 'email',    label: 'Correo' },
-  { id: 'telefono', label: 'Teléfono' },
-  { id: 'fecha',    label: 'Fecha' },
-];
-const CON_OPCIONES = new Set(['select', 'multiple']);
+/* Los ids TIENEN que ser los del catálogo del servidor
+   (lib/formularioCampos.js). Aquí decían `select` y `textarea`, que no existen
+   —se llaman `seleccion` y `parrafo`—, así que `validarDefinicion` cortaba con
+   «Tipo de pregunta inválido» y guardar una pregunta de esos dos tipos fallaba
+   siempre. El renderizador público entendía los nombres inventados, con lo cual
+   editor y render se daban la razón entre ellos y el backend los rechazaba.
+
+   Se mantiene un SUBCONJUNTO a propósito: son preguntas cortas de un taller, y
+   ofrecer el catálogo entero invita a montar aquí la ficha de caracterización,
+   que va en el formulario del evento. Las etiquetas se toman del servidor
+   cuando llegan, para no volver a mantener dos textos. */
+const TIPOS_PERMITIDOS = ['texto', 'parrafo', 'numero', 'seleccion', 'multiple',
+                          'checkbox', 'email', 'telefono', 'fecha'];
+const ETIQUETAS_RESPALDO = {
+  texto: 'Texto corto', parrafo: 'Texto largo', numero: 'Número',
+  seleccion: 'Elegir una', multiple: 'Elegir varias', checkbox: 'Sí / no',
+  email: 'Correo', telefono: 'Teléfono', fecha: 'Fecha',
+};
+const CON_OPCIONES = new Set(['seleccion', 'multiple']);
 
 let contador = 0;
 const claveLocal = () => `nueva_${++contador}`;
@@ -43,6 +50,8 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
   const { success, error: toastErr } = useToast();
   const [campos, setCampos] = useState(null);   // null = cargando
   const [max, setMax] = useState(12);
+  const [tipos, setTipos] = useState(
+    TIPOS_PERMITIDOS.map(id => ({ id, label: ETIQUETAS_RESPALDO[id] })));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -52,6 +61,13 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
         if (!vivo) return;
         setCampos((d.campos || []).map(c => ({ ...c, _k: c.id })));
         if (d.max_campos) setMax(d.max_campos);
+        /* El catálogo viaja con la respuesta; se filtra al subconjunto. */
+        if (Array.isArray(d.tipos) && d.tipos.length) {
+          const porId = new Map(d.tipos.map(t => [t.id, t.label]));
+          setTipos(TIPOS_PERMITIDOS
+            .filter(id => porId.has(id))
+            .map(id => ({ id, label: porId.get(id) })));
+        }
       })
       .catch(e => { if (vivo) { toastErr(e.response?.data?.error || e.message); setCampos([]); } });
     return () => { vivo = false; };
@@ -130,6 +146,7 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
             <Pregunta
               key={c._k}
               campo={c}
+              tipos={tipos}
               primera={i === 0}
               ultima={i === campos.length - 1}
               onChange={patch => set(c._k, patch)}
@@ -166,7 +183,7 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
   );
 }
 
-function Pregunta({ campo, primera, ultima, onChange, onQuitar, onSubir, onBajar }) {
+function Pregunta({ campo, tipos, primera, ultima, onChange, onQuitar, onSubir, onBajar }) {
   const conOpciones = CON_OPCIONES.has(campo.tipo);
   const opciones = campo.opciones || [];
 
@@ -200,7 +217,7 @@ function Pregunta({ campo, primera, ultima, onChange, onQuitar, onSubir, onBajar
             onChange({ tipo, opciones: CON_OPCIONES.has(tipo) ? (opciones.length ? opciones : ['']) : null });
           }}
           className="input !h-9 text-xs w-auto">
-          {TIPOS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+          {tipos.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
 
         <label className="flex items-center gap-1.5 text-xs text-text-2 cursor-pointer">

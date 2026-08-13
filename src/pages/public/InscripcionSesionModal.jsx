@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { eventosApi } from '../../api/eventos.js';
+import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
+import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Apuntarse a un sub-evento desde la agenda pública.
@@ -31,6 +33,11 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState('');
   const [hecho, setHecho] = useState(false);
+  const [acepta, setAcepta] = useState(false);
+
+  /* Este modal no tenía NADA legal, y pide nombre, correo y teléfono a quien
+     entra sin boleta. Mismos documentos del evento que en la compra. */
+  const legal = useLegalEvento(slug);
 
   const pide = sesion.formulario_modo === 'propio' ? preguntas : [];
   const modoEvento = sesion.formulario_modo === 'evento';
@@ -46,20 +53,17 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
       if (!form.nombre.trim()) { setErr('Necesitamos tu nombre.'); return; }
       if (!form.email.includes('@')) { setErr('Necesitamos un correo válido.'); return; }
     }
-    for (const c of pide) {
-      if (!c.requerido) continue;
-      const v = respuestas[c.id];
-      if (v === undefined || v === null || v === '' || v === false) {
-        setErr(`"${c.etiqueta}" es obligatoria.`);
-        return;
-      }
-    }
+    /* Misma regla que el servidor (lib/formularioCampos.js). */
+    const fallo = primerFallo(pide, respuestas);
+    if (fallo) { setErr(fallo); return; }
+    if (legal.exige && !acepta) { setErr('Debes aceptar los términos del evento para continuar.'); return; }
 
     setWorking(true);
     try {
       await eventosApi.inscribirSesion(slug, sesion.id, {
         ...(conBoleta ? { codigo: codigo.trim().toUpperCase() } : form),
         respuestas,
+        ...(acepta ? { legal_aceptado: true } : {}),
       });
       setHecho(true);
       onInscrito?.(sesion.id);
@@ -145,7 +149,7 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
         )}
 
         {pide.map(c => (
-          <CampoSesion key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setResp(c.id, v)} />
+          <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setResp(c.id, v)} />
         ))}
 
         {/* El modo 'evento' reutiliza el formulario de compra: preguntarlo aquí
@@ -157,6 +161,8 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
           </p>
         )}
 
+        <AceptarTerminos slug={slug} estado={legal} aceptado={acepta} onChange={setAcepta} />
+
         <div className="flex items-center justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="btn-ghost">Cancelar</button>
           <button type="submit" disabled={working || sesion.lleno} className="btn-gradient">
@@ -166,75 +172,6 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
       </form>
     </Fondo>,
     document.body,
-  );
-}
-
-function CampoSesion({ campo, value, onChange }) {
-  const etiqueta = <label className="label">{campo.etiqueta}{campo.requerido && ' *'}</label>;
-  const ayuda = campo.ayuda ? <p className="text-[11px] text-text-3 mt-1">{campo.ayuda}</p> : null;
-  const cls = 'input rounded-2xl py-3 text-base';
-
-  if (campo.tipo === 'checkbox') {
-    return (
-      <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
-        <input type="checkbox" checked={Boolean(value)} onChange={e => onChange(e.target.checked)}
-          className="w-4 h-4 mt-0.5 rounded accent-primary" />
-        <span>{campo.etiqueta}{campo.requerido && ' *'}{campo.ayuda && <span className="block text-[11px] text-text-3">{campo.ayuda}</span>}</span>
-      </label>
-    );
-  }
-
-  if (campo.tipo === 'select') {
-    return (
-      <div className="field">
-        {etiqueta}
-        <select value={value ?? ''} onChange={e => onChange(e.target.value)} className={`${cls} bg-surface-2`}>
-          <option value="">Elige una…</option>
-          {(campo.opciones || []).map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-        {ayuda}
-      </div>
-    );
-  }
-
-  if (campo.tipo === 'multiple') {
-    const sel = Array.isArray(value) ? value : [];
-    return (
-      <div className="field">
-        {etiqueta}
-        <div className="space-y-1.5">
-          {(campo.opciones || []).map(o => (
-            <label key={o} className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
-              <input type="checkbox" checked={sel.includes(o)}
-                onChange={e => onChange(e.target.checked ? [...sel, o] : sel.filter(x => x !== o))}
-                className="w-4 h-4 rounded accent-primary" />
-              {o}
-            </label>
-          ))}
-        </div>
-        {ayuda}
-      </div>
-    );
-  }
-
-  if (campo.tipo === 'textarea') {
-    return (
-      <div className="field">
-        {etiqueta}
-        <textarea value={value ?? ''} onChange={e => onChange(e.target.value)} rows={3}
-          className={`${cls} resize-none`} />
-        {ayuda}
-      </div>
-    );
-  }
-
-  const type = { numero: 'number', email: 'email', telefono: 'tel', fecha: 'date' }[campo.tipo] || 'text';
-  return (
-    <div className="field">
-      {etiqueta}
-      <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)} className={cls} />
-      {ayuda}
-    </div>
   );
 }
 
