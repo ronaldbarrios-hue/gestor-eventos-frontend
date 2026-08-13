@@ -5,6 +5,7 @@ import { eventosApi } from '../../api/eventos.js';
 import { equipoApi } from '../../api/equipo.js';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
+import ConectarClaude from './ConectarClaude.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 import { pantallaInicial, setPantallaInicial } from '../../lib/prefs.js';
@@ -337,6 +338,9 @@ function Integraciones() {
   return (
     <Seccion titulo="Integraciones" desc="Servicios globales de tu cuenta. Las integraciones de cada evento viven en su Configuración.">
       <PagosTab />
+      {/* Claude: la llave la pone el organizador (su gasto, no el de la
+          plataforma) y el conector MCP deja operar la cuenta desde Claude. */}
+      <ConectarClaude />
       <WhiteLabelTab />
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-1 mb-2">Próximamente</h3>

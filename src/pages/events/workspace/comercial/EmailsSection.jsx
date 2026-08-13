@@ -4,6 +4,7 @@ import { ticketsApi } from '../../../../api/tickets.js';
 import { emailsApi } from '../../../../api/emails.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
+import BuzonPropio from './BuzonPropio.jsx';
 
 /* Event Experience · Emails — editor de las plantillas de correo por tipo,
    con variables y segmentación de destinatarios. Se guarda en
@@ -87,6 +88,11 @@ export default function EmailsSection({ evento }) {
   const meta = TIPOS.find(t => t.id === tipo);
 
   return (
+    <div className="space-y-5">
+    {/* Desde que correo salen: va arriba porque decide si los correos de este
+        evento llevan la direccion del organizador o la de la plataforma. */}
+    <BuzonPropio evento={evento} />
+
     <div className="grid lg:grid-cols-[240px_1fr_340px] gap-5 items-start">
       {/* Tipos de correo */}
       <aside className="rounded-2xl border border-border bg-surface/60 overflow-hidden">
@@ -194,6 +200,7 @@ export default function EmailsSection({ evento }) {
           <div className="px-6 py-3 text-center text-[11px] text-slate-400 border-t border-slate-200">{muestra(plantilla.footer, evento) || `${evento.titulo}`}</div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
