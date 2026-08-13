@@ -17,18 +17,25 @@ lo que toque backend o base de datos se avisa antes.
 >
 > | Pieza | Estado |
 > |---|---|
-> | Migraciones 0060–0067 | ✅ aplicadas |
-> | Backend (Render) | ✅ desplegado desde `main`, auto-deploy |
-> | **Frontend (Vercel)** | ❌ **falta: no auto-despliega, hay que lanzarlo a mano** |
+> | Migraciones 0060–0068 | ✅ aplicadas |
+> | Migración 0069 (constancia legal) | ⏸️ escrita, **sin aplicar** |
+> | Backend (Render) | ✅ auto-deploy desde `main` |
+> | Frontend (Vercel) | ✅ auto-deploy desde `main` |
 >
-> `main` tiene el código nuevo en los dos repos. Render lo cogió solo; **Vercel
-> no**. Se esperó siete minutos y seguía sirviendo el bundle anterior, así que
-> hay que lanzar el despliegue desde su panel (o desde cPanel con «Deploy HEAD
-> Commit», según cuál esté activo).
+> **Los dos repos despliegan solos al hacer push a `main`.** No hay que lanzar
+> nada a mano.
 >
-> Mientras tanto la aplicación funciona: backend nuevo + frontend viejo es una
-> combinación soportada a propósito. Lo que **no** se ve todavía es nada de lo
-> nuevo — iFrame, torneos anidados, buzón, Espacio del evento.
+> **Corrección (13 de agosto).** Aquí decía que Vercel *no* auto-desplegaba y
+> que había que lanzarlo desde su panel. Ya no es cierto y hacer caso de esa
+> línea cuesta tiempo. Comprobado por contenido, que es lo único concluyente:
+> el chunk que sirve producción trae `Reparto sin correo` e `Importar Excel` y
+> ya no trae `Importar CSV`, minutos después del push.
+>
+> Y de paso, cómo NO comprobarlo: comparar el hash del bundle local contra el de
+> producción **no vale**. El `dist/` que uno construye en su máquina y el que
+> construye Vercel no tienen por qué coincidir bit a bit, así que un hash
+> distinto no prueba que falte el despliegue. Hay que buscar texto que sólo
+> exista en el código nuevo.
 >
 > ### El puente, y por qué hay que retirarlo
 >
@@ -45,11 +52,15 @@ lo que toque backend o base de datos se avisa antes.
 >
 > **Para cerrarlo, en este orden:**
 >
-> 1. Desplegar el frontend.
+> 1. ~~Desplegar el frontend.~~ **Hecho** — despliega solo, ver arriba.
 > 2. Comprobar una página pública y un guardado desde el editor.
 > 3. Sólo entonces retirar el puente con el `drop` del final de la `0065`.
 >    Hasta ese paso hay dos copias del mismo dato a propósito, y el trigger es
 >    lo único que evita que se separen.
+>
+> Es decir: **el puente ya se puede retirar en cuanto se haga el paso 2**, que
+> es abrir una página pública y guardar algo desde el editor. Era lo único que
+> lo bloqueaba.
 >
 > Y una gratis: **`0007_event_roles.sql` ya no miente.** Siembra los roles en
 > español, los mismos valores que dejan la 0054 y la 0056. Reconstruir desde
