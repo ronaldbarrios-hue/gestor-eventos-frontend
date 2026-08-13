@@ -81,7 +81,7 @@ de terceros):
   rebotan es la forma más rápida de quemar la reputación.
 - `List-Unsubscribe` con baja en un clic (RFC 8058) en todo lo que sea campaña.
 
-### B · El buzón del propio organizador — *lo más literal a «su correo»*
+### B · El buzón del propio organizador — *lo más literal a «su correo»* ✅ **construido**
 
 El organizador conecta **su propia cuenta** (Gmail, Outlook, su cPanel) y el
 correo sale por ahí. No hace falta tocar el DNS: la autenticación ya es correcta
@@ -91,10 +91,28 @@ porque el correo lo manda él de verdad.
 - **En contra, y es definitivo para este evento:** los topes del proveedor.
   Gmail gratis ~500/día, Workspace ~2.000/día, Outlook ~300/día, cPanel 200/hora.
   **Para 7.000 no sirve.**
-- Sólo por OAuth, nunca guardando su contraseña.
+
+**Estado:** hecho. Está en *Event Experience → Emails → «Enviar desde tu propio
+correo»*, por evento. Guardar comprueba la conexión de verdad antes de darla por
+buena, y el aviso de volumen va en la propia tarjeta.
+
+Un cambio respecto a lo que decía este documento: se guarda la contraseña, no se
+usa OAuth. Cifrada con AES-256-GCM (`SMTP_CRYPTO_KEY`) y sin devolverla nunca por
+la API. OAuth sería mejor, pero sólo lo ofrecen Google y Microsoft, y dejaría
+fuera precisamente a quien tiene un buzón de su propio dominio en cPanel — que es
+el caso normal de un organizador con dominio propio.
+
+Dos detalles que costaron y conviene no deshacer:
+
+- **Si el buzón del organizador falla, el envío NO se cae en silencio al
+  remitente de la plataforma.** Quien conectó su correo espera que salga de ahí;
+  mandarlo desde otra dirección sin avisar es peor que fallar.
+- **Gmail no acepta la contraseña normal por SMTP** desde 2022: hace falta una
+  contraseña de aplicación, que a su vez exige verificación en dos pasos. Es la
+  causa número uno de fallo al conectar, y el mensaje de error lo dice.
 
 Sirve muy bien para lo de bajo volumen —invitaciones al equipo, respuestas,
-avisos a un puñado de gente— y no sirve para la boletería.
+avisos a un puñado de gente— y no sirve para la boletería de 7.000.
 
 ### C · Nuestro dominio con Reply-To — *lo que funciona hoy sin pedir nada*
 
