@@ -216,17 +216,15 @@ gente a la que hay que entregarle la boleta en mano es justo la que no lo tiene.
    16. Una vez que alguien se registra sin haberlos aceptado, **no hay forma de
    conseguir ese consentimiento hacia atrás** — y el formulario pide documento,
    teléfono y, con la ficha, etnia, discapacidad y condición de víctima.
-3. **Decidir qué hacer con `send-reminders-hourly`.** Es el único cron activo y
-   lleva **1.980 ejecuciones fallidas**, la última hoy. Nunca se configuró:
-   quedó la plantilla literal, con `<TU_PROJECT_REF>` y `<TU_ANON_KEY>` sin
-   rellenar, así que revienta dentro de Postgres al montar la URL y no llega
-   nunca al backend. Ojo: **arreglarlo lo pone a mandar recordatorios reales a
-   los 16 eventos**, así que decide antes si quieres eso o prefieres apagarlo y
-   dejar que el calendario `.ics` haga el recordatorio.
+3. ~~**Decidir qué hacer con `send-reminders-hourly`.**~~ **Decidido y hecho el
+   14 de agosto: los recordatorios los hace Google Calendar, no la
+   plataforma.** El cron quedó **desactivado** (`active = false`, no borrado)
+   tras 1.980 ejecuciones fallidas sin haber enviado nunca nada — nunca se
+   configuró, quedó la plantilla literal con `<TU_PROJECT_REF>` sin rellenar.
 
-   ```sql
-   select jobname, active, command from cron.job;
-   ```
+   Consecuencia de la decisión: **el `.ics` de la boleta deja de ser un extra y
+   pasa a ser el único recordatorio que recibe el asistente.** Si el correo de
+   la boleta no llega, no hay segunda oportunidad.
 4. **Retirar el puente de `page_json`.** Sigue vivo: dos copias del mismo dato
    y un trigger evitando que se separen. El paso que faltaba (desplegar el
    frontend) ya está hecho. Queda: abrir una página pública, guardar algo desde
