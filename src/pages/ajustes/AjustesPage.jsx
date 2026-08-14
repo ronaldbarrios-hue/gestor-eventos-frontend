@@ -341,7 +341,10 @@ function Integraciones() {
       {/* Claude: la llave la pone el organizador (su gasto, no el de la
           plataforma) y el conector MCP deja operar la cuenta desde Claude. */}
       <ConectarClaude />
-      <WhiteLabelTab />
+      {/* La marca de la cuenta NO va aquí: vive en Organización, que es donde
+          se decidió que pertenece. Estaba en las dos pestañas —se movió allí y
+          esta copia se quedó—, así que el mismo formulario aparecía dos veces
+          y editabas sin saber cuál de los dos estabas guardando. */}
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-1 mb-2">Próximamente</h3>
         <div className="flex flex-wrap gap-2">
