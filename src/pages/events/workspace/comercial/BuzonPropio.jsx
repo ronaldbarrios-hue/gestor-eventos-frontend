@@ -91,11 +91,19 @@ export default function BuzonPropio({ evento }) {
           Falta aplicar la migración 0071 en la base de datos.
         </p>
       )}
+      {/* El motivo concreto lo da el servidor: ver el comentario en
+          ConectarClaude.jsx. */}
       {estado.cifrado_listo === false && (
-        <p className="text-xs text-danger-light bg-danger/10 rounded-xl px-3 py-2">
-          El servidor no tiene <code>SMTP_CRYPTO_KEY</code>, así que no se puede guardar una
-          contraseña de forma segura.
-        </p>
+        <div className="text-xs text-danger-light bg-danger/10 rounded-xl px-3 py-2">
+          No se puede guardar una contraseña de forma segura: el cifrado de secretos del servidor
+          no está en condiciones.
+          {estado.cifrado?.mensaje
+            ? <span className="block mt-1.5 text-text-2">{estado.cifrado.mensaje}</span>
+            : <> Falta <code>SMTP_CRYPTO_KEY</code>.</>}
+          {estado.cifrado?.arreglo && (
+            <span className="block mt-1 text-[11px] text-text-3">{estado.cifrado.arreglo}</span>
+          )}
+        </div>
       )}
 
       {conectado && !editando ? (

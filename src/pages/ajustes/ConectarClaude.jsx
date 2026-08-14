@@ -114,10 +114,21 @@ export default function ConectarClaude() {
           </p>
         </div>
 
+        {/* El servidor dice POR QUÉ no está lista, no sólo que no lo está.
+            Decir «falta SMTP_CRYPTO_KEY» cuando la variable sí está puesta pero
+            mal —pegada dos veces, con un espacio— manda a buscar al sitio
+            equivocado. */}
         {estado.cifrado_listo === false && (
           <Aviso tono="danger">
-            El servidor no tiene configurado el cifrado de secretos, así que no se puede guardar una
-            llave de forma segura. Falta <code>SMTP_CRYPTO_KEY</code>.
+            No se puede guardar una llave de forma segura: el servidor no tiene el cifrado de
+            secretos en condiciones.
+            {estado.cifrado?.mensaje && (
+              <span className="block mt-1.5 text-text-2">{estado.cifrado.mensaje}</span>
+            )}
+            {estado.cifrado?.arreglo && (
+              <span className="block mt-1 text-[11px] text-text-3">{estado.cifrado.arreglo}</span>
+            )}
+            {!estado.cifrado && <> Falta <code>SMTP_CRYPTO_KEY</code>.</>}
           </Aviso>
         )}
         {estado.disponible === false && (
