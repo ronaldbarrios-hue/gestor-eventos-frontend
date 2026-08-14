@@ -4,39 +4,53 @@ import { integracionesApi } from '../../api/integraciones.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 
-/* Conectar Claude — dos caminos, y conviene entender que son distintos.
+/* Conectar Claude — dos cosas distintas, y conviene no confundirlas.
 
    1. TU LLAVE. El asistente del panel corría con la cuenta de la plataforma:
       cada organizador que lo usara costaba dinero a GESTEK, que no escala.
       Aquí cada quien pega la suya y paga su consumo, igual que conecta su
       cuenta de Mercado Pago.
 
-   2. GESTEK DENTRO DE CLAUDE. Un token y una URL, y Claude puede operar la
-      cuenta desde fuera del panel: «móntame el evento de septiembre». Son las
-      mismas 70 herramientas del asistente, expuestas por MCP.
+   2. GESTEK DENTRO DE CLAUDE. Un conector, y Claude puede operar la cuenta
+      desde fuera del panel: «móntame el evento de septiembre».
 
-   El primero hace falta para que el asistente de aquí dentro funcione; el
-   segundo para hablarle a Claude desde fuera. No se sustituyen. */
+   El camino normal del segundo es pegar UNA URL: el OAuth se encarga del
+   resto y no hay token que copiar ni que se pueda filtrar. El token queda como
+   plan B para Claude Code y Claude Desktop, que sí dejan poner una cabecera a
+   mano y donde el conector de la web no aplica. Va replegado a propósito: si se
+   ofrecen los dos caminos al mismo nivel, la mitad de la gente elige el que
+   deja una credencial pegada en un archivo. */
 
-const URL_API = import.meta.env.VITE_API_URL || '';
+const URL_API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 export default function ConectarClaude() {
   const { success, error: toastErr } = useToast();
 
-  const [estado, setEstado] = useState(null);   // null = cargando
+  const [estado, setEstado] = useState(null);
   const [llave, setLlave] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [probando, setProbando] = useState(false);
 
-  const [tokens, setTokens] = useState([]);
-  const [tokenNuevo, setTokenNuevo] = useState(null);  // sólo se ve una vez
+  const [conexiones, setConexiones] = useState([]);
+  const [verAvanzado, setVerAvanzado] = useState(false);
+  const [tokenNuevo, setTokenNuevo] = useState(null);
   const [creando, setCreando] = useState(false);
+  const [copiado, setCopiado] = useState('');
 
   const cargar = () => {
-    conexionesApi.verIA().then(setEstado).catch(e => { toastErr(e.message); setEstado({ disponible: false }); });
-    integracionesApi.listTokens().then(d => setTokens(d.tokens || d || [])).catch(() => setTokens([]));
+    conexionesApi.verIA().then(setEstado)
+      .catch(e => { toastErr(e.message); setEstado({ disponible: false }); });
+    conexionesApi.verMCP().then(d => setConexiones(d.conexiones || [])).catch(() => setConexiones([]));
   };
   useEffect(cargar, []); // eslint-disable-line
+
+  const copiar = async (texto, cual) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(cual);
+      setTimeout(() => setCopiado(''), 1800);
+    } catch { toastErr('No se pudo copiar. Selecciónalo a mano.'); }
+  };
 
   const guardar = async () => {
     if (!llave.trim()) { toastErr('Pega tu llave de Anthropic.'); return; }
@@ -61,21 +75,21 @@ export default function ConectarClaude() {
     finally { setProbando(false); }
   };
 
-  const desconectar = async () => {
-    try {
-      const r = await conexionesApi.borrarIA();
-      success(r.aviso || 'Desconectada.');
-      cargar();
-    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  const desconectarIA = async () => {
+    try { const r = await conexionesApi.borrarIA(); success(r.aviso || 'Desconectada.'); cargar(); }
+    catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
+  const cortar = async (id) => {
+    try { const r = await conexionesApi.cortarMCP(id); success(r.aviso || 'Conexión cortada.'); cargar(); }
+    catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
   const crearToken = async () => {
     setCreando(true);
     try {
       const r = await integracionesApi.crearToken('Claude (MCP)');
-      /* El token entero se ve UNA vez: después sólo queda su hash. */
       setTokenNuevo(r.token || r.raw || null);
-      cargar();
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setCreando(false); }
   };
@@ -101,37 +115,33 @@ export default function ConectarClaude() {
         </div>
 
         {estado.cifrado_listo === false && (
-          <p className="text-xs text-danger-light bg-danger/10 rounded-xl px-3 py-2">
+          <Aviso tono="danger">
             El servidor no tiene configurado el cifrado de secretos, así que no se puede guardar una
-            llave de forma segura. Hay que poner <code>SMTP_CRYPTO_KEY</code> antes.
-          </p>
+            llave de forma segura. Falta <code>SMTP_CRYPTO_KEY</code>.
+          </Aviso>
         )}
         {estado.disponible === false && (
-          <p className="text-xs text-warning-light bg-warning/10 rounded-xl px-3 py-2">
-            Falta aplicar la migración 0072 en la base de datos.
-          </p>
+          <Aviso tono="warning">Falta aplicar la migración 0072 en la base de datos.</Aviso>
         )}
 
         {conectada ? (
           <div className="rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-sm text-text-1">{c.pista}</span>
-              {c.verificado_ok === true && <span className="text-xs text-success">✓ comprobada</span>}
-              {c.verificado_ok === false && <span className="text-xs text-danger-light">✗ falla</span>}
+              {c.verificado_ok === true && <Pastilla tono="success">comprobada</Pastilla>}
+              {c.verificado_ok === false && <Pastilla tono="danger">falla</Pastilla>}
             </div>
             {c.verificado_at && (
               <p className="text-[11px] text-text-3">
                 Última comprobación: {new Date(c.verificado_at).toLocaleString('es-CO')}
               </p>
             )}
-            {c.verificado_error && (
-              <p className="text-xs text-danger-light">{c.verificado_error}</p>
-            )}
+            {c.verificado_error && <p className="text-xs text-danger-light">{c.verificado_error}</p>}
             <div className="flex gap-2 pt-1">
               <button onClick={probar} disabled={probando} className="btn-secondary btn-sm">
                 {probando ? <Spinner size="sm" /> : 'Probar de nuevo'}
               </button>
-              <button onClick={desconectar} className="btn-secondary btn-sm text-danger-light">Desconectar</button>
+              <button onClick={desconectarIA} className="btn-secondary btn-sm text-danger-light">Desconectar</button>
             </div>
           </div>
         ) : (
@@ -158,55 +168,125 @@ export default function ConectarClaude() {
         <div>
           <h3 className="text-sm font-semibold text-text-1">GESTEK dentro de Claude</h3>
           <p className="text-xs text-text-3 mt-1 leading-relaxed">
-            Conecta GESTEK como un conector en Claude y podrás pedirle las cosas desde ahí, sin entrar
-            al panel: <em>«móntame el evento de septiembre, con una boleta general a 50 mil y una VIP
-            a 120»</em>. Son las mismas herramientas del asistente — crear y publicar eventos, boletas,
-            asistentes, agenda y equipo.
+            Añádelo como conector en Claude y podrás pedirle las cosas desde ahí, sin entrar al
+            panel: <em>«móntame el evento de septiembre, con una boleta general a 50 mil y una VIP
+            a 120»</em>. Son las mismas herramientas del asistente.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">1 · La dirección</p>
-            <code className="text-xs text-text-1 break-all">{URL_API}/mcp</code>
+        {/* El camino normal: una URL y aprobar. */}
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-4 space-y-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[11px] uppercase tracking-widest text-primary-light font-semibold">
+              Pega esta dirección en Claude
+            </span>
           </div>
 
-          <div>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">2 · Tu token</p>
-            {tokenNuevo ? (
-              <div className="space-y-1.5">
-                <code className="block text-xs text-text-1 break-all bg-bg/60 rounded-lg px-3 py-2">{tokenNuevo}</code>
-                <p className="text-[11px] text-warning-light">
-                  Cópialo ahora: no se vuelve a mostrar. Sólo guardamos su huella.
-                </p>
-              </div>
-            ) : (
-              <button onClick={crearToken} disabled={creando} className="btn-secondary btn-sm">
-                {creando ? <Spinner size="sm" /> : 'Generar un token'}
-              </button>
-            )}
-            {tokens.length > 0 && (
-              <p className="text-[11px] text-text-3 mt-1.5">
-                Tienes {tokens.length} token{tokens.length === 1 ? '' : 's'} activo{tokens.length === 1 ? '' : 's'}.
-              </p>
-            )}
+          <div className="flex gap-2 items-center flex-wrap">
+            <code className="flex-1 min-w-0 text-xs text-text-1 break-all bg-bg/60 rounded-lg px-3 py-2">
+              {URL_API}/mcp
+            </code>
+            <button onClick={() => copiar(`${URL_API}/mcp`, 'url')} className="btn-secondary btn-sm shrink-0">
+              {copiado === 'url' ? '✓ Copiada' : 'Copiar'}
+            </button>
           </div>
 
-          <div>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">3 · En Claude</p>
-            <p className="text-xs text-text-2 leading-relaxed">
-              Añade un conector con esa dirección y pon el token en la cabecera{' '}
-              <code className="text-[11px]">Authorization: Bearer …</code>.
-            </p>
-          </div>
+          <ol className="space-y-1.5 text-xs text-text-2">
+            <li><strong className="text-text-1">1.</strong> En Claude, añade un conector personalizado con esa dirección.</li>
+            <li><strong className="text-text-1">2.</strong> Claude te traerá aquí para pedirte permiso.</li>
+            <li><strong className="text-text-1">3.</strong> Apruebas, y ya está.</li>
+          </ol>
+
+          <p className="text-[11px] text-text-3 leading-relaxed">
+            No hay token que copiar ni contraseña que compartir: Claude recibe un permiso que puedes
+            cortar desde aquí cuando quieras.
+          </p>
         </div>
 
-        <p className="text-[11px] text-text-3 leading-relaxed">
-          El token vale por tu cuenta entera, así que Claude sólo verá y tocará tus eventos. Trátalo
-          como una contraseña: quien lo tenga puede crear y publicar en tu nombre. Si se te escapa,
-          revócalo en Integraciones y genera otro.
-        </p>
+        {/* Conexiones vivas, con su botón de cortar. */}
+        {conexiones.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">
+              Conectado ahora
+            </p>
+            <div className="rounded-2xl border border-border divide-y divide-border overflow-hidden">
+              {conexiones.map(cx => (
+                <div key={cx.id} className="px-3 py-2.5 flex items-center gap-3 flex-wrap">
+                  <span className="text-sm text-text-1 flex-1 min-w-0 truncate">
+                    {cx.oauth_clients?.nombre || cx.client_id}
+                  </span>
+                  <span className="text-[11px] text-text-3">
+                    {cx.ultimo_uso_at
+                      ? `usado ${new Date(cx.ultimo_uso_at).toLocaleDateString('es-CO')}`
+                      : 'sin usar todavía'}
+                  </span>
+                  <button onClick={() => cortar(cx.id)}
+                    className="text-[11px] text-danger-light hover:underline shrink-0">Cortar</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Plan B, replegado. */}
+        <div>
+          <button onClick={() => setVerAvanzado(v => !v)}
+            className="text-[11px] text-text-3 hover:text-text-2 underline">
+            {verAvanzado ? 'Ocultar' : 'Conectar desde Claude Code o Claude Desktop'}
+          </button>
+
+          {verAvanzado && (
+            <div className="mt-3 rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-3">
+              <p className="text-xs text-text-2 leading-relaxed">
+                Esos dos no usan el conector de la web: se les pone la cabecera a mano, y para eso
+                hace falta un token.
+              </p>
+
+              {tokenNuevo ? (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <code className="flex-1 min-w-0 text-xs text-text-1 break-all bg-bg/60 rounded-lg px-3 py-2">
+                      {tokenNuevo}
+                    </code>
+                    <button onClick={() => copiar(tokenNuevo, 'tok')} className="btn-secondary btn-sm shrink-0">
+                      {copiado === 'tok' ? '✓' : 'Copiar'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-warning-light">
+                    Cópialo ahora: no se vuelve a mostrar. Sólo guardamos su huella.
+                  </p>
+                  <p className="text-[11px] text-text-3">Después, en tu terminal:</p>
+                  <code className="block text-[11px] text-text-2 break-all bg-bg/60 rounded-lg px-3 py-2">
+                    claude mcp add --transport http gestek {URL_API}/mcp --header &quot;Authorization: Bearer TU_TOKEN&quot;
+                  </code>
+                </div>
+              ) : (
+                <button onClick={crearToken} disabled={creando} className="btn-secondary btn-sm">
+                  {creando ? <Spinner size="sm" /> : 'Generar un token'}
+                </button>
+              )}
+
+              <p className="text-[11px] text-text-3 leading-relaxed">
+                Un token vale por tu cuenta entera y no caduca: quien lo tenga puede crear y publicar
+                en tu nombre. Trátalo como una contraseña, y si se te escapa revócalo abajo en
+                Integraciones.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function Aviso({ tono, children }) {
+  const cls = tono === 'danger'
+    ? 'text-danger-light bg-danger/10'
+    : 'text-warning-light bg-warning/10';
+  return <p className={`text-xs rounded-xl px-3 py-2 ${cls}`}>{children}</p>;
+}
+
+function Pastilla({ tono, children }) {
+  const cls = tono === 'success' ? 'text-success' : 'text-danger-light';
+  return <span className={`text-xs ${cls}`}>{tono === 'success' ? '✓' : '✗'} {children}</span>;
 }

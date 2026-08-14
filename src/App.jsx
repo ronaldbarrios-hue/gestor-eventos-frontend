@@ -22,6 +22,7 @@ const TorneosResumenPage = lazy(() => import('./pages/public/TorneosResumenPage.
 const RankingPublicoPage = lazy(() => import('./pages/public/RankingPublicoPage.jsx'));
 const AgendaPublicaPage  = lazy(() => import('./pages/public/AgendaPublicaPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
+const AutorizarPage = lazy(() => import('./pages/conectar/AutorizarPage.jsx'));
 const EmbedPage          = lazy(() => import('./pages/public/EmbedPage.jsx'));
 const ExpositorPage      = lazy(() => import('./pages/public/ExpositorPage.jsx'));
 const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
@@ -95,6 +96,10 @@ export default function App() {
                 <Route path="/explorar/:slug/ranking" element={<RankingPublicoPage />} />
                 <Route path="/explorar/:slug/agenda" element={<AgendaPublicaPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
+                {/* Consentimiento del conector OAuth. Publica a proposito: se
+                    llega desde Claude sin sesion, y la propia pantalla manda a
+                    entrar guardando a donde volver. */}
+                <Route path="/conectar/autorizar" element={<AutorizarPage />} />
                 <Route path="/expositor/:codigo"  element={<ExpositorPage />} />
                   <Route path="/faq"               element={<FAQPage />} />
                 <Route path="/privacidad"        element={<PrivacidadPage />} />

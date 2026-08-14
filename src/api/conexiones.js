@@ -8,4 +8,9 @@ export const conexionesApi = {
   guardarIA: (body)  => client.put('/me/conexiones/ia', body).then(r => r.data),
   probarIA : ()      => client.post('/me/conexiones/ia/probar').then(r => r.data),
   borrarIA : ()      => client.delete('/me/conexiones/ia').then(r => r.data),
+
+  /* Conectores OAuth vivos (Claude y lo que venga). Se pueden cortar desde el
+     panel sin tocar nada en la otra aplicacion. */
+  verMCP   : ()      => client.get('/me/conexiones/mcp').then(r => r.data),
+  cortarMCP: (id)    => client.delete(`/me/conexiones/mcp/${id}`).then(r => r.data),
 };
