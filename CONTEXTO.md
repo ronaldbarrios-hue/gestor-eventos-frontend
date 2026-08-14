@@ -45,37 +45,72 @@ La base es **Supabase** (`yopontbwgdybfsniqawz`, **plan free**), Postgres 17.
 | Eventos vivos | 16 |
 | Boletas emitidas | 34 |
 | Campos de formulario | 20 |
-| Correos intentados **en la historia del proyecto** | **0** |
 | Eventos con términos propios escritos | **0** |
-| Buzones propios / llaves de IA / conectores | 0 / 0 / 0 |
+| Buzones propios / llaves de IA | 0 / 0 |
+| Conector de Claude | 1, funcionando |
 
 ---
 
 ## 2 · El riesgo número uno
 
-**No hay proveedor de correo configurado, y nunca ha salido un solo correo.**
-No es que fallen: la tabla de envíos está vacía con 34 boletas emitidas.
+> **Corregido el 14 de agosto por la tarde.** Este documento decía que no había
+> proveedor de correo configurado. Era falso: **Resend está puesto en Render
+> desde hace tiempo.** El diagnóstico correcto es peor y mejor a la vez.
 
-Si los registros abren sin SMTP, la gente compra y **no recibe nada** — ni
-boleta, ni QR, ni calendario. Todo lo construido esta sesión encamina correo y
-queda esperando esa credencial.
+Durante toda la vida del proyecto, el correo automático **no fallaba: se
+evaporaba**. Cero filas en la tabla de envíos con 34 boletas emitidas, y ningún
+error en ningún sitio.
 
-Hace falta **una** de estas tres, en el `.env` del backend en Render:
+La causa, encontrada probando el recorrido completo desde el conector, era una
+línea en `lib/emailPlantillas.js`:
 
-| Opción | Variables |
-|---|---|
-| **cPanel SMTP** (la de producción) | `CPANEL_SMTP_USER`, `CPANEL_SMTP_PASS`, `CPANEL_SMTP_HOST`, `CPANEL_SMTP_PORT` |
-| Gmail OAuth2 | `GMAIL_USER`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` |
-| Resend | `RESEND_API_KEY` |
-
-En cuanto lleguen, comprobarlas sin desplegar y sin escribirle a nadie:
-
-```bash
-npm run probar:smtp                       # ¿sirven?
-npm run probar:smtp -- --enviar tu@correo.com   # mándate una de verdad
+```js
+if (evento && 'page_json' in evento) return conSitio(evento);
 ```
 
-Si falla por puerto, el script prueba el otro solo y dice cuál poner.
+El contrato de `enviarEmailEvento` dice que `evento` puede ser sólo el id, y
+**nueve** puntos de envío pasan el id pelado —la boleta pagada, los pagos, los
+recordatorios, las tareas, el equipo, la cola…—. Pero `'page_json' in "un-uuid"`
+lanza `TypeError`: el operador `in` exige un objeto. Y una cadena no vacía es
+truthy, así que pasaba el guardia y reventaba ahí.
+
+Lo que lo volvió invisible: esa función se llamaba **fuera** del `try`, así que
+el error se escapaba de `enviarEmailEvento` entera, y todos los que la llaman
+usan `.catch(() => {})` para que un correo fallido no tumbe una compra. El
+`TypeError` caía en ese catch vacío. Ni excepción, ni log, ni registro — el
+registro está *después* del punto donde reventaba.
+
+**Ya está arreglado, y comprobado en producción**: el primer envío de la
+historia del proyecto quedó registrado. Falló, pero por un motivo real y
+visible: `Resend 422`. Ahora el motivo se guarda entero, con lo que dijo Resend
+y qué hacer.
+
+### Lo que queda por resolver del correo
+
+El primer 422 se leyó como «el dominio del remitente no está verificado». **No
+era eso**: en cuanto el motivo empezó a guardarse entero, Resend dijo qué
+pasaba de verdad —
+
+> Invalid `to` field. Please use our testing email address instead of domains
+> like `example.com`.
+
+Era la dirección de prueba, no la configuración. O sea que **el correo puede
+estar bien ya**, y no hay forma de saberlo sin mandar uno a una bandeja real.
+
+**Lo único que falta comprobar del correo es eso: un envío a una dirección de
+verdad.** Emitir una cortesía a un correo propio y mirar:
+
+```sql
+select destinatario, ok, motivo from evento_email_envios order by created_at desc limit 5;
+```
+
+Si sale `ok = true` y llega, el correo está resuelto. Si vuelve un 422 hablando
+del dominio, entonces sí toca verificarlo en
+[resend.com/domains](https://resend.com/domains).
+
+Esto es un recordatorio de por qué el motivo hay que guardarlo entero: dos
+diagnósticos opuestos —«hay que tocar DNS» y «no hay nada que tocar»— cabían
+igual de bien en «Resend 422».
 
 ---
 
@@ -83,8 +118,8 @@ Si falla por puerto, el script prueba el otro solo y dice cuál poner.
 
 | Variable | Para qué | Sin ella |
 |---|---|---|
-| `CPANEL_SMTP_*` | Todo el correo | Nada sale. **Bloquea la apertura de registros** |
-| `SMTP_CRYPTO_KEY` | Cifrar buzones propios y llaves de IA | Las tablas existen, guardar devuelve un error claro |
+| `RESEND_API_KEY` | El correo | **Ya está puesta.** Lo que falta es verificar el dominio en Resend |
+| `SMTP_CRYPTO_KEY` | Cifrar buzones propios y llaves de IA | Las tablas existen, guardar devuelve un error que ahora dice por qué |
 | `EMAIL_COLA_ACTIVA=1` | Encender la cola con freno | Envío directo, sin protección ante picos |
 | `EMAIL_MAX_POR_HORA` | Ritmo de la cola | Por defecto 150/h |
 | `ANTHROPIC_API_KEY` | Gestbot con la cuenta de la plataforma | Sin ella, cada organizador usa la suya (que es lo que queremos) |
@@ -175,29 +210,39 @@ gente a la que hay que entregarle la boleta en mano es justo la que no lo tiene.
 
 ### Esta semana, antes de que abran los registros
 
-1. **El SMTP.** Sección 2. Es lo único que bloquea funciones enteras.
+1. **Verificar el dominio en Resend.** Sección 2. Es lo único que separa a la
+   plataforma de mandar correo de verdad, y el código ya está arreglado.
 2. **Escribir los términos de los eventos.** `evento_legal` está vacía en los
    16. Una vez que alguien se registra sin haberlos aceptado, **no hay forma de
    conseguir ese consentimiento hacia atrás** — y el formulario pide documento,
    teléfono y, con la ficha, etnia, discapacidad y condición de víctima.
-3. **Retirar el puente de `page_json`.** Sigue vivo: dos copias del mismo dato
+3. **Decidir qué hacer con `send-reminders-hourly`.** Es el único cron activo y
+   lleva **1.980 ejecuciones fallidas**, la última hoy. Nunca se configuró:
+   quedó la plantilla literal, con `<TU_PROJECT_REF>` y `<TU_ANON_KEY>` sin
+   rellenar, así que revienta dentro de Postgres al montar la URL y no llega
+   nunca al backend. Ojo: **arreglarlo lo pone a mandar recordatorios reales a
+   los 16 eventos**, así que decide antes si quieres eso o prefieres apagarlo y
+   dejar que el calendario `.ics` haga el recordatorio.
+
+   ```sql
+   select jobname, active, command from cron.job;
+   ```
+4. **Retirar el puente de `page_json`.** Sigue vivo: dos copias del mismo dato
    y un trigger evitando que se separen. El paso que faltaba (desplegar el
    frontend) ya está hecho. Queda: abrir una página pública, guardar algo desde
    el editor, y entonces ejecutar el `drop` del final de la `0065`.
-4. **Encender la cola** (`EMAIL_COLA_ACTIVA=1`). Sin ella, el pico del día de
-   apertura puede bloquear la cuenta de cPanel y dejar sin correo a **toda** la
-   venta, no sólo a ese pico.
-5. **Decidir Supabase Pro** (~25 USD/mes). Quita la pausa por inactividad y el
+5. **Encender la cola** (`EMAIL_COLA_ACTIVA=1`). Sin ella, el pico del día de
+   apertura sale de golpe contra el tope del proveedor.
+6. **Decidir Supabase Pro** (~25 USD/mes). Quita la pausa por inactividad y el
    techo de cómputo el día del pico. Ver `MIGRACION-SUPABASE.md`.
 
 ### Antes del evento
 
-6. **Probar el reparto de punta a punta**: imprimir un bloque y **escanear uno
+7. **Probar el reparto de punta a punta**: imprimir un bloque y **escanear uno
    de esos QR en el check-in**. Diez minutos, y es lo único que confirma que la
    red de seguridad funciona.
-7. **Prueba de carga del escaneo.** Es la única función que no puede fallar el
+8. **Prueba de carga del escaneo.** Es la única función que no puede fallar el
    día del evento.
-8. **El recorrido completo** con un evento de prueba (está en `PENDIENTE.md`).
 9. **`MP_WEBHOOK_SECRET`.** Hueco de seguridad abierto.
 
 ### Después del evento
@@ -210,17 +255,33 @@ gente a la que hay que entregarle la boleta en mano es justo la que no lo tiene.
 
 ---
 
-## 6 · Lo que está construido y NADIE ha visto funcionar
+## 6 · Qué se ha visto funcionar, y qué no
 
-Honestidad sobre el alcance de las pruebas: compila, las 104 pruebas del
-backend pasan, y verifiqué los flujos de máquina contra producción. Pero
-**ningún recorrido con una cuenta real se ha ejecutado**:
+### Probado contra producción, de punta a punta (14 de agosto)
 
-- El importador de asistentes no se ha corrido contra el endpoint real.
+Recorrido completo de un evento, desde el conector de Claude:
+
+| Paso | Resultado |
+|---|---|
+| Crear evento, boletas, ponente, agenda, descuento | Bien, con la zona horaria correcta |
+| Publicar | Bien |
+| Página pública (API y web) | 200, con las dos boletas y la agenda |
+| Emitir cortesía | Bien |
+| Página de la boleta con QR firmado | 200, token de 253 caracteres |
+| Check-in | Bien |
+| **Check-in otra vez con la misma boleta** | **Rechazado**, y dice a qué hora entró |
+| Check-in con código inventado | Rechazado |
+| Aislamiento del conector | Sólo ve los eventos de su dueño, no los 16 |
+
+El evento de prueba se borró después.
+
+### Construido pero sin recorrido humano
+
+- El importador no se ha corrido contra el endpoint real con un Excel de verdad.
 - La impresión de invitaciones no se ha visto salir de una impresora.
-- El paso humano del OAuth (aprobar) necesita una sesión: no lo he hecho.
 - El buzón propio no se ha probado con credenciales reales.
-- No se ha enviado **ningún** correo, nunca.
+- **No ha llegado ningún correo a una bandeja todavía.** Ya se intenta y se
+  registra —eso es nuevo—, pero Resend lo rechaza hasta verificar el dominio.
 
 ---
 
@@ -245,6 +306,19 @@ curl -s https://gestekeventost.dpdns.org/ | grep -oE 'assets/index-[^"]+\.js'
 **Base de datos.** Lo que toque migraciones se avisa antes de aplicar. Y una
 migración que salga por delante del código ya costó un incidente (31 páginas
 públicas vacías unos minutos).
+
+**Una prueba que pasa no siempre protege.** Al arreglar el TypeError del correo
+se escribió una prueba que comprobaba «no lanza». Pasaba con el fallo puesto:
+el `try` que se había añadido en el mismo arreglo atrapaba el error y devolvía
+un objeto igual. La prueba medía el segundo arreglo, no el primero. La forma de
+saberlo es **volver a meter el fallo a propósito y exigir que la prueba falle**
+— y hacerlo antes de creerse la prueba, no después.
+
+**`git checkout --` para deshacer un experimento borra todo lo no commiteado
+de ese archivo.** Al probar lo anterior se perdieron los dos arreglos, y la
+comprobación de que seguían ahí dio un falso positivo porque el `grep` casó con
+otra línea parecida. Si se va a experimentar sobre un archivo con cambios sin
+guardar, se hace copia primero, y se verifica con el texto exacto.
 
 **Estilo de la casa.** Comentarios en español que explican **por qué**, no qué.
 Los mensajes de commit cuentan el problema y la decisión, no la lista de
