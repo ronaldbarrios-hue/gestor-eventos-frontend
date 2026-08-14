@@ -275,13 +275,25 @@ Recorrido completo de un evento, desde el conector de Claude:
 
 El evento de prueba se borró después.
 
+### El correo, resuelto
+
+Con el TypeError arreglado, una cortesía a una dirección real quedó registrada
+con **`ok = true`**: Resend la aceptó. Es el primer correo que sale del
+proyecto. Lo que Resend acepta no es lo mismo que lo que llega a la bandeja
+—queda mirar carpeta de correo no deseado—, pero la cadena entera funciona.
+
 ### Construido pero sin recorrido humano
 
 - El importador no se ha corrido contra el endpoint real con un Excel de verdad.
 - La impresión de invitaciones no se ha visto salir de una impresora.
 - El buzón propio no se ha probado con credenciales reales.
-- **No ha llegado ningún correo a una bandeja todavía.** Ya se intenta y se
-  registra —eso es nuevo—, pero Resend lo rechaza hasta verificar el dominio.
+
+### Un detalle pendiente, menor
+
+Los recordatorios sueltos salen con tipo `personalizado`, que **no lleva el
+`.ics` adjunto** (`CON_CALENDARIO` no lo incluye). Los recordatorios
+automáticos sí. Añadirlo es una línea, pero afectaría también a las campañas
+libres del panel, donde un calendario no siempre pinta. Decisión pendiente.
 
 ---
 
