@@ -337,8 +337,9 @@ puede funcionar, pero nadie lo ha visto funcionar de principio a fin.
 | **Marca → guardar → se ve en público** | Arreglado, sin comprobar | Causa confirmada y corregida arriba; falta el recorrido con cuenta real |
 | Comprar o reservar boleta → email → QR | Sin probar | — |
 | **Escanear QR → check-in → métricas** | Sin probar | `CheckinTab` llama a `clientesApi.checkin` y `reingreso`; existe el camino, no se ha ejecutado |
-| **Vacante pública → candidato aplica** | **Roto en producción** | El backend nunca se desplegó en Render: sigue devolviendo 401 |
-| Emails automáticos (recordatorios, recibos) | Sin cerrar | Falta atar la cascada al SMTP de cPanel |
+| **Vacante pública → candidato aplica** | **No estaba roto** | El 401 es intencionado: `POST /vacantes/:id/postular` usa `req.user.id` y exige perfil de talento. No se puede postular sin cuenta **por diseño**. Queda una decisión de producto —¿se quiere postulación anónima?—, no un fallo que arreglar |
+| Emails automáticos (recibos) | **Funcionando** | El correo de boleta sale y queda registrado con `ok`. Ver CONTEXTO.md §2: no faltaba proveedor, había un TypeError que se tragaba un catch vacío |
+| Recordatorios automáticos | **Retirados a propósito** | Decisión del 14/08: los hace Google Calendar. El cron quedó desactivado |
 | iFrame incrustado en una web externa | Construido, sin probar fuera | #32 hecho: ocho secciones y los tres modos. Falta pegarlo en una web real |
 | **Cupo liberado → correo → el siguiente compra** | Construido, sin probar | Todo el ciclo existe (0061). **No se puede ver funcionar sin proveedor de correo** |
 | **Apuntarse a un sub-evento desde fuera** | Construido, sin probar | La pantalla que faltaba ya está; el endpoint llevaba tiempo sin usar |
