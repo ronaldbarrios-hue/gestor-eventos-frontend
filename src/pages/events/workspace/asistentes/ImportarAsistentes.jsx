@@ -225,10 +225,20 @@ export default function ImportarAsistentes({ evento, onClose, onDone }) {
                 {resultado.creados} boletas creadas
                 {resultado.errores.length > 0 && <span className="text-danger-light"> · {resultado.errores.length} sin crear</span>}
               </p>
-              {resultado.sin_correo > 0 && (
+              {/* Que la importación no notifique es deliberado —son miles de
+                  filas, y esta vía existe para cuando el correo no está—, pero
+                  «47 boletas creadas» se lee como «47 personas ya la tienen».
+                  Nadie ha recibido nada, y hay que decirlo aquí mismo. */}
+              {resultado.creados > 0 && (
                 <p className="text-xs text-warning-light">
-                  {resultado.sin_correo} quedaron <strong>sin correo</strong>. No se les puede escribir:
-                  hay que entregarles la boleta impresa o por WhatsApp desde «Reparto sin correo».
+                  Nadie ha sido avisado todavía: la importación <strong>no envía correos</strong>.
+                  Reparte los códigos desde «Reparto sin correo».
+                </p>
+              )}
+              {resultado.sin_correo > 0 && (
+                <p className="text-xs text-text-3">
+                  Además, {resultado.sin_correo} quedaron <strong>sin correo</strong>, así que a esas
+                  no se les podrá escribir ni más adelante.
                 </p>
               )}
               {resultado.errores.length > 0 && (
