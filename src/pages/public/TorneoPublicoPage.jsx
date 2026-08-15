@@ -44,8 +44,11 @@ export default function TorneoPublicoPage() {
 
   if (!data.torneo) {
     return (
-      <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-        <p className="text-sm text-text-3">Este evento todavía no tiene un torneo configurado.</p>
+      <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+        <BarraEvento actual="torneo" />
+        <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
+          <p className="text-sm text-text-3">Este evento todavía no tiene un torneo configurado.</p>
+        </div>
       </section>
     );
   }

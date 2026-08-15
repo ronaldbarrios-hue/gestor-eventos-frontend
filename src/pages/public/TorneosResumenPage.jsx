@@ -51,8 +51,11 @@ export default function TorneosResumenPage() {
   );
 
   if (torneos.length === 0) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center">
-      <p className="text-sm text-text-3">Este evento todavía no tiene torneos.</p>
+    <section className="px-5 py-10 max-w-4xl mx-auto">
+      <BarraEvento actual="torneo" />
+      <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
+        <p className="text-sm text-text-3">Este evento todavía no tiene torneos.</p>
+      </div>
     </section>
   );
 

@@ -49,9 +49,13 @@ export default function NetworkingPublicPage() {
     </section>
   );
 
+  /* La puerta de sesión es la pantalla que más gente ve de esta sección, y era
+     la que menos salida tenía: pedía iniciar sesión y no dejaba ni volver al
+     evento ni pasar a la agenda, que sí es pública. */
   if (!usuario) {
     return (
-      <section className="px-5 py-16 max-w-lg mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <section className="px-5 py-10 max-w-lg mx-auto animate-[fadeUp_0.4s_ease_both]">
+        <BarraEvento actual="networking" />
         <div className="rounded-3xl border-2 border-primary/30 bg-primary/5 px-6 py-10 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/15 border border-primary/30 mb-5">
             <svg className="w-7 h-7 text-primary-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -78,7 +82,8 @@ export default function NetworkingPublicPage() {
 
   if (bloqueado) {
     return (
-      <section className="px-5 py-16 max-w-lg mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <section className="px-5 py-10 max-w-lg mx-auto animate-[fadeUp_0.4s_ease_both]">
+        <BarraEvento actual="networking" />
         <div className="rounded-3xl border-2 border-warning/40 bg-warning/10 px-6 py-10 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-warning/20 border border-warning/40 mb-5">
             <svg className="w-7 h-7 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
