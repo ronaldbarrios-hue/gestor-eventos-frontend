@@ -3,6 +3,8 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { supabase } from '../lib/supabase.js';
+import { INDICATIVOS } from '../lib/paises.js';
+import { verificar } from '../lib/validarDato.js';
 import logoG from '../assets/logo-g.svg';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader from '../components/ui/AvatarUploader.jsx';
@@ -40,6 +42,9 @@ export default function CompletarPerfilPage() {
     nombre       : usuario?.nombre        || '',
     avatar_url   : usuario?.foto          || '',
     telefono     : usuario?.telefono      || '',
+    /* El indicativo NO estaba en el estado, que es la raiz de que el
+       desplegable fuera decoracion. */
+    indicativo   : '+57',
     empresa      : usuario?.empresa       || '',
     ocupacion    : usuario?.ocupacion     || '',
     ciudad       : usuario?.ciudad        || '',
@@ -65,11 +70,23 @@ export default function CompletarPerfilPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  /* El telefono se verifica al salir del campo y otra vez al enviar: avisar
+     tarde es mejor que no avisar, pero avisar al salir evita llegar al final
+     con el dato malo. */
+  const [errTel, setErrTel] = useState(null);
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!form.aceptar)            { setErr('Debes aceptar los términos para continuar.'); return; }
     if (!form.telefono.trim())    { setErr('Tu teléfono nos ayuda a contactarte sobre tus eventos.'); return; }
     if (!form.nombre.trim())      { setErr('Tu nombre es obligatorio.'); return; }
+
+    const malTel = verificar('telefono', form.telefono);
+    if (malTel) { setErrTel(malTel); setErr(malTel); return; }
+
+    /* Se guarda con el indicativo delante, igual que en el registro
+       (AuthPage). Antes se guardaba el numero pelado. */
+    const telefonoCompleto = `${form.indicativo} ${form.telefono}`.trim();
 
     setLoading(true);
     try {
@@ -77,7 +94,7 @@ export default function CompletarPerfilPage() {
         data: {
           nombre        : form.nombre,
           foto          : form.avatar_url,
-          telefono      : form.telefono,
+          telefono      : telefonoCompleto,
           empresa       : form.empresa,
           ocupacion     : form.ocupacion,
           ciudad        : form.ciudad,
@@ -94,7 +111,7 @@ export default function CompletarPerfilPage() {
         .update({
           nombre    : form.nombre,
           avatar_url: form.avatar_url || null,
-          telefono  : form.telefono,
+          telefono  : telefonoCompleto,
           empresa   : form.empresa,
           ocupacion : form.ocupacion,
           ciudad    : form.ciudad,
@@ -251,17 +268,37 @@ export default function CompletarPerfilPage() {
               <div {...stagger(5)} className={`${stagger(5).className} rounded-3xl border border-border bg-surface/40 p-6 space-y-4`}>
                 <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Contacto</p>
 
-                <div className="field">
-                  <label className="label">Teléfono *</label>
-                  <div className="grid grid-cols-[110px_1fr] gap-2">
-                    <select className="input rounded-2xl py-3">
-                      <option>+57 CO</option><option>+1 US</option><option>+34 ES</option><option>+52 MX</option>
+                {/* El desplegable del indicativo no estaba conectado a nada
+                    —sin name, sin value, sin onChange— y ademas traia cuatro
+                    paises escritos a mano. Era decoracion: se eligiera lo que
+                    se eligiera, el numero se guardaba SIN prefijo, y un
+                    telefono sin indicativo no sirve ni para llamar ni para
+                    WhatsApp, que es justo para lo que se pide.
+
+                    Es el mismo fallo que AuthPage documenta haber corregido en
+                    el registro; aqui se quedo la version rota. Se usa la misma
+                    lista y el mismo ancho de 128px: con 110 el texto "+57 CO"
+                    mas la flecha quedaba cortado. */}
+                <div className="field ancho">
+                  <label className="label" htmlFor="perf-tel">Teléfono *</label>
+                  <div className="grid grid-cols-[128px_1fr] gap-2">
+                    <select
+                      value={form.indicativo} onChange={e => change('indicativo', e.target.value)}
+                      className="input rounded-2xl py-3 text-sm px-2.5"
+                      aria-label="Indicativo del país">
+                      {INDICATIVOS.map(p => (
+                        <option key={p.code + p.dial} value={p.dial}>{p.dial} {p.code}</option>
+                      ))}
                     </select>
                     <input
+                      id="perf-tel" type="tel" inputMode="tel" autoComplete="tel-national"
                       value={form.telefono} onChange={e => change('telefono', e.target.value)}
-                      className="input-form" placeholder="300 000 0000" required
+                      onBlur={() => setErrTel(verificar('telefono', form.telefono))}
+                      className={`input-form min-w-0 ${errTel ? 'field-error' : ''}`}
+                      placeholder="300 000 0000" required
                     />
                   </div>
+                  {errTel && <p className="text-[11px] text-danger-light mt-1">{errTel}</p>}
                 </div>
 
                 {!esFlujoLigero && (

@@ -9,6 +9,7 @@ import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploader.jsx';
 import { supabase } from '../lib/supabase.js';
 import { PAISES, bandera, INDICATIVOS } from '../lib/paises.js';
+import { verificar, verificarCorreo, detectarTipo } from '../lib/validarDato.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 const DUR_OUT = 420;
@@ -98,7 +99,12 @@ export default function AuthPage() {
       {/* Una sola tarjeta con las dos mitades adentro. Antes eran dos columnas
           sueltas que se desvanecían y volvían a aparecer; ahora la mitad de
           color se desliza de un lado al otro y el contenido viaja con ella. */}
-      <div className="relative w-full max-w-5xl mx-auto lg:rounded-[2rem] lg:border lg:border-border-2
+      {/* El ancho declarado no se alcanzaba: `max-w-5xl` son 1024px, la mitad
+          512, y con `xl:p-12` (96px de padding horizontal) quedaban 416px de
+          formulario. O sea que el formulario se ESTRECHABA al crecer la
+          pantalla, y el `max-w-md` de dentro era letra muerta. Se sube el
+          tope y se baja el padding para que el `max-w-lg` sea real. */}
+      <div className="relative w-full max-w-5xl xl:max-w-6xl mx-auto lg:rounded-[2rem] lg:border lg:border-border-2
                       lg:bg-surface/40 lg:backdrop-blur-xl lg:shadow-card-hover lg:overflow-hidden">
 
         {/* La mitad de color. Es la noche de la marca, así que resalta contra
@@ -121,10 +127,12 @@ export default function AuthPage() {
           <div className={`absolute inset-y-0 w-px bg-primary/25 ${isLogin ? 'left-0' : 'right-0'}`} />
         </div>
 
-        <div className="relative z-10 grid lg:grid-cols-2 lg:min-h-[640px]">
+        {/* 560 y no 640: con el paso 1 del registro en dos columnas la mitad
+            del formulario se acorta, y el alto fijo dejaba un hueco muerto. */}
+        <div className="relative z-10 grid lg:grid-cols-2 lg:min-h-[560px]">
           {/* Formulario */}
-          <div className={`${isLogin ? 'lg:order-1' : 'lg:order-2'} flex items-center lg:p-10 xl:p-12 ${animFormulario}`}>
-            <div className="w-full max-w-md mx-auto">
+          <div className={`${isLogin ? 'lg:order-1' : 'lg:order-2'} flex items-center lg:p-8 xl:p-10 ${animFormulario}`}>
+            <div className="w-full max-w-lg mx-auto">
               {isLogin ? <LoginForm /> : <RegisterForm />}
             </div>
           </div>
@@ -457,8 +465,17 @@ function RegisterForm() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /* Al salir del campo email, chequeamos si hay una invitación pendiente */
+  /* Errores por campo. El registro NO verificaba nada del dato: sólo el largo
+     de la contraseña. El correo llegaba hasta el contexto de auth, que se
+     conformaba con que tuviera arroba — así entra un «juan@casa» sin punto, o
+     un teléfono en la casilla del correo, y no se descubre hasta que la
+     confirmación no llega a ninguna parte. */
+  const [errCampo, setErrCampo] = useState({});
+
+  /* Al salir del campo email: se comprueba el dato Y se busca la invitación.
+     Antes sólo lo segundo. */
   const onBlurEmail = async () => {
+    setErrCampo(v => ({ ...v, email: verificarCorreo(paso1.email) }));
     if (!paso1.email || !paso1.email.includes('@')) { setInvitacion(null); return; }
     setCheckingInvite(true);
     const info = await checkInvitacionPendiente(paso1.email);
@@ -468,6 +485,17 @@ function RegisterForm() {
 
   const submitPaso1 = e => {
     e.preventDefault();
+
+    /* Se verifica ANTES de avanzar al paso 2: descubrir en el último paso que
+       el correo estaba mal obliga a volver, y volver pierde el sitio. */
+    const malos = {
+      email   : verificarCorreo(paso1.email),
+      telefono: verificar('telefono', paso1.telefono),
+    };
+    setErrCampo(malos);
+    const primero = malos.email || malos.telefono;
+    if (primero) { setErr(primero); return; }
+
     if (paso1.password.length < 8) { setErr('La contraseña debe tener al menos 8 caracteres.'); return; }
     if (!esFlujoLigero && !paso1.participantes) { setErr('Selecciona el tamaño típico de tus eventos.'); return; }
     setStep(2);
@@ -687,27 +715,32 @@ function RegisterForm() {
             <Link to="/login" className="text-primary-light hover:text-primary font-semibold transition-colors">Iniciar sesión</Link>
           </p>
 
-          <form onSubmit={submitPaso1} className={`${staggerClass} space-y-4`} style={staggerStyle(5)}>
-            {err && <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
+          <form onSubmit={submitPaso1} className={`${staggerClass} grid-form`} style={staggerStyle(5)}>
+            {err && <div className="ancho px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
 
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="field">
-                <label className="label">Nombre</label>
-                <input name="nombre" value={paso1.nombre} onChange={onChange1}
-                  className="input-form" placeholder="Juan Pérez"
-                  required autoFocus style={{ fontSize: '16px' }} />
-              </div>
-              <div className="field">
-                <label className="label">{esFlujoLigero ? 'Email' : 'Email empresarial'}</label>
-                <input type="email" name="email" value={paso1.email} onChange={onChange1}
-                  onBlur={onBlurEmail}
-                  className="input-form" placeholder="juan@empresa.com"
-                  required style={{ fontSize: '16px' }} />
-              </div>
+            <div className="field">
+              <label className="label" htmlFor="reg-nombre">Nombre</label>
+              <input id="reg-nombre" name="nombre" value={paso1.nombre} onChange={onChange1}
+                className="input-form" placeholder="Juan Pérez"
+                required autoFocus />
+            </div>
+
+            {/* El correo ocupa la fila entera. En media columna quedaban ~170px
+                utiles: 21 caracteres, y "juan.medina@hytrex.co" son 21 justos.
+                Es la identidad de la cuenta y donde llega la confirmacion; si
+                no se lee entero, no se puede comprobar antes de enviar. */}
+            <div className="field ancho">
+              <label className="label" htmlFor="reg-email">{esFlujoLigero ? 'Email' : 'Email empresarial'}</label>
+              <input id="reg-email" type="email" name="email" inputMode="email" autoComplete="email"
+                value={paso1.email} onChange={onChange1}
+                onBlur={onBlurEmail}
+                className={`input-form ${errCampo.email ? 'field-error' : ''}`} placeholder="juan@empresa.com"
+                required />
+              {errCampo.email && <p className="text-[11px] text-danger-light mt-1">{errCampo.email}</p>}
             </div>
 
             {invitacion?.invitado && (
-              <div className="px-4 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-sm text-text-2 leading-relaxed animate-[fadeUp_0.3s_ease_both]">
+              <div className="ancho px-4 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-sm text-text-2 leading-relaxed animate-[fadeUp_0.3s_ease_both]">
                 <span className="text-text-1 font-medium">¡Te estaban esperando!</span> Fuiste invitado como <strong className="text-text-1">{invitacion.rol}</strong>
                 {invitacion.eventoTitulo ? <> a <strong className="text-text-1">{invitacion.eventoTitulo}</strong></> : ''}. Solo necesitamos lo básico para crear tu cuenta.
               </div>
@@ -724,8 +757,8 @@ function RegisterForm() {
                 El otro era de sitio: 90px con "+57 CO" dentro, más la flecha
                 del desplegable, dejaba el texto cortado. Ahora son 128 y el
                 número queda holgado al lado. */}
-            <div className="field">
-              <label className="label">Teléfono</label>
+            <div className="field ancho">
+              <label className="label" htmlFor="reg-tel">Teléfono</label>
               <div className="grid grid-cols-[128px_1fr] gap-2">
                 <select
                   name="indicativo" value={paso1.indicativo} onChange={onChange1}
@@ -736,43 +769,48 @@ function RegisterForm() {
                     <option key={p.code + p.dial} value={p.dial}>{p.dial} {p.code}</option>
                   ))}
                 </select>
-                <input name="telefono" value={paso1.telefono} onChange={onChange1}
+                <input id="reg-tel" name="telefono" value={paso1.telefono} onChange={onChange1}
                   type="tel" inputMode="tel" autoComplete="tel-national"
-                  className="input-form min-w-0" placeholder="300 000 0000"
-                  style={{ fontSize: '16px' }} />
+                  onBlur={() => setErrCampo(v => ({ ...v, telefono: verificar('telefono', paso1.telefono) }))}
+                  className={`input-form min-w-0 ${errCampo.telefono ? 'field-error' : ''}`}
+                  placeholder="300 000 0000" />
               </div>
+              {errCampo.telefono && <p className="text-[11px] text-danger-light mt-1">{errCampo.telefono}</p>}
             </div>
 
             {!esFlujoLigero && (
               <>
+                {/* `pr-10` para que la flecha del desplegable no se monte
+                    sobre "Menos de 50", que es la opcion mas larga. */}
                 <div className="field">
-                  <label className="label">Número esperado de participantes</label>
-                  <select name="participantes" value={paso1.participantes} onChange={onChange1}
-                    className="input-form" required style={{ fontSize: '16px' }}>
+                  <label className="label" htmlFor="reg-part">Participantes esperados</label>
+                  <select id="reg-part" name="participantes" value={paso1.participantes} onChange={onChange1}
+                    className="input-form pr-10" required>
                     <option value="">Seleccionar...</option>
                     {PARTICIPANTES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
 
-                <div className="field">
-                  <label className="label">Para preparar tu entorno de trabajo</label>
+                {/* Tres renglones y redimensionable: el marcador de posicion no
+                    cabia en dos, y se pide texto libre. */}
+                <div className="field ancho">
+                  <label className="label" htmlFor="reg-ctx">Para preparar tu entorno de trabajo</label>
                   <textarea
-                    name="contexto" value={paso1.contexto} onChange={onChange1} rows={2}
-                    className="input-form resize-none"
+                    id="reg-ctx" name="contexto" value={paso1.contexto} onChange={onChange1} rows={3}
+                    className="input-form"
                     placeholder="Qué eventos organizas, frecuencia e industria. El agente IA usará esto."
-                    style={{ fontSize: '16px' }}
                   />
                 </div>
               </>
             )}
 
-            <div className="field">
-              <label className="label">Contraseña</label>
+            <div className="field ancho">
+              <label className="label" htmlFor="reg-pwd">Contraseña</label>
               <div className="relative">
                 <input
-                  type={showPwd ? 'text' : 'password'} name="password" value={paso1.password} onChange={onChange1}
-                  className="input rounded-2xl py-3 pr-12 text-base" placeholder="Mínimo 8 caracteres"
-                  minLength={8} required style={{ fontSize: '16px' }} />
+                  id="reg-pwd" type={showPwd ? 'text' : 'password'} name="password" value={paso1.password} onChange={onChange1}
+                  className="input-form pr-12" placeholder="Mínimo 8 caracteres"
+                  minLength={8} required />
                 <button
                   type="button" onClick={() => setShowPwd(v => !v)}
                   aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
@@ -785,7 +823,7 @@ function RegisterForm() {
               </div>
             </div>
 
-            <p className="text-[11px] text-text-3 leading-relaxed">
+            <p className="ancho text-[11px] text-text-3 leading-relaxed">
               Al continuar aceptas nuestros{' '}
               <a className="underline text-text-2 hover:text-text-1" href="/terminos" target="_blank" rel="noreferrer">términos y condiciones</a> y la{' '}
               <a className="underline text-text-2 hover:text-text-1" href="/privacidad" target="_blank" rel="noreferrer">política de privacidad</a>.
@@ -846,11 +884,14 @@ function RegisterForm() {
               </div>
             )}
 
+            {/* `pr-10`: sin ese hueco la flecha del desplegable se monta
+                encima del texto, y «República Dominicana» queda cortada justo
+                por donde se distingue de «República Checa». */}
             {!invitacion?.invitado && (
               <div className="field">
-                <label className="label">País</label>
-                <select name="ciudad" value={paso2.ciudad} onChange={onChange2}
-                  className="input-form" style={{ fontSize: '16px' }}>
+                <label className="label" htmlFor="reg-pais">País</label>
+                <select id="reg-pais" name="ciudad" value={paso2.ciudad} onChange={onChange2}
+                  className="input-form pr-10">
                   <option value="">Seleccionar...</option>
                   {PAISES.map(p => (
                     <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
