@@ -25,6 +25,10 @@ const ESPACIOS = [
   { id: 'networking', ruta: 'networking', label: 'Rueda de Negocios',  icono: 'manos',      bandera: (e) => e.tiene_networking },
   { id: 'torneo',     ruta: 'torneo',     label: 'Torneo',             icono: 'trofeo',     bandera: (e) => e.tiene_torneo },
   { id: 'ranking',    ruta: 'ranking',    label: 'Ranking',            icono: 'estrella',   bandera: (e) => e.tiene_expositores },
+  /* El mapa se configura en el panel y se guarda en `page_json.mapa`. No hay
+     bandera del servidor para él, así que se mira el dato directamente: si hay
+     plano, hay mapa que enseñar. */
+  { id: 'mapa',       ruta: 'mapa',       label: 'Mapa del evento',    icono: 'pin',        bandera: (e) => Boolean(e.page_json?.mapa) },
 ];
 
 export default function BarraEvento({ actual, evento: eventoProp = null }) {
