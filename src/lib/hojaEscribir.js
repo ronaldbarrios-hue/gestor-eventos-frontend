@@ -165,16 +165,33 @@ async function zip(archivos) {
 
 /* ── La parte que se usa ──────────────────────────────────────────────── */
 
-/* `filas` incluye la cabecera como primera fila. */
-export async function construirXlsx(filas, titulo = 'Datos') {
-  const hoja = nombreHoja(titulo);
+/* Varias hojas: `[{ titulo, filas }]`. Hizo falta al armar la plantilla de
+   importación, que sin una hoja de instrucciones al lado no se rellena bien —
+   y las instrucciones no pueden ir en la misma hoja que los datos, porque
+   entonces se suben como si fueran preguntas.
+
+   Los nombres se hacen únicos: Excel rechaza el libro entero si dos pestañas
+   se llaman igual, y al recortar a 31 caracteres dos títulos largos que
+   empiezan parecido acaban colisionando. */
+export async function construirLibro(hojas) {
+  const usados = new Set();
+  const partes = hojas.map((h, i) => {
+    let nombre = nombreHoja(h.titulo || `Hoja ${i + 1}`);
+    if (usados.has(nombre.toLowerCase())) {
+      const sufijo = ` ${i + 1}`;
+      nombre = nombre.slice(0, 31 - sufijo.length) + sufijo;
+    }
+    usados.add(nombre.toLowerCase());
+    return { nombre, filas: h.filas || [] };
+  });
+
   return zip([
     { nombre: '[Content_Types].xml', datos: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+${partes.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('\n')}
 </Types>` },
     { nombre: '_rels/.rels', datos: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -182,13 +199,18 @@ export async function construirXlsx(filas, titulo = 'Datos') {
 </Relationships>` },
     { nombre: 'xl/workbook.xml', datos: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="${escXml(hoja)}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+<sheets>${partes.map((p, i) => `<sheet name="${escXml(p.nombre)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>` },
     { nombre: 'xl/_rels/workbook.xml.rels', datos: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+${partes.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('\n')}
 </Relationships>` },
-    { nombre: 'xl/worksheets/sheet1.xml', datos: hojaXml(filas) },
+    ...partes.map((p, i) => ({ nombre: `xl/worksheets/sheet${i + 1}.xml`, datos: hojaXml(p.filas) })),
   ]);
+}
+
+/* Una sola hoja, que es el caso corriente. `filas` incluye la cabecera. */
+export async function construirXlsx(filas, titulo = 'Datos') {
+  return construirLibro([{ titulo, filas }]);
 }
 
 /* Salida de emergencia. Lleva BOM para que Excel no destroce las tildes, y

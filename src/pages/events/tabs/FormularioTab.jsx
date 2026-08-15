@@ -4,10 +4,9 @@ import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
-import {
-  leerHoja, columnaAOpciones, emparejarColumna, esAfirmativo, clave, FORMATOS_ACEPTADOS,
-} from '../../../lib/hojaCalculo.js';
+import { leerHoja, columnaAOpciones, FORMATOS_ACEPTADOS } from '../../../lib/hojaCalculo.js';
 import { esBuscable } from '../../../components/ui/CampoFormulario.jsx';
+import { descargarPlantilla, leerPlantilla } from '../../../lib/plantillaFormulario.js';
 
 /* Tab Formulario — campos personalizados que se piden al comprar o reservar.
    Se guardan preservando el `id` de cada campo existente (el backend hace un
@@ -43,224 +42,178 @@ function nuevoCampo(preset = {}) {
   };
 }
 
-/* ── Importar la batería desde una hoja ──────────────────────────────── */
+/* ── Cargar preguntas desde la plantilla ──────────────────────────────
 
-const COLUMNAS_DEF = {
-  etiqueta : ['pregunta', 'enunciado', 'etiqueta', 'campo', 'nombre del campo', 'nombre'],
-  tipo     : ['tipo', 'tipo de respuesta', 'tipo de campo', 'formato'],
-  opciones : ['opciones', 'opcion', 'valores', 'lista', 'respuestas posibles'],
-  grupo    : ['grupo', 'seccion', 'categoria', 'bloque', 'modulo'],
-  requerido: ['obligatorio', 'requerido', 'obligatoria', 'obligatorio si no'],
-  ayuda    : ['ayuda', 'descripcion', 'nota', 'aclaracion', 'instruccion'],
-};
+   Antes esto aceptaba cualquier hoja y adivinaba las columnas por sinónimos
+   («pregunta», «enunciado», «campo», «nombre»…) y el tipo por otra tabla de
+   sinónimos. Sonaba servicial y era lo contrario: adivinar falla EN SILENCIO.
+   Una columna llamada «Tipo» que traía el tipo de BOLETA se tomaba como tipo
+   de pregunta, la importación decía «listo», y el error salía en la página
+   pública con gente ya comprando.
 
-/* Sinónimos de tipo. Se resuelven contra el catálogo del servidor, así que si
-   mañana aparece un tipo nuevo basta añadirlo allí y aquí sólo se le suman
-   sinónimos si hacen falta.
+   Ahora hay una plantilla y la hoja se adapta a ella. Se pierde la comodidad
+   de subir cualquier archivo; se gana que cuando algo no encaja se diga qué
+   fila y qué columna, en vez de colar una interpretación equivocada.
 
-   Cuidado con «opción múltiple»: en castellano corriente significa elegir UNA
-   de varias, no varias a la vez. Mapearlo a `multiple` convertiría media
-   batería en casillas por un giro del idioma. */
-const SINONIMOS_TIPO = {
-  texto    : ['texto', 'texto corto', 'abierta', 'abierto', 'libre', 'string', 'caracter'],
-  parrafo  : ['parrafo', 'texto largo', 'textarea', 'abierta larga', 'comentario'],
-  numero   : ['numero', 'entero', 'cantidad', 'numerico', 'edad'],
-  fecha    : ['fecha', 'date', 'dia'],
-  email    : ['email', 'correo', 'correo electronico', 'mail'],
-  telefono : ['telefono', 'celular', 'movil', 'contacto telefonico'],
-  documento: ['documento', 'cedula', 'identificacion', 'nit', 'numero de documento', 'dni'],
-  seleccion: ['seleccion', 'select', 'lista', 'lista desplegable', 'unica', 'una opcion',
-              'opcion multiple', 'seleccion unica', 'desplegable'],
-  multiple : ['multiple', 'seleccion multiple', 'varias', 'varias opciones', 'casillas',
-              'multiseleccion', 'multi'],
-  checkbox : ['checkbox', 'casilla', 'si no', 'si o no', 'booleano', 'boolean', 'verdadero falso'],
-  foto     : ['foto', 'imagen', 'archivo', 'adjunto', 'fotografia'],
-};
+   La definición de la plantilla viene del servidor con el catálogo, así que la
+   hoja que se descarga y la que se acepta al subir son la misma por
+   construcción. */
 
-/* Devuelve el id de tipo del catálogo, o null si no se reconoce. */
-function resolverTipo(valor, tiposCatalogo) {
-  const k = clave(valor);
-  if (!k) return null;
-  const idsValidos = new Set(tiposCatalogo.map(t => t.id));
-
-  if (idsValidos.has(k)) return k;
-  const porEtiqueta = tiposCatalogo.find(t => clave(t.label) === k);
-  if (porEtiqueta) return porEtiqueta.id;
-
-  /* Los sinónimos se prueban del más largo al más corto: «seleccion multiple»
-     tiene que ganarle a «seleccion», que también encaja por contenido. */
-  const pares = [];
-  for (const [id, lista] of Object.entries(SINONIMOS_TIPO)) {
-    if (!idsValidos.has(id)) continue;
-    for (const s of lista) pares.push([clave(s), id]);
-  }
-  pares.sort((a, b) => b[0].length - a[0].length);
-
-  for (const [s, id] of pares) if (k === s) return id;
-  for (const [s, id] of pares) if (k.includes(s)) return id;
-  return null;
-}
-
-function ImportarDefinicion({ catalogo, onAgregar, onCerrar, cupo }) {
-  const [hoja, setHoja]   = useState(null);
-  const [mapa, setMapa]   = useState({});
-  const [error, setError] = useState('');
+function ImportarDefinicion({ catalogo, onAgregar, onCerrar, cupo, nombreEvento }) {
+  const [hoja, setHoja]         = useState(null);
+  const [lectura, setLectura]   = useState(null);
+  const [error, setError]       = useState('');
   const [cargando, setCargando] = useState(false);
+  const [bajando, setBajando]   = useState(false);
+
+  const plantilla = catalogo.plantilla;
+
+  const bajarPlantilla = async () => {
+    setBajando(true);
+    try { await descargarPlantilla(plantilla, nombreEvento); }
+    catch (e) { setError(`No se pudo generar la plantilla: ${e.message}`); }
+    finally { setBajando(false); }
+  };
 
   const tomarArchivo = async (file) => {
     if (!file) return;
-    setError(''); setCargando(true);
+    setError(''); setCargando(true); setHoja(null); setLectura(null);
     try {
       const h = await leerHoja(file);
+      const r = leerPlantilla(h, plantilla);
+      if (r.error) { setError(r.error); return; }
       setHoja(h);
-      const auto = {};
-      for (const [campo, sinonimos] of Object.entries(COLUMNAS_DEF)) {
-        auto[campo] = emparejarColumna(h.columnas, sinonimos);
-      }
-      /* Sin columna de enunciado no hay nada que importar; si la hoja trae una
-         sola columna, es ella. */
-      if (!auto.etiqueta && h.columnas.length === 1) auto.etiqueta = h.columnas[0];
-      setMapa(auto);
-    } catch (e) { setError(e.message); setHoja(null); }
+      setLectura(r);
+    } catch (e) { setError(e.message); }
     finally { setCargando(false); }
   };
 
-  /* Se calcula en vivo para que la vista previa reaccione al mapeo. */
-  const preparadas = useMemo(() => {
-    if (!hoja || !mapa.etiqueta) return [];
-    return hoja.filas.map(f => {
-      const etiqueta = (f[mapa.etiqueta] || '').trim();
-      if (!etiqueta) return null;
+  const listas = lectura?.campos || [];
+  const errores = lectura?.errores || [];
+  const caben = Math.min(listas.length, cupo);
 
-      const crudoTipo = mapa.tipo ? f[mapa.tipo] : '';
-      const opciones  = mapa.opciones ? columnaAOpciones(f[mapa.opciones]) : [];
-      let tipo = resolverTipo(crudoTipo, catalogo.tipos);
-      let adivinado = false;
-      if (!tipo) { tipo = opciones.length ? 'seleccion' : 'texto'; adivinado = Boolean(crudoTipo) || opciones.length > 0; }
-
-      return {
-        etiqueta,
-        tipo,
-        adivinado,
-        opciones: catalogo.conOpciones.has(tipo) ? opciones : [],
-        grupo    : mapa.grupo ? (f[mapa.grupo] || '').slice(0, 80) : '',
-        ayuda    : mapa.ayuda ? (f[mapa.ayuda] || '').slice(0, 300) : '',
-        requerido: mapa.requerido ? esAfirmativo(f[mapa.requerido]) : false,
-        fila: f.__fila,
-      };
-    }).filter(Boolean);
-  }, [hoja, mapa, catalogo]);
-
-  const sinOpciones = preparadas.filter(p => catalogo.conOpciones.has(p.tipo) && p.opciones.length === 0);
-  const adivinadas  = preparadas.filter(p => p.adivinado);
-  const caben = Math.min(preparadas.length, cupo);
+  if (!plantilla) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface/60 p-4">
+        <p className="text-sm text-text-2">Este servidor todavía no publica la plantilla de importación.</p>
+        <button onClick={onCerrar} className="btn-secondary btn-sm mt-3">Cerrar</button>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-primary/40 bg-surface/60 p-4 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-text-1">Cargar preguntas desde una hoja</p>
-          <p className="text-xs text-text-3 mt-0.5">
-            Excel (.xlsx) o CSV. Una fila por pregunta. Se lee la primera hoja del archivo.
+          <p className="text-sm font-semibold text-text-1">Cargar preguntas desde la plantilla</p>
+          <p className="text-xs text-text-3 mt-0.5 leading-relaxed max-w-xl">
+            El formato es fijo: así se sabe exactamente cuál columna es la pregunta, cuál el tipo y
+            cuáles las respuestas posibles. Descarga la plantilla, copia tus preguntas dentro y súbela.
           </p>
         </div>
-        <button onClick={onCerrar} className="text-text-3 hover:text-text-1 text-sm px-2">Cerrar</button>
+        <button onClick={onCerrar} className="text-text-3 hover:text-text-1 text-sm shrink-0" aria-label="Cerrar">×</button>
       </div>
 
-      <input type="file" accept={FORMATOS_ACEPTADOS}
-        onChange={e => tomarArchivo(e.target.files?.[0])}
-        className="block w-full text-xs text-text-2 file:mr-3 file:py-2 file:px-4 file:rounded-full
-                   file:border file:border-border-2 file:bg-surface-2 file:text-text-2 file:text-xs
-                   file:cursor-pointer hover:file:text-text-1" />
-
-      {cargando && <p className="text-xs text-text-3 flex items-center gap-2"><Spinner size="sm" /> Leyendo…</p>}
-      {error && <p className="text-xs text-danger-light bg-danger/10 rounded-xl px-3 py-2">{error}</p>}
-
-      {hoja && (
-        <>
-          <p className="text-xs text-text-3">
-            Hoja «{hoja.hoja}» · {hoja.filas.length} filas · {hoja.columnas.length} columnas
-            {hoja.recortado > 0 && <span className="text-warning-light"> · se leyeron sólo las primeras {hoja.recortado}</span>}
+      {/* Los dos pasos, uno al lado del otro. Descargar va primero y con más
+          peso: subir sin la plantilla es el camino que termina en rechazo. */}
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-border bg-surface-2/40 p-4">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">Paso 1</p>
+          <button onClick={bajarPlantilla} disabled={bajando} className="btn-primary btn-sm w-full">
+            {bajando ? <><Spinner size="sm" /> Generando…</> : 'Descargar la plantilla'}
+          </button>
+          <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+            Excel con las columnas exactas, un ejemplo de cada tipo de pregunta y una hoja de
+            instrucciones.
           </p>
+        </div>
 
-          <div className="grid sm:grid-cols-2 gap-2">
-            {Object.keys(COLUMNAS_DEF).map(campo => (
-              <div className="field" key={campo}>
-                <label className="label text-xs capitalize">
-                  {campo === 'etiqueta' ? 'Enunciado de la pregunta *' : campo}
-                </label>
-                <select value={mapa[campo] || ''} onChange={e => setMapa(m => ({ ...m, [campo]: e.target.value }))}
-                  className="input bg-surface-2 rounded-xl py-2 text-xs">
-                  <option value="">— ninguna —</option>
-                  {hoja.columnas.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            ))}
-          </div>
+        <div className="rounded-2xl border border-border bg-surface-2/40 p-4">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">Paso 2</p>
+          <label className="btn-secondary btn-sm w-full cursor-pointer justify-center">
+            {cargando ? <><Spinner size="sm" /> Leyendo…</> : 'Subir la hoja llena'}
+            <input type="file" accept={FORMATOS_ACEPTADOS} className="hidden"
+              onChange={e => tomarArchivo(e.target.files?.[0])} />
+          </label>
+          <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+            Se lee la primera hoja del archivo. Borra las filas de ejemplo antes de subirla.
+          </p>
+        </div>
+      </div>
 
-          {!mapa.etiqueta && (
-            <p className="text-xs text-warning-light">Elige qué columna trae el enunciado de la pregunta.</p>
-          )}
+      {error && (
+        <p className="text-xs text-danger-light bg-danger/10 rounded-xl px-3 py-2 leading-relaxed">{error}</p>
+      )}
 
-          {preparadas.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">
-                Vista previa · {preparadas.length} preguntas
+      {lectura && (
+        <>
+          {/* Los errores ANTES de la vista previa: si hay filas rechazadas, es
+              lo primero que hay que ver, no el resumen de lo que sí entró. */}
+          {errores.length > 0 && (
+            <div className="rounded-2xl border border-warning/30 bg-warning/5 p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-warning-light">
+                {errores.length} {errores.length === 1 ? 'fila no se pudo leer' : 'filas no se pudieron leer'}
               </p>
-              <div className="max-h-56 overflow-y-auto rounded-xl border border-border divide-y divide-border">
-                {preparadas.slice(0, 40).map((p, i) => (
-                  <div key={i} className="px-3 py-2 text-xs flex items-baseline gap-2">
-                    <span className="text-text-3 tabular-nums w-8 shrink-0">f{p.fila}</span>
-                    <span className="text-text-1 flex-1 truncate">{p.etiqueta}</span>
-                    <span className={`shrink-0 ${p.adivinado ? 'text-warning-light' : 'text-text-3'}`}>
-                      {catalogo.tipos.find(t => t.id === p.tipo)?.label || p.tipo}
-                      {p.opciones.length > 0 && ` (${p.opciones.length})`}
-                    </span>
-                    {p.requerido && <span className="text-primary-light shrink-0">obligatoria</span>}
-                  </div>
+              <ul className="space-y-1 max-h-40 overflow-y-auto">
+                {errores.slice(0, 12).map((e, i) => (
+                  <li key={i} className="text-[11px] text-text-2 leading-relaxed">
+                    <span className="text-text-3">Fila {e.fila}</span>
+                    {e.pregunta ? ` · ${e.pregunta}` : ''} — {e.motivo}
+                  </li>
                 ))}
-              </div>
-
-              {adivinadas.length > 0 && (
-                <p className="text-xs text-warning-light">
-                  {adivinadas.length} {adivinadas.length === 1 ? 'pregunta no traía' : 'preguntas no traían'} un tipo
-                  reconocible; {adivinadas.length === 1 ? 'quedó' : 'quedaron'} como texto o selección. Revísalas después de agregarlas.
-                </p>
+              </ul>
+              {errores.length > 12 && (
+                <p className="text-[11px] text-text-3">y {errores.length - 12} más.</p>
               )}
-              {sinOpciones.length > 0 && (
-                <p className="text-xs text-danger-light">
-                  {sinOpciones.length} de selección se quedaron sin opciones. El servidor no deja guardar
-                  una selección vacía: ponles opciones o cámbialas a texto.
-                </p>
-              )}
-              {preparadas.length > cupo && (
-                <p className="text-xs text-danger-light">
-                  Sólo caben {cupo} más (el tope del formulario). Se agregarán las primeras {cupo}.
-                </p>
-              )}
+              <p className="text-[11px] text-text-3">
+                Las demás filas se pueden agregar igual; corrige estas en la hoja y vuelve a subirla.
+              </p>
             </div>
           )}
 
-          <button
-            onClick={() => { onAgregar(preparadas.slice(0, cupo)); onCerrar(); }}
-            disabled={caben === 0}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-text-1 text-bg
-                       hover:bg-white text-sm font-semibold disabled:opacity-40 transition-all">
-            Agregar {caben} {caben === 1 ? 'pregunta' : 'preguntas'}
-          </button>
+          {listas.length > 0 && (
+            <div className="rounded-2xl border border-border bg-surface-2/40 overflow-hidden">
+              <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-xs text-text-2">
+                  {listas.length} {listas.length === 1 ? 'pregunta lista' : 'preguntas listas'}
+                  {caben < listas.length && (
+                    <span className="text-warning-light"> · sólo caben {caben}, ya tienes otras</span>
+                  )}
+                </p>
+              </div>
+              <ul className="divide-y divide-border/60 max-h-72 overflow-y-auto">
+                {listas.slice(0, caben).map((c, i) => (
+                  <li key={i} className="px-4 py-2 flex items-baseline gap-3">
+                    <span className="text-[11px] text-text-3 w-6 shrink-0">{i + 1}</span>
+                    <span className="text-sm text-text-1 flex-1 min-w-0 truncate">{c.etiqueta}</span>
+                    <span className="text-[11px] text-text-3 shrink-0">
+                      {catalogo.tipos.find(t => t.id === c.tipo)?.label || c.tipo}
+                      {c.opciones.length > 0 && ` · ${c.opciones.length} opciones`}
+                      {c.requerido && ' · obligatoria'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {caben > 0 && (
+            <button onClick={() => onAgregar(listas.slice(0, caben))} className="btn-primary btn-sm">
+              Agregar {caben} {caben === 1 ? 'pregunta' : 'preguntas'}
+            </button>
+          )}
         </>
       )}
     </div>
   );
 }
 
-/* ── Editor ──────────────────────────────────────────────────────────── */
 
 export default function FormularioTab({ evento }) {
   const [campos, setCampos] = useState([]);
   const [tiposBoleta, setTiposBoleta] = useState([]);
   const [catalogo, setCatalogo] = useState({
-    tipos: [], grupos: [], fichas: [], conOpciones: new Set(), max: 60, agrupacion: false,
+    tipos: [], grupos: [], fichas: [], conOpciones: new Set(), max: 60, agrupacion: false, plantilla: null,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -283,6 +236,10 @@ export default function FormularioTab({ evento }) {
           conOpciones: new Set(tipos.filter(t => t.conOpciones).map(t => t.id)),
           max: d.max_campos || 60,
           agrupacion: Boolean(d.agrupacion_lista),
+          /* La plantilla de importacion la define el servidor: asi la hoja que
+             se descarga y la que se acepta al subir son la misma por
+             construccion, no por coincidencia. */
+          plantilla: d.plantilla || null,
         });
         setCampos((d.campos || []).map(c => nuevoCampo({ ...c, opciones: c.opciones || [] })));
         setTiposBoleta(tt.tickets || tt.ticket_types || []);
@@ -401,6 +358,7 @@ export default function FormularioTab({ evento }) {
       {importando && (
         <ImportarDefinicion
           catalogo={catalogo}
+          nombreEvento={evento?.titulo || evento?.slug || 'evento'}
           cupo={cupo}
           onAgregar={agregarVarios}
           onCerrar={() => setImportando(false)}
