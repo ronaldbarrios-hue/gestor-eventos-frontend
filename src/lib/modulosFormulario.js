@@ -22,7 +22,16 @@
    treinta preguntas sin llenar esa columna, y para el grupo que se pasa de
    tamaño. Nunca como reparto principal. */
 
-export const TOPE_MODULO = 10;
+/* Cinco por pantalla, no diez.
+
+   El agrupado por significado se queda —«Datos demográficos: género y edad» se
+   lee de un vistazo y dice de qué va el paso—, pero diez preguntas juntas ya
+   vuelven a parecer un muro. Cinco caben sin hacer scroll en un móvil, que es
+   donde se va a llenar esto.
+
+   Un grupo con más de cinco se parte diciéndolo («Datos generales (1 de 2)»),
+   que es preferible a partirlo en silencio o a dejar la pantalla larga. */
+export const TOPE_MODULO = 5;
 
 /* Los campos sin grupo van juntos y al final: son los sueltos que el
    organizador no clasificó, y mezclarlos con un grupo con nombre haría mentir

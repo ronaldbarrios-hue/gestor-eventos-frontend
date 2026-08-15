@@ -105,6 +105,34 @@ export default function CheckoutSection({ evento }) {
           </div>
         )}
 
+        {/* Lo que se le exige a quien llena el formulario, junto al formulario.
+
+            Estaba abajo del todo, en una tarjeta llamada «Validaciones», tres
+            bloques por debajo de las preguntas. Son la misma decisión: qué se
+            le pide a la persona y qué tiene que cumplir para poder seguir. */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-base font-semibold text-text-1">Qué se le exige al comprador</h3>
+          </div>
+          <div className="card-body space-y-3">
+            <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
+              <input type="checkbox" checked={f.requiere_telefono} onChange={e => set({ requiere_telefono: e.target.checked })} className="accent-[#8B5CF6]" />
+              Teléfono obligatorio
+            </label>
+            <div className="grid sm:grid-cols-2 gap-3 max-w-md">
+              <div>
+                <label className="label">Edad mínima</label>
+                <input type="number" min={0} className="input" value={f.edad_minima} onChange={e => set({ edad_minima: e.target.value })} placeholder="Sin límite" />
+              </div>
+              <div>
+                <label className="label">Máx. por compra</label>
+                <input type="number" min={1} className="input" value={f.limite_por_compra} onChange={e => set({ limite_por_compra: e.target.value })} placeholder="Sin límite" />
+              </div>
+            </div>
+            <p className="text-xs text-text-3">La edad mínima pide una confirmación al comprador. El máximo por compra se aplicará cuando el checkout permita elegir cantidad.</p>
+          </div>
+        </div>
+
         {/* Términos del evento.
 
             Va aquí, entre los datos que se piden y la confirmación, porque es
@@ -150,49 +178,20 @@ export default function CheckoutSection({ evento }) {
           </div>
         </div>
 
-        {/* Términos y validaciones */}
-        <div className="grid md:grid-cols-2 gap-5 items-start">
-          <div className="card">
-            <div className="card-header"><h3 className="text-base font-semibold text-text-1">Términos y consentimiento</h3></div>
-            <div className="card-body space-y-3">
-              <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
-                <input type="checkbox" checked={f.terminos_activo} onChange={e => set({ terminos_activo: e.target.checked })} className="accent-[#8B5CF6]" />
-                Exigir aceptación de términos para comprar
-              </label>
-              {f.terminos_activo && (<>
-                <div>
-                  <label className="label">Texto del consentimiento</label>
-                  <input className="input" value={f.terminos_texto} onChange={e => set({ terminos_texto: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label">Enlace a los términos <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
-                  <input className="input" value={f.terminos_url} onChange={e => set({ terminos_url: e.target.value })} placeholder="https://…/terminos" />
-                </div>
-              </>)}
-            </div>
-          </div>
+        {/* El bloque «Términos y consentimiento» vivía aquí y se retiró.
 
-          <div className="card">
-            <div className="card-header"><h3 className="text-base font-semibold text-text-1">Validaciones</h3></div>
-            <div className="card-body space-y-3">
-              <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
-                <input type="checkbox" checked={f.requiere_telefono} onChange={e => set({ requiere_telefono: e.target.checked })} className="accent-[#8B5CF6]" />
-                Teléfono obligatorio
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Edad mínima</label>
-                  <input type="number" min={0} className="input" value={f.edad_minima} onChange={e => set({ edad_minima: e.target.value })} placeholder="Sin límite" />
-                </div>
-                <div>
-                  <label className="label">Máx. por compra</label>
-                  <input type="number" min={1} className="input" value={f.limite_por_compra} onChange={e => set({ limite_por_compra: e.target.value })} placeholder="Sin límite" />
-                </div>
-              </div>
-              <p className="text-xs text-text-3">La edad mínima pide una confirmación al comprador. El máximo por compra se aplicará cuando el checkout permita elegir cantidad.</p>
-            </div>
-          </div>
-        </div>
+            Era el mecanismo de antes de la migración 0059: una casilla, un
+            texto y una URL externa, guardados en `page_json.checkout`. La 0059
+            trajo `evento_legal` —documentos propios, con versión y constancia
+            de aceptación— y el checkout público ya lo prefiere. Tener los dos
+            en la misma pantalla obligaba a adivinar cuál manda, y hacía que se
+            escribieran términos en el sitio que no guarda constancia.
+
+            Se comprobó antes de quitarlo: CERO de los 31 eventos tenían el
+            viejo activo, así que nadie pierde su casilla. El respaldo sigue en
+            `AceptarTerminos` para el evento que llegara importado con la
+            bandera puesta; lo que desaparece es el segundo sitio donde
+            escribirlo. */}
 
         <div className="flex justify-end">
           <button onClick={guardar} disabled={saving} className="btn-primary">{saving ? 'Guardando…' : 'Guardar proceso de compra'}</button>
@@ -272,11 +271,18 @@ function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [] })
       {paginado && (
         <div>
           <div className="flex items-baseline justify-between gap-2 mb-1.5">
-            <p className="text-xs font-semibold text-text-1">{pasos[paso]}</p>
-            <button onClick={() => setPaso(p => (p + 1) % pasos.length)}
-              className="text-[10px] text-primary-light hover:underline tabular-nums whitespace-nowrap">
-              Paso {paso + 1} de {pasos.length} · ver siguiente
-            </button>
+            <p className="text-xs font-semibold text-text-1 truncate">{pasos[paso]}</p>
+            {/* Adelante y atrás: revisar un registro de seis pasos dando la
+                vuelta entera para volver al anterior es peor que no revisarlo. */}
+            <span className="flex items-center gap-1 flex-shrink-0">
+              <button type="button" onClick={() => setPaso(p => Math.max(0, p - 1))} disabled={paso === 0}
+                aria-label="Paso anterior"
+                className="w-5 h-5 rounded border border-border text-text-3 hover:text-text-1 disabled:opacity-30 leading-none">←</button>
+              <span className="text-[10px] text-text-3 tabular-nums whitespace-nowrap">{paso + 1}/{pasos.length}</span>
+              <button type="button" onClick={() => setPaso(p => Math.min(pasos.length - 1, p + 1))} disabled={paso >= pasos.length - 1}
+                aria-label="Paso siguiente"
+                className="w-5 h-5 rounded border border-border text-text-3 hover:text-text-1 disabled:opacity-30 leading-none">→</button>
+            </span>
           </div>
           <div className="flex gap-1">
             {pasos.map((t, i) => (
