@@ -517,6 +517,30 @@ movieron junto al formulario, que es la misma decisión.
 
 **Los módulos bajaron de diez a cinco preguntas.**
 
+### Cuarta tanda: los espacios del evento, conectados (15 de agosto, noche)
+
+Los espacios públicos de un evento —agenda, rueda de negocios, torneo, ranking—
+eran **calles sin salida**. Entrar en la agenda dejaba al visitante sin saber de
+qué evento era («Todo lo que pasa dentro», y nada más), sin las otras secciones
+y sin manera de volver. Lo que había en algunas era un «← Volver a explorar» al
+listado general, que no es volver: quien llega por un enlace compartido nunca
+pasó por el listado.
+
+Ahora las cinco llevan la misma `BarraEvento`: el nombre del evento como
+retorno y los demás espacios al lado. **También en las pantallas vacías y en las
+puertas de sesión**, que es donde más falta hacía — la rueda de negocios tiene
+cinco salidas distintas y la que ve un visitante sin sesión era la que menos
+tenía. Dentro de un iframe no se pinta, para no sacar a nadie de la web ajena.
+
+**El mapa del evento no tenía forma de verse.** Se configura en el panel y se
+guarda en `page_json.mapa`, pero sólo aparecía si el organizador añadía a mano
+el bloque «Mapa del evento» a su landing. TechNova lo tenía configurado y su
+landing no lo incluía. Ahora es un espacio más, con ruta propia
+`/explorar/:slug/mapa`, reutilizando el mismo bloque que ya lo pintaba.
+
+Verificado en producción sobre TechNova: los cinco espacios se alcanzan desde
+los cinco, y el retorno al evento funciona desde todos.
+
 ### Lo que queda de lo público, sin tocar
 
 Inscripción a sub-eventos con cupo, lista de espera (hace falta agotar un tipo
