@@ -21,6 +21,8 @@ export const eventosApi = {
   /* Términos y privacidad PROPIOS del evento (migración 0059). El formulario
      de inscripción los enlaza siempre. */
   legalPublico : (slug)        => client.get(`/eventos/publicos/slug/${slug}/legal`).then(r => r.data),
+  legal        : (id)          => client.get(`/eventos/${id}/legal`).then(r => r.data),
+  guardarLegal : (id, body)    => client.put(`/eventos/${id}/legal`, body).then(r => r.data),
   reservar     : (slug, body)  => client.post(`/eventos/publicos/slug/${slug}/reservar`, body).then(r => r.data),
   ticketByCode : (codigo)      => client.get(`/eventos/publicos/ticket/${codigo}`).then(r => r.data),
   completarFormularioTicket: (codigo, respuestas) =>

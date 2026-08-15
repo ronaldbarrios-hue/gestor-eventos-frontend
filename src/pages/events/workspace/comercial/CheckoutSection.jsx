@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import FormularioTab from '../../tabs/FormularioTab.jsx';
+import TerminosEvento from './TerminosEvento.jsx';
 
 /* Event Experience · Proceso de compra — configura el PASO A PASO:
    1) Datos del comprador (formulario embebido)
@@ -78,6 +79,23 @@ export default function CheckoutSection({ evento }) {
             </div>
           </div>
         )}
+
+        {/* Términos del evento.
+
+            Va aquí, entre los datos que se piden y la confirmación, porque es
+            el orden real: se pide información personal, se dice bajo qué
+            condiciones, y sólo entonces se confirma. Estaba construido en el
+            servidor desde la migración 0059 y el formulario público ya
+            enlazaba a él; lo que faltaba era dónde escribirlo, y por eso había
+            cero eventos con términos. */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-base font-semibold text-text-1">Términos y datos personales</h3>
+          </div>
+          <div className="card-body">
+            <TerminosEvento evento={evento} />
+          </div>
+        </div>
 
         {/* Confirmación */}
         <div className="card">
