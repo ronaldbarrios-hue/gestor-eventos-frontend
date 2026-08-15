@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { aplanar, ramaCompleta, rutaDe } from '../../lib/torneoCategorias.js';
+import BarraEvento from '../../components/public/BarraEvento.jsx';
 
 /* Página pública /explorar/:slug/torneos — el resumen de TODOS los torneos del
    evento: quién ganó y quién jugó.
@@ -64,6 +65,7 @@ export default function TorneosResumenPage() {
 
   return (
     <section className="px-5 py-10 max-w-4xl mx-auto space-y-4 animate-[fadeUp_0.4s_ease_both]">
+      <BarraEvento actual="torneo" />
       {categorias.length > 0 && (
         <nav className="flex items-center gap-1.5 flex-wrap pb-2" aria-label="Categorías de torneos">
           <button onClick={() => setRamaSel(null)}

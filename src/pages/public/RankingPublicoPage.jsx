@@ -3,6 +3,7 @@ import { Medalla } from '../../components/ui/Iconos.jsx';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
+import BarraEvento from '../../components/public/BarraEvento.jsx';
 
 /* Página pública /explorar/:slug/ranking — clasificación de expositores por
    puntos otorgados en sus stands.
@@ -40,6 +41,7 @@ export default function RankingPublicoPage() {
 
   return (
     <section className="px-5 py-10 max-w-3xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <BarraEvento actual="ranking" />
       <TablaRanking ranking={ranking} />
     </section>
   );

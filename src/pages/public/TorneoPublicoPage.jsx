@@ -3,6 +3,7 @@ import Icono from '../../components/ui/Iconos.jsx';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
+import BarraEvento from '../../components/public/BarraEvento.jsx';
 
 /* Página pública /explorar/:slug/torneo — vista de SOLO LECTURA del
    bracket/tabla del torneo de un evento, accesible a cualquiera (no
@@ -56,6 +57,7 @@ export default function TorneoPublicoPage() {
 
   return (
     <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <BarraEvento actual="torneo" />
       <div className="mb-6">
         <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Torneo</p>
         <div className="flex items-center gap-2 flex-wrap">

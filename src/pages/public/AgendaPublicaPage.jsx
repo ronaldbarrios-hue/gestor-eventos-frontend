@@ -9,6 +9,7 @@ import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo } from '../../lib/
 import { ymdLocal } from '../../lib/fechaLocal.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
+import BarraEvento from '../../components/public/BarraEvento.jsx';
 
 /* Página pública /explorar/:slug/agenda — "Espacio del evento": el calendario
    público de todo lo que pasa dentro (charlas, stands, competencias, shows…),
@@ -159,9 +160,14 @@ export default function AgendaPublicaPage() {
   );
 
   if (sessions.length === 0) {
+    /* La barra también aquí: una pantalla vacía sin salida es donde más se
+       nota que no hay por dónde volver. */
     return (
-      <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-        <p className="text-sm text-text-3">Este evento todavía no tiene sesiones publicadas en su agenda.</p>
+      <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+        <BarraEvento actual="agenda" />
+        <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
+          <p className="text-sm text-text-3">Este evento todavía no tiene sesiones publicadas en su agenda.</p>
+        </div>
       </section>
     );
   }
@@ -177,6 +183,7 @@ export default function AgendaPublicaPage() {
 
   return (
     <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <BarraEvento actual="agenda" />
       <div className="mb-6">
         <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Espacio del evento</p>
         <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">

@@ -5,6 +5,7 @@ import { networkingApi } from '../../api/networking.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { ExplorarView, MisCitasView } from '../events/tabs/NetworkingTab.jsx';
+import BarraEvento from '../../components/public/BarraEvento.jsx';
 
 /* Página pública /explorar/:slug/networking — acceso a la Rueda de Negocios
    desde afuera del panel interno. Requiere: 1) sesión iniciada, 2) tener
@@ -100,6 +101,7 @@ export default function NetworkingPublicPage() {
 
   return (
     <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <BarraEvento actual="networking" />
       <div className="mb-6">
         <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">{evento.titulo}</p>
         <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">Rueda de Negocios</h1>
