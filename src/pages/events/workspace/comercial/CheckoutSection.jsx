@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { eventosApi } from '../../../../api/eventos.js';
+import { ticketsApi } from '../../../../api/tickets.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import FormularioTab from '../../tabs/FormularioTab.jsx';
 import TerminosEvento from './TerminosEvento.jsx';
+import { dividirEnModulos, convienePaginar } from '../../../../lib/modulosFormulario.js';
 
 /* Event Experience · Proceso de compra — configura el PASO A PASO:
    1) Datos del comprador (formulario embebido)
@@ -49,7 +51,30 @@ export default function CheckoutSection({ evento }) {
     finally { setSaving(false); }
   };
 
-  const nCampos = (evento.campos_formulario || []).length;
+  /* La vista previa enseñaba una boleta «General» de $50.000 escrita a mano y
+     sólo nombre, correo y teléfono. No era una previsualización: era un dibujo.
+     Con una boleta gratis en pantalla decía cincuenta mil pesos, y con veinte
+     preguntas configuradas no mostraba ninguna — que es justo lo que se quiere
+     revisar antes de abrir la venta.
+
+     `evento.campos_formulario` tampoco venía en el objeto del panel, así que el
+     contador del paso 1 decía siempre «sin campos extra». Se piden las dos
+     cosas al servidor, que es el que sabe. */
+  const [campos, setCampos] = useState([]);
+  const [tipos, setTipos] = useState([]);
+
+  useEffect(() => {
+    let vivo = true;
+    eventosApi.getFormulario(evento.id)
+      .then(d => { if (vivo) setCampos(d.campos || []); })
+      .catch(() => { /* la previa cae a lo básico, no vale romper la pantalla */ });
+    ticketsApi.list(evento.id)
+      .then(d => { if (vivo) setTipos((d.tickets || d.ticket_types || []).filter(t => t.activo !== false)); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [evento.id]);
+
+  const nCampos = campos.length;
   const tienePago = Boolean(evento.pago_llave || evento.pago_qr_url);
 
   return (
@@ -185,7 +210,7 @@ export default function CheckoutSection({ evento }) {
             ))}
           </div>
         </div>
-        <PreviewCompra evento={evento} f={f} vista={vista} tienePago={tienePago} />
+        <PreviewCompra evento={evento} f={f} vista={vista} tienePago={tienePago} campos={campos} tipos={tipos} />
         <p className="text-xs text-text-3">Así lo ve el comprador en el sitio público.</p>
       </div>
     </div>
@@ -193,8 +218,22 @@ export default function CheckoutSection({ evento }) {
 }
 
 /* Maqueta viva del modal de compra / confirmación */
-function PreviewCompra({ evento, f, vista, tienePago }) {
-  const campos = evento.campos_formulario || [];
+function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [] }) {
+  /* La primera boleta activa, que es la que el comprador ve arriba. Si todavía
+     no hay ninguna se dice, en vez de inventar una: un evento sin boletas no
+     vende, y esconderlo detrás de una maqueta bonita es lo que hizo que nadie
+     lo notara. */
+  const tipo = tipos[0] || null;
+  const precio = Number(tipo?.precio || 0);
+  const moneda = tipo?.currency || evento.currency || 'COP';
+
+  /* Mismos módulos que la página pública, calculados con el mismo código. */
+  const modulos = dividirEnModulos(campos);
+  const paginado = convienePaginar(modulos, campos.length);
+  const [paso, setPaso] = useState(0);
+  const pasos = paginado ? ['Tus datos', ...modulos.map(m => m.titulo)] : [];
+  const enUltimo = !paginado || paso >= pasos.length - 1;
+  const delPaso = paginado ? (modulos[paso - 1]?.campos || []) : campos;
 
   if (vista === 'confirmacion') {
     return (
@@ -219,24 +258,60 @@ function PreviewCompra({ evento, f, vista, tienePago }) {
   return (
     <div className="rounded-2xl border border-border-2 bg-surface p-5 space-y-3">
       <div>
-        <p className="text-[10px] uppercase tracking-widest text-text-3 font-semibold">Compra tu boleta</p>
-        <p className="text-lg font-bold font-display text-text-1">General</p>
-        <p className="text-xl font-bold font-display text-text-1 tabular-nums">$50.000</p>
+        <p className="text-[10px] uppercase tracking-widest text-text-3 font-semibold">
+          {precio === 0 ? 'Reserva tu cupo' : 'Compra tu boleta'}
+        </p>
+        <p className="text-lg font-bold font-display text-text-1">{tipo?.nombre || 'Sin boletas creadas'}</p>
+        <p className="text-xl font-bold font-display text-text-1 tabular-nums">
+          {!tipo ? '—' : precio === 0 ? 'Gratis' : `$${precio.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`}
+        </p>
+        {!tipo && <p className="text-[11px] text-warning-light mt-1">Crea una boleta en Comercial → Boletas o nadie podrá registrarse.</p>}
+        {tipos.length > 1 && <p className="text-[10px] text-text-3 mt-0.5">y {tipos.length - 1} tipo{tipos.length > 2 ? 's' : ''} más</p>}
       </div>
-      <CampoFake label="Nombre completo *" />
-      <CampoFake label="Email *" />
-      <CampoFake label={`Teléfono ${f.requiere_telefono ? '*' : '(opcional)'}`} />
-      {campos.map(c => <CampoFake key={c.id} label={`${c.etiqueta}${c.requerido ? ' *' : ''}`} />)}
-      {Number(f.edad_minima) > 0 && <CheckFake label={`Confirmo que tengo al menos ${f.edad_minima} años.`} />}
-      {f.terminos_activo && <CheckFake label={f.terminos_texto || 'He leído y acepto los términos y condiciones.'} link={f.terminos_url} />}
-      {tienePago && (
-        <div className="rounded-xl bg-warning/10 border border-warning/25 px-3 py-2 text-[11px] text-text-2 leading-relaxed">
-          Pago manual · transfiere a <span className="font-mono text-text-1">{evento.pago_llave || 'tu llave'}</span>
+
+      {paginado && (
+        <div>
+          <div className="flex items-baseline justify-between gap-2 mb-1.5">
+            <p className="text-xs font-semibold text-text-1">{pasos[paso]}</p>
+            <button onClick={() => setPaso(p => (p + 1) % pasos.length)}
+              className="text-[10px] text-primary-light hover:underline tabular-nums whitespace-nowrap">
+              Paso {paso + 1} de {pasos.length} · ver siguiente
+            </button>
+          </div>
+          <div className="flex gap-1">
+            {pasos.map((t, i) => (
+              <span key={t + i} className={`h-1 flex-1 rounded-full ${i <= paso ? 'bg-primary' : 'bg-surface-2'}`} />
+            ))}
+          </div>
         </div>
       )}
+
+      {(!paginado || paso === 0) && <>
+        <CampoFake label="Nombre completo *" />
+        <CampoFake label="Email *" />
+        <CampoFake label={`Teléfono ${f.requiere_telefono ? '*' : '(opcional)'}`} />
+      </>}
+      {delPaso.map(c => <CampoFake key={c.id} label={`${c.etiqueta}${c.requerido ? ' *' : ''}`} />)}
+
+      {enUltimo && <>
+        {Number(f.edad_minima) > 0 && <CheckFake label={`Confirmo que tengo al menos ${f.edad_minima} años.`} />}
+        {f.terminos_activo && <CheckFake label={f.terminos_texto || 'He leído y acepto los términos y condiciones.'} link={f.terminos_url} />}
+        {tienePago && precio > 0 && (
+          <div className="rounded-xl bg-warning/10 border border-warning/25 px-3 py-2 text-[11px] text-text-2 leading-relaxed">
+            Pago manual · transfiere a <span className="font-mono text-text-1">{evento.pago_llave || 'tu llave'}</span>
+          </div>
+        )}
+      </>}
+
       <div className="pt-1 text-right">
-        <span className="inline-block px-4 py-2 rounded-full bg-text-1 text-bg text-xs font-semibold">Confirmar reserva</span>
+        <span className="inline-block px-4 py-2 rounded-full bg-text-1 text-bg text-xs font-semibold">
+          {!enUltimo ? 'Continuar' : precio === 0 ? 'Confirmar reserva' : 'Ir a pagar'}
+        </span>
       </div>
+      <p className="text-[10px] text-text-3">
+        {moneda !== 'COP' && precio > 0 ? `Precios en ${moneda}. ` : ''}
+        {campos.length === 0 ? 'Sin preguntas propias: sólo se piden nombre, correo y teléfono.' : `${campos.length} pregunta${campos.length !== 1 ? 's' : ''} del formulario.`}
+      </p>
     </div>
   );
 }
