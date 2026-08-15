@@ -480,6 +480,42 @@ saliente por cada organizador conectado, y el limitador no contaba nada porque
 el webhook responde 200 antes de procesar. Corregido. **`MP_WEBHOOK_SECRET`
 sigue sin poner**, y ahora el servidor avisa al arrancar.
 
+### Tercera tanda: el panel (15 de agosto, noche)
+
+**Tres pantallas rotas, todas de la misma familia y todas invisibles al
+compilar.** Emails tumbaba la aplicación con «n is not a function» al SALIR de
+la pestaña —`useEffect(cargar, …)` devolvía la promesa del fetch y React la
+llamaba como función de limpieza—, así que el error aparecía con la URL de la
+pestaña siguiente. Las fichas prearmadas no hacían nada al pulsarlas porque
+`agregarFicha` llamaba a `clave()`, que no existía en ningún archivo: un
+ReferenceError dentro de un manejador de clic no lo atrapa el error boundary de
+React, y el botón se queda mudo, sin pantalla de error que seguir. Y Anuncios ni
+se pintaba, por `anunciosVersion` usado fuera de su componente.
+
+**La lección de método, que vale más que los tres arreglos:** eslint llevaba
+todo el proyecto entre las dependencias, sin configuración ni script, así que
+nunca se corrió. Pasarle `no-undef` a `src` encontró dos de las tres en treinta
+segundos. Ahora hay `eslint.config.js` con esa única regla y `npm run lint`.
+Deliberadamente sin reglas de estilo: un linter que grita por las comillas se
+acaba desactivando, y con él se va el que sí servía.
+
+**El importador**, con dos cambios pedidos: la columna «Obligatoria» vacía ahora
+significa Sí —antes dejaba todas las preguntas opcionales y no se notaba hasta
+exportar— y subir una hoja fusiona con lo que ya esté escrito a mano, ganando
+el archivo y conservando el `id` para no dejar huérfanas las respuestas.
+
+**La vista previa del checkout era un dibujo**: «General, $50.000» escrito a
+mano, con la boleta real gratis, y nunca mostraba las preguntas porque leía un
+campo que el objeto del panel no trae. Ahora pide boletas y formulario al
+servidor y enseña los módulos reales, navegables.
+
+**Un solo sitio para los términos.** Había dos editores en la misma pantalla: el
+de `page_json.checkout` (anterior a la 0059) y el de `evento_legal`. Se retiró
+el viejo — cero de los 31 eventos lo tenían activo. Las validaciones se
+movieron junto al formulario, que es la misma decisión.
+
+**Los módulos bajaron de diez a cinco preguntas.**
+
 ### Lo que queda de lo público, sin tocar
 
 Inscripción a sub-eventos con cupo, lista de espera (hace falta agotar un tipo
