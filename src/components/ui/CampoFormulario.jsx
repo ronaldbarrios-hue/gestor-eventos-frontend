@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import SelectorBuscable, { MultiBuscable } from './SelectorBuscable.jsx';
 
 /* GESTEK — Un solo renderizador para los campos del formulario.
 
@@ -27,6 +28,21 @@ const tipoDe = (campo) => ALIAS[campo?.tipo] || campo?.tipo || 'texto';
 /* Los tipos que guardan una lista. Tiene que coincidir con `valor: 'lista'`
    del catálogo del servidor. */
 export const ES_LISTA = new Set(['multiple']);
+
+/* Listas largas: por encima de este umbral el campo se pinta con buscador en
+   vez de un desplegable interminable. El mismo número que UMBRAL_BUSCABLE en
+   lib/formularioCampos.js del servidor —si se cambia, se cambia en los dos
+   sitios; el servidor es el que manda y lo entrega en el catálogo.
+
+   `buscable` en el campo anula el automático: true siempre, false nunca. */
+const UMBRAL_BUSCABLE = 8;
+
+export function esBuscable(campo) {
+  const t = tipoDe(campo);
+  if (t !== 'seleccion' && t !== 'multiple') return false;
+  if (typeof campo?.buscable === 'boolean') return campo.buscable;
+  return (campo?.opciones?.length || 0) > UMBRAL_BUSCABLE;
+}
 
 /* Valor inicial coherente con el tipo: una lista vacía no es lo mismo que una
    cadena vacía, y arrancar un `multiple` en '' hace que el primer clic
@@ -147,6 +163,16 @@ export default function CampoFormulario({ campo, value, onChange, eventoId }) {
   }
 
   if (t === 'seleccion') {
+    if (esBuscable(campo)) {
+      return (
+        <div className="field">
+          <Etiqueta />
+          <SelectorBuscable id={`campo-${campo.id}`} opciones={campo.opciones || []}
+            value={value ?? ''} onChange={onChange} requerido={req} />
+          <Ayuda />
+        </div>
+      );
+    }
     return (
       <div className="field">
         <Etiqueta />
@@ -177,6 +203,12 @@ export default function CampoFormulario({ campo, value, onChange, eventoId }) {
           {campo.etiqueta}{req && <span className="text-danger-light"> *</span>}
           <span className="text-text-3 font-normal"> · puedes marcar varias</span>
         </legend>
+        {esBuscable(campo) ? (
+          <div className="mt-1">
+            <MultiBuscable id={`campo-${campo.id}`} opciones={opciones}
+              value={marcadas} onChange={onChange} />
+          </div>
+        ) : (
         <div className="space-y-1.5 mt-1">
           {opciones.map(op => (
             <label key={op} className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
@@ -187,6 +219,7 @@ export default function CampoFormulario({ campo, value, onChange, eventoId }) {
             </label>
           ))}
         </div>
+        )}
         <Ayuda />
       </fieldset>
     );

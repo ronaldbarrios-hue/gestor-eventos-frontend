@@ -7,6 +7,7 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import {
   leerHoja, columnaAOpciones, emparejarColumna, esAfirmativo, clave, FORMATOS_ACEPTADOS,
 } from '../../../lib/hojaCalculo.js';
+import { esBuscable } from '../../../components/ui/CampoFormulario.jsx';
 
 /* Tab Formulario — campos personalizados que se piden al comprar o reservar.
    Se guardan preservando el `id` de cada campo existente (el backend hace un
@@ -33,6 +34,8 @@ function nuevoCampo(preset = {}) {
     tipo: preset.tipo || 'texto',
     etiqueta: preset.etiqueta || '',
     opciones: preset.opciones || [],
+    /* null = que decida el tamano de la lista. */
+    buscable: typeof preset.buscable === 'boolean' ? preset.buscable : null,
     requerido: preset.requerido ?? true,
     grupo: preset.grupo || '',
     ayuda: preset.ayuda || '',
@@ -346,6 +349,7 @@ export default function FormularioTab({ evento }) {
         id: c.id, tipo: c.tipo, etiqueta: c.etiqueta, opciones: c.opciones,
         requerido: c.requerido, grupo: c.grupo || null, ayuda: c.ayuda || null,
         ticket_type_id: c.ticket_type_id || null,
+        buscable: c.buscable,
       }));
       const r = await eventosApi.guardarFormulario(evento.id, payload);
       setCampos((r.campos || []).map(c => nuevoCampo({ ...c, opciones: c.opciones || [] })));
@@ -466,6 +470,30 @@ export default function FormularioTab({ evento }) {
                       {c.opciones.length} {c.opciones.length === 1 ? 'opción' : 'opciones'}
                       {c.tipo === 'multiple' && ' · la persona podrá marcar varias'}
                     </p>
+
+                    {/* Cómo se va a ver. No se pregunta «¿buscador o lista?»
+                        en abstracto: la plataforma ya eligió por el tamaño y
+                        aquí sólo se dice qué eligió, con la salida por si el
+                        organizador quiere otra cosa. Preguntarlo siempre
+                        obligaría a decidir 34 veces algo que casi nunca
+                        importa. */}
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
+                      <span className="text-[11px] text-text-3">
+                        {esBuscable(c)
+                          ? 'Se verá como buscador: la persona escribe y se filtra.'
+                          : 'Se verá como lista completa.'}
+                      </span>
+                      <select
+                        value={typeof c.buscable === 'boolean' ? String(c.buscable) : 'auto'}
+                        onChange={e => actualizar(c._key, {
+                          buscable: e.target.value === 'auto' ? null : e.target.value === 'true',
+                        })}
+                        className="input bg-surface-2 rounded-lg py-1 px-2 text-[11px] w-auto">
+                        <option value="auto">Automático</option>
+                        <option value="true">Siempre buscador</option>
+                        <option value="false">Siempre lista</option>
+                      </select>
+                    </div>
                   </div>
                 )}
 
