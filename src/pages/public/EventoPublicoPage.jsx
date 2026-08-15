@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
 import { pagosApi }   from '../../api/pagos.js';
 import { waitlistApi } from '../../api/waitlist.js';
-import { BLOCKS } from '../events/editor/blocks.jsx';
+import { BLOCKS, BLOCK_TYPES_SISTEMA } from '../events/editor/blocks.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/public/Branding.jsx';
 import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
@@ -18,6 +18,13 @@ import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoF
 import { verificar } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { useT } from '../../lib/i18n.js';
+
+/* Los mismos bloques que siembra el editor, y en su orden: así lo que ve el
+   público sin que nadie haya tocado nada es lo que el organizador se
+   encontrará el día que abra el editor, no otra página distinta. */
+function bloquesSistema() {
+  return BLOCK_TYPES_SISTEMA.map(type => ({ id: `sys_${type}`, type, data: {} }));
+}
 
 export default function EventoPublicoPage() {
   const { slug } = useParams();
@@ -56,12 +63,26 @@ export default function EventoPublicoPage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
+  /* Suelo de la página pública: un evento publicado tiene que poder venderse
+     aunque nadie haya abierto el editor visual.
+
+     `crear_evento` —la vía del conector de Claude— deja `page_json` con
+     `pages: []` y `blocks: []`. Ese array vacío entraba en la rama de abajo y
+     se envolvía en una página sin un solo bloque: quien abría el enlace veía
+     el logo del organizador y nada más. Sin título, sin fecha, sin lugar y
+     —lo que importa— sin boletas, mientras la API devolvía los tipos de
+     boleta correctamente. O sea que el organizador comparte su evento y no se
+     puede comprar.
+
+     El editor ya caía a los bloques del sistema en el mismo caso
+     (`defaultPages`, PageBuilder). El público era el único lado sin suelo, y
+     es el que vende. */
   const pages = useMemo(() => {
     if (!evento) return [];
     const pj = evento.page_json;
     if (pj?.pages?.length) return pj.pages;
-    if (Array.isArray(pj?.blocks)) return [{ id: 'inicio', nombre: 'Inicio', blocks: pj.blocks }];
-    return [{ id: 'inicio', nombre: 'Inicio', blocks: [] }];
+    const propios = Array.isArray(pj?.blocks) && pj.blocks.length ? pj.blocks : bloquesSistema();
+    return [{ id: 'inicio', nombre: 'Inicio', blocks: propios }];
   }, [evento]);
 
   /* Favicon, título y metadatos SEO (page_json.seo) en el <head> */
