@@ -356,6 +356,7 @@ sesión se encontró leyendo comentarios que explicaban una decisión vieja.
 | `CORREO-Y-DOMINIOS.md` | Cómo enviar mucho correo y desde el dominio propio |
 | `CONTEXTO.md` | Este archivo |
 | `SONDEO.md` | Cómo recorrer la plataforma entera buscando fallos, y por qué el navegador ve lo que HTTP no |
+| `NUBE.md` | Cómo retomar el proyecto sin la máquina local: qué conectores hay que reconectar y qué cambia |
 | `../gestor-eventos-backend/DESPLIEGUE.md` | Credenciales y qué se rompe sin cada una |
 
 ---
