@@ -180,7 +180,21 @@ export default function MiTicketPage() {
         </div>
       )}
 
-      <div className="mt-8 text-center no-print">
+      {/* El momento natural para apuntarse a los talleres y torneos es éste:
+          acaba de sacar la entrada y tiene la boleta delante. El código viaja
+          en el enlace, así que al llegar a la agenda no hay que escribirlo —
+          era el punto exacto donde se caía la inscripción a sub-eventos. */}
+      <div className="mt-8 no-print">
+        <Link to={`/explorar/${ticket.evento?.slug}/agenda?boleta=${encodeURIComponent(ticket.codigo)}`}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors">
+          <span className="text-sm text-text-1">
+            <strong>Mira el programa</strong> y apúntate a los talleres y torneos.
+          </span>
+          <span className="text-primary-light text-sm font-medium whitespace-nowrap">Ver →</span>
+        </Link>
+      </div>
+
+      <div className="mt-4 text-center no-print">
         <Link to={`/explorar/${ticket.evento?.slug}`} className="text-sm text-text-2 hover:text-text-1 transition-colors">
           Ver evento →
         </Link>

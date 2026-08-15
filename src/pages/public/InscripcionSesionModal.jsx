@@ -25,9 +25,13 @@ import AceptarTerminos, { useLegalEvento } from '../../components/public/Aceptar
    se repite aquí.
    ────────────────────────────────────────────────────────────────── */
 
-export default function InscripcionSesionModal({ slug, sesion, preguntas = [], onClose, onInscrito }) {
+export default function InscripcionSesionModal({ slug, sesion, preguntas = [], boleta = null, onClose, onInscrito }) {
   const [conBoleta, setConBoleta] = useState(true);
-  const [codigo, setCodigo] = useState('');
+  const [codigo, setCodigo] = useState(boleta?.codigo || '');
+  /* Cuando ya sabemos la boleta —porque se llegó desde ella o porque hay
+     sesión iniciada— no se pide nada: se dice de parte de quién se apunta y se
+     deja una salida por si el equipo está apuntando a otra persona. */
+  const [reconocida, setReconocida] = useState(Boolean(boleta?.codigo));
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
   const [working, setWorking] = useState(false);
@@ -106,18 +110,36 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
         )}
 
         {/* Con boleta primero: es el camino normal y el que evita escribir dos
-            veces los mismos datos. */}
-        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-          {[[true, 'Tengo boleta'], [false, 'No tengo boleta']].map(([v, label]) => (
-            <button key={String(v)} type="button" onClick={() => { setConBoleta(v); setErr(''); }}
-              className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
-                          ${conBoleta === v ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
+            veces los mismos datos. El selector sobra cuando ya sabemos quién
+            es: preguntarle «¿tienes boleta?» a quien acaba de llegar desde su
+            boleta es hacerle contestar algo que ya contestó. */}
+        {!reconocida && (
+          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
+            {[[true, 'Tengo boleta'], [false, 'No tengo boleta']].map(([v, label]) => (
+              <button key={String(v)} type="button" onClick={() => { setConBoleta(v); setErr(''); }}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                            ${conBoleta === v ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {conBoleta ? (
+        {reconocida ? (
+          <div className="rounded-2xl border border-success/30 bg-success/5 px-4 py-3">
+            <p className="text-sm text-text-1">
+              Te apuntas como <strong>{boleta?.nombre || 'titular de la boleta'}</strong>
+            </p>
+            <p className="text-[11px] text-text-3 mt-0.5">
+              Boleta <span className="font-mono tracking-wider">{codigo}</span>. No hace falta que escribas nada más.
+            </p>
+            <button type="button"
+              onClick={() => { setReconocida(false); setCodigo(''); setErr(''); }}
+              className="text-[11px] text-primary-light hover:underline mt-1.5">
+              Apuntar a otra persona
+            </button>
+          </div>
+        ) : conBoleta ? (
           <div className="field">
             <label className="label">Código de tu boleta *</label>
             <input value={codigo} onChange={e => setCodigo(e.target.value.toUpperCase())}

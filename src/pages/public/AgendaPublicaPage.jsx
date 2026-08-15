@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
+import client from '../../api/client.js';
 import { eventosApi } from '../../api/eventos.js';
 import { agendaApi } from '../../api/agenda.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -30,6 +31,44 @@ export default function AgendaPublicaPage() {
   const [preguntas, setPreguntas] = useState({});
   const [inscribiendo, setInscribiendo] = useState(null);
   const [inscritas, setInscritas] = useState(new Set());
+
+  /* Quién es el que mira, si se puede saber sin preguntárselo.
+
+     Apuntarse a un torneo pedía escribir a mano el código de ocho caracteres
+     de la boleta. Quien acaba de comprar lo tiene en un correo, en otra
+     pestaña, o en ningún sitio: ahí es donde se caía el registro a los
+     sub-eventos, no en el formulario.
+
+     Dos vías, y ninguna obliga a escribir nada:
+       · `?boleta=CODIGO`, que es lo que arrastra el enlace desde la boleta.
+         Se comprueba contra el servidor antes de dar por buena a la persona —
+         si no, bastaría con inventar un código en la barra de direcciones para
+         que la pantalla dijera el nombre de otro.
+       · La sesión iniciada, buscando entre las boletas de quien entró. */
+  const [params] = useSearchParams();
+  const codigoUrl = (params.get('boleta') || '').trim().toUpperCase();
+  const [boleta, setBoleta] = useState(null);
+
+  useEffect(() => {
+    let vivo = true;
+    if (codigoUrl) {
+      eventosApi.ticketByCode(codigoUrl)
+        .then(d => {
+          const t = d?.ticket;
+          if (vivo && t?.evento?.slug === slug) setBoleta({ codigo: t.codigo, nombre: t.guest_nombre });
+        })
+        .catch(() => { /* código inventado o de otro evento: se pide a mano */ });
+      return () => { vivo = false; };
+    }
+    if (!usuario) return;
+    client.get('/me/boletas')
+      .then(r => {
+        const suya = (r.data?.boletas || []).find(b => b.evento?.slug === slug);
+        if (vivo && suya) setBoleta({ codigo: suya.codigo, nombre: usuario.nombre || suya.guest_nombre });
+      })
+      .catch(() => { /* sin boleta propia: el modal la pedirá */ });
+    return () => { vivo = false; };
+  }, [codigoUrl, usuario, slug]);
 
   useEffect(() => {
     eventosApi.agendaPublica(slug)
@@ -238,6 +277,7 @@ export default function AgendaPublicaPage() {
           slug={slug}
           sesion={inscribiendo}
           preguntas={preguntas[inscribiendo.id] || []}
+          boleta={boleta}
           onClose={() => setInscribiendo(null)}
           onInscrito={(id) => {
             setInscritas(prev => new Set(prev).add(id));
