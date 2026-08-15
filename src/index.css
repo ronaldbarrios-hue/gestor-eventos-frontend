@@ -162,12 +162,20 @@
   * { box-sizing: border-box; }
 
   /* Respeta a quien prefiere menos movimiento: corta animaciones
-     decorativas continuas (no las micro-transiciones de UI). */
+     decorativas continuas (no las micro-transiciones de UI).
+
+     Se atenúa en vez de eliminar: `animation: none` sobre una entrada que
+     arranca en `opacity: 0` dejaría el contenido invisible. Una duración
+     imperceptible conserva el estado final y quita el movimiento. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
       scroll-behavior: auto !important;
+      /* Faltaba: las transiciones no las cubría `animation-*`, y los
+         desplazamientos de los pasos del registro son transiciones. */
+      transition-duration: 0.001ms !important;
+      transition-delay: 0ms !important;
     }
   }
 

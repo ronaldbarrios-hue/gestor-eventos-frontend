@@ -102,6 +102,12 @@ export default {
       },
       keyframes: {
         fadeUp    : { from:{ opacity:0, transform:'translateY(10px)' }, to:{ opacity:1, transform:'translateY(0)' } },
+        /* Pasos del registro por módulos. Doce píxeles, no sesenta: aquí el
+           desplazamiento no es un efecto, es la respuesta a «¿avancé o
+           retrocedí?». Si se nota como animación, ya es demasiado —son catorce
+           pasos seguidos y lo van a hacer miles de personas. */
+        pasoAdelante: { from:{ opacity:0, transform:'translateX(12px)' },  to:{ opacity:1, transform:'translateX(0)' } },
+        pasoAtras   : { from:{ opacity:0, transform:'translateX(-12px)' }, to:{ opacity:1, transform:'translateX(0)' } },
         fadeIn    : { from:{ opacity:0 }, to:{ opacity:1 } },
         slideIn   : { from:{ opacity:0, transform:'translateX(-10px)' }, to:{ opacity:1, transform:'translateX(0)' } },
         scaleIn   : { from:{ opacity:0, transform:'scale(0.95)' }, to:{ opacity:1, transform:'scale(1)' } },

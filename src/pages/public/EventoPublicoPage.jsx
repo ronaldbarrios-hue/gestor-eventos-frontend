@@ -605,9 +605,31 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
   const paginado = convienePaginar(modulos, camposForm.length);
   const pasos = paginado ? ['Tus datos', ...modulos.map(m => m.titulo)] : [];
   const [paso, setPaso] = useState(0);
+  /* Hacia dónde se fue el último cambio, para que el bloque de campos entre
+     por el lado que corresponde: desde la derecha al avanzar, desde la
+     izquierda al volver. Sin esto los campos se sustituyen de golpe y en
+     catorce pasos seguidos no hay forma de saber si uno avanzó o retrocedió. */
+  const [haciaAdelante, setHaciaAdelante] = useState(true);
+  const irAPaso = (n) => {
+    setHaciaAdelante(prev => (typeof n === 'number' ? n >= paso : prev));
+    setPaso(n);
+  };
   const enUltimo = !paginado || paso >= pasos.length - 1;
   /* Los del paso que se está mirando; en el 0 no hay ninguno del organizador. */
   const camposDelPaso = paginado ? (modulos[paso - 1]?.campos || []) : camposForm;
+
+  /* La entrada va en CADA campo y no en un envoltorio: son hijos directos de
+     la rejilla y meter un div en medio rompería las dos columnas. Doce píxeles
+     y 180 ms — lo justo para leer la dirección del cambio sin que catorce
+     pasos seguidos se sientan lentos.
+
+     Las dos clases van escritas ENTERAS y no armadas con plantilla: Tailwind
+     las genera leyendo el código, y una clase construida en tiempo de
+     ejecución no la ve nadie — el estilo no existiría. */
+  const claseEntrada = !paginado ? ''
+    : haciaAdelante
+      ? 'animate-[pasoAdelante_180ms_cubic-bezier(0.16,1,0.3,1)_both]'
+      : 'animate-[pasoAtras_180ms_cubic-bezier(0.16,1,0.3,1)_both]';
 
   const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
 
@@ -650,7 +672,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
 
   const avanzar = () => {
     if (validarPasoActual() > 0) return;
-    setPaso(p => Math.min(p + 1, pasos.length - 1));
+    irAPaso(Math.min(paso + 1, pasos.length - 1));
   };
 
   const submit = async (e) => {
@@ -687,7 +709,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
         const iMod = roto ? modulos.findIndex(m => m.campos.some(c => String(c.id) === String(roto))) : -1;
         const destino = Object.values(malFormulario).some(Boolean) ? 0 : (iMod >= 0 ? iMod + 1 : 0);
         if (destino !== paso) {
-          setPaso(destino);
+          irAPaso(destino);
           setErr('Falta un dato en este bloque.');
           return;
         }
@@ -808,7 +830,10 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
             conocida en media columna, el resto entero. La regla vive en
             CampoFormulario, que es el unico que sabe de tipos. */}
         {camposDelPaso.map(c => (
-          <div key={c.id} className={ocupaFila(c) ? 'ancho' : undefined}>
+          /* La clave lleva el paso para que React remonte el campo al cambiar
+             de módulo; sin eso reutilizaría el nodo y la entrada no se
+             dispararía. */
+          <div key={`${paso}:${c.id}`} className={`${ocupaFila(c) ? 'ancho ' : ''}${claseEntrada}`}>
             <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)}
               eventoId={evento?.id} error={errCampos[c.id]} />
           </div>
@@ -876,7 +901,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
 
         <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
           {paginado && paso > 0
-            ? <button type="button" onClick={() => { setErr(''); setPaso(p => Math.max(0, p - 1)); }}
+            ? <button type="button" onClick={() => { setErr(''); irAPaso(Math.max(0, paso - 1)); }}
                 className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">← Atrás</button>
             : <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">Cancelar</button>}
           {!enUltimo ? (
