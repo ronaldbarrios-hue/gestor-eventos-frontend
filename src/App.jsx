@@ -21,6 +21,7 @@ const TorneoPublicoPage  = lazy(() => import('./pages/public/TorneoPublicoPage.j
 const TorneosResumenPage = lazy(() => import('./pages/public/TorneosResumenPage.jsx'));
 const RankingPublicoPage = lazy(() => import('./pages/public/RankingPublicoPage.jsx'));
 const AgendaPublicaPage  = lazy(() => import('./pages/public/AgendaPublicaPage.jsx'));
+const LegalEventoPage    = lazy(() => import('./pages/public/LegalEventoPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
 const AutorizarPage = lazy(() => import('./pages/conectar/AutorizarPage.jsx'));
 const EmbedPage          = lazy(() => import('./pages/public/EmbedPage.jsx'));
@@ -95,6 +96,11 @@ export default function App() {
                 <Route path="/explorar/:slug/torneos" element={<TorneosResumenPage />} />
                 <Route path="/explorar/:slug/ranking" element={<RankingPublicoPage />} />
                 <Route path="/explorar/:slug/agenda" element={<AgendaPublicaPage />} />
+                {/* Faltaba, y sin ella el bloque de consentimiento del checkout
+                    enlazaba a una ruta inexistente: quien pulsaba «léelos»
+                    acababa en la portada. Aceptar unas condiciones que no se
+                    pueden leer no es aceptar nada. */}
+                <Route path="/explorar/:slug/legal"  element={<LegalEventoPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
                 {/* Consentimiento del conector OAuth. Publica a proposito: se
                     llega desde Claude sin sesion, y la propia pantalla manda a

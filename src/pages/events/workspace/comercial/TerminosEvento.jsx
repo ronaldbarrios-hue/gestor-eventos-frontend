@@ -224,7 +224,7 @@ export default function TerminosEvento({ evento }) {
         <button onClick={guardar} disabled={guardando} className="btn-primary btn-sm">
           {guardando ? <><Spinner size="sm" /> Guardando…</> : 'Guardar términos'}
         </button>
-        <a href={`/e/${evento.slug}/legal`} target="_blank" rel="noreferrer"
+        <a href={`/explorar/${evento.slug}/legal`} target="_blank" rel="noreferrer"
           className="text-xs text-primary-light hover:underline">Ver cómo queda en público</a>
       </div>
     </div>
