@@ -796,13 +796,15 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
         {/* Nombre y correo ocupan fila entera: los dos se leen enteros o no se
             leen. Un correo cortado a 21 caracteres obliga a hacer scroll dentro
             del campo para releer lo que uno escribio. */}
+        {/* El paso 0 también entra: si no, volver a él desde el 1 se siente
+            como un salto seco justo después de haber visto deslizarse el resto. */}
         {(!paginado || paso === 0) && (<>
-        <div className="field ancho">
+        <div className={`field ancho ${claseEntrada}`}>
           <label className="label" htmlFor="res-nombre">Nombre completo *</label>
           <input id="res-nombre" required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
             className="input-form" placeholder="Tu nombre" autoFocus />
         </div>
-        <div className="field ancho">
+        <div className={`field ancho ${claseEntrada}`}>
           <label className="label" htmlFor="res-email">Email *</label>
           <input id="res-email" required type="email" inputMode="email" autoComplete="email"
             value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
@@ -812,7 +814,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
           {errForm.email && <p className="text-[11px] text-danger-light mt-1">{errForm.email}</p>}
         </div>
         {/* El telefono si cabe en media: son diez digitos de forma conocida. */}
-        <div className="field">
+        <div className={`field ${claseEntrada}`}>
           <label className="label" htmlFor="res-tel">Teléfono {checkout.requiere_telefono
             ? <span className="text-danger-light">*</span>
             : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
