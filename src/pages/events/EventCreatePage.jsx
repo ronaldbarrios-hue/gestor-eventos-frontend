@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ETIQUETAS_QUE_FUNCIONAN, SINONIMOS_ETIQUETA } from '../../lib/pdfEvento.js';
+import { ETIQUETAS_QUE_FUNCIONAN, SINONIMOS_ETIQUETA, PAGINAS_LEIDAS } from '../../lib/pdfEvento.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
@@ -51,6 +51,22 @@ export default function EventCreatePage() {
     agenteApi.estado().then(r => setIaDisponible(!!r.disponible)).catch(() => {});
   }, []);
 
+  /* Un <input type="datetime-local"> quiere la hora LOCAL, no UTC.
+
+     Se usaba `.toISOString().slice(0,16)`, que convierte a UTC: el parser
+     creaba las 09:00, el campo mostraba las 14:00 (Bogotá es UTC-5) y al
+     guardar se volvía a interpretar como local y salía 19:00Z. Dos
+     desplazamientos seguidos, y con husos de UTC+10 o más cambiaba el DÍA.
+
+     Pasaba incluso con un PDF perfecto: el chip enseñaba la fecha sin hora,
+     así que se revisaba un valor y se guardaba otro. */
+  const paraInputLocal = (f) => {
+    const d = f instanceof Date ? f : new Date(f);
+    if (Number.isNaN(d.getTime())) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+
   const generarConIA = async () => {
     if (iaTexto.trim().length < 10) { error('Describe tu evento con al menos una frase.'); return; }
     setIaCargando(true);
@@ -67,8 +83,8 @@ export default function EventCreatePage() {
         categoria_id      : cat ? String(cat.id) : f.categoria_id,
         aforo_total       : borrador.aforo_total ?? f.aforo_total,
         location_nombre   : borrador.location_nombre || f.location_nombre,
-        fecha_inicio      : inicio.toISOString().slice(0, 16),
-        fecha_fin         : fin.toISOString().slice(0, 16),
+        fecha_inicio      : paraInputLocal(inicio),
+        fecha_fin         : paraInputLocal(fin),
       }));
       setIaOpen(false);
       setStep(0);
@@ -100,9 +116,9 @@ export default function EventCreatePage() {
         location_nombre: quiere('Lugar')              ? poner(f.location_nombre, d.campos.location_nombre) : f.location_nombre,
         aforo_total    : quiere('Aforo')              ? poner(f.aforo_total, d.campos.aforo_total) : f.aforo_total,
         fecha_inicio   : quiere('Fecha de inicio') && d.campos.fecha_inicio
-          ? poner(f.fecha_inicio, d.campos.fecha_inicio.toISOString().slice(0, 16)) : f.fecha_inicio,
+          ? poner(f.fecha_inicio, paraInputLocal(d.campos.fecha_inicio)) : f.fecha_inicio,
         fecha_fin      : quiere('Fecha de fin') && d.campos.fecha_fin
-          ? poner(f.fecha_fin, d.campos.fecha_fin.toISOString().slice(0, 16)) : f.fecha_fin,
+          ? poner(f.fecha_fin, paraInputLocal(d.campos.fecha_fin)) : f.fecha_fin,
       };
     });
 
@@ -114,7 +130,7 @@ export default function EventCreatePage() {
   /* Elegir una fecha de entre las candidatas cuando el documento no dice cual
      es la del evento. */
   const elegirFecha = (iso) => {
-    setForm(f => ({ ...f, fecha_inicio: new Date(iso).toISOString().slice(0, 16) }));
+    setForm(f => ({ ...f, fecha_inicio: paraInputLocal(new Date(iso)) }));
     setPdfDetectado(d => d ? { ...d, dudas: d.dudas.filter(x => x.campo !== 'Fecha') } : d);
     success('Fecha aplicada.');
   };
@@ -128,7 +144,7 @@ export default function EventCreatePage() {
     setPdfCargando(true);
     setPdfDetectado(null);
     try {
-      const { extraerTextoPDF, parsearEvento, PAGINAS_LEIDAS } = await import('../../lib/pdfEvento.js');
+      const { extraerTextoPDF, parsearEvento } = await import('../../lib/pdfEvento.js');
       const { texto, paginas, total } = await extraerTextoPDF(file);
       const { campos, detectados, dudas, aviso } = parsearEvento(texto);
 
@@ -143,6 +159,11 @@ export default function EventCreatePage() {
          secundario. */
       setPdfDetectado({
         campos, detectados, dudas, aviso,
+        /* `paginas`/`total` van SIEMPRE, tambien cuando no se detecto nada.
+           El caso reportado —un dossier largo cuya portada e indice no traen
+           nada parseable— caia en la rama del aviso y el organizador leia
+           «¿el PDF es una imagen escaneada?» sin enterarse de que se habian
+           descartado 32 paginas. */
         nombre: file.name,
         paginas, total,
         /* Se preseleccionan solo los datos que el documento AFIRMA con una
@@ -236,7 +257,7 @@ export default function EventCreatePage() {
                 descripción. Tú eliges qué aplicar. El PDF no sale de tu navegador.
               </p>
               <p className="text-[11px] text-text-3 mt-1">
-                Se leen las primeras 8 páginas, hasta 15 MB. Un PDF escaneado (una foto) no se puede leer.
+                Se leen las primeras {PAGINAS_LEIDAS} páginas, hasta 15 MB. Un PDF escaneado (una foto) no se puede leer.
               </p>
               {/* La forma del documento importa mas que su contenido, y eso no
                   es evidente. Un flyer de una pagina con etiquetas se lee
@@ -351,7 +372,15 @@ export default function EventCreatePage() {
           )}
 
           {pdfDetectado?.aviso && (
-            <p className="mt-3 text-xs text-warning-light bg-warning/10 border border-warning/20 rounded-xl px-3 py-2">{pdfDetectado.aviso}</p>
+            <div className="mt-3 text-xs text-warning-light bg-warning/10 border border-warning/20 rounded-xl px-3 py-2 space-y-1">
+              <p>{pdfDetectado.aviso}</p>
+              {pdfDetectado.total > pdfDetectado.paginas && (
+                <p className="text-text-2">
+                  Además, sólo se leyeron las primeras <strong>{pdfDetectado.paginas} de {pdfDetectado.total} páginas</strong>:
+                  si los datos del evento están más adelante, no llegaron a mirarse.
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}

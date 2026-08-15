@@ -76,7 +76,17 @@ const RE = {
   precio:    /(?:\$|COP|USD|ARS|MXN|precio[:\s]*)\s?([\d][\d.,]{1,12})/gi,
   email:     /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/i,
   url:       /\bhttps?:\/\/[^\s]+|\bwww\.[^\s]+/i,
-  aforo:     /(?:aforo|cupo|capacidad|hasta)\s*(?:de|:)?\s*([\d.,]{2,7})\s*(?:personas|asistentes|cupos|pers)?/i,
+  /* El aforo pide contexto de verdad, y la razón es un caso real: antes esta
+     expresión incluía `hasta` y el sufijo era opcional, así que «hasta 50 % en
+     boletas» daba aforo 50 y «llega hasta 30 minutos antes» daba 30. Peor
+     todavía, salían marcados como afirmados por el documento.
+
+     Ahora hacen falta dos cosas a la vez: una palabra que signifique aforo Y
+     el sustantivo detrás (personas, asistentes…). Un número suelto no es un
+     aforo, y el aforo decide cuántas boletas se pueden vender. */
+  aforo:        /(?:aforo|cupo|capacidad)\s*(?:m[aá]ximo|total)?\s*(?:de|:|para)?\s*([\d.,]{2,7})\s*(?:personas|asistentes|cupos|pers|sillas|puestos)/gi,
+  /* Etiqueta al inicio de línea: eso sí es una afirmación. */
+  aforoEtiqueta: /^\s*(?:aforo|cupo|capacidad)\s*[:\-]\s*([\d.,]{2,7})/i,
   /* Etiqueta al inicio de línea + dos puntos/guion — evita cazar la palabra
      "lugar" cuando aparece a mitad de una frase de la descripción. */
   lugarEtiqueta: /^\s*(?:lugar|sede|ubicaci[oó]n|d[oó]nde|venue|direcci[oó]n)\s*[:\-]\s*(.{3,90})$/i,
@@ -87,8 +97,12 @@ const RE = {
      dice que ESTA es la fecha del evento». */
   tituloEtiqueta: /^\s*(?:evento|nombre del evento|t[ií]tulo)\s*[:\-]\s*(.{3,90})$/i,
   fechaEtiqueta:  /^\s*(?:fecha|fecha del evento|cu[aá]ndo|d[ií]a)\s*[:\-]\s*(.{3,90})$/i,
-  fechaInicioEt:  /^\s*(?:fecha de inicio|inicio|desde|comienza)\s*[:\-]\s*(.{3,90})$/i,
-  fechaFinEt:     /^\s*(?:fecha de fin|fin|hasta|termina|finaliza)\s*[:\-]\s*(.{3,90})$/i,
+  /* Sin la palabra «fecha» delante, «Desde:» y «Hasta:» casi siempre son el
+     plazo de inscripción, no el evento. Se comprobó: «Fecha: 10 de octubre /
+     Hasta: 30 de diciembre» daba un evento que terminaba dos meses y medio
+     después de empezar, con la etiqueta de dato afirmado. */
+  fechaInicioEt:  /^\s*(?:fecha de inicio|fecha inicio|inicia|comienza)\s*[:\-]\s*(.{3,90})$/i,
+  fechaFinEt:     /^\s*(?:fecha de fin|fecha fin|fecha de finalizaci[oó]n|termina|finaliza)\s*[:\-]\s*(.{3,90})$/i,
 };
 
 /* Devuelve lo que captura la primera línea que case con la etiqueta. */
@@ -269,10 +283,35 @@ export function parsearEvento(texto) {
     if (lugar) { campos.location_nombre = lugar; detectados.push({ campo: 'Lugar', valor: lugar, seguro: lugarEtiquetado }); }
   }
 
-  const mAforo = limpio.match(RE.aforo);
-  if (mAforo) {
-    const n = Number(mAforo[1].replace(/[.,]/g, ''));
-    if (n >= 2 && n <= 1000000) { campos.aforo_total = n; detectados.push({ campo: 'Aforo', valor: String(n), seguro: true }); }
+  /* Aforo. La etiqueta a inicio de línea es una afirmación; el resto son
+     candidatos, y si hay más de uno distinto no se elige: en un dossier
+     aparecen el aforo de la sala, el de cada taller y el del auditorio, y
+     quedarse con «el primero que salga» es como no mirar. */
+  const aforoEt = buscarEtiqueta(limpio, RE.aforoEtiqueta);
+  const aNum = (t) => Number(String(t).replace(/[.,]/g, ''));
+  const valido = (n) => Number.isFinite(n) && n >= 2 && n <= 1000000;
+
+  if (aforoEt && valido(aNum(aforoEt))) {
+    campos.aforo_total = aNum(aforoEt);
+    detectados.push({ campo: 'Aforo', valor: String(campos.aforo_total), seguro: true });
+  } else {
+    const vistos = new Set();
+    let ma; RE.aforo.lastIndex = 0;
+    while ((ma = RE.aforo.exec(limpio))) {
+      const n = aNum(ma[1]);
+      if (valido(n)) vistos.add(n);
+    }
+    const cand = [...vistos];
+    if (cand.length === 1) {
+      campos.aforo_total = cand[0];
+      detectados.push({ campo: 'Aforo', valor: String(cand[0]), seguro: false });
+    } else if (cand.length > 1) {
+      dudas.push({
+        campo: 'Aforo',
+        motivo: `El documento menciona ${cand.length} capacidades distintas y ninguna dice ser la del evento.`,
+        opciones: cand.sort((a, b) => b - a).slice(0, 8).map(n => ({ valor: String(n), texto: `${n.toLocaleString('es-CO')} personas` })),
+      });
+    }
   }
 
   /* Precios: solo se listan como sugerencia (las boletas se crean aparte). */
