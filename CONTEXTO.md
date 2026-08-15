@@ -205,6 +205,7 @@ gente a la que hay que entregarle la boleta en mano es justo la que no lo tiene.
 | 0073 | OAuth para conectores |
 | 0074 | Campo de formulario buscable (listas largas) |
 | 0075 | Subcategoría de espacio + buzón de sugerencias |
+| 0076 | Los once tipos de pregunta del catálogo (la base sólo aceptaba seis) |
 
 ---
 
@@ -434,6 +435,50 @@ el organizador configura en Asistentes → Tarjeta no lo veía nadie.
 Dos envíos más con `ok = true` a una dirección real (la cortesía y la compra).
 Resend los aceptó. **Sigue faltando lo mismo que el 14: mirar la bandeja**, y
 la carpeta de correo no deseado. Es lo único que no puede comprobar el agente.
+
+### Segunda tanda: el registro de Festech (15 de agosto, tarde)
+
+Festech es **el único evento real** de los 31 de la base: 17–19 de septiembre,
+10 boletas ya emitidas, y la boletería abre la semana del 17. Todo lo demás son
+pruebas. Tenía 2 preguntas de formulario y **cero sesiones de agenda**.
+
+**El bloqueador, que estaba escondido en la base.** El catálogo del servidor
+ofrece once tipos de pregunta; el `CHECK` de `event_form_fields.tipo` sólo
+aceptaba seis. Como `filaCampo` guarda `tipo` tal cual, **`parrafo`, `email`,
+`telefono`, `documento` y `multiple` no se podían guardar**: el insert
+reventaba. El trabajo de formularios de la sesión anterior estaba a medias en
+el sitio que no se ve — se arregló el panel para ofrecer los once y nunca se
+ensanchó la columna. La ficha de caracterización no se podía aplicar a ningún
+evento. **Migración 0076 aplicada**, comprobada en las dos direcciones.
+
+**El público no veía tres columnas que el panel sí guardaba.** `grupo`, `ayuda`
+y `buscable` viajaban al panel pero no a la página pública: las dos consultas
+de `eventos.publicos.js` tenían su propia lista de columnas recortada mientras
+`COLUMNAS_CAMPO` ya existía con las diez. Sin `grupo` no hay módulos, y el
+texto de `ayuda` —el que explica una pregunta delicada— se perdía justo donde
+había que leerlo.
+
+**Registro por módulos.** El formulario público se reparte por la columna
+«Grupo» de la plantilla, con tope de 10 y troceo automático de red de
+seguridad. Se valida al avanzar, no al final; el cierre legal va en el último
+paso; con pocas preguntas no se pagina. Medido con 13 preguntas en 5 grupos:
+«Paso 1 de 6», cada módulo con su nombre, y el buscador encendiéndose solo en
+la lista de 12 barrios (filtró a 1 con tres letras) pero no en la de 6 estratos.
+
+**Apuntarse a un sub-evento ya no pide el código de memoria.** El servidor
+siempre supo resolverlo con el código de la boleta; lo que faltaba era llegar
+hasta ahí. Ahora el código viaja en el enlace desde la boleta y se detecta con
+sesión iniciada. Medido: el modal dice «Te apuntas como … · Boleta …» sin pedir
+nada, la inscripción queda vinculada a la boleta y el cupo baja. Con un código
+inventado en la URL vuelve a pedirlo a mano — se comprueba contra el servidor
+antes de saludar a nadie por su nombre.
+
+**El webhook de Mercado Pago no era el agujero que decían estos documentos.**
+El manejador nunca se cree el aviso: reverifica el pago contra MP. Lo que sí
+estaba abierto era un amplificador — un id inventado provocaba una llamada
+saliente por cada organizador conectado, y el limitador no contaba nada porque
+el webhook responde 200 antes de procesar. Corregido. **`MP_WEBHOOK_SECRET`
+sigue sin poner**, y ahora el servidor avisa al arrancar.
 
 ### Lo que queda de lo público, sin tocar
 
