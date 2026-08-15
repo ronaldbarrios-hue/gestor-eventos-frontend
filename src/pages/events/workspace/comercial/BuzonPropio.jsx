@@ -37,7 +37,12 @@ export default function BuzonPropio({ evento }) {
   const cargar = () => api.ver(evento.id).then(setEstado)
     .catch(e => { toastErr(e.response?.data?.error || e.message); setEstado({ disponible: false }); });
 
-  useEffect(cargar, [evento.id]); // eslint-disable-line
+  /* `() => { cargar(); }` y no `cargar` a secas: lo que devuelve un efecto es su
+     función de limpieza, y `cargar` devuelve la promesa del fetch. Al salir de
+     la pestaña React llamaba a esa promesa como si fuera una función y tumbaba
+     la aplicación entera con «n is not a function» — un error que aparecía en
+     la pantalla siguiente, no en ésta, que es lo que lo hacía difícil de ubicar. */
+  useEffect(() => { cargar(); }, [evento.id]); // eslint-disable-line
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 

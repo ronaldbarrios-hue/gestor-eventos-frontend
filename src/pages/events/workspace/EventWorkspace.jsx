@@ -354,7 +354,8 @@ export default function EventWorkspace() {
                 <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
                   onAnuncio={() => setBroadcastOpen(true)}
                   onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
-                  onEliminar={eliminar} />
+                  onEliminar={eliminar}
+                  anunciosVersion={anunciosVersion} />
               </ErrorBoundary>
             </div>
           </div>
@@ -372,7 +373,10 @@ export default function EventWorkspace() {
   );
 }
 
-function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar, onEliminar }) {
+/* `anunciosVersion` viaja como prop y no como variable suelta: es estado del
+   componente de arriba, y aquí dentro no existía. Al abrir Comunicación →
+   Anuncios se lanzaba un ReferenceError y la pestaña no se pintaba. */
+function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
   if (!seccion || !tab) return null;
   if (tab.placeholder) return <PlaceholderTab title={tab.placeholder[0]} desc={tab.placeholder[1]} icon="spark" />;
 

@@ -26,6 +26,20 @@ import { descargarPlantilla, leerPlantilla, HOJA_DATOS } from '../../../lib/plan
    Antes esta variable se llamaba `tipos` y convivía con los tipos de CAMPO,
    que es parte de cómo se enredó esto. */
 
+/* Clave para comparar dos preguntas y no repetirlas al agregar una ficha.
+
+   Se compara sin tildes, sin mayúsculas y sin espacios de más porque las
+   fichas y lo que ya escribió el organizador vienen de sitios distintos:
+   «Numero de documento» y «Número de documento» son la misma pregunta y
+   agregarlas dos veces deja un formulario que pide lo mismo dos veces.
+
+   Faltaba. `agregarFicha` la llamaba y no existía en ningún lado, así que
+   lanzaba ReferenceError en su primera línea — y como React no atrapa los
+   errores de un manejador de clic, el botón sencillamente no hacía nada. */
+const clave = (etiqueta) => String(etiqueta ?? '')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/\s+/g, ' ').trim();
+
 function nuevoCampo(preset = {}) {
   return {
     _key: preset.id || `n${Math.random().toString(36).slice(2)}`,
@@ -263,6 +277,42 @@ export default function FormularioTab({ evento }) {
     success(`${presets.length} ${presets.length === 1 ? 'pregunta agregada' : 'preguntas agregadas'}. Revisa y guarda.`);
   };
 
+  /* Importar desde una hoja FUSIONA en vez de apilar, y en el empate manda el
+     archivo.
+
+     El caso real es este: alguien escribió a mano media docena de preguntas
+     mientras esperaba la plantilla, y luego sube el Excel bueno con esas
+     mismas y treinta más. Apilando quedaban duplicadas —el asistente las ve
+     dos veces— y saltándolas ganaba la versión vieja, que suele ser la que
+     está mal escrita o sin opciones.
+
+     Gana el archivo porque es el documento que el organizador revisó. Se
+     conserva el `id` de la pregunta que ya existía: el backend hace un diff
+     por id, y perderlo dejaría huérfanas las respuestas ya diligenciadas. */
+  const fusionarDesdeArchivo = (presets) => {
+    if (!presets.length) return;
+    let reemplazadas = 0;
+    setCampos(list => {
+      const porClave = new Map(list.map(c => [clave(c.etiqueta), c]));
+      const nuevos = [];
+      for (const p of presets) {
+        const previo = porClave.get(clave(p.etiqueta));
+        if (previo) {
+          reemplazadas++;
+          porClave.set(clave(p.etiqueta), nuevoCampo({ ...p, id: previo.id, _key: previo._key }));
+        } else {
+          nuevos.push(nuevoCampo(p));
+        }
+      }
+      /* Las que ya estaban conservan su sitio; las nuevas van detrás. */
+      return [...list.map(c => porClave.get(clave(c.etiqueta)) || c), ...nuevos];
+    });
+    const añadidas = presets.length - reemplazadas;
+    success(reemplazadas === 0
+      ? `${añadidas} ${añadidas === 1 ? 'pregunta agregada' : 'preguntas agregadas'}. Revisa y guarda.`
+      : `${añadidas} nuevas y ${reemplazadas} actualizadas con lo que dice el archivo. Revisa y guarda.`);
+  };
+
   /* Una ficha se agrega entera pero sin repetir lo que ya está: agregar dos
      veces la de caracterización dejaría 44 preguntas duplicadas. */
   const agregarFicha = (ficha) => {
@@ -361,7 +411,7 @@ export default function FormularioTab({ evento }) {
           catalogo={catalogo}
           nombreEvento={evento?.titulo || evento?.slug || 'evento'}
           cupo={cupo}
-          onAgregar={agregarVarios}
+          onAgregar={fusionarDesdeArchivo}
           onCerrar={() => setImportando(false)}
         />
       )}
