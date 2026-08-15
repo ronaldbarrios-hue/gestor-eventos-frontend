@@ -315,6 +315,38 @@ export default function FormularioTab({ evento }) {
 
   /* Una ficha se agrega entera pero sin repetir lo que ya está: agregar dos
      veces la de caracterización dejaría 44 preguntas duplicadas. */
+  /* ¿Está entera? Es lo que decide si el botón agrega o quita. */
+  const fichaPuesta = (ficha) => {
+    if (!ficha.campos?.length) return false;
+    const estan = new Set(campos.map(c => clave(c.etiqueta)));
+    return ficha.campos.every(c => estan.has(clave(c.etiqueta)));
+  };
+
+  /* Quitar la ficha entera de una vez.
+
+     Antes, si se pulsaba por error la de caracterización, había que borrar
+     veintidós preguntas a mano, una por una. Nadie hace eso: se guarda el
+     formulario equivocado o se abandona la pantalla.
+
+     Si alguna ya está guardada en el servidor se avisa antes, porque el
+     backend hace el diff por id y borrarla se lleva por delante las respuestas
+     que ya haya diligenciado alguien. */
+  const quitarFicha = async (ficha) => {
+    const suyas = new Set(ficha.campos.map(c => clave(c.etiqueta)));
+    const guardadas = campos.filter(c => suyas.has(clave(c.etiqueta)) && c.id).length;
+    if (guardadas > 0) {
+      const ok = await confirmDialog({
+        title: `Quitar «${ficha.nombre}»`,
+        message: `${guardadas} de estas preguntas ya están guardadas. Si quitas la ficha y guardas los cambios, se borran junto con las respuestas que ya haya dado la gente.`,
+        confirmLabel: 'Quitar de todos modos',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setCampos(list => list.filter(c => !suyas.has(clave(c.etiqueta))));
+    success(`«${ficha.nombre}» quitada del formulario.`);
+  };
+
   const agregarFicha = (ficha) => {
     const yaEstan = new Set(campos.map(c => clave(c.etiqueta)));
     const nuevos = ficha.campos.filter(c => !yaEstan.has(clave(c.etiqueta)));
@@ -385,14 +417,22 @@ export default function FormularioTab({ evento }) {
       <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
         <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Empezar con algo hecho</p>
         <div className="flex flex-wrap gap-2">
-          {catalogo.fichas.map(f => (
-            <button key={f.id} onClick={() => agregarFicha(f)} title={f.descripcion}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border-2
-                         text-xs text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
-              <span className="text-primary-light">+</span> {f.nombre}
-              <span className="text-text-3">· {f.campos.length}</span>
-            </button>
-          ))}
+          {catalogo.fichas.map(f => {
+            const puesta = fichaPuesta(f);
+            return (
+              <button key={f.id} onClick={() => (puesta ? quitarFicha(f) : agregarFicha(f))}
+                title={puesta ? `Quitar las ${f.campos.length} preguntas de «${f.nombre}»` : f.descripcion}
+                aria-pressed={puesta}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-colors
+                            ${puesta
+                              ? 'border-success/40 bg-success/10 text-text-1 hover:border-danger/40 hover:bg-danger/10'
+                              : 'border-border-2 text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+                <span className={puesta ? 'text-success' : 'text-primary-light'}>{puesta ? '✓' : '+'}</span>
+                {f.nombre}
+                <span className="text-text-3">· {f.campos.length}</span>
+              </button>
+            );
+          })}
           <button onClick={() => setImportando(v => !v)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border-2
                        text-xs text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
