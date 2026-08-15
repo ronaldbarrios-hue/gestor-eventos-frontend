@@ -8,6 +8,7 @@ import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } from '../../../lib/espacio.js';
+import PedirDinamica from '../../../components/eventos/PedirDinamica.jsx';
 import Icono from '../../../components/ui/Iconos.jsx';
 import PreguntasSubEvento from './PreguntasSubEvento.jsx';
 
@@ -34,6 +35,7 @@ export default function AgendaTab({ evento }) {
   const [creating, setCreating] = useState(false);
   const [prefillDate, setPrefillDate] = useState(null);
   const [editing,  setEditing]  = useState(null);
+  const [pedirOpen, setPedirOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState('');    // '' = todos
   const [verChoques, setVerChoques] = useState(false);
   const { success, error: toastErr } = useToast();
@@ -260,6 +262,7 @@ export default function AgendaTab({ evento }) {
           speakers={speakers}
           torneos={torneos}
           evento={evento}
+          sessions={sessions}
           prefillDate={prefillDate}
           onCancel={() => { setCreating(false); setPrefillDate(null); }}
           onSave={async (payload) => {
@@ -306,6 +309,19 @@ export default function AgendaTab({ evento }) {
             </button>
           ))}
         </div>
+      )}
+
+      {/* Pedir una dinamica que no existe. Va junto al filtro de tipos porque
+          es justo donde alguien descubre que el suyo no esta en la lista. */}
+      {view === 'sessions' && (
+        pedirOpen
+          ? <PedirDinamica eventoId={evento?.id} onCerrar={() => setPedirOpen(false)} />
+          : (
+            <button onClick={() => setPedirOpen(true)}
+              className="text-xs text-text-3 hover:text-primary-light transition-colors underline underline-offset-2">
+              ¿Falta tu tipo de sub-evento? Pídenoslo
+            </button>
+          )
       )}
 
       {/* Sesiones — vistas */}
@@ -479,7 +495,7 @@ function SessionsList({ sessions, editing, speakers, torneos, evento, onEdit, on
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">{dia}</p>
           <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
             {items.map((s, i) => editing === s.id
-              ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} evento={evento} onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
+              ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} evento={evento} sessions={sessions} onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
               : <SessionRow key={s.id} session={s} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s)} isLast={i === items.length - 1} />
             )}
           </div>
@@ -749,7 +765,20 @@ function SessionChip({ session, detailed }) {
 
 /* ─────────── Form sesión ─────────── */
 
-function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, onSave, onCancel }) {
+function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, sessions = [], onSave, onCancel }) {
+  /* Los grupos que este evento ya usa, para sugerirlos. Se ordenan para que la
+     lista no baile entre aperturas, y se deduplica sin distinguir mayusculas
+     —el servidor reutiliza la variante existente al guardar, asi que ofrecer
+     las dos aqui solo confundiria. */
+  const subcategoriasUsadas = useMemo(() => {
+    const vistos = new Map();
+    for (const s of sessions) {
+      const v = (s?.subcategoria || '').trim();
+      if (v && !vistos.has(v.toLocaleLowerCase('es'))) vistos.set(v.toLocaleLowerCase('es'), v);
+    }
+    return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [sessions]);
+
   const [form, setForm] = useState({
     titulo     : initial?.titulo || '',
     descripcion: initial?.descripcion || '',
@@ -759,6 +788,7 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, onS
     ubicacion  : initial?.ubicacion || '',
     speaker_id : initial?.speaker_id || '',
     tipo       : initial?.tipo || TIPO_DEFECTO,
+    subcategoria: initial?.subcategoria || '',
     torneo_id  : initial?.torneo_id || '',
     requiere_inscripcion: Boolean(initial?.requiere_inscripcion),
     cupo       : initial?.cupo ?? '',
@@ -781,6 +811,7 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, onS
       ubicacion  : form.ubicacion || null,
       speaker_id : form.speaker_id || null,
       tipo       : form.tipo,
+      subcategoria: form.subcategoria.trim() || null,
       torneo_id  : competitivo ? (form.torneo_id || null) : null,
       requiere_inscripcion: form.requiere_inscripcion,
       /* Vacío = sin límite. No se convierte a 0, que significaría "lleno
@@ -808,6 +839,32 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, onS
             </button>
           ))}
         </div>
+      </div>
+
+      {/* El nivel de abajo, y este SI lo escribe el organizador:
+            competencia -> Deportes    -> Futbol, Padel
+            competencia -> Gaming      -> FIFA, Fortnite
+            competencia -> Habilidades -> Hackaton
+
+          Se usa <datalist> y no un desplegable porque hacen falta las dos
+          cosas a la vez: reutilizar lo que ya se escribio en este evento
+          —para no acabar con «Gaming» y «gaming» como dos grupos— y poder
+          inventar uno nuevo sin tener que crearlo antes en ningun sitio. */}
+      <div className="field">
+        <label className="label">
+          Grupo <span className="lowercase tracking-normal font-normal text-text-3">(opcional, dentro de «{tipoEspacio(form.tipo).label}»)</span>
+        </label>
+        <input list="gestek-subcategorias" value={form.subcategoria}
+          onChange={e => setForm(f => ({ ...f, subcategoria: e.target.value }))}
+          placeholder="Deportes, Gaming, Desarrollo de habilidades..."
+          maxLength={60}
+          className="input rounded-2xl py-3 text-base" />
+        <datalist id="gestek-subcategorias">
+          {subcategoriasUsadas.map(v => <option key={v} value={v} />)}
+        </datalist>
+        <p className="text-[11px] text-text-3 mt-1">
+          Para agrupar varios sub-eventos del mismo tipo. El tipo lo pone la plataforma; el grupo, tu.
+        </p>
       </div>
 
       {competitivo && (
