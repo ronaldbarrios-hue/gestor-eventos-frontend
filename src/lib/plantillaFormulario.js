@@ -62,6 +62,12 @@ export async function descargarPlantilla(plantilla, nombreEvento = 'evento') {
     ['Si eliges «Elegir una opción» o «Elegir varias opciones», la columna Opciones es obligatoria.'],
     ['Se separan con punto y coma:  La Candelaria; Modelia; Chapinero'],
     ['Con más de 8 opciones el campo se convierte solo en un buscador.'],
+    [''],
+    ['La columna Grupo parte el registro en pasos'],
+    ['Las preguntas con el mismo Grupo salen juntas, en una pantalla con ese título.'],
+    ['Un registro largo de una sola tirada se abandona; repartido en «Datos generales»,'],
+    ['«Ubicación», «Discapacidad»… se completa. El reparto lo decides aquí, sin pedir nada.'],
+    ['Si dejas la columna vacía en todo, las preguntas salen de diez en diez y sin título.'],
   ];
 
   const valores = [
