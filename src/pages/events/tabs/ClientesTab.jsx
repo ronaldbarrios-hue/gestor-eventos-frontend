@@ -11,6 +11,7 @@ import RepartoSinCorreo from '../workspace/asistentes/RepartoSinCorreo.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import { exportar } from '../../../lib/hojaEscribir.js';
+import { ymdLocal } from '../../../lib/fechaLocal.js';
 
 const ESTADO_LABEL = {
   emitido    : 'Emitido',
@@ -528,7 +529,10 @@ function exportarPDF(clientes, evento) {
   });
 
   const slug = (evento?.slug || 'evento').replace(/[^a-z0-9-]/gi, '-');
-  const fecha = new Date().toISOString().slice(0, 10);
+  /* Local, no UTC: exportar a las 8 de la noche nombraba el archivo con la
+     fecha de mañana, y ese nombre es lo que luego se usa para saber de qué día
+     es el corte. */
+  const fecha = ymdLocal(new Date());
   doc.save(`asistentes-${slug}-${fecha}.pdf`);
 }
 

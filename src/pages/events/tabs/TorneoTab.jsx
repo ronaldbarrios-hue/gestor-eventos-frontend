@@ -3,6 +3,7 @@ import Icono from '../../../components/ui/Iconos.jsx';
 import { torneosApi } from '../../../api/torneos.js';
 import { agendaApi } from '../../../api/agenda.js';
 import { aplanar, ramaCompleta, rutaDe } from '../../../lib/torneoCategorias.js';
+import { ymdLocal, hmLocal } from '../../../lib/fechaLocal.js';
 import CategoriasTorneo from './CategoriasTorneo.jsx';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
@@ -908,9 +909,16 @@ function EquipoSlot({ equipo, marcador, gano }) {
 
 /* ─────────── Modal: Programar horario / cancha ─────────── */
 function ProgramarModal({ evento, torneo, partido, equipoA, equipoB, onClose, onDone }) {
+  /* El día en UTC y la hora en local no casan, y el desfase no se quedaba en
+     la pantalla: se guardaba. Un partido de las 9 p. m. del 15 (almacenado
+     como el 16 a las 02:00Z) se reabría como «16, 21:00», y guardar sin tocar
+     nada lo escribía en el 17. Cada visita al modal lo corría un día más.
+
+     Las dos mitades se leen ahora con el mismo reloj, el de quien mira, que es
+     el mismo con el que se vuelven a componer al enviar. */
   const fechaActual = partido.fecha_hora ? new Date(partido.fecha_hora) : null;
-  const [fecha, setFecha] = useState(fechaActual ? fechaActual.toISOString().slice(0, 10) : '');
-  const [hora, setHora] = useState(fechaActual ? fechaActual.toTimeString().slice(0, 5) : '');
+  const [fecha, setFecha] = useState(fechaActual ? ymdLocal(fechaActual) : '');
+  const [hora, setHora] = useState(fechaActual ? hmLocal(fechaActual) : '');
   const [cancha, setCancha] = useState(partido.cancha || '');
   const [working, setWorking] = useState(false);
   const { success, error: toastErr } = useToast();

@@ -8,6 +8,9 @@ import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } from '../../../lib/espacio.js';
+/* Este archivo tenía la versión buena del cálculo; ahora la comparte en vez de
+   guardársela, que es lo que dejaba a la agenda pública y al torneo con la mala. */
+import { ymdLocal as ymd } from '../../../lib/fechaLocal.js';
 import PedirDinamica from '../../../components/eventos/PedirDinamica.jsx';
 import Icono from '../../../components/ui/Iconos.jsx';
 import PreguntasSubEvento from './PreguntasSubEvento.jsx';
@@ -1123,7 +1126,6 @@ function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function startOfWeek(d)  { const x = new Date(d); const off = (x.getDay()+6)%7; x.setDate(x.getDate()-off); x.setHours(0,0,0,0); return x; }
 function addDays(d, n)   { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
 function pad(n) { return String(n).padStart(2,'0'); }
-function ymd(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function dmy(d) { return `${pad(d.getDate())} ${MES_LARGO[d.getMonth()].slice(0,3).toLowerCase()}`; }
 
 function PlusIcon({ className }) {

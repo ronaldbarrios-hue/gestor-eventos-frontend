@@ -5,6 +5,7 @@ import { agendaApi } from '../../api/agenda.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo } from '../../lib/espacio.js';
+import { ymdLocal } from '../../lib/fechaLocal.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 
@@ -56,16 +57,15 @@ export default function AgendaPublicaPage() {
      día, y el asistente llegaba cuando ya había pasado.
 
      El panel ya lo hacía bien (`ymd` en AgendaTab). El único sitio con el
-     cálculo en UTC era este, que es precisamente el que ve el público. */
+     cálculo en UTC era este, que es precisamente el que ve el público.
+
+     El cálculo vive ahora en `lib/fechaLocal.js`: era una línea copiada en
+     tres sitios, y por ser copia arreglar uno no arreglaba los demás — el
+     modal de programar partidos seguía con la versión mala. */
   const dias = useMemo(() => {
-    const pad = (n) => String(n).padStart(2, '0');
-    const claveDia = (iso) => {
-      const d = new Date(iso);
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    };
     const map = {};
     for (const s of sessions) {
-      const k = claveDia(s.inicio);
+      const k = ymdLocal(s.inicio);
       (map[k] = map[k] || []).push(s);
     }
     return Object.keys(map).sort().map(k => ({ fecha: k, sesiones: map[k].sort((a, b) => new Date(a.inicio) - new Date(b.inicio)) }));
