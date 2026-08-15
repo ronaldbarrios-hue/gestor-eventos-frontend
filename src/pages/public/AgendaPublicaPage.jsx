@@ -47,10 +47,25 @@ export default function AgendaPublicaPage() {
       .catch(e => setBloqueado(e.response?.data?.error || null));
   }, [evento, usuario]);
 
+  /* El día se calcula en hora LOCAL, no en UTC.
+
+     Con `toISOString().slice(0,10)` una sesión de las 8 de la noche del 15 en
+     Bogotá (UTC-5) da la clave 2026-09-16 y aparecía en la pestaña del día
+     siguiente. O sea que en un evento con actividades de tarde-noche —shows,
+     torneos, ceremonias de cierre— todo lo posterior a las 7 p. m. se movía un
+     día, y el asistente llegaba cuando ya había pasado.
+
+     El panel ya lo hacía bien (`ymd` en AgendaTab). El único sitio con el
+     cálculo en UTC era este, que es precisamente el que ve el público. */
   const dias = useMemo(() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const claveDia = (iso) => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
     const map = {};
     for (const s of sessions) {
-      const k = new Date(s.inicio).toISOString().slice(0, 10);
+      const k = claveDia(s.inicio);
       (map[k] = map[k] || []).push(s);
     }
     return Object.keys(map).sort().map(k => ({ fecha: k, sesiones: map[k].sort((a, b) => new Date(a.inicio) - new Date(b.inicio)) }));
