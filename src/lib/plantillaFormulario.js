@@ -156,7 +156,7 @@ export function leerPlantilla(hoja, plantilla) {
       etiqueta : pregunta.slice(0, 200),
       tipo     : r.tipo,
       opciones : r.exigeOpciones ? opciones : [],
-      requerido: esSi(val(fila, 'obligatoria')),
+      requerido: esObligatoria(val(fila, 'obligatoria')),
       grupo    : val(fila, 'grupo').slice(0, 80),
       ayuda    : val(fila, 'ayuda').slice(0, 300),
       /* Si la columna Orden viene vacía o con basura, manda el orden de las
@@ -222,3 +222,19 @@ export function partirOpciones(texto) {
 }
 
 const esSi = (v) => /^(si|sí|s|x|1|true|verdadero|obligator)/i.test(String(v ?? '').trim());
+
+/* La columna «Obligatoria» vacía significa SÍ, no no.
+
+   Antes el hueco se leía como opcional, y es al revés de como se llena una
+   hoja: quien escribe una pregunta en la plantilla la escribe porque la
+   necesita. Con el criterio viejo, un Excel de veinte preguntas sin esa
+   columna llenada dejaba veinte preguntas opcionales, el asistente las saltaba
+   todas y el organizador se enteraba al exportar, con el evento encima.
+
+   Para que una sea opcional hay que decirlo: «No». */
+const esObligatoria = (v) => {
+  const t = String(v ?? '').trim();
+  if (t === '') return true;
+  if (/^(no|n|0|false|falso|opcional)/i.test(t)) return false;
+  return esSi(t) || true;
+};
