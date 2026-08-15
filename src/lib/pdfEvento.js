@@ -10,7 +10,13 @@
    con texto plano sin depender de pdf.js. */
 
 /* ── Extracción de texto (pdf.js, carga perezosa) ── */
-export async function extraerTextoPDF(file, { maxPaginas = 8 } = {}) {
+/* Cuantas paginas se leen. Estaba escondido como valor por defecto y quien
+   llamaba no lo pasaba nunca, asi que un PDF de 40 paginas se leia hasta la 8
+   y NADIE lo sabia: ni el codigo lo decia, ni la pantalla lo avisaba. Se
+   exporta para poder decirlo en la interfaz. */
+export const PAGINAS_LEIDAS = 8;
+
+export async function extraerTextoPDF(file, { maxPaginas = PAGINAS_LEIDAS } = {}) {
   const pdfjs = await import('pdfjs-dist');
   /* Worker como asset del mismo origen (CSP worker-src 'self'). */
   const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
@@ -35,8 +41,12 @@ export async function extraerTextoPDF(file, { maxPaginas = 8 } = {}) {
     if (linea.length) lineas.push(linea.join(' ').trim());
     partes.push(lineas.filter(Boolean).join('\n'));
   }
+  const total = doc.numPages;
   try { await doc.destroy(); } catch { /* noop */ }
-  return partes.join('\n\n');
+  /* Se devuelve cuántas páginas se leyeron de cuántas hay. Sin esto, un PDF de
+     42 páginas se leía hasta la 8 y la pantalla no tenía forma de decirlo: el
+     organizador veía datos incompletos sin saber que faltaban 34 páginas. */
+  return { texto: partes.join('\n\n'), paginas, total };
 }
 
 /* ── Parseo heurístico ── */
@@ -72,7 +82,60 @@ const RE = {
   lugarEtiqueta: /^\s*(?:lugar|sede|ubicaci[oó]n|d[oó]nde|venue|direcci[oó]n)\s*[:\-]\s*(.{3,90})$/i,
   /* Sustantivos de recinto: valen aunque no lleven etiqueta, si la línea es corta. */
   lugarRecinto:  /^\s*((?:auditorio|teatro|coliseo|centro de convenciones|hotel|estadio|arena|sal[oó]n)\b.{0,70})$/i,
+  /* Etiquetas que convierten una suposición en una afirmación del documento.
+     Son la diferencia entre «esta fecha aparece en el texto» y «el documento
+     dice que ESTA es la fecha del evento». */
+  tituloEtiqueta: /^\s*(?:evento|nombre del evento|t[ií]tulo)\s*[:\-]\s*(.{3,90})$/i,
+  fechaEtiqueta:  /^\s*(?:fecha|fecha del evento|cu[aá]ndo|d[ií]a)\s*[:\-]\s*(.{3,90})$/i,
+  fechaInicioEt:  /^\s*(?:fecha de inicio|inicio|desde|comienza)\s*[:\-]\s*(.{3,90})$/i,
+  fechaFinEt:     /^\s*(?:fecha de fin|fin|hasta|termina|finaliza)\s*[:\-]\s*(.{3,90})$/i,
 };
+
+/* Devuelve lo que captura la primera línea que case con la etiqueta. */
+function buscarEtiqueta(texto, re) {
+  for (const l of String(texto).split('\n')) {
+    const m = l.match(re);
+    if (m) return m[1].trim().replace(/[.,;]+$/, '');
+  }
+  return null;
+}
+
+const fmtFecha = (f) => f.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
+
+/* Fechas, por orden de confianza:
+
+     1. «Fecha de inicio: …» y «Fecha de fin: …»  → dos afirmaciones
+     2. «Fecha: …»                                 → una afirmación
+     3. una sola fecha suelta en todo el documento → no hay con qué confundirla
+     4. varias fechas sueltas                      → NO se elige ninguna
+
+   El caso 4 es el que rompía. Coger la más temprana y la más tardía de un
+   documento largo mezcla la agenda, los plazos de inscripción, la reseña de
+   la organización y el copyright del pie — y devolvía esas dos como si fueran
+   las del evento, sin forma de expresar duda. */
+function resolverFechas(texto) {
+  const deEtiqueta = (re) => {
+    const cap = buscarEtiqueta(texto, re);
+    if (!cap) return null;
+    const f = parseFechas(cap);
+    return f.length ? f[0] : null;
+  };
+
+  const ini = deEtiqueta(RE.fechaInicioEt);
+  const fin = deEtiqueta(RE.fechaFinEt);
+  if (ini) return { inicio: ini, fin: fin && fin > ini ? fin : null, candidatas: [], seguro: true };
+
+  const una = deEtiqueta(RE.fechaEtiqueta);
+  if (una) return { inicio: una, fin: fin && fin > una ? fin : null, candidatas: [], seguro: true };
+
+  const todas = parseFechas(texto);
+  if (todas.length === 1) return { inicio: todas[0], fin: null, candidatas: [], seguro: false };
+
+  /* Más de una y ninguna etiquetada: se devuelven como candidatas. Preguntar
+     cuesta un clic; acertar por casualidad cuesta un evento publicado con la
+     fecha equivocada. */
+  return { inicio: null, fin: null, candidatas: todas, seguro: false };
+}
 
 function normaliza(s) {
   /* Minúsculas y sin acentos, sin meter caracteres combinantes en el fuente
@@ -142,28 +205,58 @@ export function parsearEvento(texto) {
   const limpio = (texto || '').replace(/\r/g, '').replace(/[ \t]{2,}/g, ' ');
   const detectados = [];
   const campos = {};
+  /* Lo que el documento no deja claro. Antes esto no existia: todo se
+     resolvia adivinando, y una adivinanza y un dato etiquetado llegaban al
+     formulario indistinguibles. */
+  const dudas = [];
 
-  const titulo = primeraLinea(limpio);
-  if (titulo) { campos.titulo = titulo; detectados.push({ campo: 'Título', valor: titulo }); }
+  /* El titulo etiquetado gana sobre "la primera linea sustancial". En un
+     documento largo la primera linea suele ser el membrete de quien lo
+     publica, no el nombre del evento. */
+  const tEtiqueta = buscarEtiqueta(limpio, RE.tituloEtiqueta);
+  const titulo = tEtiqueta || primeraLinea(limpio);
+  if (titulo) {
+    campos.titulo = titulo;
+    detectados.push({ campo: 'Título', valor: titulo, seguro: Boolean(tEtiqueta) });
+  }
 
-  const fechas = parseFechas(limpio);
-  if (fechas.length) {
-    campos.fecha_inicio = fechas[0];
-    detectados.push({ campo: 'Fecha de inicio', valor: fechas[0].toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) });
-    if (fechas.length > 1) {
-      campos.fecha_fin = fechas[fechas.length - 1];
-      detectados.push({ campo: 'Fecha de fin', valor: fechas[fechas.length - 1].toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) });
-    }
+  /* ── Fechas ────────────────────────────────────────────────────────
+     Aqui estaba el fallo mas caro con documentos largos. Se cogia la fecha
+     MAS TEMPRANA del documento como inicio y la MAS TARDIA como fin. En un
+     flyer de una pagina eso acierta; en una ficha de 20 paginas con agenda,
+     plazos de inscripcion, un "desde 1998" en la resena de la organizacion y
+     un copyright al pie, devuelve dos fechas que no son del evento — y ademas
+     con toda la seguridad del mundo, porque no habia forma de expresar duda.
+
+     Ahora manda lo ETIQUETADO. Una linea que dice "Fecha: 15 de septiembre"
+     es una afirmacion del documento; una fecha suelta en la pagina 14 es una
+     coincidencia. Si no hay etiquetas y hay muchas fechas sueltas, no se
+     elige ninguna: se devuelven como candidatas para que decida quien sabe. */
+  const { inicio, fin, candidatas, seguro } = resolverFechas(limpio);
+  if (inicio) {
+    campos.fecha_inicio = inicio;
+    detectados.push({ campo: 'Fecha de inicio', valor: fmtFecha(inicio), seguro });
+    if (fin) { campos.fecha_fin = fin; detectados.push({ campo: 'Fecha de fin', valor: fmtFecha(fin), seguro }); }
+  } else if (candidatas.length) {
+    dudas.push({
+      campo: 'Fecha',
+      motivo: `El documento tiene ${candidatas.length} fechas y ninguna dice cual es la del evento.`,
+      opciones: candidatas.slice(0, 8).map(f => ({ valor: f.toISOString(), texto: fmtFecha(f) })),
+    });
   }
 
   const cat = detectarCategoria(limpio);
-  if (cat) { campos.categoria_slug = cat; detectados.push({ campo: 'Categoría sugerida', valor: cat }); }
+  /* La categoria se decide contando palabras clave: en un texto largo gana la
+     que mas se repite, que no tiene por que ser la del evento. Nunca es
+     segura. */
+  if (cat) { campos.categoria_slug = cat; detectados.push({ campo: 'Categoría sugerida', valor: cat, seguro: false }); }
 
   /* Lugar: primero por etiqueta (Lugar: …), luego por sustantivo de recinto. */
   let lugar = null;
+  let lugarEtiquetado = false;
   for (const l of limpio.split('\n')) {
     const me = l.match(RE.lugarEtiqueta);
-    if (me) { lugar = me[1].trim(); break; }
+    if (me) { lugar = me[1].trim(); lugarEtiquetado = true; break; }
   }
   if (!lugar) {
     for (const l of limpio.split('\n')) {
@@ -173,13 +266,13 @@ export function parsearEvento(texto) {
   }
   if (lugar) {
     lugar = lugar.split(/\s{2,}/)[0].trim().replace(/[.,;]+$/, '');
-    if (lugar) { campos.location_nombre = lugar; detectados.push({ campo: 'Lugar', valor: lugar }); }
+    if (lugar) { campos.location_nombre = lugar; detectados.push({ campo: 'Lugar', valor: lugar, seguro: lugarEtiquetado }); }
   }
 
   const mAforo = limpio.match(RE.aforo);
   if (mAforo) {
     const n = Number(mAforo[1].replace(/[.,]/g, ''));
-    if (n >= 2 && n <= 1000000) { campos.aforo_total = n; detectados.push({ campo: 'Aforo', valor: String(n) }); }
+    if (n >= 2 && n <= 1000000) { campos.aforo_total = n; detectados.push({ campo: 'Aforo', valor: String(n), seguro: true }); }
   }
 
   /* Precios: solo se listan como sugerencia (las boletas se crean aparte). */
@@ -192,21 +285,54 @@ export function parsearEvento(texto) {
   const preciosUnicos = [...new Set(precios)].sort((a, b) => a - b).slice(0, 6);
   if (preciosUnicos.length) {
     campos.precios_sugeridos = preciosUnicos;
-    detectados.push({ campo: 'Precios detectados', valor: preciosUnicos.map(p => `$${p.toLocaleString('es-CO')}`).join(', ') });
+    detectados.push({ campo: 'Precios detectados', valor: preciosUnicos.map(p => `$${p.toLocaleString('es-CO')}`).join(', '), seguro: false });
   }
 
   /* Descripción: el párrafo más largo que no sea el título. */
   const parrafos = limpio.split('\n').map(l => l.trim())
     .filter(l => l.length > 60 && l !== titulo && !RE.url.test(l));
   if (parrafos.length) {
-    const desc = parrafos.sort((a, b) => b.length - a.length)[0].slice(0, 600);
+    /* Se corta en el ultimo espacio antes del limite: antes partia a mitad de
+       palabra y el resultado parecia texto corrupto. */
+    const crudo = parrafos.sort((a, b) => b.length - a.length)[0];
+    const desc = crudo.length <= 600 ? crudo : crudo.slice(0, crudo.lastIndexOf(' ', 600)) + '…';
     campos.descripcion = desc;
-    detectados.push({ campo: 'Descripción', valor: desc.slice(0, 80) + (desc.length > 80 ? '…' : '') });
+    detectados.push({ campo: 'Descripción', valor: desc.slice(0, 80) + (desc.length > 80 ? '…' : ''), seguro: false });
   }
 
-  const aviso = detectados.length === 0
+  const aviso = detectados.length === 0 && dudas.length === 0
     ? 'No se reconoció información estructurada. ¿El PDF es una imagen escaneada? En ese caso el texto no se puede leer automáticamente.'
     : null;
 
-  return { campos, detectados, aviso };
+  return { campos, detectados, dudas, aviso };
 }
+
+/* ── La ficha que sí se lee bien ──────────────────────────────────────
+
+   Toda la mejora del parser se resume en una frase: lo ETIQUETADO se acierta,
+   lo suelto se adivina. Así que en vez de pedirle al organizador que confíe en
+   la heurística, se le enseña qué forma tiene que tener el documento para que
+   no haga falta adivinar nada.
+
+   No es un formato nuevo ni obligatorio: es la primera página del PDF que ya
+   tiene. Basta con que estas etiquetas aparezcan al principio de una línea.
+   Se ofrece para imprimir/guardar, no para subir: el organizador lo copia en
+   su flyer o lo pega tal cual. */
+export const ETIQUETAS_QUE_FUNCIONAN = [
+  { etiqueta: 'Evento',          ejemplo: 'Feria de Innovación 2026',              campo: 'Título' },
+  { etiqueta: 'Fecha de inicio', ejemplo: '15 de septiembre de 2026',              campo: 'Fecha de inicio' },
+  { etiqueta: 'Fecha de fin',    ejemplo: '17 de septiembre de 2026',              campo: 'Fecha de fin' },
+  { etiqueta: 'Lugar',           ejemplo: 'Centro de Convenciones, Ibagué',        campo: 'Lugar' },
+  { etiqueta: 'Aforo',           ejemplo: '7000 personas',                          campo: 'Aforo' },
+];
+
+/* Alternativas aceptadas para cada etiqueta, por si el documento ya usa otra
+   palabra. Salen de las mismas expresiones de arriba: se listan aquí para
+   poder enseñarlas sin que nadie tenga que leer una expresión regular. */
+export const SINONIMOS_ETIQUETA = {
+  'Evento'         : ['Nombre del evento', 'Título'],
+  'Fecha de inicio': ['Fecha', 'Cuándo', 'Día', 'Inicio', 'Desde'],
+  'Fecha de fin'   : ['Fin', 'Hasta', 'Termina'],
+  'Lugar'          : ['Sede', 'Ubicación', 'Dónde', 'Dirección'],
+  'Aforo'          : ['Cupo', 'Capacidad'],
+};

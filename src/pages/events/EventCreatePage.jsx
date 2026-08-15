@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ETIQUETAS_QUE_FUNCIONAN, SINONIMOS_ETIQUETA } from '../../lib/pdfEvento.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
@@ -77,6 +78,49 @@ export default function EventCreatePage() {
     finally { setIaCargando(false); }
   };
 
+  /* Aplica SOLO lo que el organizador marco, y solo sobre campos vacios salvo
+     que pida expresamente sustituir. */
+  const aplicarPDF = (sustituir = false) => {
+    const d = pdfDetectado;
+    if (!d) return;
+    const quiere = (campo) => d.elegidos[campo];
+    const cat = d.campos.categoria_slug ? cats.find(c => c.slug === d.campos.categoria_slug) : null;
+
+    setForm(f => {
+      const poner = (actual, nuevo) => {
+        if (nuevo === undefined || nuevo === null || nuevo === '') return actual;
+        if (!sustituir && actual !== '' && actual !== null && actual !== undefined) return actual;
+        return nuevo;
+      };
+      return {
+        ...f,
+        titulo         : quiere('Título')             ? poner(f.titulo, d.campos.titulo) : f.titulo,
+        descripcion    : quiere('Descripción')        ? poner(f.descripcion, d.campos.descripcion) : f.descripcion,
+        categoria_id   : quiere('Categoría sugerida') && cat ? poner(f.categoria_id, String(cat.id)) : f.categoria_id,
+        location_nombre: quiere('Lugar')              ? poner(f.location_nombre, d.campos.location_nombre) : f.location_nombre,
+        aforo_total    : quiere('Aforo')              ? poner(f.aforo_total, d.campos.aforo_total) : f.aforo_total,
+        fecha_inicio   : quiere('Fecha de inicio') && d.campos.fecha_inicio
+          ? poner(f.fecha_inicio, d.campos.fecha_inicio.toISOString().slice(0, 16)) : f.fecha_inicio,
+        fecha_fin      : quiere('Fecha de fin') && d.campos.fecha_fin
+          ? poner(f.fecha_fin, d.campos.fecha_fin.toISOString().slice(0, 16)) : f.fecha_fin,
+      };
+    });
+
+    const n = Object.values(d.elegidos).filter(Boolean).length;
+    success(n ? `${n} ${n === 1 ? 'dato aplicado' : 'datos aplicados'}. Revísalos antes de continuar.` : 'No marcaste ningún dato.');
+    setPdfDetectado(null);
+  };
+
+  /* Elegir una fecha de entre las candidatas cuando el documento no dice cual
+     es la del evento. */
+  const elegirFecha = (iso) => {
+    setForm(f => ({ ...f, fecha_inicio: new Date(iso).toISOString().slice(0, 16) }));
+    setPdfDetectado(d => d ? { ...d, dudas: d.dudas.filter(x => x.campo !== 'Fecha') } : d);
+    success('Fecha aplicada.');
+  };
+
+  const [verFormato, setVerFormato] = useState(false);
+
   const importarPDF = async (file) => {
     if (!file) return;
     if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) { error('Selecciona un archivo PDF.'); return; }
@@ -84,24 +128,31 @@ export default function EventCreatePage() {
     setPdfCargando(true);
     setPdfDetectado(null);
     try {
-      const { extraerTextoPDF, parsearEvento } = await import('../../lib/pdfEvento.js');
-      const texto = await extraerTextoPDF(file);
-      const { campos, detectados, aviso } = parsearEvento(texto);
-      const cat = campos.categoria_slug ? cats.find(c => c.slug === campos.categoria_slug) : null;
-      setForm(f => ({
-        ...f,
-        titulo         : campos.titulo || f.titulo,
-        descripcion    : campos.descripcion || f.descripcion,
-        categoria_id   : cat ? String(cat.id) : f.categoria_id,
-        location_nombre: campos.location_nombre || f.location_nombre,
-        aforo_total    : campos.aforo_total ?? f.aforo_total,
-        fecha_inicio   : campos.fecha_inicio ? campos.fecha_inicio.toISOString().slice(0, 16) : f.fecha_inicio,
-        fecha_fin      : campos.fecha_fin ? campos.fecha_fin.toISOString().slice(0, 16) : f.fecha_fin,
-      }));
-      setPdfDetectado({ detectados, aviso, nombre: file.name });
+      const { extraerTextoPDF, parsearEvento, PAGINAS_LEIDAS } = await import('../../lib/pdfEvento.js');
+      const { texto, paginas, total } = await extraerTextoPDF(file);
+      const { campos, detectados, dudas, aviso } = parsearEvento(texto);
+
+      /* NO se aplica nada todavia. Antes esto escribia en el formulario antes
+         de que el organizador viera una sola letra, y con la semantica
+         `campos.X || f.X`: cualquier valor del PDF ganaba sobre lo tecleado a
+         mano. El caso tipico era escribir el titulo bueno y despues subir el
+         flyer "para completar el resto" — y perderlo sin aviso ni deshacer.
+
+         Ahora se propone y el organizador elige. Lo que ya tiene contenido se
+         marca aparte, para que sustituir sea una decision y no un efecto
+         secundario. */
+      setPdfDetectado({
+        campos, detectados, dudas, aviso,
+        nombre: file.name,
+        paginas, total,
+        /* Se preseleccionan solo los datos que el documento AFIRMA con una
+           etiqueta. Lo adivinado entra si alguien lo marca. */
+        elegidos: Object.fromEntries(
+          detectados.filter(d => d.seguro).map(d => [d.campo, true]),
+        ),
+      });
       setStep(0);
       if (aviso) error(aviso);
-      else success(`Datos leídos del PDF: revisa y ajusta cada paso.${campos.precios_sugeridos ? ' Los precios detectados créalos como boletas dentro del evento.' : ''}`);
     } catch (x) {
       error('No se pudo leer el PDF. ' + (x.message || ''));
     } finally {
@@ -177,7 +228,25 @@ export default function EventCreatePage() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-text-1 flex items-center gap-2"><Icono nombre="documento" className="w-4 h-4" />Importar desde un PDF</h3>
-              <p className="text-xs text-text-3 mt-0.5">Sube el flyer o la ficha del evento y leemos título, fechas, lugar y aforo. El PDF no sale de tu navegador.</p>
+              {/* El texto anterior prometia cuatro campos y el parser escribia
+                  seis, sin mencionar el limite de paginas ni el de tamano.
+                  Ahora dice lo que hace y lo que NO. */}
+              <p className="text-xs text-text-3 mt-0.5 leading-relaxed">
+                Sube el flyer o la ficha y proponemos título, fechas, lugar, aforo, categoría y
+                descripción. Tú eliges qué aplicar. El PDF no sale de tu navegador.
+              </p>
+              <p className="text-[11px] text-text-3 mt-1">
+                Se leen las primeras 8 páginas, hasta 15 MB. Un PDF escaneado (una foto) no se puede leer.
+              </p>
+              {/* La forma del documento importa mas que su contenido, y eso no
+                  es evidente. Un flyer de una pagina con etiquetas se lee
+                  entero y sin dudas; una ficha de 30 paginas sin etiquetas
+                  obliga a adivinar entre veinte fechas. Ensenarlo aqui evita
+                  el ciclo de subir, ver datos raros y no saber por que. */}
+              <button type="button" onClick={() => setVerFormato(v => !v)}
+                className="text-[11px] text-primary-light hover:underline mt-1">
+                {verFormato ? 'Ocultar' : '¿Qué PDF se lee bien?'}
+              </button>
             </div>
             <label className={`btn-secondary btn-sm cursor-pointer flex-shrink-0 ${pdfCargando ? 'opacity-60 pointer-events-none' : ''}`}>
               {pdfCargando ? <><Spinner size="sm" /> Leyendo…</> : 'Elegir PDF'}
@@ -185,18 +254,102 @@ export default function EventCreatePage() {
                 onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; importarPDF(f); }} />
             </label>
           </div>
+          {/* Revisar y elegir. Los chips de antes eran un informe a posteriori:
+              los datos YA estaban dentro del formulario cuando aparecian, asi
+              que leerlos o no daba igual. Ahora nada entra sin un clic, y cada
+              dato dice si el documento lo AFIRMA (venia etiquetado) o si la
+              plataforma lo dedujo. */}
           {pdfDetectado && !pdfDetectado.aviso && (
-            <div className="mt-4 rounded-2xl border border-success/25 bg-success/5 p-3">
-              <p className="text-xs font-semibold text-text-1 mb-2">Leído de «{pdfDetectado.nombre}» — revisa antes de continuar:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {pdfDetectado.detectados.map((d, i) => (
-                  <span key={i} className="text-[11px] px-2 py-1 rounded-lg bg-surface-2 border border-border text-text-2">
-                    <span className="text-text-3">{d.campo}:</span> <span className="text-text-1 font-medium">{d.valor}</span>
-                  </span>
-                ))}
+            <div className="mt-4 rounded-2xl border border-primary/25 bg-surface/60 p-4 space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-text-1">
+                  Leído de «{pdfDetectado.nombre}»
+                </p>
+                <p className="text-[11px] text-text-3 mt-0.5">
+                  {pdfDetectado.total > pdfDetectado.paginas
+                    ? <>Se leyeron las primeras <strong className="text-warning-light">{pdfDetectado.paginas} de {pdfDetectado.total} páginas</strong>. Si los datos del evento están más adelante, no se encontraron.</>
+                    : <>Se leyó el documento completo ({pdfDetectado.total} {pdfDetectado.total === 1 ? 'página' : 'páginas'}).</>}
+                </p>
+              </div>
+
+              {pdfDetectado.detectados.length > 0 && (
+                <div className="space-y-1.5">
+                  {pdfDetectado.detectados.map((d, i) => (
+                    <label key={i} className="flex items-start gap-2.5 cursor-pointer group">
+                      <input type="checkbox" className="w-4 h-4 mt-0.5 rounded accent-primary shrink-0"
+                        checked={Boolean(pdfDetectado.elegidos[d.campo])}
+                        onChange={e => setPdfDetectado(p => ({ ...p, elegidos: { ...p.elegidos, [d.campo]: e.target.checked } }))} />
+                      <span className="min-w-0 flex-1">
+                        <span className="text-[11px] text-text-3">{d.campo}</span>
+                        <span className="block text-sm text-text-1 break-words">{d.valor}</span>
+                      </span>
+                      {/* El origen del dato es lo que permite confiar o dudar
+                          sin abrir el PDF otra vez. */}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 border ${d.seguro
+                        ? 'bg-success/10 text-success border-success/25'
+                        : 'bg-warning/10 text-warning-light border-warning/25'}`}>
+                        {d.seguro ? 'lo dice el PDF' : 'deducido'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Lo que el documento no deja claro. Preguntar cuesta un clic;
+                  adivinar costaba publicar un evento con la fecha de otro. */}
+              {(pdfDetectado.dudas || []).map((duda, i) => (
+                <div key={i} className="rounded-xl border border-warning/30 bg-warning/5 p-3">
+                  <p className="text-xs text-text-1 font-semibold">{duda.campo}: no está claro</p>
+                  <p className="text-[11px] text-text-3 mt-0.5 mb-2">{duda.motivo}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {duda.opciones.map(o => (
+                      <button key={o.valor} type="button" onClick={() => elegirFecha(o.valor)}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-text-2 hover:text-text-1 hover:border-primary/40">
+                        {o.texto}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                <button type="button" onClick={() => aplicarPDF(false)} className="btn-primary btn-sm">
+                  Aplicar lo marcado
+                </button>
+                <button type="button" onClick={() => aplicarPDF(true)} className="btn-secondary btn-sm"
+                  title="Reemplaza también los campos que ya tengan algo escrito">
+                  Aplicar y sustituir lo que ya escribí
+                </button>
+                <button type="button" onClick={() => setPdfDetectado(null)}
+                  className="text-xs text-text-3 hover:text-text-1">Descartar</button>
               </div>
             </div>
           )}
+          {verFormato && (
+            <div className="mt-4 rounded-2xl border border-border bg-surface-2/40 p-4">
+              <p className="text-xs font-semibold text-text-1">Cualquier PDF sirve, pero estos se leen sin fallar</p>
+              <p className="text-[11px] text-text-3 mt-1 leading-relaxed">
+                Basta con que en la <strong className="text-text-2">primera página</strong> haya líneas
+                que empiecen por una de estas palabras seguida de dos puntos. Con eso el documento
+                <em> afirma</em> el dato en vez de dejarlo suelto, y no hay nada que adivinar.
+              </p>
+              <pre className="mt-3 rounded-xl bg-bg/60 border border-border p-3 text-[11px] text-text-2 overflow-x-auto leading-relaxed">
+{ETIQUETAS_QUE_FUNCIONAN.map(e => `${e.etiqueta}: ${e.ejemplo}`).join('\n')}
+              </pre>
+              <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+                También valen otras palabras para lo mismo:{' '}
+                {Object.entries(SINONIMOS_ETIQUETA).map(([k, v], i) => (
+                  <span key={k}>{i > 0 ? ' · ' : ''}<span className="text-text-2">{k}</span> = {v.join(', ')}</span>
+                ))}.
+              </p>
+              <p className="text-[11px] text-warning-light mt-2 leading-relaxed">
+                Sin esas etiquetas también se intenta, pero en documentos largos hay muchas fechas
+                —agenda, plazos, el año de fundación— y entonces preferimos preguntarte antes que
+                elegir por ti.
+              </p>
+            </div>
+          )}
+
           {pdfDetectado?.aviso && (
             <p className="mt-3 text-xs text-warning-light bg-warning/10 border border-warning/20 rounded-xl px-3 py-2">{pdfDetectado.aviso}</p>
           )}
