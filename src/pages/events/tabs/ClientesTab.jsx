@@ -10,6 +10,7 @@ import ImportarAsistentes from '../workspace/asistentes/ImportarAsistentes.jsx';
 import RepartoSinCorreo from '../workspace/asistentes/RepartoSinCorreo.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import { exportar } from '../../../lib/hojaEscribir.js';
 
 const ESTADO_LABEL = {
   emitido    : 'Emitido',
@@ -35,7 +36,39 @@ export default function ClientesTab({ evento }) {
   const [importOpen, setImportOpen] = useState(false);
   const [repartoOpen, setRepartoOpen] = useState(false);
   const [detalleCliente, setDetalleCliente] = useState(null);
+  const [exportando, setExportando] = useState(false);
   const { success, error: toastErr } = useToast();
+
+  /* Exportar de verdad: TODO el evento y CON las respuestas del formulario.
+
+     Lo que había antes exportaba `clientes`, que es sólo la página cargada, con
+     ocho columnas fijas y ninguna respuesta. Alguien montaba la ficha de
+     caracterización de 22 preguntas, la gente la respondía, y el archivo salía
+     sin una sola: los datos por los que se pide el formulario se quedaban
+     dentro de la plataforma. Y en un evento de 7.000 personas exportaba las 50
+     de la primera página sin decir que faltaban las demás.
+
+     El servidor arma las columnas —una por pregunta, en su orden— porque es
+     quien conoce la definición del formulario. */
+  const exportarTodo = async () => {
+    setExportando(true);
+    try {
+      const r = await clientesApi.exportar(evento.id);
+      if (!r.total) { toastErr('No hay inscritos todavía.'); return; }
+      const { formato } = await exportar([r.columnas, ...r.filas], {
+        titulo: r.evento,
+        base: r.slug || r.evento,
+        sufijo: 'inscritos',
+      });
+      success(
+        formato === 'xlsx'
+          ? `${r.total} inscritos exportados${r.preguntas ? `, con las ${r.preguntas} preguntas del formulario` : ''}.`
+          : `${r.total} inscritos en CSV (tu navegador no permite generar Excel).`,
+      );
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    } finally { setExportando(false); }
+  };
 
   const reload = async () => {
     setLoading(true);
@@ -85,11 +118,13 @@ export default function ClientesTab({ evento }) {
             <PdfIcon className="w-3.5 h-3.5" /> Exportar PDF
           </button>
           <button
-            onClick={() => exportarCSV(clientes, evento)}
-            disabled={clientes.length === 0}
+            onClick={exportarTodo}
+            disabled={exportando}
             className="btn-secondary btn-sm"
-            title="Descarga un CSV con todos los clientes (respeta filtros activos)">
-            <DownloadIcon className="w-3.5 h-3.5" /> Exportar CSV
+            title="Todos los inscritos del evento, con las respuestas del formulario, en Excel">
+            {exportando
+              ? <><Spinner size="sm" /> Exportando…</>
+              : <><DownloadIcon className="w-3.5 h-3.5" /> Exportar Excel</>}
           </button>
           <button onClick={() => setImportOpen(true)} className="btn-secondary btn-sm"
             title="Excel o CSV, con mapeo de columnas a las preguntas del formulario">
@@ -463,41 +498,6 @@ function downloadTemplate() {
   a.click();
   URL.revokeObjectURL(url);
 }
-
-function exportarCSV(clientes, evento) {
-  if (!clientes?.length) return;
-
-  const headers = ['nombre', 'email', 'codigo', 'estado', 'tipo', 'precio_pagado', 'created_at', 'checked_in_at'];
-  const escape = (v) => {
-    if (v == null) return '';
-    const s = String(v).replace(/"/g, '""');
-    return `"${s}"`;
-  };
-  const rows = clientes.map(c => [
-    c.usuario?.nombre || c.guest_nombre || '',
-    c.usuario?.email  || c.guest_email  || '',
-    c.codigo,
-    c.estado,
-    c.tipo?.nombre || '',
-    c.precio_pagado ?? '',
-    c.created_at,
-    c.checked_in_at || '',
-  ].map(escape).join(','));
-
-  const csv = '﻿' + headers.join(',') + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-
-  const slug = (evento?.slug || 'evento').replace(/[^a-z0-9-]/gi, '-');
-  const fecha = new Date().toISOString().slice(0, 10);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `clientes-${slug}-${fecha}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-}
-
 function exportarPDF(clientes, evento) {
   if (!clientes?.length) return;
 

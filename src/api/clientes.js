@@ -10,4 +10,5 @@ export const clientesApi = {
   reportarAlerta: (eventoId, body)               => client.post(`/eventos/${eventoId}/alertas`, body).then(r => r.data),
   resolverAlerta: (eventoId, id)                 => client.patch(`/eventos/${eventoId}/alertas/${id}/resolver`).then(r => r.data),
   importar     : (eventoId, body)               => client.post(`/eventos/${eventoId}/clientes/importar`, body).then(r => r.data),
+  exportar     : (eventoId)                     => client.get(`/eventos/${eventoId}/clientes/exportar`).then(r => r.data),
 };
