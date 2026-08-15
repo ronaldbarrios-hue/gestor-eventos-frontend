@@ -274,7 +274,7 @@ Recorrido completo de un evento, desde el conector de Claude:
 |---|---|
 | Crear evento, boletas, ponente, agenda, descuento | Bien, con la zona horaria correcta |
 | Publicar | Bien |
-| Página pública (API y web) | 200, con las dos boletas y la agenda |
+| Página pública (API y web) | 200, con las dos boletas y la agenda — **la mitad «web» era falsa, ver §9** |
 | Emitir cortesía | Bien |
 | Página de la boleta con QR firmado | 200, token de 253 caracteres |
 | Check-in | Bien |
@@ -374,3 +374,70 @@ aprobar.
 
 Para Claude Code o Claude Desktop, que no usan ese conector, hay un token en
 *Ajustes → Integraciones → «Conectar desde Claude Code o Claude Desktop»*.
+
+---
+
+## 9 · Sondeo de lo público (15 de agosto)
+
+Primera pasada de `SONDEO.md`, por las pantallas que ve el asistente. Todo lo
+de abajo se midió en el navegador contra producción, con un evento de prueba
+propio que se creó, se publicó, se recorrió entero y **se borró** (la base
+quedó en 31 filas / 16 vivos / 34 boletas, igual que antes).
+
+### Lo que estaba roto
+
+**La página pública de un evento creado desde el conector salía vacía.**
+Lo más caro de la sesión. `crear_evento` deja `page_json` con `pages: []` y
+`blocks: []`, y la página pública envolvía ese array vacío en una página sin un
+solo bloque: el visitante veía el logo del organizador y nada más — sin título,
+sin fecha, sin lugar y **sin boletas**— mientras la API devolvía los tipos de
+boleta perfectamente. El editor ya caía a los bloques del sistema en ese caso;
+el lado público, que es el que vende, era el único sin ese suelo. Arreglado y
+verificado en producción.
+
+Aquí está la lección de método: §6 daba por buena la «página pública (API y
+web)». La API sí respondía. La web no se había abierto. Es la clase «confianza
+falsa» aplicada a este mismo documento.
+
+**Programar un partido lo corría un día, y de forma acumulativa.** El modal
+leía el día en UTC (`toISOString`) y la hora en local (`toTimeString`). Un
+partido de las 9 p. m. del 15 se reabría como «16, 21:00» y guardar sin tocar
+nada lo escribía en el 17. El cálculo era una línea copiada en tres archivos:
+ahora vive en `src/lib/fechaLocal.js` y los tres la comparten. De paso, el PDF
+de asistentes exportado de noche se nombraba con la fecha de mañana.
+
+**La boleta pública no traía `fecha_fin` ni `page_json`.** Dos ausencias que
+fallaban en silencio con un respaldo razonable cada una: el enlace «Añadir a
+Google Calendar» caía a su valor por defecto de dos horas —en un evento de dos
+días, una cita de 9 a 11 del primer día, y desde que los recordatorios los
+lleva el calendario ése es el único aviso que recibe el asistente—, y la
+escarapela digital se pintaba siempre con el diseño por defecto, así que lo que
+el organizador configura en Asistentes → Tarjeta no lo veía nadie.
+
+### Lo que se recorrió y funciona
+
+| Recorrido | Cómo se comprobó |
+|---|---|
+| Agenda pública, agrupado por días | Sesión de las 8 p. m. del 15 en la pestaña del 15, no en la del 16. El arreglo del 14 está bien puesto |
+| Compra de punta a punta | Reserva completada en el evento de prueba: código, QR, enlace permanente y correo con `ok = true` |
+| Casilla de términos obligatoria | Bloquea con «Debes aceptar los términos para continuar» y enlaza a `/explorar/:slug/legal#terminos`, que ahora existe |
+| Constancia de aceptación (0069) | Guarda el instante **y el hash del contenido** aceptado, no un booleano |
+| Página de términos | Con documentos y sin ellos; respeta los saltos de línea del organizador |
+| Check-in, reentrada y código inventado | Entra, rechaza el segundo intento diciendo a qué hora entró, rechaza el inventado |
+| Boleta con código inexistente | «El código X no existe», no una pantalla en blanco |
+| Embed de boletas en web ajena | Sirve la sección aunque el evento no tenga landing (`EMBED_SIN_CONFIG`) |
+| Pista cruzada del correo | Un teléfono en la casilla de correo responde «Eso parece un teléfono. Aquí va el correo.» |
+| `/explorar` muestra 3 de 11 publicados | **No es recorte**: los otros 8 ya pasaron. Medido contra la base |
+
+### El correo, otra vez
+
+Dos envíos más con `ok = true` a una dirección real (la cortesía y la compra).
+Resend los aceptó. **Sigue faltando lo mismo que el 14: mirar la bandeja**, y
+la carpeta de correo no deseado. Es lo único que no puede comprobar el agente.
+
+### Lo que queda de lo público, sin tocar
+
+Inscripción a sub-eventos con cupo, lista de espera (hace falta agotar un tipo
+de boleta), agenda multi-sala con varios `track`, e importar un Excel con la
+plantilla nueva. Y `MP_WEBHOOK_SECRET` sigue sin poner: cualquiera con la URL
+del webhook marca una boleta como pagada.
