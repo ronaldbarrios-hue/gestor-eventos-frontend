@@ -256,6 +256,13 @@ export default function EventoPublicoPage() {
               <Icono nombre="calendario" className="w-4 h-4" />Espacio del evento
             </Link>
           )}
+          {evento.tiene_expositores && (
+            <Link to={`/explorar/${slug}/ranking`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
+                         text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+              <Icono nombre="estrella" className="w-4 h-4" />Ranking
+            </Link>
+          )}
           {/* El mapa, si el organizador lo configuró. Faltaba aquí y en todas
               partes: se armaba en el panel y no había un solo enlace hacia él. */}
           {evento.page_json?.mapa && (
