@@ -251,7 +251,7 @@ function RolesSection({ eventoId, roles, onChange }) {
                 value={draft.nombre}
                 onChange={e => setDraft(p => ({ ...p, nombre: e.target.value }))}
                 placeholder="Ej: Encargado de música"
-                className="input rounded-2xl py-3 text-base"
+                className="input-form"
                 required autoFocus
               />
             </div>
@@ -261,7 +261,7 @@ function RolesSection({ eventoId, roles, onChange }) {
                 value={draft.descripcion}
                 onChange={e => setDraft(p => ({ ...p, descripcion: e.target.value }))}
                 placeholder="Qué hace este rol"
-                className="input rounded-2xl py-3 text-base"
+                className="input-form"
               />
             </div>
           </div>
@@ -325,14 +325,14 @@ function RolCard({ rol, eventoId, isEditing, onStartEdit, onCancelEdit, onSaved,
           <input
             value={draft.nombre}
             onChange={e => setDraft(p => ({ ...p, nombre: e.target.value }))}
-            className="input rounded-2xl py-3 text-base font-medium"
+            className="input-form font-medium"
             autoFocus
           />
           <input
             value={draft.descripcion}
             onChange={e => setDraft(p => ({ ...p, descripcion: e.target.value }))}
             placeholder="Descripción"
-            className="input rounded-2xl py-3 text-base"
+            className="input-form"
           />
         </div>
         <PermisosSelector
@@ -511,7 +511,7 @@ function MiembrosSection({ eventoId, equipo, roles, onChange }) {
                 value={invite.email}
                 onChange={e => setInvite(p => ({ ...p, email: e.target.value }))}
                 placeholder="alguien@empresa.com"
-                className="input rounded-2xl py-3 text-base"
+                className="input-form"
               />
             </div>
             <div className="field">
@@ -520,7 +520,7 @@ function MiembrosSection({ eventoId, equipo, roles, onChange }) {
                 value={invite.nombre_invitado}
                 onChange={e => setInvite(p => ({ ...p, nombre_invitado: e.target.value }))}
                 placeholder="Cómo lo llamas"
-                className="input rounded-2xl py-3 text-base"
+                className="input-form"
               />
             </div>
             <div className="field">

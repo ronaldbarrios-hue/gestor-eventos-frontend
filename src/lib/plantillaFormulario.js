@@ -87,6 +87,10 @@ export async function descargarPlantilla(plantilla, nombreEvento = 'evento') {
    detalle fila por fila. Se separan a propósito: que falte una columna es un
    problema del archivo y no tiene sentido listar 300 filas malas; que falle una
    fila concreta sí se lista, porque las demás se pueden importar igual. */
+/* El nombre de la pestaña que se lee. Va exportado para que quien llame a
+   leerHoja pida ESTA y no la primera que encuentre. */
+export const HOJA_DATOS = 'Formulario';
+
 export function leerPlantilla(hoja, plantilla) {
   const porTitulo = new Map(hoja.columnas.map(c => [norma(c), c]));
 

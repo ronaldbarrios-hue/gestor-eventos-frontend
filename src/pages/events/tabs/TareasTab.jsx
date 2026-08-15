@@ -374,10 +374,10 @@ function TareaForm({ initial, miembros, roles, onSave, onCancel }) {
       <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">{initial ? 'Editar tarea' : 'Nueva tarea'}</p>
       <input value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))}
         placeholder="¿Qué hay que hacer?" required autoFocus
-        className="input rounded-2xl py-3 text-base font-medium" />
+        className="input-form font-medium" />
       <textarea value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))}
         placeholder="Detalles (opcional)" rows={2}
-        className="input rounded-2xl py-3 text-base resize-none" />
+        className="input-form resize-none" />
 
       <div className="grid sm:grid-cols-3 gap-3">
         <div className="field">

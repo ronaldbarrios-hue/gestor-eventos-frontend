@@ -236,6 +236,37 @@
   .label      { @apply block text-[13px] font-semibold text-text-2 mb-2 uppercase tracking-wider; }
   .field      { @apply space-y-1.5; }
 
+  /* Dentro de `.field` el hueco lo pone `space-y-1.5` (6px), así que el `mb-2`
+     de la etiqueta se SUMA: 14px arriba del campo y 6px abajo. Se nota poco en
+     una columna y mucho en dos, porque el desnivel se repite en paralelo y las
+     filas dejan de alinearse.
+
+     Se anula sólo aquí, y no en `.label`, porque hay 268 etiquetas repartidas
+     y muchas viven fuera de un `.field`, donde ese margen es lo único que las
+     separa de su control. Quitarlo de raíz las dejaría pegadas. Esto también
+     hace innecesarios los `!mb-0` sueltos que fueron apareciendo. */
+  .field > .label { @apply mb-0; }
+
+  /* ── Formularios anchos ──────────────────────────
+     Dos columnas desde `sm`, con más aire horizontal que vertical: las
+     columnas necesitan separarse para no leerse como una sola frase partida,
+     mientras que las filas ya se separan solas por la altura de los campos.
+
+     `.ancho` es para lo que NO cabe en media columna: correo, dirección, texto
+     largo. Un correo cortado a 21 caracteres obliga a hacer scroll dentro del
+     campo para releer lo que uno escribió. */
+  .grid-form { @apply grid sm:grid-cols-2 gap-x-5 gap-y-4; }
+  .grid-form > .ancho { @apply sm:col-span-2; }
+
+  /* La geometría de campo que estaba copiada literal en doce sitios
+     (`input rounded-2xl py-3 text-base`). El `text-base` no es estético: por
+     debajo de 16px iOS hace zoom al enfocar y descuadra la página. */
+  .input-form { @apply input rounded-2xl py-3 text-base; }
+
+  /* Un campo que no pasó la verificación. Mismo aspecto en toda la app: el
+     borde cambia y el foco también, para que no parezca correcto al tocarlo. */
+  .field-error { @apply border-danger/60 focus:ring-danger/40 focus:border-danger; }
+
   /* ── Badges ──────────────────────────────────── */
   .badge { @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium; }
   .badge-blue   { @apply badge bg-primary/15 text-primary-light border border-primary/20; }

@@ -106,7 +106,7 @@ export default function SelectorBuscable({
         onChange={(e) => { setTexto(e.target.value); setAbierto(true); setResaltada(0); }}
         onFocus={() => setAbierto(true)}
         onKeyDown={teclado}
-        className="input rounded-2xl py-3 text-base bg-surface-2 w-full"
+        className="input-form bg-surface-2 w-full"
       />
 
       {/* El campo real que valida el navegador. El de arriba no puede llevar
@@ -202,7 +202,7 @@ export function MultiBuscable({ id, opciones = [], value = [], onChange, placeho
         placeholder={placeholder}
         onChange={e => setTexto(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
-        className="input rounded-2xl py-3 text-base bg-surface-2 w-full"
+        className="input-form bg-surface-2 w-full"
       />
 
       <div className="max-h-56 overflow-y-auto rounded-2xl border border-border bg-surface-2/40 divide-y divide-border/50">

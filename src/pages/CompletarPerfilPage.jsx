@@ -241,7 +241,7 @@ export default function CompletarPerfilPage() {
                   <label className="label">Tu nombre</label>
                   <input
                     name="nombre" value={form.nombre} onChange={e => change('nombre', e.target.value)}
-                    className="input rounded-2xl py-3 text-base" required autoFocus
+                    className="input-form" required autoFocus
                     placeholder="Como quieres que te vean"
                   />
                 </div>
@@ -259,7 +259,7 @@ export default function CompletarPerfilPage() {
                     </select>
                     <input
                       value={form.telefono} onChange={e => change('telefono', e.target.value)}
-                      className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" required
+                      className="input-form" placeholder="300 000 0000" required
                     />
                   </div>
                 </div>
@@ -270,14 +270,14 @@ export default function CompletarPerfilPage() {
                       <label className="label">Empresa</label>
                       <input
                         value={form.empresa} onChange={e => change('empresa', e.target.value)}
-                        className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
+                        className="input-form" placeholder="Tu empresa"
                       />
                     </div>
                     <div className="field">
                       <label className="label">Ocupación</label>
                       <input
                         value={form.ocupacion} onChange={e => change('ocupacion', e.target.value)}
-                        className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
+                        className="input-form" placeholder="Productor de eventos"
                       />
                     </div>
                   </div>
@@ -287,7 +287,7 @@ export default function CompletarPerfilPage() {
                   <label className="label">País</label>
                   <select
                     value={form.ciudad} onChange={e => change('ciudad', e.target.value)}
-                    className="input rounded-2xl py-3 text-base"
+                    className="input-form"
                   >
                     <option value="">Seleccionar...</option>
                     {PAISES.map(p => (
@@ -306,7 +306,7 @@ export default function CompletarPerfilPage() {
                     <label className="label">Tamaño típico</label>
                     <select
                       value={form.participantes} onChange={e => change('participantes', e.target.value)}
-                      className="input rounded-2xl py-3 text-base"
+                      className="input-form"
                     >
                       <option value="">Seleccionar...</option>
                       {PARTICIPANTES.map(p => <option key={p} value={p}>{p}</option>)}
@@ -318,7 +318,7 @@ export default function CompletarPerfilPage() {
                     <textarea
                       rows={2}
                       value={form.contexto} onChange={e => change('contexto', e.target.value)}
-                      className="input rounded-2xl py-3 text-base resize-none"
+                      className="input-form resize-none"
                       placeholder="Qué eventos organizas, frecuencia e industria. Sirve para personalizar tu experiencia."
                     />
                   </div>

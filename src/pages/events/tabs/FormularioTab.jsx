@@ -6,7 +6,7 @@ import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { leerHoja, columnaAOpciones, FORMATOS_ACEPTADOS } from '../../../lib/hojaCalculo.js';
 import { esBuscable } from '../../../components/ui/CampoFormulario.jsx';
-import { descargarPlantilla, leerPlantilla } from '../../../lib/plantillaFormulario.js';
+import { descargarPlantilla, leerPlantilla, HOJA_DATOS } from '../../../lib/plantillaFormulario.js';
 
 /* Tab Formulario — campos personalizados que se piden al comprar o reservar.
    Se guardan preservando el `id` de cada campo existente (el backend hace un
@@ -79,7 +79,8 @@ function ImportarDefinicion({ catalogo, onAgregar, onCerrar, cupo, nombreEvento 
     if (!file) return;
     setError(''); setCargando(true); setHoja(null); setLectura(null);
     try {
-      const h = await leerHoja(file);
+      /* Por nombre, no la primera: la plantilla trae tres pestañas. */
+      const h = await leerHoja(file, { hojaPreferida: HOJA_DATOS });
       const r = leerPlantilla(h, plantilla);
       if (r.error) { setError(r.error); return; }
       setHoja(h);

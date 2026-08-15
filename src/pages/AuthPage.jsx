@@ -694,14 +694,14 @@ function RegisterForm() {
               <div className="field">
                 <label className="label">Nombre</label>
                 <input name="nombre" value={paso1.nombre} onChange={onChange1}
-                  className="input rounded-2xl py-3 text-base" placeholder="Juan Pérez"
+                  className="input-form" placeholder="Juan Pérez"
                   required autoFocus style={{ fontSize: '16px' }} />
               </div>
               <div className="field">
                 <label className="label">{esFlujoLigero ? 'Email' : 'Email empresarial'}</label>
                 <input type="email" name="email" value={paso1.email} onChange={onChange1}
                   onBlur={onBlurEmail}
-                  className="input rounded-2xl py-3 text-base" placeholder="juan@empresa.com"
+                  className="input-form" placeholder="juan@empresa.com"
                   required style={{ fontSize: '16px' }} />
               </div>
             </div>
@@ -738,7 +738,7 @@ function RegisterForm() {
                 </select>
                 <input name="telefono" value={paso1.telefono} onChange={onChange1}
                   type="tel" inputMode="tel" autoComplete="tel-national"
-                  className="input rounded-2xl py-3 text-base min-w-0" placeholder="300 000 0000"
+                  className="input-form min-w-0" placeholder="300 000 0000"
                   style={{ fontSize: '16px' }} />
               </div>
             </div>
@@ -748,7 +748,7 @@ function RegisterForm() {
                 <div className="field">
                   <label className="label">Número esperado de participantes</label>
                   <select name="participantes" value={paso1.participantes} onChange={onChange1}
-                    className="input rounded-2xl py-3 text-base" required style={{ fontSize: '16px' }}>
+                    className="input-form" required style={{ fontSize: '16px' }}>
                     <option value="">Seleccionar...</option>
                     {PARTICIPANTES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -758,7 +758,7 @@ function RegisterForm() {
                   <label className="label">Para preparar tu entorno de trabajo</label>
                   <textarea
                     name="contexto" value={paso1.contexto} onChange={onChange1} rows={2}
-                    className="input rounded-2xl py-3 text-base resize-none"
+                    className="input-form resize-none"
                     placeholder="Qué eventos organizas, frecuencia e industria. El agente IA usará esto."
                     style={{ fontSize: '16px' }}
                   />
@@ -831,7 +831,7 @@ function RegisterForm() {
                 <div className="field">
                   <label className="label">Ocupación</label>
                   <input name="ocupacion" value={paso2.ocupacion} onChange={onChange2}
-                    className="input rounded-2xl py-3 text-base" placeholder="Productor de eventos"
+                    className="input-form" placeholder="Productor de eventos"
                     style={{ fontSize: '16px' }} />
                 </div>
                 <div className="field">
@@ -840,7 +840,7 @@ function RegisterForm() {
                     <span className="text-text-3 lowercase tracking-normal font-normal">(opcional)</span>
                   </label>
                   <input name="empresa" value={paso2.empresa} onChange={onChange2}
-                    className="input rounded-2xl py-3 text-base" placeholder="Tu empresa"
+                    className="input-form" placeholder="Tu empresa"
                     style={{ fontSize: '16px' }} />
                 </div>
               </div>
@@ -850,7 +850,7 @@ function RegisterForm() {
               <div className="field">
                 <label className="label">País</label>
                 <select name="ciudad" value={paso2.ciudad} onChange={onChange2}
-                  className="input rounded-2xl py-3 text-base" style={{ fontSize: '16px' }}>
+                  className="input-form" style={{ fontSize: '16px' }}>
                   <option value="">Seleccionar...</option>
                   {PAISES.map(p => (
                     <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>

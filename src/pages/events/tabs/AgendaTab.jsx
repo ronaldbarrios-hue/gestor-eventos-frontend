@@ -858,7 +858,7 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
           onChange={e => setForm(f => ({ ...f, subcategoria: e.target.value }))}
           placeholder="Deportes, Gaming, Desarrollo de habilidades..."
           maxLength={60}
-          className="input rounded-2xl py-3 text-base" />
+          className="input-form" />
         <datalist id="gestek-subcategorias">
           {subcategoriasUsadas.map(v => <option key={v} value={v} />)}
         </datalist>
@@ -884,10 +884,10 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
 
       <input value={form.titulo} onChange={e => setForm(f => ({...f, titulo: e.target.value}))}
         placeholder="Título" required autoFocus
-        className="input rounded-2xl py-3 text-base font-medium" />
+        className="input-form font-medium" />
       <textarea value={form.descripcion} onChange={e => setForm(f => ({...f, descripcion: e.target.value}))}
         placeholder="Descripción (opcional)" rows={2}
-        className="input rounded-2xl py-3 text-base resize-none" />
+        className="input-form resize-none" />
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="field">
           <label className="label">Inicio *</label>
@@ -904,13 +904,13 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
         <div className="field">
           <label className="label">Track / sala</label>
           <input value={form.track} onChange={e => setForm(f => ({...f, track: e.target.value}))}
-            placeholder="principal" className="input rounded-2xl py-3 text-base" />
+            placeholder="principal" className="input-form" />
           <p className="text-[11px] text-text-3 mt-1">Ej. "Auditorio A", "Sala 2". Sesiones con el mismo track aparecen juntas en la vista "Salas".</p>
         </div>
         <div className="field">
           <label className="label">Ubicación</label>
           <input value={form.ubicacion} onChange={e => setForm(f => ({...f, ubicacion: e.target.value}))}
-            placeholder="Piso 2" className="input rounded-2xl py-3 text-base" />
+            placeholder="Piso 2" className="input-form" />
         </div>
         <div className="field">
           <label className="label">Speaker</label>
@@ -1080,12 +1080,12 @@ function SpeakerForm({ initial, ownerId, onSave, onCancel }) {
       <div className="grid sm:grid-cols-2 gap-3">
         <input value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
           placeholder="Nombre completo" required autoFocus
-          className="input rounded-2xl py-3 text-base font-medium" />
+          className="input-form font-medium" />
         <input value={form.empresa} onChange={e => setForm(f => ({...f, empresa: e.target.value}))}
-          placeholder="Cargo / empresa (opcional)" className="input rounded-2xl py-3 text-base" />
+          placeholder="Cargo / empresa (opcional)" className="input-form" />
       </div>
       <textarea value={form.bio} onChange={e => setForm(f => ({...f, bio: e.target.value}))}
-        placeholder="Bio breve" rows={3} className="input rounded-2xl py-3 text-base resize-none" />
+        placeholder="Bio breve" rows={3} className="input-form resize-none" />
       <div className="flex items-center justify-end gap-2 pt-1">
         <button type="button" onClick={onCancel} className="btn-ghost btn-sm">Cancelar</button>
         <button type="submit" disabled={saving || !form.nombre.trim()} className="btn-primary btn-sm">

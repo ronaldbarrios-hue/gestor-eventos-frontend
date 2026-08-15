@@ -265,7 +265,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
           <input
             value={form.nombre} onChange={e => update('nombre', e.target.value)}
             placeholder={form.es_expositor ? 'Ej: Stand comercial, Stand VIP' : 'Ej: General, VIP, Early Bird'}
-            className="input rounded-2xl py-3 text-base" required autoFocus
+            className="input-form" required autoFocus
           />
         </div>
         <div className="field">
@@ -274,7 +274,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
             <input
               type="number" min="0" step="0.01"
               value={form.precio} onChange={e => update('precio', e.target.value)}
-              className="input rounded-2xl py-3 text-base tabular-nums" placeholder="0"
+              className="input-form tabular-nums" placeholder="0"
             />
             <select
               value={form.currency} onChange={e => update('currency', e.target.value)}
@@ -295,7 +295,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
         <input
           value={form.descripcion} onChange={e => update('descripcion', e.target.value)}
           placeholder="Acceso general · 1 bebida incluida · etc."
-          className="input rounded-2xl py-3 text-base"
+          className="input-form"
         />
       </div>
 
@@ -305,7 +305,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
           type="number" min="0"
           value={form.cupo} onChange={e => update('cupo', e.target.value)}
           placeholder="Vacío = ilimitado"
-          className="input rounded-2xl py-3 text-base tabular-nums"
+          className="input-form tabular-nums"
         />
       </div>
 
@@ -339,7 +339,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
                 type="number" min="0" step="0.01"
                 value={form.early_bird_precio} onChange={e => update('early_bird_precio', e.target.value)}
                 placeholder="Precio descuento"
-                className="input rounded-2xl py-3 text-base tabular-nums"
+                className="input-form tabular-nums"
               />
             </div>
             <div className="field">
@@ -347,7 +347,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
               <input
                 type="datetime-local"
                 value={form.early_bird_hasta} onChange={e => update('early_bird_hasta', e.target.value)}
-                className="input rounded-2xl py-3 text-base bg-surface-2"
+                className="input-form bg-surface-2"
               />
             </div>
           </div>
@@ -356,7 +356,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
             <input
               type="datetime-local"
               value={form.venta_hasta} onChange={e => update('venta_hasta', e.target.value)}
-              className="input rounded-2xl py-3 text-base bg-surface-2"
+              className="input-form bg-surface-2"
             />
             <p className="text-[11px] text-text-3 mt-1.5">Después de esta fecha no se podrán comprar más boletas de este tipo.</p>
           </div>

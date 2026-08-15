@@ -122,7 +122,7 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
             <label className="label">Código de tu boleta *</label>
             <input value={codigo} onChange={e => setCodigo(e.target.value.toUpperCase())}
               placeholder="ABCD1234" autoFocus
-              className="input rounded-2xl py-3 text-base font-mono tracking-widest uppercase" />
+              className="input-form font-mono tracking-widest uppercase" />
             <p className="text-[11px] text-text-3 mt-1.5">
               Está en el correo de tu entrada y en tu boleta digital. Con él no hace falta
               que vuelvas a escribir tus datos.
@@ -133,17 +133,17 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], o
             <div className="field">
               <label className="label">Nombre completo *</label>
               <input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                className="input rounded-2xl py-3 text-base" placeholder="Tu nombre" autoFocus />
+                className="input-form" placeholder="Tu nombre" autoFocus />
             </div>
             <div className="field">
               <label className="label">Correo *</label>
               <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="input rounded-2xl py-3 text-base" placeholder="tu@correo.com" />
+                className="input-form" placeholder="tu@correo.com" />
             </div>
             <div className="field">
               <label className="label">Teléfono <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
               <input value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))}
-                className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" />
+                className="input-form" placeholder="300 000 0000" />
             </div>
           </>
         )}

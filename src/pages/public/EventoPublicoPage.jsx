@@ -10,7 +10,8 @@ import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/publi
 import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
-import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
+import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
+import { verificar, verificarCorreo } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { useT } from '../../lib/i18n.js';
 
@@ -467,17 +468,17 @@ function WaitlistModal({ tipo, slug, onClose }) {
           <div className="field">
             <label className="label">Nombre completo *</label>
             <input required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
-              className="input rounded-2xl py-3 text-base" placeholder="Tu nombre" autoFocus />
+              className="input-form" placeholder="Tu nombre" autoFocus />
           </div>
           <div className="field">
             <label className="label">Email *</label>
             <input required type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
-              className="input rounded-2xl py-3 text-base" placeholder="tu@email.com" />
+              className="input-form" placeholder="tu@email.com" />
           </div>
           <div className="field">
             <label className="label">Teléfono <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
             <input value={form.telefono} onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
-              className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" />
+              className="input-form" placeholder="300 000 0000" />
           </div>
           <Turnstile onToken={setCaptcha} />
           <div className="flex items-center justify-end gap-2 pt-2">
@@ -558,6 +559,11 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
      casilla es obligatoria y la aceptación queda registrada con la boleta. */
   const legal = useLegalEvento(slug);
 
+  /* Los errores se guardan POR CAMPO y se pintan en el campo. El cuadro de
+     arriba sigue para lo que no pertenece a ninguno (captcha, términos). */
+  const [errCampos, setErrCampos] = useState({});
+  const [errForm, setErrForm] = useState({});
+
   const submit = async (e) => {
     e.preventDefault();
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
@@ -568,8 +574,21 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
        sólo se miraba el hueco: un correo mal escrito o una selección fuera de
        la lista pasaban el filtro y el rechazo llegaba del backend con las 22
        preguntas ya llenas. */
-    const fallo = primerFallo(camposForm, respuestas, tipo.id);
-    if (fallo) { setErr(fallo); return; }
+    /* Todos los fallos de golpe, no el primero: con 22 preguntas, corregir de
+       una en una son 22 intentos. Se marcan en su campo y el cuadro de arriba
+       sólo dice cuántos faltan. */
+    const fallos = fallosDe(camposForm, respuestas, tipo.id);
+    const malFormulario = {
+      email: verificarCorreo(form.email),
+      telefono: verificar('telefono', form.telefono),
+    };
+    setErrCampos(fallos);
+    setErrForm(malFormulario);
+    const cuantos = Object.keys(fallos).length + Object.values(malFormulario).filter(Boolean).length;
+    if (cuantos > 0) {
+      setErr(cuantos === 1 ? 'Revisa el dato marcado abajo.' : `Revisa los ${cuantos} datos marcados abajo.`);
+      return;
+    }
     setWorking(true); setErr('');
     try {
       /* El token del correo viaja con la compra: es lo que le da derecho al
@@ -605,45 +624,70 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
   };
 
   return (
-    <ModalShell onClose={onClose}>
-      <form onSubmit={submit} className="space-y-5">
-        <div>
+    /* Ancho de verdad: con `max-w-md` (400px) menos el padding quedaban 352px,
+       y dos columnas de 166px son peores que una. Con `3xl` quedan ~700px
+       utiles, o sea dos columnas de ~340px, que es donde un correo o una
+       direccion se leen enteros. */
+    <ModalShell onClose={onClose} ancho="sm:max-w-3xl">
+      <form onSubmit={submit} className="grid-form">
+        {/* La cabecera manda sobre todo lo demas: es el que y el cuanto. Ocupa
+            la fila entera y el precio sube de tamano, que es el dato por el que
+            la gente decide. */}
+        <div className="ancho">
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">
             {isFree ? 'Reserva tu cupo' : 'Compra tu boleta'}
           </p>
-          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">{tipo.nombre}</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">{tipo.nombre}</h2>
           <div className="flex items-baseline gap-2 mt-2">
-            <p className="text-2xl font-bold font-display text-text-1 tabular-nums">
+            <p className="text-3xl font-bold font-display text-text-1 tabular-nums">
               {isFree ? 'Gratis' : `$${precio.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`}
             </p>
             {!isFree && <span className="text-xs text-text-3">{tipo.currency || currency}</span>}
           </div>
         </div>
-        {err && <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
-        <div className="field">
-          <label className="label">Nombre completo *</label>
-          <input required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
-            className="input rounded-2xl py-3 text-base" placeholder="Tu nombre" autoFocus />
+        {err && <div className="ancho px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
+
+        {/* Nombre y correo ocupan fila entera: los dos se leen enteros o no se
+            leen. Un correo cortado a 21 caracteres obliga a hacer scroll dentro
+            del campo para releer lo que uno escribio. */}
+        <div className="field ancho">
+          <label className="label" htmlFor="res-nombre">Nombre completo *</label>
+          <input id="res-nombre" required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+            className="input-form" placeholder="Tu nombre" autoFocus />
         </div>
-        <div className="field">
-          <label className="label">Email *</label>
-          <input required type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
-            className="input rounded-2xl py-3 text-base" placeholder="tu@email.com" />
+        <div className="field ancho">
+          <label className="label" htmlFor="res-email">Email *</label>
+          <input id="res-email" required type="email" inputMode="email" autoComplete="email"
+            value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
+            onBlur={() => setErrForm(v => ({ ...v, email: verificarCorreo(form.email) }))}
+            className={`input-form ${errForm.email ? 'field-error' : ''}`} placeholder="tu@email.com" />
+          {errForm.email && <p className="text-[11px] text-danger-light mt-1">{errForm.email}</p>}
         </div>
+        {/* El telefono si cabe en media: son diez digitos de forma conocida. */}
         <div className="field">
-          <label className="label">Teléfono {checkout.requiere_telefono
+          <label className="label" htmlFor="res-tel">Teléfono {checkout.requiere_telefono
             ? <span className="text-danger-light">*</span>
             : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
-          <input value={form.telefono} required={Boolean(checkout.requiere_telefono)} onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
-            className="input rounded-2xl py-3 text-base" placeholder="300 000 0000" />
+          <input id="res-tel" type="tel" inputMode="tel" autoComplete="tel"
+            value={form.telefono} required={Boolean(checkout.requiere_telefono)}
+            onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
+            onBlur={() => setErrForm(v => ({ ...v, telefono: verificar('telefono', form.telefono) }))}
+            className={`input-form ${errForm.telefono ? 'field-error' : ''}`} placeholder="300 000 0000" />
+          {errForm.telefono && <p className="text-[11px] text-danger-light mt-1">{errForm.telefono}</p>}
         </div>
 
+        {/* Cada pregunta decide su ancho segun su tipo: lo corto y de forma
+            conocida en media columna, el resto entero. La regla vive en
+            CampoFormulario, que es el unico que sabe de tipos. */}
         {camposForm.map(c => (
-          <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} eventoId={evento?.id} />
+          <div key={c.id} className={ocupaFila(c) ? 'ancho' : undefined}>
+            <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)}
+              eventoId={evento?.id} error={errCampos[c.id]} />
+          </div>
         ))}
 
         {checkout.edad_minima > 0 && (
-          <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
+          <label className="ancho flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
             <input type="checkbox" checked={confirmaEdad} onChange={e => setConfirmaEdad(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-primary" />
             <span>Confirmo que tengo al menos <strong className="text-text-1">{checkout.edad_minima}</strong> años.</span>
           </label>
@@ -652,7 +696,9 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
             componente enlaza los de GESTEK y no bloquea. El `terminos_activo`
             viejo de page_json se respeta como casilla extra sólo si el
             organizador lo dejó encendido y no tiene documentos propios. */}
-        <AceptarTerminos slug={slug} estado={legal} aceptado={acepta} onChange={setAcepta} />
+        <div className="ancho">
+          <AceptarTerminos slug={slug} estado={legal} aceptado={acepta} onChange={setAcepta} />
+        </div>
         {!legal.exige && checkout.terminos_activo && (
           <label className="flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
             <input type="checkbox" checked={acepta} onChange={e => setAcepta(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-primary" />
@@ -774,7 +820,21 @@ function ConfirmacionModal({ ticket, checkout = {}, onClose }) {
   );
 }
 
-function ModalShell({ children, onClose }) {
+/* El contenedor de los modales del checkout.
+
+   Dos arreglos que se ven poco y molestan mucho:
+
+   · El boton de cerrar era `sticky float-right` y el contenido subia con
+     `-mt-9` para meterse debajo. Resultado: la primera linea del formulario
+     nacia 36px mas estrecha que el resto —ahi empezaba la sensacion de
+     "hay campos donde no se ve el resto de la informacion"— y la «x» quedaba
+     flotando ENCIMA de los campos durante todo el scroll. Ahora es una
+     cabecera propia con su franja: no roba ancho a nada.
+
+   · `ancho` es un parametro porque el mismo cascaron sirve para un formulario
+     de dos campos y para uno de veinte. Fijarlo en `max-w-md` obligaba a que
+     todo cupiera en 400px, que es de donde viene la columna larguisima. */
+function ModalShell({ children, onClose, ancho = 'sm:max-w-md' }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -784,16 +844,18 @@ function ModalShell({ children, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
       <div
-        className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[90vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[90vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
         onClick={e => e.stopPropagation()}
       >
-        <button onClick={onClose} aria-label="Cerrar"
-          className="sticky top-3 float-right mr-3 w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors bg-surface z-10">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        <div className="p-6 -mt-9">
+        <div className="sticky top-0 z-10 flex items-center justify-end px-4 sm:px-6 py-2.5 bg-surface/95 backdrop-blur border-b border-border">
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="p-6 sm:p-8">
           {children}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import SelectorBuscable, { MultiBuscable } from './SelectorBuscable.jsx';
+import { verificar } from '../../lib/validarDato.js';
 
 /* GESTEK — Un solo renderizador para los campos del formulario.
 
@@ -64,7 +65,9 @@ export function valorInicial(campo) {
    · en una casilla, `false` es una respuesta dada («no»), no un hueco;
    · una lista vacía sí es un hueco. */
 
-const RE_EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+/* Las reglas por tipo viven en lib/validarDato.js, que es el mismo sitio del
+   que las lee el registro de la cuenta. Estaban aqui copiadas y en el
+   servidor, y el registro no usaba ninguna de las dos. */
 
 export function fallaCampo(campo, valor) {
   const t = tipoDe(campo);
@@ -79,26 +82,13 @@ export function fallaCampo(campo, valor) {
     || (Array.isArray(valor) && valor.length === 0);
   if (vacio) return campo.requerido ? `«${campo.etiqueta}» es obligatorio.` : null;
 
+  /* Los tipos con verificacion propia la delegan, y el mensaje que vuelve ya
+     dice que hacer —incluido el caso de haber escrito en la casilla de al
+     lado: «eso parece un correo, aqui va el telefono»—. */
+  const verificado = verificar(t, valor);
+  if (verificado) return `«${campo.etiqueta}»: ${verificado.charAt(0).toLowerCase()}${verificado.slice(1)}`;
+
   switch (t) {
-    case 'email':
-      if (!RE_EMAIL.test(String(valor).trim())) return `«${campo.etiqueta}» no parece un correo electrónico.`;
-      break;
-    case 'telefono': {
-      const d = String(valor).replace(/[^\d]/g, '');
-      if (d.length < 7 || d.length > 15) return `«${campo.etiqueta}» debe tener entre 7 y 15 dígitos.`;
-      break;
-    }
-    case 'documento': {
-      const limpio = String(valor).replace(/[\s.-]/g, '');
-      if (!/^[A-Za-z0-9]{4,20}$/.test(limpio)) return `«${campo.etiqueta}» no parece un número de documento.`;
-      break;
-    }
-    case 'numero':
-      if (!Number.isFinite(Number(valor))) return `«${campo.etiqueta}» debe ser un número.`;
-      break;
-    case 'fecha':
-      if (Number.isNaN(new Date(valor).getTime())) return `«${campo.etiqueta}» no es una fecha válida.`;
-      break;
     case 'seleccion': {
       const ops = campo.opciones || [];
       if (ops.length && !ops.includes(String(valor))) return `«${campo.etiqueta}»: esa opción no está en la lista.`;
@@ -120,33 +110,81 @@ export function fallaCampo(campo, valor) {
   return null;
 }
 
-/* Devuelve el primer error, o null. `ticketTypeId` salta los campos de otro
-   tipo de boleta, igual que el servidor. */
-export function primerFallo(campos, respuestas = {}, ticketTypeId = null) {
+/* Todos los errores a la vez, indexados por campo: `{ [campoId]: mensaje }`.
+
+   Devolver solo el primero obligaba a corregir de uno en uno, enviando el
+   formulario entre cada intento. Con 22 preguntas eso son 22 viajes. Y el
+   unico aviso era un cuadro arriba del modal que, en una columna con scroll,
+   queda fuera de pantalla justo cuando aparece. */
+export function fallosDe(campos, respuestas = {}, ticketTypeId = null) {
+  const fallos = {};
   for (const c of campos || []) {
     if (c.ticket_type_id && String(c.ticket_type_id) !== String(ticketTypeId)) continue;
     const fallo = fallaCampo(c, respuestas[c.id]);
-    if (fallo) return fallo;
+    if (fallo) fallos[c.id] = fallo;
   }
-  return null;
+  return fallos;
+}
+
+/* El primero, para quien solo quiera avisar de uno. Se apoya en `fallosDe`
+   para no tener dos recorridos que puedan opinar distinto. */
+export function primerFallo(campos, respuestas = {}, ticketTypeId = null) {
+  const fallos = fallosDe(campos, respuestas, ticketTypeId);
+  const primero = (campos || []).find(c => fallos[c.id]);
+  return primero ? fallos[primero.id] : null;
+}
+
+/* Que campos pueden ir en media columna.
+
+   La regla vive aqui porque este es el unico sitio que conoce el tipo. Lo
+   corto y de forma conocida —un numero, una fecha, un telefono, un
+   documento— cabe en media. Todo lo demas ocupa la fila entera: un correo
+   partido a 21 caracteres obliga a hacer scroll DENTRO del campo para releer
+   lo que uno escribio, que es exactamente la queja de origen.
+
+   Una seleccion cabe en media solo si es corta de verdad: si se convirtio en
+   buscador, o si alguna opcion es larga, el desplegable recorta el texto y no
+   se ve que se eligio. Las opciones vienen del servidor: aqui no hay ninguna
+   lista escrita. */
+const MEDIA = new Set(['numero', 'fecha', 'telefono', 'documento']);
+const LARGO_OPCION = 24;
+
+export function ocupaFila(campo) {
+  const t = tipoDe(campo);
+  if (MEDIA.has(t)) return false;
+  if (t === 'seleccion' && !esBuscable(campo)) {
+    const ops = campo?.opciones || [];
+    return ops.some(o => String(o).length > LARGO_OPCION);
+  }
+  return true;
 }
 
 /* ── Render ──────────────────────────────────────────────────────────── */
 
-const CLS = 'input rounded-2xl py-3 text-base';
+/* La geometria vive en `.input-form` (index.css), que es la misma que usaban
+   doce sitios copiandola a mano. */
+const CLS = 'input-form';
 
-export default function CampoFormulario({ campo, value, onChange, eventoId }) {
+export default function CampoFormulario({ campo, value, onChange, eventoId, error }) {
   const t = tipoDe(campo);
   const req = Boolean(campo.requerido);
+  /* El campo que fallo se marca EN el campo. Antes el unico aviso era un
+     cuadro arriba del formulario: con scroll, aparece fuera de pantalla justo
+     cuando hace falta, y no dice cual de las 22 preguntas es. */
+  const cls = error ? `${CLS} field-error` : CLS;
+  const idError = error ? `err-${campo.id}` : undefined;
 
   const Etiqueta = () => (
     <label className="label" htmlFor={`campo-${campo.id}`}>
       {campo.etiqueta}{req && <span className="text-danger-light"> *</span>}
     </label>
   );
-  const Ayuda = () => campo.ayuda
-    ? <p className="text-[11px] text-text-3 mt-1 leading-relaxed">{campo.ayuda}</p>
-    : null;
+  const Ayuda = () => (
+    <>
+      {campo.ayuda && <p className="text-[11px] text-text-3 mt-1 leading-relaxed">{campo.ayuda}</p>}
+      {error && <p id={idError} className="text-[11px] text-danger-light mt-1 leading-relaxed">{error}</p>}
+    </>
+  );
 
   if (t === 'checkbox') {
     return (
@@ -178,7 +216,7 @@ export default function CampoFormulario({ campo, value, onChange, eventoId }) {
         <Etiqueta />
         <select id={`campo-${campo.id}`} required={req} value={value ?? ''}
           onChange={e => onChange(e.target.value)}
-          className={`${CLS} bg-surface-2`}>
+          className={`${cls} bg-surface-2`} aria-invalid={Boolean(error)} aria-describedby={idError}>
           <option value="">Selecciona una opción</option>
           {(campo.opciones || []).map(op => <option key={op} value={op}>{op}</option>)}
         </select>
@@ -231,7 +269,7 @@ export default function CampoFormulario({ campo, value, onChange, eventoId }) {
         <Etiqueta />
         <textarea id={`campo-${campo.id}`} required={req} rows={3} value={value ?? ''}
           onChange={e => onChange(e.target.value)}
-          className={`${CLS} resize-y min-h-[5rem]`} />
+          className={`${cls} resize-y min-h-[5rem]`} />
         <Ayuda />
       </div>
     );
@@ -261,7 +299,7 @@ export default function CampoFormulario({ campo, value, onChange, eventoId }) {
     <div className="field">
       <Etiqueta />
       <input id={`campo-${campo.id}`} required={req} {...attrs} value={value ?? ''}
-        onChange={e => onChange(e.target.value)} className={CLS} />
+        onChange={e => onChange(e.target.value)} className={cls} aria-invalid={Boolean(error)} aria-describedby={idError} />
       <Ayuda />
     </div>
   );

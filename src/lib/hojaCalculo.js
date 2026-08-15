@@ -256,7 +256,7 @@ function armar(matriz) {
 /* Lee un File del input y devuelve {columnas, filas, hoja, recortado}.
    `recortado` avisa si se dejaron filas fuera: un tope silencioso en una
    importación se lee como «se cargó todo» cuando no. */
-export async function leerHoja(file) {
+export async function leerHoja(file, { hojaPreferida = null } = {}) {
   const nombre = (file?.name || '').toLowerCase();
 
   if (nombre.endsWith('.xls')) {
@@ -278,12 +278,23 @@ export async function leerHoja(file) {
 
   /* El orden de las hojas está en workbook.xml; el primer sheet que aparece
      ahí es el que ve el usuario al abrir el archivo, y no siempre es
-     sheet1.xml. */
+     sheet1.xml.
+
+     `hojaPreferida` existe porque nuestra propia plantilla de importación trae
+     TRES pestañas —Formulario, Instrucciones, Valores—. Leer siempre la
+     primera funciona hasta que alguien las reordena o duplica el archivo
+     dejando otra delante: entonces se importarían las instrucciones como si
+     fueran preguntas, y con un formato que casualmente encaja. Si se pide una
+     hoja por nombre y existe, se usa esa; si no, se cae a la primera. */
   let rutaHoja = null, nombreHoja = '';
   const wb = entradas.get('xl/workbook.xml');
   if (wb) {
     const docWb = parsearXML(comoTexto(await inflar(buffer, wb)));
-    const primera = docWb.getElementsByTagName('sheet')[0];
+    const todas = [...docWb.getElementsByTagName('sheet')];
+    const buscada = hojaPreferida
+      ? todas.find(h => (h.getAttribute('name') || '').trim().toLowerCase() === String(hojaPreferida).trim().toLowerCase())
+      : null;
+    const primera = buscada || todas[0];
     nombreHoja = primera?.getAttribute('name') || '';
     const rid = primera?.getAttribute('r:id') || primera?.getAttributeNS?.('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
     const rels = entradas.get('xl/_rels/workbook.xml.rels');

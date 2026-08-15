@@ -60,14 +60,14 @@ export default function BroadcastModal({ evento, onClose, onEnviado }) {
             <label className="label">Título *</label>
             <input value={titulo} onChange={e => setTitulo(e.target.value)}
               placeholder={`Aviso para ${evento.titulo}`} required maxLength={80}
-              className="input rounded-2xl py-3 text-base font-medium" />
+              className="input-form font-medium" />
           </div>
 
           <div className="field">
             <label className="label">Mensaje *</label>
             <textarea value={mensaje} onChange={e => setMensaje(e.target.value)}
               placeholder="¿Qué querés contarles?" rows={3} required maxLength={300}
-              className="input rounded-2xl py-3 text-base resize-none" />
+              className="input-form resize-none" />
             <p className="text-xs text-text-3 mt-1 tabular-nums">{mensaje.length} / 300</p>
           </div>
 
@@ -75,7 +75,7 @@ export default function BroadcastModal({ evento, onClose, onEnviado }) {
             <label className="label">Link al hacer click <span className="text-text-3 font-normal lowercase">(opcional)</span></label>
             <input value={url} onChange={e => setUrl(e.target.value)}
               placeholder={`/eventos/${evento.id}`}
-              className="input rounded-2xl py-3 text-base font-mono" />
+              className="input-form font-mono" />
             <p className="text-xs text-text-3 mt-1">Por defecto abre la página del evento.</p>
           </div>
 
