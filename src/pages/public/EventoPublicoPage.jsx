@@ -256,6 +256,15 @@ export default function EventoPublicoPage() {
               <Icono nombre="calendario" className="w-4 h-4" />Espacio del evento
             </Link>
           )}
+          {/* El mapa, si el organizador lo configuró. Faltaba aquí y en todas
+              partes: se armaba en el panel y no había un solo enlace hacia él. */}
+          {evento.page_json?.mapa && (
+            <Link to={`/explorar/${slug}/mapa`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
+                         text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+              <Icono nombre="pin" className="w-4 h-4" />Mapa del evento
+            </Link>
+          )}
           {nav.mostrar_compartir && <ShareButton />}
         </div>
       </div>
