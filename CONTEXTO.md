@@ -203,6 +203,8 @@ gente a la que hay que entregarle la boleta en mano es justo la que no lo tiene.
 | 0071 | Buzón SMTP por evento |
 | 0072 | Conexiones del organizador (llave de IA) |
 | 0073 | OAuth para conectores |
+| 0074 | Campo de formulario buscable (listas largas) |
+| 0075 | Subcategoría de espacio + buzón de sugerencias |
 
 ---
 
@@ -212,10 +214,19 @@ gente a la que hay que entregarle la boleta en mano es justo la que no lo tiene.
 
 1. **Verificar el dominio en Resend.** Sección 2. Es lo único que separa a la
    plataforma de mandar correo de verdad, y el código ya está arreglado.
-2. **Escribir los términos de los eventos.** `evento_legal` está vacía en los
-   16. Una vez que alguien se registra sin haberlos aceptado, **no hay forma de
-   conseguir ese consentimiento hacia atrás** — y el formulario pide documento,
-   teléfono y, con la ficha, etnia, discapacidad y condición de víctima.
+2. **Escribir los términos de los eventos.** `evento_legal` sigue vacía en los
+   16, pero **ya hay dónde escribirlos**: el editor está en el evento →
+   Comercial → Checkout → «Términos y datos personales». Trae un borrador con
+   huecos marcados y permite copiar de otro evento.
+
+   Sigue siendo lo primero de la lista porque el consentimiento **no se puede
+   pedir hacia atrás**: quien se registre antes de que existan los términos ya
+   habrá entregado documento, teléfono y —con la ficha— etnia, discapacidad y
+   condición de víctima. Son once eventos publicados.
+
+   El borrador NO es asesoría legal: los plazos de conservación, las bases
+   legales y la política de devoluciones se dejan como huecos porque dependen
+   del organizador y de su país.
 3. ~~**Decidir qué hacer con `send-reminders-hourly`.**~~ **Decidido y hecho el
    14 de agosto: los recordatorios los hace Google Calendar, no la
    plataforma.** El cron quedó **desactivado** (`active = false`, no borrado)
