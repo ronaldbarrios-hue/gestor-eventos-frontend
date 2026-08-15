@@ -17,6 +17,7 @@ import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoF
    pista precisamente en el sitio donde más sirve. */
 import { verificar } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
+import { dividirEnModulos, convienePaginar } from '../../lib/modulosFormulario.js';
 import { useT } from '../../lib/i18n.js';
 
 /* Los mismos bloques que siembra el editor, y en su orden: así lo que ve el
@@ -578,6 +579,20 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
   const camposForm = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
   const checkout = evento?.page_json?.checkout || {};
 
+  /* Módulos. El reparto lo decide la columna «Grupo» de la plantilla, no este
+     archivo: ver lib/modulosFormulario.js para por qué por grupo y no cada N.
+
+     El paso 0 son siempre los datos de la persona. Nombre y correo no son
+     preguntas del organizador: son lo que necesita la plataforma para emitir
+     la boleta y mandarla, así que van primero y aparte. */
+  const modulos = dividirEnModulos(camposForm);
+  const paginado = convienePaginar(modulos, camposForm.length);
+  const pasos = paginado ? ['Tus datos', ...modulos.map(m => m.titulo)] : [];
+  const [paso, setPaso] = useState(0);
+  const enUltimo = !paginado || paso >= pasos.length - 1;
+  /* Los del paso que se está mirando; en el 0 no hay ninguno del organizador. */
+  const camposDelPaso = paginado ? (modulos[paso - 1]?.campos || []) : camposForm;
+
   const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
 
   /* Términos PROPIOS del evento (0059). Si el organizador los publicó, la
@@ -589,8 +604,44 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
   const [errCampos, setErrCampos] = useState({});
   const [errForm, setErrForm] = useState({});
 
+  /* Avanzar valida SÓLO el módulo que se está mirando. Dejarlo todo para el
+     final significa pulsar «Confirmar» y que te manden tres pantallas atrás,
+     que es la forma más rápida de perder a alguien que ya escribió veinte
+     respuestas. Devuelve cuántos fallos encontró. */
+  const validarPasoActual = () => {
+    if (paso === 0) {
+      const mal = {
+        email: verificar('email', form.email),
+        telefono: verificar('telefono', form.telefono),
+      };
+      setErrForm(mal);
+      /* El `required` del HTML no sirve con módulos: al cambiar de paso el
+         campo sale del DOM y el navegador deja de mirarlo. */
+      if (!form.nombre.trim()) { setErr('Necesitamos tu nombre.'); return 1; }
+      if (checkout.requiere_telefono && !form.telefono.trim()) { setErr('El teléfono es obligatorio.'); return 1; }
+      const cuantos = Object.values(mal).filter(Boolean).length;
+      setErr(cuantos ? 'Revisa el dato marcado abajo.' : '');
+      return cuantos;
+    }
+    const fallos = fallosDe(camposDelPaso, respuestas, tipo.id);
+    setErrCampos(prev => ({ ...prev, ...fallos }));
+    const cuantos = Object.keys(fallos).length;
+    setErr(cuantos === 0 ? ''
+      : cuantos === 1 ? 'Revisa el dato marcado abajo.'
+      : `Faltan ${cuantos} datos de este bloque.`);
+    return cuantos;
+  };
+
+  const avanzar = () => {
+    if (validarPasoActual() > 0) return;
+    setPaso(p => Math.min(p + 1, pasos.length - 1));
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    /* Con módulos, pulsar Enter dentro de un campo también llega aquí. Si
+       todavía no es el último paso, esto es un «Continuar» y no un envío. */
+    if (!enUltimo) { avanzar(); return; }
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
     if (checkout.requiere_telefono && !form.telefono.trim()) { setErr('El teléfono es obligatorio.'); return; }
     if (checkout.edad_minima && !confirmaEdad) { setErr(`Debes confirmar que tienes al menos ${checkout.edad_minima} años.`); return; }
@@ -611,6 +662,20 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
     setErrForm(malFormulario);
     const cuantos = Object.keys(fallos).length + Object.values(malFormulario).filter(Boolean).length;
     if (cuantos > 0) {
+      /* Con módulos, un fallo puede estar en una pantalla que ya no se ve.
+         Marcarlo «abajo» sería mentira: hay que volver a donde está. La
+         comprobación al avanzar hace esto raro, pero puede pasar si el
+         organizador cambia el formulario a mitad del registro. */
+      if (paginado) {
+        const roto = Object.keys(fallos)[0];
+        const iMod = roto ? modulos.findIndex(m => m.campos.some(c => String(c.id) === String(roto))) : -1;
+        const destino = Object.values(malFormulario).some(Boolean) ? 0 : (iMod >= 0 ? iMod + 1 : 0);
+        if (destino !== paso) {
+          setPaso(destino);
+          setErr('Falta un dato en este bloque.');
+          return;
+        }
+      }
       setErr(cuantos === 1 ? 'Revisa el dato marcado abajo.' : `Revisa los ${cuantos} datos marcados abajo.`);
       return;
     }
@@ -670,11 +735,30 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
             {!isFree && <span className="text-xs text-text-3">{tipo.currency || currency}</span>}
           </div>
         </div>
+        {/* Dónde estoy y cuánto falta. Con veintidós preguntas repartidas, un
+            formulario sin esto se siente infinito: no se sabe si quedan dos
+            pantallas o diez, y esa duda es la que hace abandonar. */}
+        {paginado && (
+          <div className="ancho">
+            <div className="flex items-baseline justify-between gap-3 mb-2">
+              <p className="text-sm font-semibold text-text-1">{pasos[paso]}</p>
+              <p className="text-[11px] text-text-3 tabular-nums whitespace-nowrap">Paso {paso + 1} de {pasos.length}</p>
+            </div>
+            <div className="flex gap-1" role="presentation">
+              {pasos.map((t, i) => (
+                <span key={t + i} title={t}
+                  className={`h-1 flex-1 rounded-full transition-colors ${i <= paso ? 'bg-primary' : 'bg-surface-2'}`} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {err && <div className="ancho px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
 
         {/* Nombre y correo ocupan fila entera: los dos se leen enteros o no se
             leen. Un correo cortado a 21 caracteres obliga a hacer scroll dentro
             del campo para releer lo que uno escribio. */}
+        {(!paginado || paso === 0) && (<>
         <div className="field ancho">
           <label className="label" htmlFor="res-nombre">Nombre completo *</label>
           <input id="res-nombre" required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
@@ -702,17 +786,23 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
             className={`input-form ${errForm.telefono ? 'field-error' : ''}`} placeholder="300 000 0000" />
           {errForm.telefono && <p className="text-[11px] text-danger-light mt-1">{errForm.telefono}</p>}
         </div>
+        </>)}
 
         {/* Cada pregunta decide su ancho segun su tipo: lo corto y de forma
             conocida en media columna, el resto entero. La regla vive en
             CampoFormulario, que es el unico que sabe de tipos. */}
-        {camposForm.map(c => (
+        {camposDelPaso.map(c => (
           <div key={c.id} className={ocupaFila(c) ? 'ancho' : undefined}>
             <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)}
               eventoId={evento?.id} error={errCampos[c.id]} />
           </div>
         ))}
 
+        {/* El cierre —edad, términos, anti-bot, pago— sólo en el último paso.
+            Pedir la aceptación de unas condiciones en la primera pantalla, con
+            la mitad del formulario aún por delante, es pedirla antes de que
+            haya nada que aceptar. */}
+        {enUltimo && (<>
         {checkout.edad_minima > 0 && (
           <label className="ancho flex items-start gap-2.5 text-sm text-text-2 cursor-pointer">
             <input type="checkbox" checked={confirmaEdad} onChange={e => setConfirmaEdad(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-primary" />
@@ -766,9 +856,19 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
           </div>
         )}
         <Turnstile onToken={setCaptcha} />
+        </>)}
+
         <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">Cancelar</button>
-          {(isFree || tienePagoSimple) ? (
+          {paginado && paso > 0
+            ? <button type="button" onClick={() => { setErr(''); setPaso(p => Math.max(0, p - 1)); }}
+                className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">← Atrás</button>
+            : <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">Cancelar</button>}
+          {!enUltimo ? (
+            <button type="button" onClick={avanzar}
+              className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+              Continuar
+            </button>
+          ) : (isFree || tienePagoSimple) ? (
             <button type="submit" disabled={working}
               className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold disabled:opacity-60 transition-all">
               {working ? 'Reservando...' : (isFree ? 'Confirmar reserva' : 'Apartar boleta')}
