@@ -11,7 +11,11 @@ import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '..
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
-import { verificar, verificarCorreo } from '../../lib/validarDato.js';
+/* `verificar` y no `verificarCorreo`: la primera añade la pista cruzada
+   —«eso parece un teléfono, aquí va el correo»—, que es justo lo que hace
+   falta en la casilla de al lado. Llamar a la comprobación base se saltaba esa
+   pista precisamente en el sitio donde más sirve. */
+import { verificar } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { useT } from '../../lib/i18n.js';
 
@@ -579,7 +583,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
        sólo dice cuántos faltan. */
     const fallos = fallosDe(camposForm, respuestas, tipo.id);
     const malFormulario = {
-      email: verificarCorreo(form.email),
+      email: verificar('email', form.email),
       telefono: verificar('telefono', form.telefono),
     };
     setErrCampos(fallos);
@@ -659,7 +663,8 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
           <label className="label" htmlFor="res-email">Email *</label>
           <input id="res-email" required type="email" inputMode="email" autoComplete="email"
             value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
-            onBlur={() => setErrForm(v => ({ ...v, email: verificarCorreo(form.email) }))}
+            onBlur={() => setErrForm(v => ({ ...v, email: verificar('email', form.email) }))}
+            aria-invalid={Boolean(errForm.email)}
             className={`input-form ${errForm.email ? 'field-error' : ''}`} placeholder="tu@email.com" />
           {errForm.email && <p className="text-[11px] text-danger-light mt-1">{errForm.email}</p>}
         </div>
@@ -672,6 +677,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
             value={form.telefono} required={Boolean(checkout.requiere_telefono)}
             onChange={e => setForm(f => ({...f, telefono: e.target.value}))}
             onBlur={() => setErrForm(v => ({ ...v, telefono: verificar('telefono', form.telefono) }))}
+            aria-invalid={Boolean(errForm.telefono)}
             className={`input-form ${errForm.telefono ? 'field-error' : ''}`} placeholder="300 000 0000" />
           {errForm.telefono && <p className="text-[11px] text-danger-light mt-1">{errForm.telefono}</p>}
         </div>

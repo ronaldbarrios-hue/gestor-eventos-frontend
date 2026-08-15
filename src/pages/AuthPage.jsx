@@ -9,7 +9,7 @@ import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploader.jsx';
 import { supabase } from '../lib/supabase.js';
 import { PAISES, bandera, INDICATIVOS } from '../lib/paises.js';
-import { verificar, verificarCorreo, detectarTipo } from '../lib/validarDato.js';
+import { verificar } from '../lib/validarDato.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 const DUR_OUT = 420;
@@ -475,7 +475,7 @@ function RegisterForm() {
   /* Al salir del campo email: se comprueba el dato Y se busca la invitación.
      Antes sólo lo segundo. */
   const onBlurEmail = async () => {
-    setErrCampo(v => ({ ...v, email: verificarCorreo(paso1.email) }));
+    setErrCampo(v => ({ ...v, email: verificar('email', paso1.email) }));
     if (!paso1.email || !paso1.email.includes('@')) { setInvitacion(null); return; }
     setCheckingInvite(true);
     const info = await checkInvitacionPendiente(paso1.email);
@@ -489,7 +489,7 @@ function RegisterForm() {
     /* Se verifica ANTES de avanzar al paso 2: descubrir en el último paso que
        el correo estaba mal obliga a volver, y volver pierde el sitio. */
     const malos = {
-      email   : verificarCorreo(paso1.email),
+      email   : verificar('email', paso1.email),
       telefono: verificar('telefono', paso1.telefono),
     };
     setErrCampo(malos);
@@ -734,6 +734,7 @@ function RegisterForm() {
               <input id="reg-email" type="email" name="email" inputMode="email" autoComplete="email"
                 value={paso1.email} onChange={onChange1}
                 onBlur={onBlurEmail}
+                aria-invalid={Boolean(errCampo.email)}
                 className={`input-form ${errCampo.email ? 'field-error' : ''}`} placeholder="juan@empresa.com"
                 required />
               {errCampo.email && <p className="text-[11px] text-danger-light mt-1">{errCampo.email}</p>}
