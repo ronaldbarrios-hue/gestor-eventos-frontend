@@ -541,6 +541,37 @@ landing no lo incluía. Ahora es un espacio más, con ruta propia
 Verificado en producción sobre TechNova: los cinco espacios se alcanzan desde
 los cinco, y el retorno al evento funciona desde todos.
 
+### Quinta tanda: el registro por boleta, y el movimiento (15 de agosto, noche)
+
+**El registro se edita por boleta.** Registrar a un asistente no es lo mismo
+que registrar al staff o a una empresa con stand. La base lo soportaba desde
+siempre —cada pregunta puede ser de una boleta o de todas— pero no había por
+dónde elegir, así que el formulario era uno solo para todos. Ahora se elige
+primero a quién se le edita, con el número de preguntas al lado: «Staff · 0» se
+lee de un vistazo.
+
+El riesgo estaba en el guardado y quedó atado: **el filtro afecta a lo que se
+muestra, nunca a lo que se guarda**. El servidor hace diff contra la lista
+completa, así que mandar sólo lo visible habría borrado las preguntas de las
+otras boletas. Y cuando una boleta está vacía se ofrece copiar las de otra —
+staff y expositores comparten casi todo y se diferencian en dos preguntas.
+
+**Las animaciones del sondeo, cuatro de cinco.** La que importa está verificada
+en producción: los pasos del registro entran por el lado del que vienen, 180 ms
+con la curva de la casa. Más el fundido de los KPI y la pantalla de carga con
+el bot, que sustituye a los recuadros grises **sólo en la primera carga**.
+
+**El acompañante** pasa a abajo a la izquierda, esconderlo se recuerda entre
+sesiones, y la lámpara se rehizo con brazo articulado —el codo es lo que la
+hace leer como lámpara y no como un alambre.
+
+**La ficha de caracterización es un interruptor**: el mismo clic pone y quita
+las 22 preguntas, con aviso si alguna ya está guardada (quitarla borraría
+respuestas ya diligenciadas).
+
+> Ojo con TechNova: tiene cuatro tipos de boleta y dos se llaman `vip` y `VIP`.
+> Son dos filas distintas y en el selector salen las dos.
+
 ### Lo que queda de lo público, sin tocar
 
 Inscripción a sub-eventos con cupo, lista de espera (hace falta agotar un tipo
