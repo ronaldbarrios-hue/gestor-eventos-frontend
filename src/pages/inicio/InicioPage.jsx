@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import PantallaCarga from '../../components/ui/PantallaCarga.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 import VistaColaborador from '../../components/inicio/VistaColaborador.jsx';
@@ -55,6 +56,14 @@ function InicioContent() {
   const [panelOpen, setPanelOpen] = useState(false);
   const { eventos, notifs, solicitudes, loading } = useInicioData();
 
+  /* Sólo la PRIMERA carga enseña la pantalla del bot. Las recargas silenciosas
+     —volver a la pestaña, refrescar datos— dejan lo que ya está en pantalla:
+     sustituir contenido bueno por una animación hace que la aplicación parezca
+     más lenta de lo que es. */
+  const [yaCargo, setYaCargo] = useState(false);
+  useEffect(() => { if (!loading) setYaCargo(true); }, [loading]);
+  const primeraCarga = loading && !yaCargo;
+
   const hora   = new Date().getHours();
   const saludo = hora < 12 ? t('Buenos días') : hora < 18 ? t('Buenas tardes') : t('Buenas noches');
   const nombre = usuario?.nombre?.split(' ')[0] || t('Usuario');
@@ -109,6 +118,7 @@ function InicioContent() {
         </EspacioDataProvider>
       ) : (<>
 
+      {primeraCarga ? <PantallaCarga /> : (<>
       {/* KPIs rápidos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Kpi label={t('Eventos activos')}       valor={loading ? '—' : activos} />
@@ -144,6 +154,7 @@ function InicioContent() {
           <button onClick={() => setPanelOpen(true)} className="btn-primary">{t('Agregar widgets')}</button>
         </div>
       )}
+      </>)}
 
       </>)}
 
@@ -165,10 +176,19 @@ function plural(n, singular, plural_) {
   return (n === 1 ? singular : plural_).replace('{n}', n);
 }
 
+/* El número entra con un fundido en vez de sustituir al guion de golpe.
+
+   `key={valor}` es lo que lo hace posible: sin él React sólo cambia el texto
+   del mismo nodo y la animación no vuelve a dispararse. Con él, cada cifra
+   nueva es un elemento nuevo y entra sola — también cuando cambia después, no
+   sólo al cargar. */
 function Kpi({ label, valor }) {
   return (
     <div className="rounded-2xl border border-border bg-surface/60 px-5 py-4">
-      <p className="text-2xl font-bold font-display text-text-1 tabular-nums">{valor}</p>
+      <p key={String(valor)}
+         className="text-2xl font-bold font-display text-text-1 tabular-nums animate-[fadeIn_0.2s_cubic-bezier(0.16,1,0.3,1)_both]">
+        {valor}
+      </p>
       <p className="text-xs text-text-3 mt-0.5">{label}</p>
     </div>
   );
