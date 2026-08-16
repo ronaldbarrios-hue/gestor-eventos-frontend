@@ -225,7 +225,15 @@ function ImportarDefinicion({ catalogo, onAgregar, onCerrar, cupo, nombreEvento 
 }
 
 
-export default function FormularioTab({ evento }) {
+/* `ticketTypeId` acota la vista a UNA boleta: personas, staff y empresas no se
+   registran igual, y editar las tres en una sola lista obliga a leer la
+   etiqueta de cada pregunta para saber a quién le toca.
+
+   Filtra lo que se MUESTRA, nunca lo que se guarda. El servidor hace un diff
+   contra la lista completa, así que mandar sólo lo visible borraría las
+   preguntas de las demás boletas — el error caro que este filtro podría
+   introducir si se hiciera a la ligera. */
+export default function FormularioTab({ evento, ticketTypeId = null }) {
   const [campos, setCampos] = useState([]);
   const [tiposBoleta, setTiposBoleta] = useState([]);
   const [catalogo, setCatalogo] = useState({
@@ -267,15 +275,49 @@ export default function FormularioTab({ evento }) {
 
   const cupo = Math.max(0, catalogo.max - campos.length);
 
+  /* Lo que se ve con una boleta elegida: lo suyo y lo que vale para todas.
+     `campos` sigue entero para guardar. */
+  const visibles = ticketTypeId
+    ? campos.filter(c => !c.ticket_type_id || c.ticket_type_id === ticketTypeId)
+    : campos;
+
+  /* Las demás boletas, para poder copiarles el formulario. */
+  const otrasBoletas = ticketTypeId ? tiposBoleta.filter(t => t.id !== ticketTypeId) : [];
+
+  /* Con una boleta elegida, lo que se agregue es SUYO. Si no, vale para todas.
+     Es lo que la persona espera: entró a editar el registro del staff, así que
+     las preguntas que escribe ahí son del staff. */
+  const conBoleta = (preset = {}) => ({ ticket_type_id: ticketTypeId || '', ...preset });
+
   const agregar = (preset) => {
     if (cupo === 0) { toastErr(`El formulario ya tiene el máximo de ${catalogo.max} preguntas.`); return; }
-    setCampos(list => [...list, nuevoCampo(preset)]);
+    setCampos(list => [...list, nuevoCampo(conBoleta(preset))]);
     setTimeout(() => finLista.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 60);
   };
   const agregarVarios = (presets) => {
     if (!presets.length) return;
-    setCampos(list => [...list, ...presets.map(nuevoCampo)]);
+    setCampos(list => [...list, ...presets.map(p => nuevoCampo(conBoleta(p)))]);
     success(`${presets.length} ${presets.length === 1 ? 'pregunta agregada' : 'preguntas agregadas'}. Revisa y guarda.`);
+  };
+
+  /* Copiar las preguntas de otra boleta a ésta.
+
+     El caso que lo pide: staff y expositores comparten casi todo el
+     formulario y se diferencian en dos preguntas. Rearmar veinte a mano para
+     cambiar dos es lo que hace que nadie use los formularios por boleta.
+
+     Se copia lo PROPIO de la otra —lo que ya vale para todas no hace falta
+     duplicarlo— y se saltan las que esta boleta ya tiene con el mismo
+     enunciado. */
+  const copiarDe = (otroTipoId, nombreOtro) => {
+    const suyasDeAlla = campos.filter(c => c.ticket_type_id === otroTipoId);
+    if (suyasDeAlla.length === 0) { toastErr(`«${nombreOtro}» no tiene preguntas propias que copiar.`); return; }
+    const yaEstan = new Set(visibles.map(c => clave(c.etiqueta)));
+    const nuevas = suyasDeAlla.filter(c => !yaEstan.has(clave(c.etiqueta)));
+    if (nuevas.length === 0) { toastErr(`Ya tienes todas las preguntas de «${nombreOtro}».`); return; }
+    if (nuevas.length > cupo) { toastErr(`No caben: son ${nuevas.length} preguntas y quedan ${cupo} espacios.`); return; }
+    setCampos(list => [...list, ...nuevas.map(c => nuevoCampo({ ...c, id: null, _key: undefined, ticket_type_id: ticketTypeId || '' }))]);
+    success(`${nuevas.length} preguntas copiadas de «${nombreOtro}». Revisa y guarda.`);
   };
 
   /* Importar desde una hoja FUSIONA en vez de apilar, y en el empate manda el
@@ -458,14 +500,32 @@ export default function FormularioTab({ evento }) {
       )}
 
       <div className="space-y-3">
-        {campos.length === 0 && (
-          <div className="rounded-3xl border border-border bg-surface/40 px-6 py-12 text-center">
-            <p className="text-sm text-text-3">Aún no agregas preguntas.</p>
+        {visibles.length === 0 && (
+          <div className="rounded-3xl border border-border bg-surface/40 px-6 py-12 text-center space-y-3">
+            <p className="text-sm text-text-3">
+              {ticketTypeId
+                ? 'Esta boleta no pide nada todavía. Agrega preguntas suyas, o cópialas de otra.'
+                : 'Aún no agregas preguntas.'}
+            </p>
+            {/* Copiar de otra boleta se ofrece aquí, que es donde hace falta:
+                con la lista vacía delante y sin ganas de escribir veinte
+                preguntas otra vez. */}
+            {ticketTypeId && otrasBoletas.length > 0 && (
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                {otrasBoletas.map(t => (
+                  <button key={t.id} onClick={() => copiarDe(t.id, t.nombre)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border-2
+                               text-xs text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+                    Usar las mismas que «{t.nombre}»
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {campos.map((c, i) => {
-          const grupoAnterior = i > 0 ? campos[i - 1].grupo : null;
+        {visibles.map((c, i) => {
+          const grupoAnterior = i > 0 ? visibles[i - 1].grupo : null;
           const abreGrupo = catalogo.agrupacion && c.grupo && c.grupo !== grupoAnterior;
           return (
             <div key={c._key}>

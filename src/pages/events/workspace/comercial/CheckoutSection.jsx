@@ -62,6 +62,8 @@ export default function CheckoutSection({ evento }) {
      cosas al servidor, que es el que sabe. */
   const [campos, setCampos] = useState([]);
   const [tipos, setTipos] = useState([]);
+  /* null = todas las boletas. Es el estado por defecto a propósito. */
+  const [tipoSel, setTipoSel] = useState(null);
 
   useEffect(() => {
     let vivo = true;
@@ -99,8 +101,42 @@ export default function CheckoutSection({ evento }) {
             <div className="card-header">
               <h3 className="text-base font-semibold text-text-1">Formulario de compra · datos que se piden al comprador</h3>
             </div>
-            <div className="card-body">
-              <FormularioTab evento={evento} />
+            <div className="card-body space-y-4">
+              {/* Elegir la boleta ANTES de editar.
+
+                  Registrar a una persona no es lo mismo que registrar a un
+                  miembro del staff o a una empresa que viene con su stand: se
+                  les pregunta otra cosa. La base lo soportaba desde siempre
+                  —cada pregunta puede ser de una boleta o de todas— pero no
+                  había por dónde elegir, así que en la práctica el formulario
+                  era uno solo para todos.
+
+                  «Todas» es lo primero y es el caso normal: la mayoría de
+                  eventos pregunta lo mismo a todo el mundo, y obligarlos a
+                  elegir boleta para escribir dos preguntas sería peor. */}
+              {tipos.length > 1 && (
+                <div className="rounded-2xl border border-border bg-surface/40 p-3">
+                  <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">
+                    ¿A quién le estás editando el registro?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <BotonBoleta activo={!tipoSel} onClick={() => setTipoSel(null)}
+                      etiqueta="Todas las boletas" n={campos.filter(c => !c.ticket_type_id).length} />
+                    {tipos.map(t => (
+                      <BotonBoleta key={t.id} activo={tipoSel === t.id} onClick={() => setTipoSel(t.id)}
+                        etiqueta={t.nombre}
+                        n={campos.filter(c => !c.ticket_type_id || c.ticket_type_id === t.id).length} />
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+                    {tipoSel
+                      ? 'Ves lo que se le pide a esta boleta: lo suyo y lo que vale para todas. Lo que agregues aquí será sólo suyo.'
+                      : 'Las preguntas que agregues valen para todas las boletas.'}
+                  </p>
+                </div>
+              )}
+
+              <FormularioTab evento={evento} ticketTypeId={tipoSel} />
             </div>
           </div>
         )}
@@ -209,7 +245,7 @@ export default function CheckoutSection({ evento }) {
             ))}
           </div>
         </div>
-        <PreviewCompra evento={evento} f={f} vista={vista} tienePago={tienePago} campos={campos} tipos={tipos} />
+        <PreviewCompra evento={evento} f={f} vista={vista} tienePago={tienePago} campos={campos} tipos={tipos} tipoSel={tipoSel} />
         <p className="text-xs text-text-3">Así lo ve el comprador en el sitio público.</p>
       </div>
     </div>
@@ -217,22 +253,32 @@ export default function CheckoutSection({ evento }) {
 }
 
 /* Maqueta viva del modal de compra / confirmación */
-function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [] }) {
-  /* La primera boleta activa, que es la que el comprador ve arriba. Si todavía
-     no hay ninguna se dice, en vez de inventar una: un evento sin boletas no
-     vende, y esconderlo detrás de una maqueta bonita es lo que hizo que nadie
-     lo notara. */
-  const tipo = tipos[0] || null;
+function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [], tipoSel = null }) {
+  /* La previa sigue a la boleta que se está editando. Si no hay ninguna
+     elegida, la primera activa — que es la que el comprador ve arriba.
+
+     Si no hay boletas se dice, en vez de inventar una: un evento sin boletas
+     no vende, y esconderlo detrás de una maqueta bonita es lo que hizo que
+     nadie lo notara. */
+  const tipo = (tipoSel && tipos.find(t => t.id === tipoSel)) || tipos[0] || null;
   const precio = Number(tipo?.precio || 0);
   const moneda = tipo?.currency || evento.currency || 'COP';
 
+  /* Las preguntas que le tocan a ESA boleta, con la misma regla que aplica el
+     checkout público: las suyas más las que valen para todas. Si aquí se
+     mostraran todas, la previa enseñaría al comprador de «General» preguntas
+     que son del staff. */
+  const suyos = tipo
+    ? campos.filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id)
+    : campos;
+
   /* Mismos módulos que la página pública, calculados con el mismo código. */
-  const modulos = dividirEnModulos(campos);
-  const paginado = convienePaginar(modulos, campos.length);
+  const modulos = dividirEnModulos(suyos);
+  const paginado = convienePaginar(modulos, suyos.length);
   const [paso, setPaso] = useState(0);
   const pasos = paginado ? ['Tus datos', ...modulos.map(m => m.titulo)] : [];
   const enUltimo = !paginado || paso >= pasos.length - 1;
-  const delPaso = paginado ? (modulos[paso - 1]?.campos || []) : campos;
+  const delPaso = paginado ? (modulos[paso - 1]?.campos || []) : suyos;
 
   if (vista === 'confirmacion') {
     return (
@@ -316,7 +362,7 @@ function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [] })
       </div>
       <p className="text-[10px] text-text-3">
         {moneda !== 'COP' && precio > 0 ? `Precios en ${moneda}. ` : ''}
-        {campos.length === 0 ? 'Sin preguntas propias: sólo se piden nombre, correo y teléfono.' : `${campos.length} pregunta${campos.length !== 1 ? 's' : ''} del formulario.`}
+        {suyos.length === 0 ? 'Sin preguntas propias: sólo se piden nombre, correo y teléfono.' : `${suyos.length} pregunta${suyos.length !== 1 ? 's' : ''} para esta boleta.`}
       </p>
     </div>
   );
@@ -336,6 +382,22 @@ function CheckFake({ label, link }) {
       <span className="w-3.5 h-3.5 rounded border border-border-2 flex-shrink-0 mt-0.5" />
       <span>{label}{link && <span className="text-primary-light"> Ver términos</span>}</span>
     </div>
+  );
+}
+
+/* Píldora de boleta, con el número de preguntas que le tocan. El conteo va
+   dentro porque es la única forma de ver de un vistazo cuál está sin armar:
+   «Staff · 0» es un problema que se lee sin abrir nada. */
+function BotonBoleta({ activo, onClick, etiqueta, n }) {
+  return (
+    <button onClick={onClick} aria-pressed={activo}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-colors
+                  ${activo
+                    ? 'border-primary bg-primary/10 text-text-1'
+                    : 'border-border-2 text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+      {etiqueta}
+      <span className={n === 0 ? 'text-warning' : 'text-text-3'}>· {n}</span>
+    </button>
   );
 }
 
