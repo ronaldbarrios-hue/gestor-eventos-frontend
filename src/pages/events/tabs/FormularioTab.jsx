@@ -401,7 +401,38 @@ export default function FormularioTab({ evento, ticketTypeId = null }) {
     agregarVarios(nuevos);
   };
 
-  const quitar = (key) => setCampos(list => list.filter(c => c._key !== key));
+  /* Quitar, sabiendo a quién se le quita.
+
+     Mirando UNA boleta se ven dos cosas mezcladas: lo suyo y lo que se le pide
+     a todas. Borrar lo segundo lo borra para todo el mundo — es correcto por
+     dentro, y una trampa por fuera: estás en «vip» y das por hecho que lo que
+     haces ahí se queda en «vip».
+
+     Así que cuando la pregunta es compartida se dice antes, y se ofrece la
+     salida que casi siempre es la que se quería: dejársela a las demás y
+     quitarla sólo de ésta. Eso es un cambio de alcance, no un borrado, y por
+     eso conserva la pregunta y sus respuestas. */
+  const quitar = async (key) => {
+    const campo = campos.find(c => c._key === key);
+    const compartida = campo && !campo.ticket_type_id;
+
+    if (ticketTypeId && compartida) {
+      const nombreBoleta = tiposBoleta.find(t => t.id === ticketTypeId)?.nombre || 'esta boleta';
+      const otras = tiposBoleta.filter(t => t.id !== ticketTypeId);
+
+      const ok = await confirmDialog({
+        title: 'Esta pregunta es de todas las boletas',
+        message: otras.length > 0
+          ? `«${campo.etiqueta || 'Sin enunciado'}» se le pide a todas. Si la quitas, desaparece también de ${otras.map(t => `«${t.nombre}»`).join(', ')}.\n\nSi lo que quieres es que sólo «${nombreBoleta}» deje de pedirla, cancela y cámbiale «Se pide en» a otra boleta.`
+          : `«${campo.etiqueta || 'Sin enunciado'}» se le pide a todas las boletas.`,
+        confirmLabel: 'Quitarla de todas',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
+    setCampos(list => list.filter(c => c._key !== key));
+  };
   const mover  = (key, dir) => setCampos(list => {
     const i = list.findIndex(c => c._key === key);
     const j = i + dir;
@@ -534,7 +565,18 @@ export default function FormularioTab({ evento, ticketTypeId = null }) {
                   {c.grupo}
                 </p>
               )}
-              <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
+              {/* Mirando una boleta, distinguir de un vistazo lo suyo de lo
+                  que es de todas. Sin esto las dos cosas se ven igual y quien
+                  borra una compartida no se entera hasta que ya no está en
+                  ninguna. El aviso al borrar es la segunda red; ésta es la
+                  primera, y es la que evita el susto. */}
+              <div className={`rounded-2xl border bg-surface/40 p-4 space-y-3
+                               ${ticketTypeId && !c.ticket_type_id ? 'border-border-2 border-dashed' : 'border-border'}`}>
+                {ticketTypeId && !c.ticket_type_id && (
+                  <p className="text-[10px] uppercase tracking-widest text-text-3 font-semibold">
+                    Se le pide a todas las boletas
+                  </p>
+                )}
                 <div className="flex items-start gap-2">
                   <div className="flex-1 grid sm:grid-cols-2 gap-2">
                     <div className="field">
