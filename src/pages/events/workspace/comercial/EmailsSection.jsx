@@ -25,6 +25,9 @@ function plantillaDefecto(tipo) {
   const base = {
     asunto: '', encabezado: '', cuerpo: '',
     boton_texto: '', boton_url: '', mostrar_qr: false, imagen: '', footer: '',
+    /* El diseño del organizador: cabecera arriba, pie abajo, y el color del
+       centro. Viajan en page_json.emails, así que no hizo falta migración. */
+    pie_imagen: '', fondo: '',
   };
   if (tipo === 'confirmacion') return { ...base, asunto: 'Tu boleta para {{evento}}', encabezado: '¡Listo, {{nombre}}!', cuerpo: 'Tu inscripción a {{evento}} quedó confirmada. Muestra este QR en la entrada.', mostrar_qr: true };
   if (tipo === 'bienvenida')   return { ...base, asunto: 'Bienvenido a {{evento}}', encabezado: 'Hola {{nombre}}', cuerpo: 'Gracias por sumarte a {{evento}}. Pronto te enviaremos más detalles.' };
@@ -87,6 +90,16 @@ export default function EmailsSection({ evento }) {
 
   const meta = TIPOS.find(t => t.id === tipo);
 
+  /* Colores de la previa. El texto se decide por contraste contra el fondo
+     elegido, no a ojo: con un centro oscuro, el gris de siempre se vuelve
+     ilegible y el organizador aprobaría un correo que nadie puede leer. */
+  const fondoPrevia  = /^#[0-9a-f]{6}$/i.test(plantilla.fondo || '') ? plantilla.fondo : '#FFFFFF';
+  const claro        = esClaro(fondoPrevia);
+  const textoPrevia  = claro ? '#0F172A' : '#F5F3EE';
+  const suavePrevia  = claro ? '#475569' : '#CFC9BE';
+  const tenuePrevia  = claro ? '#94A3B8' : '#8D8578';
+  const filetePrevia = claro ? '#E2E8F0' : 'rgba(255,255,255,0.14)';
+
   return (
     <div className="space-y-5">
     {/* Desde que correo salen: va arriba porque decide si los correos de este
@@ -145,9 +158,46 @@ export default function EmailsSection({ evento }) {
                 <input className="input font-mono text-xs" value={plantilla.boton_url} onChange={e => setP({ boton_url: e.target.value })} placeholder="https://…" />
               </div>
             </div>
-            <div>
-              <label className="label">Imagen / banner <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
-              <ImagePicker value={plantilla.imagen} onChange={v => setP({ imagen: v })} ownerId={evento.id} placeholder="Banner del correo" />
+            {/* Tu diseño, partido en dos.
+
+                Lo que se pide siempre es subir la plantilla entera y escribir
+                el texto encima. No se puede: una imagen de fondo bajo el texto
+                se cae en Outlook de escritorio y Gmail la recorta en el móvil,
+                y un QR sobre una foto pierde lectura el día del evento, que es
+                justo cuando no puede fallar.
+
+                Partida en cabecera y pie sí funciona en todos los clientes, y
+                el centro sigue siendo texto de verdad: se selecciona, se
+                traduce y lo lee un lector de pantalla. */}
+            <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Tu plantilla</p>
+                <p className="text-[11px] text-text-3 mt-1 leading-relaxed">
+                  Sube tu diseño partido en dos: lo de arriba y lo de abajo. El texto y el QR van en medio,
+                  sobre el color que elijas. Ancho recomendado: 560&nbsp;px.
+                </p>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Cabecera <span className="lowercase tracking-normal font-normal text-text-3">(arriba)</span></label>
+                  <ImagePicker value={plantilla.imagen} onChange={v => setP({ imagen: v })} ownerId={evento.id} placeholder="Cabecera del correo" />
+                </div>
+                <div>
+                  <label className="label">Pie <span className="lowercase tracking-normal font-normal text-text-3">(abajo)</span></label>
+                  <ImagePicker value={plantilla.pie_imagen} onChange={v => setP({ pie_imagen: v })} ownerId={evento.id} placeholder="Pie del correo" />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="label !mb-0">Color del centro</label>
+                <input type="color" value={plantilla.fondo || '#12100B'} onChange={e => setP({ fondo: e.target.value })}
+                  className="h-9 w-14 rounded-lg border border-border bg-transparent cursor-pointer" />
+                <input className="input !h-9 w-32 font-mono text-xs" value={plantilla.fondo || ''}
+                  onChange={e => setP({ fondo: e.target.value })} placeholder="#12100B" />
+                {plantilla.fondo && (
+                  <button type="button" onClick={() => setP({ fondo: '' })}
+                    className="text-[11px] text-text-3 hover:text-text-1">Usar el de la marca</button>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-4 flex-wrap">
               <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
@@ -186,23 +236,46 @@ export default function EmailsSection({ evento }) {
       {/* Vista previa del correo */}
       <div className="lg:sticky lg:top-4 space-y-2">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-text-3">Vista previa</p>
-        <div className="rounded-2xl border border-border overflow-hidden bg-white text-slate-900">
-          <div className="px-5 py-3 text-xs text-slate-500 border-b border-slate-200 truncate">{muestra(plantilla.asunto, evento) || '(sin asunto)'}</div>
-          {plantilla.imagen && <img src={plantilla.imagen} alt="" className="w-full max-h-40 object-cover" />}
+        {/* La previa sigue a lo que se sube y al color elegido. Si se quedara
+            en blanco fijo diría una cosa y el correo saldría otra — que es
+            exactamente lo que hacía la previa del checkout antes de atarla. */}
+        <div className="rounded-2xl border border-border overflow-hidden" style={{ background: fondoPrevia, color: textoPrevia }}>
+          <div className="px-5 py-3 text-xs border-b truncate"
+               style={{ color: tenuePrevia, borderColor: filetePrevia }}>
+            {muestra(plantilla.asunto, evento) || '(sin asunto)'}
+          </div>
+          {/* La cabecera del organizador entera, sin recortar: cortarle el logo
+              a la mitad es lo que hace que un correo parezca roto. */}
+          {plantilla.imagen && <img src={plantilla.imagen} alt="" className="w-full block" />}
           <div className="p-6 text-center">
             {plantilla.encabezado && <h2 className="text-xl font-bold mb-3">{muestra(plantilla.encabezado, evento)}</h2>}
-            {plantilla.cuerpo && <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{muestra(plantilla.cuerpo, evento)}</p>}
-            {plantilla.mostrar_qr && <div className="my-4 mx-auto w-24 h-24 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">QR</div>}
+            {plantilla.cuerpo && <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: suavePrevia }}>{muestra(plantilla.cuerpo, evento)}</p>}
+            {/* El QR siempre sobre blanco: es lo único que un lector no perdona. */}
+            {plantilla.mostrar_qr && <div className="my-4 mx-auto w-24 h-24 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">QR</div>}
             {plantilla.boton_texto && (
               <div className="mt-5"><span className="inline-block px-5 py-2.5 rounded-full text-white text-sm font-semibold" style={{ background: 'linear-gradient(135deg,#3B82F6,#8B5CF6)' }}>{plantilla.boton_texto}</span></div>
             )}
           </div>
-          <div className="px-6 py-3 text-center text-[11px] text-slate-400 border-t border-slate-200">{muestra(plantilla.footer, evento) || `${evento.titulo}`}</div>
+          {plantilla.pie_imagen && <img src={plantilla.pie_imagen} alt="" className="w-full block" />}
+          <div className="px-6 py-3 text-center text-[11px]"
+               style={{ color: tenuePrevia, borderTop: plantilla.pie_imagen ? 'none' : `1px solid ${filetePrevia}` }}>
+            {muestra(plantilla.footer, evento) || `${evento.titulo}`}
+          </div>
         </div>
       </div>
     </div>
     </div>
   );
+}
+
+/* Mismo criterio que `esClaro` del servidor (lib/emailPlantillas.js):
+   luminancia percibida, no el promedio de los tres canales. El verde pesa seis
+   veces más que el azul para el ojo, y promediar da blanco sobre amarillo. */
+function esClaro(hex) {
+  const h = String(hex || '').replace('#', '');
+  if (h.length !== 6) return true;
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150;
 }
 
 function muestra(txt, evento) {
