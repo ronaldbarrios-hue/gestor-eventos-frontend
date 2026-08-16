@@ -27,6 +27,9 @@ son huecos concretos, no una capa de movimiento.
 
 ## Parte 1 · Oportunidades
 
+**Estado al 15 de agosto por la noche: 1, 2, 3 y 4 implementadas y desplegadas.**
+La 5 queda pendiente y a propósito — ver la nota al final de la tabla.
+
 | # | Dónde | Hoy | Propósito | Frecuencia | Movimiento propuesto |
 |---|---|---|---|---|---|
 | 1 | `src/pages/public/EventoPublicoPage.jsx:810` — cambio de módulo del registro | Los campos se sustituyen de golpe. Catorce veces por persona, sin un solo puente entre pasos | Evitar un cambio brusco | ~7.000 personas × 14 pasos, una vez cada una | Entrada direccional: al avanzar `opacity: 0; transform: translateX(12px)` → asentado; al retroceder desde `-12px`. `transition: opacity 180ms, transform 180ms cubic-bezier(0.16,1,0.3,1)`. Sólo el bloque de campos, **nunca la barra de progreso ni los botones** — si se mueven, el formulario parece rebotar |
@@ -66,3 +69,15 @@ grises.
 
 Para convertir cualquier fila en un plan de implementación autocontenido:
 `improve-animations plan <fila>`.
+
+---
+
+## Nota sobre la nº 5, que se decidió NO hacer por ahora
+
+El escalonado al agregar la ficha se propuso cuando el botón sólo agregaba.
+Desde que es un interruptor —el mismo clic pone y quita las veintidós— el caso
+cambió: ahora esa lista se llena y se vacía, y escalonar veintidós filas cada
+vez que alguien prueba y se arrepiente convierte una corrección rápida en una
+espera. El propio documento ya avisaba de que 22 × 40 ms es casi un segundo.
+
+Queda anotado por si vuelve a hacer falta, pero hoy la decisión es no.
