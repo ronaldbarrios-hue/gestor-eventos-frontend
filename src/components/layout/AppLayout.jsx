@@ -66,7 +66,7 @@ export default function AppLayout() {
           es donde puede ayudar. Va a la derecha porque el sidebar ocupa la
           izquierda. Un solo bot — el hotspot estático del sidebar se quitó
           para no tener dos. */}
-      <Acompanante lado="derecha" />
+      <Acompanante lado="izquierda" />
     </div>
   );
 }

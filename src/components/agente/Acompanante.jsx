@@ -95,7 +95,20 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
   const { theme, toggle } = useTheme();
   const { t, recargando } = useI18n();
   const [tirando, setTirando] = useState(false);
-  const [oculto, setOculto]   = useState(false);
+  /* Esconderlo es una preferencia, no un estado de la pantalla: se recuerda.
+
+     Antes vivía sólo en memoria, así que quien lo apartaba se lo volvía a
+     encontrar en la siguiente recarga y en cada pestaña nueva. Un acompañante
+     que reaparece después de que le dijiste que no deja de ser compañía. */
+  const [oculto, setOculto] = useState(() => {
+    try { return localStorage.getItem('gestek:acompanante:oculto') === '1'; }
+    catch { return false; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('gestek:acompanante:oculto', oculto ? '1' : '0'); }
+    catch { /* modo privado o almacenamiento lleno: no vale romper por esto */ }
+  }, [oculto]);
   const [dormido, setDormido] = useState(false);
   const [encima, setEncima]   = useState(false);
   const temporizadores = useRef([]);
@@ -201,24 +214,53 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
              Orden de dibujo: primero brazo y poste, luego la pantalla,
              y el interruptor de último para que quede por encima. */}
         <g className="ac-lampara">
-          {/* base sobre la mesa */}
-          <ellipse cx="210" cy={MESA_Y - 1} rx="18" ry="4.8" fill="#2A303B" />
-          <ellipse cx="210" cy={MESA_Y - 3} rx="18" ry="4.8" fill="url(#ac-pantallaLampara)" opacity="0.85" />
+          {/* Base: ancha y con peso. Un pie estrecho hace que una lámpara
+              parezca un alambre clavado en la mesa. */}
+          <ellipse cx="210" cy={MESA_Y - 1} rx="24" ry="6.2" fill="#2A303B" />
+          <ellipse cx="210" cy={MESA_Y - 4} rx="24" ry="6.2" fill="url(#ac-pantallaLampara)" opacity="0.85" />
+          <ellipse cx="210" cy={MESA_Y - 7} rx="13" ry="3.4" fill="#3A414E" />
 
-          {/* poste y brazo, en arco hasta la punta de la pantalla. El brazo
-              pasa por encima del interruptor, que es donde va montado. */}
-          <path d={`M210 ${MESA_Y - 5} L210 86`} stroke="#4A5260" strokeWidth="4.5" strokeLinecap="round" />
-          <circle cx="210" cy="86" r="4.5" fill={LATON} />
-          <path d={`M210 86 Q206 34 ${APEX_X} ${APEX_Y}`}
-                stroke="#4A5260" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+          {/* Brazo ARTICULADO, y aquí está el cambio que importa.
+
+              Antes era una sola curva suave del poste a la pantalla, y una
+              curva suave no lee como una lámpara: lee como un cable. Lo que
+              hace reconocible a una lámpara de escritorio es el codo — dos
+              tramos rectos con una bisagra visible, la silueta de flexo de
+              toda la vida.
+
+              El codo va en el punto más alto para que la pantalla quede
+              colgando por debajo, que es como cuelgan. Y el antebrazo sigue
+              pasando por el interruptor (109, ~19), que va montado sobre él. */}
+          <path d={`M210 ${MESA_Y - 7} L210 92`} stroke="#4A5260" strokeWidth="5.5" strokeLinecap="round" />
+          <circle cx="210" cy="92" r="5.5" fill={LATON} />
+          <circle cx="210" cy="92" r="2.2" fill="#2A303B" opacity="0.55" />
+
+          {/* brazo alto: del hombro al codo */}
+          <path d="M210 92 L165 14" stroke="#4A5260" strokeWidth="5" strokeLinecap="round" />
+          {/* bisagra del codo */}
+          <circle cx="165" cy="14" r="5" fill={LATON} />
+          <circle cx="165" cy="14" r="2" fill="#2A303B" opacity="0.55" />
+          {/* antebrazo: del codo a la punta de la pantalla */}
+          <path d={`M165 14 L${APEX_X} ${APEX_Y}`}
+                stroke="#4A5260" strokeWidth="5" fill="none" strokeLinecap="round" />
+          {/* rótula donde engancha la pantalla */}
+          <circle cx={APEX_X} cy={APEX_Y} r="4" fill={LATON} />
 
           {/* pantalla cónica. Cuelga del final del brazo y se abre hacia
               abajo-izquierda, sobre el bot. Su punto más a la derecha es el
               ápice: de ahí para allá no hay pantalla. */}
           <path d={`M${APEX_X} ${APEX_Y} L${BOCA_IZQ[0]} ${BOCA_IZQ[1]} L${BOCA_DER[0]} ${BOCA_DER[1]} Z`}
                 fill="url(#ac-pantallaLampara)" />
-          <path d={`M${BOCA_IZQ[0]} ${BOCA_IZQ[1]} L${BOCA_DER[0]} ${BOCA_DER[1]}`}
-                stroke="#8A6E19" strokeWidth="2.6" strokeLinecap="round" />
+          {/* El borde de la boca como elipse y no como línea: es lo que
+              convierte un triángulo plano en un cono con volumen. Va ANTES del
+              bombillo para que éste quede asomando por delante.
+
+              Centro y giro salen de la propia boca (63,40)→(91,52), así que si
+              se mueve la pantalla el aro la sigue. Su extremo derecho queda en
+              x≈91: dentro de APEX_X, que es la regla de esta figura. */}
+          <ellipse cx="77" cy="46" rx="15.2" ry="4.6"
+                   transform="rotate(23.2 77 46)"
+                   fill="#241F12" stroke="#8A6E19" strokeWidth="2.2" />
 
           {/* bombillo, asomando por la boca */}
           <circle

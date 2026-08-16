@@ -26,7 +26,15 @@ export const WIDGETS_META = [
      Ojo: esto sólo cambia el default. A quien ya tenga un layout guardado en
      su navegador no le mueve nada — lo suyo manda, y para eso está el
      "Restablecer" del panel de Personalizar. */
-  { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'lg',  defaultVisible: true  },
+  /* Apagado por defecto desde que el acompañante vive fijo abajo a la
+     izquierda en todas las pantallas: tener además una tarjeta suya ocupando
+     media rejilla del panel era decir dos veces lo mismo, y la tarjeta ni
+     siquiera es el camino corto —el bot flotante está a un clic desde
+     cualquier sitio, la tarjeta sólo desde el inicio.
+
+     Se deja en el catálogo, no se borra: quien la quiera la vuelve a encender
+     desde Personalizar. */
+  { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'lg',  defaultVisible: false },
   { id: 'mi-trabajo',    titulo: 'Mi trabajo',         descripcion: 'Tareas, solicitudes y aprobaciones pendientes.',    defaultSize: 'md',  defaultVisible: true  },
   { id: 'ventas',        titulo: 'Ventas',             descripcion: 'Resumen de boletas vendidas y ocupación.',          defaultSize: 'sm',  defaultVisible: true  },
   { id: 'calendario',    titulo: 'Calendario',         descripcion: 'Próximos compromisos relacionados contigo.',        defaultSize: 'sm',  defaultVisible: true  },
