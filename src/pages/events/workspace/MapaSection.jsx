@@ -236,6 +236,12 @@ function EditorMarcador({ sel, expo, ses, onChange, onQuitar, onCerrar }) {
               ))}
             </div>
           </div>
+          <div>
+            <label className="label text-xs">Descripción (opcional)</label>
+            <textarea value={sel.descripcion || ''} onChange={e => onChange({ descripcion: e.target.value })}
+              rows={3} placeholder="Lo que verá quien haga clic en este punto en la página pública"
+              className="input resize-none" />
+          </div>
         </div>
       ) : (
         <div className="text-sm text-text-2">
