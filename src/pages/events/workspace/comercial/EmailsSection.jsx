@@ -98,8 +98,13 @@ export default function EmailsSection({ evento, reload }) {
     try {
       await persistir();
       const r = await emailsApi.enviar(evento.id, { tipo, audiencia: segmento });
-      if (r.fallidos > 0) error(`Enviados ${r.enviados} de ${r.total}. Fallaron ${r.fallidos}.`);
-      else success(`Campaña enviada a ${r.enviados} destinatario${r.enviados !== 1 ? 's' : ''}.`);
+      if (r.modo === 'cola') {
+        success(`Se encolaron ${r.encolados} de ${r.total} destinatarios — se van a enviar de a poco (hasta ${r.por_hora}/hora).`);
+      } else if (r.fallidos > 0) {
+        error(`Enviados ${r.enviados} de ${r.total}. Fallaron ${r.fallidos}.`);
+      } else {
+        success(`Campaña enviada a ${r.enviados} destinatario${r.enviados !== 1 ? 's' : ''}.`);
+      }
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setEnviando(false); }
   };
