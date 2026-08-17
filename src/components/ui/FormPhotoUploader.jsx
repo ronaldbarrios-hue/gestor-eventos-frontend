@@ -32,9 +32,15 @@ export default function FormPhotoUploader({ value, onChange, eventoId, campoId }
     try {
       const ext = file.name.split('.').pop().toLowerCase();
       const path = `${eventoId}/${campoId}-${Date.now()}.${ext}`;
+      /* Sin upsert: el nombre del archivo ya lleva Date.now(), así que nunca
+         hay un conflicto real. Con upsert:true, Postgres necesita poder LEER
+         la fila para resolver el posible conflicto (aunque no lo haya) — y
+         ese bucket no tiene política de SELECT a propósito (0048 la quitó
+         para que nadie pudiera listar las fotos de otros invitados). Sin
+         upsert, solo hace falta la política de INSERT, que sí existe. */
       const { error } = await supabase.storage
         .from('form-uploads')
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, file, { contentType: file.type });
       if (error) throw new Error(error.message);
       const { data } = supabase.storage.from('form-uploads').getPublicUrl(path);
       onChange(data.publicUrl);
