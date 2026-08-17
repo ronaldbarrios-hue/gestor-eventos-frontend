@@ -388,7 +388,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'experience/formularios'   : return <FormularioTab evento={evento} />;
     case 'experience/checkout'      : return <CheckoutSection evento={evento} />;
     case 'experience/seo'           : return <SeoSection evento={evento} />;
-    case 'experience/emails'        : return <EmailsSection evento={evento} />;
+    case 'experience/emails'        : return <EmailsSection evento={evento} reload={reload} />;
     case 'experience/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
     case 'organizacion/equipo'      : return <EquipoTab evento={evento} />;
     case 'organizacion/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;

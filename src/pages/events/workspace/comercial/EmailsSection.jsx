@@ -43,7 +43,7 @@ function plantillaDefecto(tipo) {
   return { ...base, asunto: '', encabezado: 'Hola {{nombre}}', cuerpo: '' };
 }
 
-export default function EmailsSection({ evento }) {
+export default function EmailsSection({ evento, reload }) {
   const { success, error } = useToast();
   const [tipo, setTipo] = useState('ticket');
   const [data, setData] = useState({});
@@ -62,6 +62,12 @@ export default function EmailsSection({ evento }) {
 
   const persistir = async () => {
     await eventosApi.update(evento.id, { page_json: { emails: data } });
+    /* Sin esto, el `evento` que tiene el padre (EventWorkspace) se queda con
+       el page_json de ANTES de guardar. Si el usuario cambia de pestaña y
+       vuelve, este componente se vuelve a montar y relee
+       `evento.page_json.emails` desde esa copia vieja — "borrando" en
+       pantalla lo que sí quedó guardado en el servidor. */
+    await reload?.();
   };
 
   const guardar = async () => {
