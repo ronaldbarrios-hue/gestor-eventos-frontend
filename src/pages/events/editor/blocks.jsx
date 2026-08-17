@@ -1382,6 +1382,7 @@ function MapaEventoPreview({ data, evento }) {
                 </div>
                 <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
               </div>
+              {sel.data.descripcion && <p className="text-sm text-text-2 mt-3 leading-relaxed">{sel.data.descripcion}</p>}
             </>)}
           </div>
         </div>
