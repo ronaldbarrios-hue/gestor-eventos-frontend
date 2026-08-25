@@ -6,6 +6,10 @@ import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { eventosApi } from '../../../api/eventos.js';
+import { ticketsApi } from '../../../api/tickets.js';
+import { networkingApi } from '../../../api/networking.js';
+import { agendaApi } from '../../../api/agenda.js';
+import { recompensasApi } from '../../../api/loyalty.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { BLOCKS, BLOCK_TYPES_SISTEMA, BLOCK_TYPES_CUSTOM } from './blocks.jsx';
@@ -105,6 +109,51 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const [pubOpen, setPubOpen] = useState(false);
 
   const { success, error: toastErr } = useToast();
+
+  /* Lo que llega por props es la FILA del evento. Los previews, en cambio,
+     pintan lo mismo que la página pública, y esa llega con cosas que no son
+     columnas del evento: las boletas, los expositores, las sesiones ubicadas
+     en el mapa y el catálogo de premios.
+
+     Sin ellas, el editor mostraba “Sin tipos de ticket configurados” con las
+     boletas ya creadas y publicadas —y lo mismo con expositores, mapa y
+     premios—. No era un problema de la landing: era el editor mintiendo sobre
+     ella, que es peor, porque lleva a “arreglar” algo que nunca estuvo roto.
+
+     Se piden por las APIs de administración y no por la pública a propósito:
+     la pública cuenta una visita en `event_views` cada vez que responde, y
+     abrir el editor no es una visita. */
+  const [extras, setExtras] = useState({});
+  useEffect(() => {
+    let vivo = true;
+    const marcadores = Array.isArray(evento.page_json?.mapa?.marcadores) ? evento.page_json.mapa.marcadores : [];
+    const sesionesEnMapa = new Set(marcadores.filter(m => m?.tipo === 'sesion' && m.sesion_id).map(m => m.sesion_id));
+    Promise.all([
+      ticketsApi.list(evento.id).catch(() => null),
+      networkingApi.expositoresAdmin(evento.id).catch(() => null),
+      sesionesEnMapa.size ? agendaApi.sessions(evento.id).catch(() => null) : Promise.resolve(null),
+      recompensasApi.list().catch(() => null),
+    ]).then(([tt, ex, ag, rc]) => {
+      if (!vivo) return;
+      const parche = {};
+      /* Igual que la pública: sólo las activas y en su orden. */
+      if (tt) parche.ticket_types = (tt.tickets || tt.ticket_types || []).filter(t => t.activo).sort((a, b) => (a.orden || 0) - (b.orden || 0));
+      if (ex) parche.expositores = ex.expositores || [];
+      if (ag) parche.mapa_sesiones = (ag.sessions || []).filter(x => sesionesEnMapa.has(x.id));
+      /* Mismo filtro que la página pública: activas, del catálogo general o de
+         este evento, para clientes y sin dueño expositor. */
+      if (rc) parche.recompensas = (rc.recompensas || [])
+        .filter(r => r.activo && !r.expositor_id && (r.evento_id == null || r.evento_id === evento.id) && (r.audiencia || 'cliente') === 'cliente')
+        .map(r => ({ ...r, agotada: r.stock != null && r.canjeados >= r.stock }))
+        .sort((a, b) => (a.costo_puntos || 0) - (b.costo_puntos || 0));
+      setExtras(parche);
+    });
+    return () => { vivo = false; };
+  }, [evento.id, evento.page_json]);
+
+  /* El objeto que ven los previews: el evento más lo que trae el público.
+     Los editores y el guardado siguen usando `evento` a secas. */
+  const eventoVista = useMemo(() => ({ ...evento, ...extras }), [evento, extras]);
 
   useEffect(() => {
     setDirty(
@@ -481,7 +530,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
                 }
                 if (b.type !== 'lienzo' && !BLOCKS[b.type]) return null;
                 return (
-                  <SeccionSortable key={b.id} b={b} activo={activo} evento={evento}
+                  <SeccionSortable key={b.id} b={b} activo={activo} evento={eventoVista}
                     label={labelDe(b.type)}
                     onSelect={() => setSelId(activo ? null : b.id)}
                     onDataChange={(d) => updateBlockData(b.id, d)}
@@ -527,7 +576,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
               {(() => {
                 const Ed = BLOCKS[sel.type]?.Editor;
                 return Ed ? (
-                  <Ed data={sel.data || {}} evento={evento} onChange={(d) => updateBlockData(sel.id, d)} />
+                  <Ed data={sel.data || {}} evento={eventoVista} onChange={(d) => updateBlockData(sel.id, d)} />
                 ) : null;
               })()}
 
