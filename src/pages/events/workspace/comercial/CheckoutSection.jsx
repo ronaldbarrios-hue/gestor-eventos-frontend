@@ -65,8 +65,19 @@ export default function CheckoutSection({ evento }) {
   /* null = todas las boletas. Es el estado por defecto a propósito. */
   const [tipoSel, setTipoSel] = useState(null);
 
+  /* Si el evento tiene términos propios (evento_legal). La previa los enseñaba
+     mirando `f.terminos_activo`, que es la bandera VIEJA que se retiró — o sea
+     que nunca los mostraba, justo en la pantalla donde se revisa el registro
+     antes de abrir la venta. */
+  const [tieneTerminos, setTieneTerminos] = useState(false);
+
   useEffect(() => {
     let vivo = true;
+    if (evento.slug) {
+      eventosApi.legalPublico(evento.slug)
+        .then(d => { if (vivo) setTieneTerminos(Boolean(d?.tiene_terminos)); })
+        .catch(() => {});
+    }
     eventosApi.getFormulario(evento.id)
       .then(d => { if (vivo) setCampos(d.campos || []); })
       .catch(() => { /* la previa cae a lo básico, no vale romper la pantalla */ });
@@ -245,7 +256,7 @@ export default function CheckoutSection({ evento }) {
             ))}
           </div>
         </div>
-        <PreviewCompra evento={evento} f={f} vista={vista} tienePago={tienePago} campos={campos} tipos={tipos} tipoSel={tipoSel} />
+        <PreviewCompra evento={evento} f={f} vista={vista} tienePago={tienePago} campos={campos} tipos={tipos} tipoSel={tipoSel} tieneTerminos={tieneTerminos} />
         <p className="text-xs text-text-3">Así lo ve el comprador en el sitio público.</p>
       </div>
     </div>
@@ -253,7 +264,7 @@ export default function CheckoutSection({ evento }) {
 }
 
 /* Maqueta viva del modal de compra / confirmación */
-function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [], tipoSel = null }) {
+function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [], tipoSel = null, tieneTerminos = false }) {
   /* La previa sigue a la boleta que se está editando. Si no hay ninguna
      elegida, la primera activa — que es la que el comprador ve arriba.
 
@@ -347,6 +358,13 @@ function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [], t
 
       {enUltimo && <>
         {Number(f.edad_minima) > 0 && <CheckFake label={`Confirmo que tengo al menos ${f.edad_minima} años.`} />}
+        {/* El consentimiento REAL, el de evento_legal. Es obligatorio cuando el
+            organizador publicó sus términos, y es lo último que ve el
+            comprador antes de confirmar — así que aquí va, y no en una tarjeta
+            aparte tres bloques más abajo. */}
+        {tieneTerminos
+          ? <CheckFake label="He leído y acepto los términos y condiciones y la política de tratamiento de datos de este evento. *" />
+          : <p className="text-[10px] text-text-3 leading-relaxed">Al continuar aceptas los términos de GESTEK. Escribe los tuyos abajo y esta casilla pasa a ser obligatoria.</p>}
         {f.terminos_activo && <CheckFake label={f.terminos_texto || 'He leído y acepto los términos y condiciones.'} link={f.terminos_url} />}
         {tienePago && precio > 0 && (
           <div className="rounded-xl bg-warning/10 border border-warning/25 px-3 py-2 text-[11px] text-text-2 leading-relaxed">
