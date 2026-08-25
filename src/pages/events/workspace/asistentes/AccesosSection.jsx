@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { eventosApi } from '../../../../api/eventos.js';
 import { ticketsApi } from '../../../../api/tickets.js';
 import { clientesApi } from '../../../../api/clientes.js';
@@ -42,13 +43,15 @@ export default function AccesosSection({ evento }) {
     }).finally(() => setLoading(false));
   }, [evento.id]);
 
-  /* Aforo por zona + alertas en vivo (poll cada 8s). */
+  /* Aquí sólo se DEFINEN las zonas. Operarlas —entradas, salidas, limpiar,
+     reporte— es otra pantalla (Aforo por zonas), y la ocupación se pide sólo
+     para que quien configura vea de una si la zona ya tiene gente dentro. */
   useEffect(() => {
     let vivo = true;
     const tick = () => {
-      clientesApi.aforoZonas(evento.id).then(d => { if (vivo) setAforo(d.zonas || []); }).catch(() => {});
       clientesApi.alertas(evento.id).then(d => { if (vivo) setAlertas(d.alertas || []); }).catch(() => {});
     };
+    clientesApi.aforoZonas(evento.id).then(d => { if (vivo) setAforo(d.zonas || []); }).catch(() => {});
     tick();
     const iv = setInterval(tick, 8000);
     return () => { vivo = false; clearInterval(iv); };
@@ -224,12 +227,16 @@ export default function AccesosSection({ evento }) {
       <div className="border-t border-border pt-5 space-y-3">
         <div>
           <h3 className="text-base font-semibold text-text-1">Aforo por zonas</h3>
-          <p className="text-sm text-text-2">Define zonas del recinto (tarima, zona VIP, patio de comidas…) y controla en vivo cuánta gente hay en cada una. En el check-in, en modo <b>Reingreso</b>, el staff elige la zona y marca entradas/salidas.</p>
+          <p className="text-sm text-text-2">Define zonas del recinto (tarima, zona VIP, patio de comidas…) con su aforo máximo. Operarlas —entradas, salidas, poner el contador a cero y el reporte— se hace en <b>Asistentes → Aforo por zonas</b>; en el plano (<b>Espacio del evento → Mapa</b>) se colocan encima del recinto.</p>
+          <p className="text-xs text-text-3 mt-1">El aforo máximo avisa, no bloquea: si una zona se pasa, la gente sigue entrando y queda registrado el excedente.</p>
         </div>
 
         {aforo.length > 0 && (
           <div className="rounded-2xl border border-border bg-surface/40 p-4">
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-3">Ocupación ahora <span className="text-text-3 normal-case tracking-normal">· en vivo</span></p>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ocupación ahora</p>
+              <Link to={`/eventos/${evento.id}?s=asistentes&t=aforo`} className="text-[11px] text-primary-light hover:underline">Abrir el tablero →</Link>
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               {aforo.map(z => {
                 const pct = z.aforo_max ? Math.min(100, Math.round((z.dentro / z.aforo_max) * 100)) : null;

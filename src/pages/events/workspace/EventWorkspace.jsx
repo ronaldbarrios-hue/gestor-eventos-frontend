@@ -23,6 +23,7 @@ import FacturacionSection  from './comercial/FacturacionSection.jsx';
 import PromocionesSection  from './comercial/PromocionesSection.jsx';
 import CredencialesSection from './asistentes/CredencialesSection.jsx';
 import AccesosSection     from './asistentes/AccesosSection.jsx';
+import AforoSection       from './asistentes/AforoSection.jsx';
 import InvitacionesSection from './asistentes/InvitacionesSection.jsx';
 import DocumentosSection    from './DocumentosSection.jsx';
 import TarjetaSection       from './asistentes/TarjetaSection.jsx';
@@ -114,6 +115,10 @@ const SECCIONES = [
     { id: 'clientes',     label: 'Clientes',        perm: 'ver_clientes' },
     { id: 'checkin',      label: 'Control de ingreso', perm: 'checkin' },
     { id: 'accesos',      label: 'Accesos e ingresos', perm: '__solo_owner__' },
+    /* El aforo lo opera quien está en la puerta, no sólo el dueño: por eso
+       va con el permiso de check-in y no con '__solo_owner__'. Limpiar el
+       contador sí queda reservado al owner, y eso lo decide el backend. */
+    { id: 'aforo',        label: 'Aforo por zonas', perm: 'checkin' },
     { id: 'stands',       label: 'Stands y puntos',  perm: 'checkin' },
     { id: 'waitlist',     label: 'Lista de espera', perm: '__solo_owner__' },
     { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes' },
@@ -411,6 +416,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
     case 'asistentes/accesos'       : return <AccesosSection evento={evento} />;
+    case 'asistentes/aforo'         : return <AforoSection evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/stands'        : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
     case 'asistentes/credenciales'  : return <CredencialesSection evento={evento} />;

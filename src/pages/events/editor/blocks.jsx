@@ -1276,6 +1276,10 @@ function MapaEventoPreview({ data, evento }) {
   const marcadores = Array.isArray(mapa.marcadores) ? mapa.marcadores : [];
   const expoPorId = new Map((evento?.expositores || []).map(e => [e.id, e]));
   const sesPorId  = new Map((evento?.mapa_sesiones || []).map(s => [s.id, s]));
+  /* Las zonas de aforo también se pueden colocar en el plano. En público se
+     enseñan como sitio —"aquí está la zona VIP"—, nunca con el conteo de
+     gente: eso es información de operación del evento, no del visitante. */
+  const zonaPorId = new Map((evento?.page_json?.zonas || []).map(z => [z.id, z]));
 
   if (!mapa.imagen_url) {
     return (
@@ -1296,10 +1300,11 @@ function MapaEventoPreview({ data, evento }) {
         <div className="relative">
           <img src={mapa.imagen_url} alt="Mapa del evento" className="block max-h-[75vh] w-auto max-w-full" />
           {marcadores.map((m, i) => {
-            const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : 'punto');
+            const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : m.zona_id ? 'zona' : 'punto');
             const pos = { left: `${m.x}%`, top: `${m.y}%` };
             const label = tipo === 'punto' ? m.nombre
               : tipo === 'sesion' ? sesPorId.get(m.sesion_id)?.titulo
+              : tipo === 'zona' ? zonaPorId.get(m.zona_id)?.nombre
               : expoPorId.get(m.expositor_id)?.nombre;
 
             let circulo = null, onClick = null;
@@ -1319,6 +1324,11 @@ function MapaEventoPreview({ data, evento }) {
               if (!s) return null;
               onClick = () => setSel({ kind: 'sesion', data: s });
               circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold flex items-center justify-center" style={{ background: '#6366F1' }}>{(s.titulo || '?')[0].toUpperCase()}</span>;
+            } else if (tipo === 'zona') {
+              const z = zonaPorId.get(m.zona_id);
+              if (!z) return null;
+              onClick = () => setSel({ kind: 'punto', data: { nombre: z.nombre, descripcion: m.descripcion || '' } });
+              circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center" style={{ background: m.color || '#0EA5E9' }}>{(z.nombre || 'Z')[0].toUpperCase()}</span>;
             } else {
               onClick = () => setSel({ kind: 'punto', data: m });
               circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center" style={{ background: m.color || '#64748B' }}>{m.codigo || 'P'}</span>;

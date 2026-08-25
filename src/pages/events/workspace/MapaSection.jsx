@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { agendaApi } from '../../../api/agenda.js';
+import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
@@ -13,17 +14,27 @@ import GLoader from '../../../components/ui/GLoader.jsx';
    · Punto      → círculo con un código corto que define el organizador
                   (ej. "S1", "S2" para plazoletas de comida) + un nombre
                   debajo. El organizador crea sus propias categorías.
+   · Zona       → una zona de aforo puesta en el plano. El círculo muestra la
+                  gente que hay dentro AHORA, no un código: es el único
+                  marcador cuyo contenido cambia solo.
+
+   Las zonas ya existían (Asistentes → Accesos e ingresos), pero vivían en una
+   lista sin sitio: se sabía que la tarima llevaba 400 personas y no dónde
+   quedaba la tarima. Colocarlas aquí es lo que convierte el aforo en algo que
+   se puede leer de un vistazo y operar desde el plano.
+
    Config en page_json.mapa; posiciones en % (0-100). El plano se muestra
    con la MISMA proporción (alto acotado) en el editor y en el landing. */
 
 const COLORES_PUNTO = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#0EA5E9', '#64748B'];
 
 function uid() { return 'm_' + Math.random().toString(36).slice(2, 9); }
+function zid() { return 'z_' + Math.random().toString(36).slice(2, 9); }
 
 /* Migra marcadores viejos (emoji/sin tipo) al modelo nuevo. */
 function normMarcadores(arr) {
   return (arr || []).filter(Boolean).map(m => {
-    const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : 'punto');
+    const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : m.zona_id ? 'zona' : 'punto');
     const base = { ...m, tipo, _k: m._k || uid() };
     if (tipo === 'punto') {
       base.codigo = m.codigo || (m.icono ? '' : '') || (m.label ? m.label.slice(0, 3).toUpperCase() : 'P');
@@ -31,6 +42,7 @@ function normMarcadores(arr) {
       base.color = m.color || COLORES_PUNTO[0];
       delete base.icono; delete base.label;
     }
+    if (tipo === 'zona') base.color = m.color || '#0EA5E9';
     return base;
   });
 }
@@ -41,9 +53,15 @@ export default function MapaSection({ evento }) {
   const [sesiones, setSesiones] = useState([]);
   const [imagen, setImagen] = useState(evento.page_json?.mapa?.imagen_url || '');
   const [marcadores, setMarcadores] = useState(() => normMarcadores(evento.page_json?.mapa?.marcadores));
-  const [pestana, setPestana] = useState('expositor'); // expositor | sesion | punto
+  const [pestana, setPestana] = useState('expositor'); // expositor | sesion | punto | zona
   const [selK, setSelK] = useState(null);              // marcador seleccionado (para editar)
   const [saving, setSaving] = useState(false);
+  /* Las zonas se definen en Accesos e ingresos, pero desde aquí también se
+     pueden crear: obligar a saltar de pantalla para poner una zona en el plano
+     era el paso que hacía que nadie las pusiera. */
+  const [zonas, setZonas] = useState(() => (evento.page_json?.zonas || []).filter(z => z?.id));
+  const [zonasTocadas, setZonasTocadas] = useState(false);
+  const [aforo, setAforo] = useState([]);              // ocupación viva, para verla sobre el plano
   const mapRef = useRef(null);
   const drag = useRef(null);
 
@@ -52,15 +70,32 @@ export default function MapaSection({ evento }) {
       networkingApi.expositoresAdmin(evento.id).catch(() => ({ expositores: [] })),
       agendaApi.sessions(evento.id).catch(() => ({ sessions: [] })),
     ]).then(([ex, ag]) => { setExpositores(ex.expositores || []); setSesiones(ag.sessions || []); });
+    clientesApi.aforoZonas(evento.id).then(d => setAforo(d.zonas || [])).catch(() => {});
   }, [evento.id]);
 
   const expoPorId = useMemo(() => new Map((expositores || []).map(e => [e.id, e])), [expositores]);
   const sesPorId  = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
+  const zonaPorId = useMemo(() => new Map(zonas.map(z => [z.id, z])), [zonas]);
+  const aforoPorId = useMemo(() => new Map(aforo.map(a => [a.id, a])), [aforo]);
   const colocExpo = useMemo(() => new Set(marcadores.filter(m => m.tipo === 'expositor').map(m => m.expositor_id)), [marcadores]);
   const colocSes  = useMemo(() => new Set(marcadores.filter(m => m.tipo === 'sesion').map(m => m.sesion_id)), [marcadores]);
+  const colocZona = useMemo(() => new Set(marcadores.filter(m => m.tipo === 'zona').map(m => m.zona_id)), [marcadores]);
   const sinExpo = (expositores || []).filter(e => !colocExpo.has(e.id));
   const sinSes  = sesiones.filter(s => !colocSes.has(s.id));
+  const sinZona = zonas.filter(z => !colocZona.has(z.id));
   const sel = marcadores.find(m => m._k === selK) || null;
+
+  const crearZona = ({ nombre, aforo_max }) => {
+    const z = { id: zid(), nombre: nombre.trim(), aforo_max: Number(aforo_max) || null };
+    setZonas(l => [...l, z]);
+    setZonasTocadas(true);
+    agregar({ tipo: 'zona', zona_id: z.id, color: '#0EA5E9' });
+    return z;
+  };
+  const editarZona = (id, patch) => {
+    setZonas(l => l.map(z => z.id === id ? { ...z, ...patch } : z));
+    setZonasTocadas(true);
+  };
 
   const agregar = (m) => { const _k = uid(); setMarcadores(l => [...l, { ...m, x: 50, y: 50, _k }]); setSelK(_k); };
   const setMarc = (k, patch) => setMarcadores(l => l.map(m => m._k === k ? { ...m, ...patch } : m));
@@ -89,10 +124,17 @@ export default function MapaSection({ evento }) {
   };
 
   const guardar = async () => {
+    for (const z of zonas) if (!String(z.nombre || '').trim()) { error('Cada zona necesita un nombre.'); return; }
     setSaving(true);
     try {
       const limpios = marcadores.map(({ _k, ...m }) => m);
-      await eventosApi.update(evento.id, { page_json: { mapa: { imagen_url: imagen || '', marcadores: limpios } } });
+      /* `zonas` sólo viaja si se crearon o editaron desde aquí. Mandarlo siempre
+         pisaría con esta copia lo que hubiera guardado Accesos e ingresos
+         mientras esta pantalla estaba abierta. */
+      const parche = { mapa: { imagen_url: imagen || '', marcadores: limpios } };
+      if (zonasTocadas) parche.zonas = zonas.map(z => ({ id: z.id, nombre: String(z.nombre).trim(), aforo_max: Number(z.aforo_max) || null }));
+      await eventosApi.update(evento.id, { page_json: parche });
+      setZonasTocadas(false);
       success('Mapa guardado. Agrégalo a la landing con el bloque “Mapa del evento”.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }
@@ -105,7 +147,7 @@ export default function MapaSection({ evento }) {
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Mapa del evento</h2>
-          <p className="text-sm text-text-2 mt-1">Sube el plano y ubica expositores, sub-eventos y puntos de interés.</p>
+          <p className="text-sm text-text-2 mt-1">Sube el plano y ubica expositores, sub-eventos, puntos de interés y las zonas de aforo.</p>
         </div>
         <button onClick={guardar} disabled={saving} className="btn-primary">{saving ? 'Guardando…' : 'Guardar mapa'}</button>
       </div>
@@ -131,6 +173,7 @@ export default function MapaSection({ evento }) {
                 <img src={imagen} alt="Plano" className="block max-h-[65vh] w-auto max-w-full pointer-events-none" draggable={false} />
                 {marcadores.map(m => (
                   <Marcador key={m._k} m={m} expo={expoPorId.get(m.expositor_id)} ses={sesPorId.get(m.sesion_id)}
+                    zona={zonaPorId.get(m.zona_id)} aforo={aforoPorId.get(m.zona_id)}
                     seleccionado={selK === m._k}
                     onPointerDown={onPointerDown(m._k)} onQuitar={() => quitar(m._k)} />
                 ))}
@@ -144,11 +187,13 @@ export default function MapaSection({ evento }) {
         <div className="rounded-2xl border border-border bg-surface/40 p-3">
           {sel ? (
             <EditorMarcador sel={sel} expo={expoPorId.get(sel.expositor_id)} ses={sesPorId.get(sel.sesion_id)}
-              onChange={(p) => setMarc(sel._k, p)} onQuitar={() => quitar(sel._k)} onCerrar={() => setSelK(null)} />
+              zona={zonaPorId.get(sel.zona_id)} aforo={aforoPorId.get(sel.zona_id)}
+              onChange={(p) => setMarc(sel._k, p)} onZona={(p) => editarZona(sel.zona_id, p)}
+              onQuitar={() => quitar(sel._k)} onCerrar={() => setSelK(null)} />
           ) : (
             <Paleta pestana={pestana} setPestana={setPestana}
-              expositores={expositores} sinExpo={sinExpo} sinSes={sinSes}
-              onAgregar={agregar} />
+              expositores={expositores} sinExpo={sinExpo} sinSes={sinSes} sinZona={sinZona}
+              onAgregar={agregar} onCrearZona={crearZona} />
           )}
         </div>
       </div>
@@ -157,16 +202,20 @@ export default function MapaSection({ evento }) {
 }
 
 /* ── Un marcador en el lienzo ── */
-function Marcador({ m, expo, ses, seleccionado, onPointerDown, onQuitar }) {
+function Marcador({ m, expo, ses, zona, aforo, seleccionado, onPointerDown, onQuitar }) {
   const ring = seleccionado ? 'ring-4 ring-accent' : 'ring-2 ring-white/70';
+  const etiqueta = m.tipo === 'punto' ? m.nombre
+    : m.tipo === 'sesion' ? ses?.titulo
+    : m.tipo === 'zona' ? (zona?.nombre || 'Zona borrada') + (zona?.aforo_max ? ` · ${zona.aforo_max}` : '')
+    : expo?.nombre;
   return (
     <div onPointerDown={onPointerDown}
       className="absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing group flex flex-col items-center"
       style={{ left: `${m.x}%`, top: `${m.y}%` }}>
-      <CirculoMarcador m={m} expo={expo} ses={ses} ring={ring} />
-      {(m.tipo === 'punto' ? m.nombre : (m.tipo === 'sesion' ? ses?.titulo : expo?.nombre)) && (
+      <CirculoMarcador m={m} expo={expo} ses={ses} zona={zona} aforo={aforo} ring={ring} />
+      {etiqueta && (
         <span className="mt-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] whitespace-nowrap max-w-[120px] truncate">
-          {m.tipo === 'punto' ? m.nombre : (m.tipo === 'sesion' ? ses?.titulo : expo?.nombre)}
+          {etiqueta}
         </span>
       )}
       <button onPointerDown={e => e.stopPropagation()} onClick={onQuitar}
@@ -176,8 +225,19 @@ function Marcador({ m, expo, ses, seleccionado, onPointerDown, onQuitar }) {
 }
 
 /* El círculo en sí, compartido con el look del landing. */
-export function CirculoMarcador({ m, expo, ses, ring = 'ring-2 ring-white/70', size = 44 }) {
+export function CirculoMarcador({ m, expo, ses, zona, aforo, ring = 'ring-2 ring-white/70', size = 44 }) {
   const st = { width: size, height: size };
+  /* La zona enseña gente, no un código: es el único marcador con un número vivo
+     dentro. Sin datos todavía (o zona sin estrenar) cae a la inicial. */
+  if (m.tipo === 'zona') {
+    const dentro = aforo?.dentro;
+    return (
+      <span className={`rounded-full border-2 border-white shadow-lg text-white font-bold font-display tabular-nums flex items-center justify-center ${ring}`}
+        style={{ ...st, background: m.color || '#0EA5E9' }}>
+        {dentro == null ? (zona?.nombre || 'Z')[0].toUpperCase() : dentro}
+      </span>
+    );
+  }
   if (m.tipo === 'expositor') {
     return (
       <span className={`block rounded-full border-2 border-white shadow-lg bg-white overflow-hidden flex items-center justify-center ${ring}`} style={st}>
@@ -204,9 +264,10 @@ export function CirculoMarcador({ m, expo, ses, ring = 'ring-2 ring-white/70', s
 }
 
 /* ── Editor del marcador seleccionado ── */
-function EditorMarcador({ sel, expo, ses, onChange, onQuitar, onCerrar }) {
+function EditorMarcador({ sel, expo, ses, zona, aforo, onChange, onZona, onQuitar, onCerrar }) {
   const titulo = sel.tipo === 'expositor' ? (expo?.nombre || 'Expositor')
-    : sel.tipo === 'sesion' ? (ses?.titulo || 'Sub-evento') : 'Punto de interés';
+    : sel.tipo === 'sesion' ? (ses?.titulo || 'Sub-evento')
+    : sel.tipo === 'zona' ? (zona?.nombre || 'Zona') : 'Punto de interés';
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -243,6 +304,44 @@ function EditorMarcador({ sel, expo, ses, onChange, onQuitar, onCerrar }) {
               className="input resize-none" />
           </div>
         </div>
+      ) : sel.tipo === 'zona' ? (
+        <div className="space-y-3">
+          {!zona ? (
+            <p className="text-xs text-danger">Esta zona ya no existe (la borraron en Accesos e ingresos). Quítala del mapa.</p>
+          ) : (<>
+            <div>
+              <label className="label text-xs">Nombre de la zona</label>
+              <input value={zona.nombre || ''} onChange={e => onZona({ nombre: e.target.value })}
+                placeholder="Ej. Zona VIP" className="input" />
+            </div>
+            <div>
+              <label className="label text-xs">Aforo máximo <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <input type="number" min="0" value={zona.aforo_max ?? ''} onChange={e => onZona({ aforo_max: e.target.value })}
+                placeholder="Sin tope" className="input" />
+              <p className="text-[11px] text-text-3 mt-1">
+                El tope avisa, no bloquea: si se pasa, la gente sigue entrando y el tablero marca el excedente.
+              </p>
+            </div>
+            <div>
+              <label className="label text-xs">Color en el plano</label>
+              <div className="flex flex-wrap gap-1.5">
+                {COLORES_PUNTO.map(c => (
+                  <button key={c} onClick={() => onChange({ color: c })}
+                    className={`w-6 h-6 rounded-full border-2 ${sel.color === c ? 'border-text-1' : 'border-transparent'}`}
+                    style={{ background: c }} />
+                ))}
+              </div>
+              <p className="text-[11px] text-text-3 mt-1">En el tablero en vivo manda la ocupación: verde, ámbar o rojo según cómo vaya.</p>
+            </div>
+            <div className="rounded-lg bg-surface-2 border border-border px-3 py-2">
+              <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ahora dentro</p>
+              <p className="text-xl font-bold font-display tabular-nums text-text-1">
+                {aforo ? aforo.dentro : '—'}{zona.aforo_max ? <span className="text-text-3 text-sm font-normal"> / {zona.aforo_max}</span> : ''}
+              </p>
+              <p className="text-[11px] text-text-3">Se opera en Asistentes → Aforo por zonas.</p>
+            </div>
+          </>)}
+        </div>
       ) : (
         <div className="text-sm text-text-2">
           <p className="font-medium text-text-1">{titulo}</p>
@@ -260,20 +359,28 @@ function EditorMarcador({ sel, expo, ses, onChange, onQuitar, onCerrar }) {
 }
 
 /* ── Paleta para agregar marcadores ── */
-function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, onAgregar }) {
+function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, sinZona, onAgregar, onCrearZona }) {
   const [codigo, setCodigo] = useState('');
   const [nombre, setNombre] = useState('');
   const [color, setColor] = useState(COLORES_PUNTO[0]);
+  const [zNombre, setZNombre] = useState('');
+  const [zAforo, setZAforo] = useState('');
 
   const crearPunto = () => {
     onAgregar({ tipo: 'punto', codigo: (codigo || 'P').toUpperCase().slice(0, 4), nombre: nombre.trim(), color });
     setCodigo(''); setNombre('');
   };
 
+  const crearZona = () => {
+    if (!zNombre.trim()) return;
+    onCrearZona({ nombre: zNombre, aforo_max: zAforo });
+    setZNombre(''); setZAforo('');
+  };
+
   return (
     <>
       <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-lg p-1 mb-3">
-        {[['expositor', 'Expositores'], ['sesion', 'Sub-eventos'], ['punto', 'Puntos']].map(([k, l]) => (
+        {[['expositor', 'Expos'], ['sesion', 'Sub-eventos'], ['punto', 'Puntos'], ['zona', 'Zonas']].map(([k, l]) => (
           <button key={k} onClick={() => setPestana(k)}
             className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-colors ${pestana === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>{l}</button>
         ))}
@@ -312,6 +419,28 @@ function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, onAgregar }
               ))}
             </div>
             <button onClick={crearPunto} className="btn-primary btn-sm w-full">+ Agregar punto al mapa</button>
+          </div>
+        )}
+
+        {pestana === 'zona' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-text-3">
+              Zonas de aforo: el marcador muestra cuánta gente hay dentro, en vivo. Las mismas de Accesos e ingresos.
+            </p>
+            {sinZona.length > 0 && (
+              <div className="space-y-1.5">
+                {sinZona.map(z => (
+                  <PaletaItem key={z.id} onClick={() => onAgregar({ tipo: 'zona', zona_id: z.id, color: '#0EA5E9' })}
+                    inicial={(z.nombre || '?')[0]} nombre={`${z.nombre}${z.aforo_max ? ` · ${z.aforo_max}` : ''}`} />
+                ))}
+              </div>
+            )}
+            <div className="pt-2 border-t border-border space-y-2">
+              <p className="text-[11px] text-text-3">{sinZona.length === 0 ? 'Todas las zonas están en el plano. Crea una nueva:' : 'O crea una nueva:'}</p>
+              <input value={zNombre} onChange={e => setZNombre(e.target.value)} placeholder="Nombre de la zona" className="input" />
+              <input type="number" min="0" value={zAforo} onChange={e => setZAforo(e.target.value)} placeholder="Aforo máx (opcional)" className="input" />
+              <button onClick={crearZona} disabled={!zNombre.trim()} className="btn-primary btn-sm w-full disabled:opacity-50">+ Crear zona y ponerla en el mapa</button>
+            </div>
           </div>
         )}
       </div>
