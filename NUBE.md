@@ -252,5 +252,8 @@ Lo que le falta a Festech, y **no es código**:
 - **Confirmar que el correo llega a la bandeja.** Van cuatro envíos con
   `ok = true`; que Resend acepte no es que entregue. Mirar también correo no
   deseado.
-- **Verificar en pantalla los arreglos del panel del 15 de agosto**: abrir
-  Emails, pulsar una ficha prearmada y entrar a Anuncios. Tres clics.
+- ~~Verificar en pantalla los arreglos del panel~~ **Hecho el 16 de agosto por
+  el equipo: el panel se recorrió entero y funciona.** Queda dicho porque el
+  agente no puede entrar (el panel exige sesión y no escribe contraseñas), así
+  que todo lo del panel lo verifica una persona — no es una laguna del método,
+  es dónde está la frontera.

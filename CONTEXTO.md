@@ -572,6 +572,18 @@ respuestas ya diligenciadas).
 > Ojo con TechNova: tiene cuatro tipos de boleta y dos se llaman `vip` y `VIP`.
 > Son dos filas distintas y en el selector salen las dos.
 
+### Verificado por el equipo (16 de agosto)
+
+Todo lo construido entre el 15 y el 16 —los tres crashes del panel, el registro
+por módulos y por boleta, la barra de espacios, el mapa público, la ficha como
+interruptor, las plantillas de correo y el reporte— **se recorrió en pantalla y
+funciona**. Lo que el agente no puede comprobar es el panel, porque exige sesión
+y no escribe contraseñas; esa parte la valida una persona.
+
+Lo que sigue sin comprobar es una sola cosa, y es de fuera: **que el correo
+llegue a la bandeja**. Resend acepta y registra `ok = true`, pero aceptar no es
+entregar.
+
 ### Lo que queda de lo público, sin tocar
 
 Inscripción a sub-eventos con cupo, lista de espera (hace falta agotar un tipo
