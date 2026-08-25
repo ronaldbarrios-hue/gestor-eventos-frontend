@@ -768,6 +768,44 @@ function SessionChip({ session, detailed }) {
 
 /* ─────────── Form sesión ─────────── */
 
+/* Los sitios que este evento YA tiene nombrados, para no escribirlos a mano
+   otra vez ni acabar con "Auditorio 01", "auditorio 1" y "Aud. 01" como tres
+   sitios distintos —que luego, en el reporte, son tres filas que nadie puede
+   sumar—.
+
+   Vienen de cuatro sitios que hasta ahora no se hablaban entre ellos: lo ya
+   escrito en otros sub-eventos, las zonas de aforo, los puntos del plano y las
+   puertas. Cada sugerencia dice de dónde sale, porque elegir "Zona Gamer"
+   sabiendo que es una zona con aforo no es lo mismo que elegir un texto suelto.
+
+   Sigue siendo un `datalist` y no un desplegable: hace falta poder inventar un
+   sitio nuevo sin tener que crearlo antes en ningún sitio. */
+function sitiosDelEvento(evento, sessions, campo) {
+  const vistos = new Map();
+  const meter = (valor, origen) => {
+    const v = String(valor || '').trim();
+    if (!v) return;
+    const k = v.toLocaleLowerCase('es');
+    if (!vistos.has(k)) vistos.set(k, { valor: v, origen });
+  };
+
+  for (const s of sessions) meter(s?.[campo], 'ya en uso');
+
+  const pj = evento?.page_json || {};
+  for (const z of (Array.isArray(pj.zonas) ? pj.zonas : [])) {
+    meter(z?.nombre, z?.aforo_max ? `zona · aforo ${z.aforo_max}` : 'zona de aforo');
+  }
+  for (const m of (Array.isArray(pj.mapa?.marcadores) ? pj.mapa.marcadores : [])) {
+    if (m?.tipo === 'punto') meter(m.nombre, 'punto del plano');
+  }
+  /* Las puertas sólo tienen sentido como ubicación: un track es una sala. */
+  if (campo === 'ubicacion') {
+    for (const a of (Array.isArray(pj.accesos) ? pj.accesos : [])) meter(a?.nombre, 'puerta');
+  }
+
+  return [...vistos.values()].sort((a, b) => a.valor.localeCompare(b.valor, 'es'));
+}
+
 function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, sessions = [], onSave, onCancel }) {
   /* Los grupos que este evento ya usa, para sugerirlos. Se ordenan para que la
      lista no baile entre aperturas, y se deduplica sin distinguir mayusculas
@@ -781,6 +819,9 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
     }
     return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'es'));
   }, [sessions]);
+
+  const tracksUsados = useMemo(() => sitiosDelEvento(evento, sessions, 'track'), [evento, sessions]);
+  const ubicaciones  = useMemo(() => sitiosDelEvento(evento, sessions, 'ubicacion'), [evento, sessions]);
 
   const [form, setForm] = useState({
     titulo     : initial?.titulo || '',
@@ -906,14 +947,27 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
       <div className="grid sm:grid-cols-3 gap-3">
         <div className="field">
           <label className="label">Track / sala</label>
-          <input value={form.track} onChange={e => setForm(f => ({...f, track: e.target.value}))}
+          <input list="gestek-tracks" value={form.track} onChange={e => setForm(f => ({...f, track: e.target.value}))}
             placeholder="principal" className="input-form" />
-          <p className="text-[11px] text-text-3 mt-1">Ej. "Auditorio A", "Sala 2". Sesiones con el mismo track aparecen juntas en la vista "Salas".</p>
+          <datalist id="gestek-tracks">
+            {tracksUsados.map(o => <option key={o.valor} value={o.valor}>{o.origen}</option>)}
+          </datalist>
+          <p className="text-[11px] text-text-3 mt-1">
+            {tracksUsados.length > 0
+              ? 'Escribe o elige uno de los que ya usa este evento. Sesiones con el mismo track aparecen juntas en la vista "Salas".'
+              : 'Ej. "Auditorio A", "Sala 2". Sesiones con el mismo track aparecen juntas en la vista "Salas".'}
+          </p>
         </div>
         <div className="field">
           <label className="label">Ubicación</label>
-          <input value={form.ubicacion} onChange={e => setForm(f => ({...f, ubicacion: e.target.value}))}
+          <input list="gestek-ubicaciones" value={form.ubicacion} onChange={e => setForm(f => ({...f, ubicacion: e.target.value}))}
             placeholder="Piso 2" className="input-form" />
+          <datalist id="gestek-ubicaciones">
+            {ubicaciones.map(o => <option key={o.valor} value={o.valor}>{o.origen}</option>)}
+          </datalist>
+          {ubicaciones.length > 0 && (
+            <p className="text-[11px] text-text-3 mt-1">Salen las zonas, los puntos del plano y las puertas ya creadas.</p>
+          )}
         </div>
         <div className="field">
           <label className="label">Speaker</label>
