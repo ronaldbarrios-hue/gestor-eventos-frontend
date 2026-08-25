@@ -18,6 +18,10 @@ export const agendaApi = {
   /* Quién se apuntó a qué. */
   participacion     : (eventoId)                      => client.get(`/eventos/${eventoId}/sesiones/participacion`).then(r => r.data),
   inscripciones     : (eventoId, sesionId)            => client.get(`/eventos/${eventoId}/sesiones/${sesionId}/inscripciones`).then(r => r.data),
+  /* Lo ÚNICO que suma asistencia a un sub-evento: la persona ya inscrita
+     vuelve a pasar su QR en la puerta de ESE taller. El check-in del evento no
+     toca esto —entrar al recinto no es asistir a una charla—. */
+  marcarAsistencia  : (eventoId, sesionId, body)      => client.post(`/eventos/${eventoId}/sesiones/${sesionId}/asistencia`, body).then(r => r.data),
   misFavoritos      : (eventoId)                      => client.get(`/eventos/${eventoId}/agenda/mis-favoritos`).then(r => r.data),
   marcarFavorito    : (eventoId, sessionId)            => client.post(`/eventos/${eventoId}/agenda/favoritos/${sessionId}`).then(r => r.data),
   quitarFavorito    : (eventoId, sessionId)            => client.delete(`/eventos/${eventoId}/agenda/favoritos/${sessionId}`).then(r => r.data),

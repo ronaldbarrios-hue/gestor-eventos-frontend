@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import Icono from '../../../components/ui/Iconos.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import { clientesApi } from '../../../api/clientes.js';
+import { agendaApi } from '../../../api/agenda.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
@@ -9,11 +10,26 @@ import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
 import { leerQr } from '../../../lib/qrEscaneado.js';
 
-/* Tab Check-in — escanea boletas con cámara o ingresa código manual. */
+/* Tab Check-in — escanea boletas con cámara o ingresa código manual.
+
+   Tres modos, y la diferencia entre ellos es la que sostiene todo el reporte:
+
+   · Check-in   → la persona ENTRA AL EVENTO. Suma al ingreso del recinto y a
+                  nada más. Invalida la boleta para una segunda entrada.
+   · Reingreso  → sale y vuelve a entrar, o cruza una zona. Mueve el aforo, no
+                  la asistencia.
+   · Sub-evento → la persona entra a UN taller, charla o competencia concreta.
+                  Es lo único que suma a las métricas de ese sub-evento, y pide
+                  que esté inscrita en él: haber entrado al evento no significa
+                  haber asistido a la charla, y contarlo así convertiría
+                  "asistentes al taller" en "gente que estaba en el edificio".
+
+   Quien no esté inscrito no se marca a la fuerza: se registra primero y se
+   vuelve a escanear. */
 
 export default function CheckinTab({ evento }) {
   const [mode, setMode]       = useState('manual'); // manual | camara
-  const [accion, setAccion]   = useState('checkin'); // checkin | reingreso
+  const [accion, setAccion]   = useState('checkin'); // checkin | reingreso | subevento
   const [working, setWorking] = useState(false);
   const [last, setLast]       = useState(null); // { ok, ticket, error, sound }
   const [historial, setHistorial] = useState([]); // últimos check-ins de esta sesión
@@ -36,6 +52,33 @@ export default function CheckinTab({ evento }) {
   const [zonaId, setZonaId] = useState('');
   const zonaRef = useRef('');
   const elegirZona = (id) => { setZonaId(id); zonaRef.current = id; };
+
+  /* Sub-eventos: se piden sólo cuando hace falta (el escáner de la puerta
+     principal no los necesita) y se recuerda cuál opera este dispositivo, que
+     en un taller es siempre el mismo durante horas. */
+  const [sesiones, setSesiones] = useState(null);
+  const [sesionId, setSesionId] = useState(() => {
+    try { return localStorage.getItem(`gestek-subevento:${evento.id}`) || ''; } catch { return ''; }
+  });
+  const sesionRef = useRef(sesionId);
+  const elegirSesion = (id) => {
+    setSesionId(id); sesionRef.current = id; setLast(null);
+    try { localStorage.setItem(`gestek-subevento:${evento.id}`, id); } catch { /* noop */ }
+  };
+  useEffect(() => {
+    if (accion !== 'subevento' || sesiones !== null) return;
+    agendaApi.sessions(evento.id)
+      .then(d => {
+        const lista = (d.sessions || d.sesiones || []).filter(x => x.requiere_inscripcion);
+        setSesiones(lista);
+        /* Si la guardada ya no existe (la borraron), no dejar el escáner
+           apuntando a un sub-evento fantasma. */
+        if (sesionRef.current && !lista.some(x => x.id === sesionRef.current)) elegirSesion('');
+        else if (!sesionRef.current && lista.length === 1) elegirSesion(lista[0].id);
+      })
+      .catch(() => setSesiones([]));
+    /* eslint-disable-next-line */
+  }, [accion, evento.id, sesiones]);
 
   const { ingresados, total: totalAsistentes, bumpOptimista } = useAsistenciaEnVivo(evento.id);
 
@@ -119,7 +162,9 @@ export default function CheckinTab({ evento }) {
     setLast(null);
     try {
       const r = await clientesApi.reingreso(evento.id, { ...payload, acceso_id: puertaRef.current || undefined, zona_id: zonaRef.current || undefined });
-      setLast({ reingresoMode: true, ok: true, dentro: r.dentro, ticket: r.ticket });
+      /* `aforo` viene con la zona ya recalculada: quien está en la puerta ve el
+         número después de ESTE escaneo sin cambiar de pantalla. */
+      setLast({ reingresoMode: true, ok: true, dentro: r.dentro, ticket: r.ticket, aforo: r.aforo });
       setHistorial(h => [{ guest_nombre: r.ticket?.nombre, codigo: r.ticket?.codigo, at: new Date(), ok: true, reingreso: r.dentro ? 'entró' : 'salió' }, ...h].slice(0, 10));
     } catch (e) {
       setLast({ reingresoMode: true, ok: false, error: e.response?.data?.error || e.message });
@@ -128,13 +173,45 @@ export default function CheckinTab({ evento }) {
     }
   }, [evento.id, working]);
 
+  const handleSubevento = useCallback(async (payload) => {
+    if (working) return;
+    const sid = sesionRef.current;
+    if (!sid) { setLast({ subeventoMode: true, ok: false, error: 'Elige primero a qué sub-evento estás marcando.' }); return; }
+    setWorking(true);
+    setLast(null);
+    try {
+      const r = await agendaApi.marcarAsistencia(evento.id, sid, payload);
+      const nombre = r.inscripcion?.nombre || null;
+      setLast({ subeventoMode: true, ok: true, yaMarcada: r.ya_marcada, nombre, conteo: r.conteo });
+      setHistorial(h => [{
+        guest_nombre: nombre, codigo: r.ticket?.codigo, at: new Date(), ok: true,
+        subevento: r.ya_marcada ? 'ya estaba' : 'asistió',
+      }, ...h].slice(0, 10));
+    } catch (e) {
+      const d = e.response?.data || {};
+      setLast({
+        subeventoMode: true, ok: false,
+        error: d.error || e.message,
+        noInscrito: Boolean(d.no_inscrito),
+        ticket: d.ticket || null,
+      });
+    } finally {
+      setTimeout(() => setWorking(false), 600);
+    }
+  }, [evento.id, working]);
+
   /* onScan estable (misma identidad siempre): QrScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
-  const onScanQr = useCallback((qr) =>
-    (accion === 'reingreso' ? handleReingreso(leerQr(qr)) : handleCheckin(leerQr(qr))),
-    [accion, handleCheckin, handleReingreso]);
+  const onScanQr = useCallback((qr) => {
+    const leido = leerQr(qr);
+    if (accion === 'subevento') return handleSubevento(leido);
+    if (accion === 'reingreso') return handleReingreso(leido);
+    return handleCheckin(leido);
+  }, [accion, handleCheckin, handleReingreso, handleSubevento]);
   const onSubmitCodigo = (codigo) =>
-    (accion === 'reingreso' ? handleReingreso({ codigo }) : handleCheckin({ codigo }));
+    (accion === 'subevento' ? handleSubevento({ codigo })
+      : accion === 'reingreso' ? handleReingreso({ codigo })
+      : handleCheckin({ codigo }));
 
   return (
     <div className="space-y-5">
@@ -156,7 +233,7 @@ export default function CheckinTab({ evento }) {
         <div className="flex items-center gap-3 flex-wrap">
           <AsistenciaContador ingresados={ingresados} total={totalAsistentes} compact />
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-            {[['checkin', 'Check-in'], ['reingreso', 'Reingreso']].map(([k, l]) => (
+            {[['checkin', 'Check-in'], ['reingreso', 'Reingreso'], ['subevento', 'Sub-evento']].map(([k, l]) => (
               <button key={k} onClick={() => { setAccion(k); setLast(null); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${accion === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
                 {l}
@@ -204,18 +281,49 @@ export default function CheckinTab({ evento }) {
         </div>
       )}
 
+      {accion === 'subevento' && (
+        <div className="rounded-2xl border border-accent/30 bg-accent/5 px-4 py-2.5 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-text-2">
+              Modo <b className="text-text-1">sub-evento</b>: esto suma a las métricas del taller o charla que elijas, no al ingreso del evento.
+            </p>
+            {sesiones && sesiones.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-3">Sub-evento:</span>
+                <select value={sesionId} onChange={e => elegirSesion(e.target.value)} className="input !h-8 !py-1 text-sm w-auto max-w-[260px]">
+                  <option value="">Elige uno…</option>
+                  {sesiones.map(x => (
+                    <option key={x.id} value={x.id}>
+                      {x.titulo}{x.inicio ? ` · ${new Date(x.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          {sesiones === null
+            ? <p className="text-[11px] text-text-3">Cargando sub-eventos…</p>
+            : sesiones.length === 0
+              ? <p className="text-[11px] text-warning">
+                  Ningún sub-evento pide inscripción todavía. Actívala en <b>Espacio del evento → Calendario</b>: sin inscripción no hay a quién marcarle asistencia.
+                </p>
+              : <p className="text-[11px] text-text-3">
+                  La persona tiene que estar inscrita en este sub-evento. Si no lo está, se registra primero y se vuelve a escanear.
+                </p>}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* Scanner / input */}
         <div className="space-y-4">
           {mode === 'camara'
-            ? <QrScanner onScan={onScanQr}
-                overlay={last ? (last.reingresoMode ? <ReingresoCard result={last} compact /> : <ResultadoCard result={last} compact />) : null} />
+            ? <QrScanner onScan={onScanQr} overlay={last ? <TarjetaResultado result={last} compact /> : null} />
             : <ManualInput onSubmit={onSubmitCodigo} disabled={working} />
           }
 
           {/* Resultado del último scan (solo se muestra aquí fuera de pantalla completa,
               ya que en modo cámara el resultado aparece flotando sobre el video) */}
-          {mode !== 'camara' && last && (last.reingresoMode ? <ReingresoCard result={last} /> : <ResultadoCard result={last} />)}
+          {mode !== 'camara' && last && <TarjetaResultado result={last} />}
         </div>
 
         {/* Historial */}
@@ -334,6 +442,57 @@ function ResultadoCard({ result, compact }) {
   );
 }
 
+/* Una sola puerta para pintar el resultado: antes cada sitio decidía por su
+   cuenta qué tarjeta tocaba, y añadir un tercer modo significaba acordarse de
+   los dos. */
+function TarjetaResultado({ result, compact }) {
+  if (result.subeventoMode) return <SubeventoCard result={result} compact={compact} />;
+  if (result.reingresoMode) return <ReingresoCard result={result} compact={compact} />;
+  return <ResultadoCard result={result} compact={compact} />;
+}
+
+/* ─────────── Resultado de asistencia a un sub-evento ─────────── */
+
+function SubeventoCard({ result, compact }) {
+  const { ok, yaMarcada, nombre, conteo, noInscrito, ticket, error } = result;
+  const cls = !ok ? (noInscrito ? 'border-warning/40 bg-warning/10' : 'border-danger/40 bg-danger/10')
+    : yaMarcada ? 'border-warning/40 bg-warning/10' : 'border-success/40 bg-success/10';
+  const icon = !ok ? (noInscrito ? '!' : '✕') : yaMarcada ? '=' : '✓';
+  const iconCls = !ok ? (noInscrito ? 'bg-warning text-white' : 'bg-danger text-white')
+    : yaMarcada ? 'bg-warning text-white' : 'bg-success text-white';
+  const titulo = !ok ? (noInscrito ? 'No está inscrito' : 'No se pudo marcar')
+    : yaMarcada ? 'Ya estaba marcada' : 'Asistencia marcada';
+
+  return (
+    <div className={`rounded-3xl border-2 ${cls} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+      <div className="flex items-start gap-4">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 ${iconCls}`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-xl font-bold font-display text-text-1 mb-1">{titulo}</h3>
+          {nombre && <p className="text-base font-medium text-text-1">{nombre}</p>}
+          {ticket && (
+            <p className="text-sm text-text-1">
+              {ticket.nombre || 'Asistente'}
+              {ticket.codigo && <span className="text-xs text-text-3"> · <span className="font-mono">{ticket.codigo}</span></span>}
+            </p>
+          )}
+          {error && <p className="text-sm text-text-2 mt-1">{error}</p>}
+          {noInscrito && (
+            <p className="text-xs text-text-3 mt-2">
+              Entrar al evento no cuenta como asistir a este sub-evento. Regístrala en él y vuelve a escanear.
+            </p>
+          )}
+          {conteo && (
+            <p className="text-sm font-semibold text-success mt-2 tabular-nums">
+              {conteo.asistieron} de {conteo.inscritos} inscritos ya entraron
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── Resultado de reingreso ─────────── */
 
 function ReingresoCard({ result, compact }) {
@@ -356,6 +515,13 @@ function ReingresoCard({ result, compact }) {
               <p className="text-base font-medium text-text-1">{ticket.nombre || 'Asistente'}</p>
               <p className="text-xs text-text-3">{ticket.tipo} · <span className="font-mono">{ticket.codigo}</span></p>
               {ok && <p className={`text-sm font-semibold mt-2 ${dentro ? 'text-success' : 'text-warning'}`}>{dentro ? 'Ahora está DENTRO' : 'Ahora está FUERA'}</p>}
+              {ok && result.aforo && (
+                <p className="text-xs text-text-2 mt-1">
+                  {result.aforo.nombre}: <b className="tabular-nums text-text-1">{result.aforo.dentro}</b>
+                  {result.aforo.aforo_max ? ` / ${result.aforo.aforo_max}` : ''}
+                  {result.aforo.excedido > 0 && <span className="text-danger"> · {result.aforo.excedido} por encima del aforo</span>}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -375,7 +541,7 @@ function HistorialRow({ item }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-text-1 truncate">{item.guest_nombre || item.guest_email || 'Sin nombre'}</p>
-        <p className="text-[11px] text-text-3 truncate font-mono">{item.codigo}{item.reingreso ? ` · ${item.reingreso}` : ''}{item.error ? ` · ${item.error}` : ''}</p>
+        <p className="text-[11px] text-text-3 truncate font-mono">{item.codigo}{item.reingreso ? ` · ${item.reingreso}` : ''}{item.subevento ? ` · ${item.subevento}` : ''}{item.error ? ` · ${item.error}` : ''}</p>
       </div>
       <span className="text-[11px] text-text-3 tabular-nums flex-shrink-0">{hora}</span>
     </div>
