@@ -18,6 +18,8 @@ import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoF
 import { verificar } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { dividirEnModulos, convienePaginar } from '../../lib/modulosFormulario.js';
+import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
+import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import { useT } from '../../lib/i18n.js';
 
 /* Los mismos bloques que siembra el editor, y en su orden: así lo que ve el
@@ -420,7 +422,7 @@ export default function EventoPublicoPage() {
         />
       )}
       {reservaOk && (
-        <ConfirmacionModal ticket={reservaOk} checkout={evento.page_json?.checkout || {}} onClose={() => setReservaOk(null)} />
+        <ConfirmacionModal ticket={reservaOk} evento={evento} checkout={evento.page_json?.checkout || {}} onClose={() => setReservaOk(null)} />
       )}
       {waitlistTipo && (
         <WaitlistModal
@@ -730,7 +732,15 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
           ...(acepta ? { legal_aceptado: true } : {}),
           ...(cupoToken ? { waitlist_token: cupoToken } : {}),
         });
-        onSuccess({ ...res.ticket, requierePago: !isFree, tipo, pagoSimple: tienePagoSimple && !isFree });
+        /* El PDF de la boleta se arma en el navegador con lo que se acaba de
+           escribir: la respuesta de `reservar` sólo trae id, código y estado.
+           Si no viajaran aquí, el archivo saldría sin nombre ni respuestas y
+           habría que ir a buscarlas al servidor para nada. */
+        onSuccess({
+          ...res.ticket, requierePago: !isFree, tipo, pagoSimple: tienePagoSimple && !isFree,
+          asistente: { nombre: form.nombre, email: form.email, telefono: form.telefono },
+          respuestas,
+        });
       } else {
         const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas,
           ...(acepta ? { legal_aceptado: true } : {}),
@@ -936,8 +946,24 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
   );
 }
 
-function ConfirmacionModal({ ticket, checkout = {}, onClose }) {
+function ConfirmacionModal({ ticket, evento = {}, checkout = {}, onClose }) {
   const qrValue = ticket.qr_token || ticket.codigo;
+  const [bajando, setBajando] = useState(false);
+
+  /* El PDF se pide aquí y no en un correo: el correo puede tardar, caer en spam
+     o ni siquiera existir si el organizador no configuró remitente. Esto está
+     en la mano de quien acaba de reservar, ahora. */
+  const descargarPdf = () => {
+    setBajando(true);
+    try {
+      descargarBoletaPdf({
+        evento, ticket, tipo: ticket.tipo,
+        asistente: ticket.asistente, respuestas: ticket.respuestas,
+        campos: evento.campos_formulario, qrValue,
+        origen: baseEnlaces(evento),
+      });
+    } finally { setBajando(false); }
+  };
   const redirectUrl = checkout.redirect_url;
   useEffect(() => {
     if (redirectUrl && checkout.redirect_auto) {
@@ -968,11 +994,19 @@ function ConfirmacionModal({ ticket, checkout = {}, onClose }) {
         </div>
         <p className="text-xs text-text-3 mb-5">
           Guarda este link para volver a verlo: <br/>
-          <a href={`/mi-ticket/${ticket.codigo}`} className="text-primary-light hover:underline">
-            {window.location.origin}/mi-ticket/{ticket.codigo}
+          {/* El texto del enlace es el dominio de la empresa cuando está
+              configurado; el `href` se queda relativo para que, si el dominio
+              propio todavía no apunta a ningún sitio, el botón siga abriendo
+              la boleta desde donde la persona ya está navegando. */}
+          <a href={`/mi-ticket/${ticket.codigo}`} className="text-primary-light hover:underline break-all">
+            {enlaceBoleta(evento, ticket.codigo)}
           </a>
         </p>
         <div className="flex items-center justify-center gap-2 flex-wrap">
+          <button onClick={descargarPdf} disabled={bajando}
+            className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
+            {bajando ? 'Generando…' : 'Descargar boleta (PDF)'}
+          </button>
           <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
             Listo
           </button>

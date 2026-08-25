@@ -7,6 +7,8 @@ import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx
 import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import { googleCalendarUrl } from '../../lib/calendario.js';
+import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
+import { baseEnlaces } from '../../lib/enlacesPublicos.js';
 
 /* Página pública /mi-ticket/:codigo
    Cualquiera con el código puede ver su QR. */
@@ -105,10 +107,21 @@ export default function MiTicketPage() {
         <WalletCard
           design={walletConfig(ticket.evento?.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre })}
           evento={ticket.evento || {}} ticket={ticket} puntos={ticket.puntos ?? null} />
-        <div className="mt-3 flex items-center justify-center gap-3">
+        <div className="mt-3 flex items-center justify-center gap-4 flex-wrap">
           <button onClick={() => window.print()}
             className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
             <Icono nombre="imprimir" className="w-4 h-4" />Imprimir mi escarapela
+          </button>
+          {/* La escarapela es para colgarse; el PDF es la boleta con sus datos,
+              que es lo que se guarda y se reenvía cuando en la puerta no hay
+              señal para abrir esta página. */}
+          <button onClick={() => descargarBoletaPdf({
+            evento: ticket.evento || {}, ticket, tipo: ticket.tipo,
+            respuestas: ticket.respuestas, campos: ticket.evento?.campos_formulario,
+            qrValue, origen: baseEnlaces(ticket.evento),
+          })}
+            className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
+            <Icono nombre="descargar" className="w-4 h-4" />Descargar boleta (PDF)
           </button>
         </div>
         <p className="text-[11px] text-text-3 text-center mt-1">Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.</p>

@@ -207,6 +207,24 @@ export default function WhiteLabelSection({ evento, reload, valor, onChange }) {
           </div>
         </Card>
 
+        <Card titulo="Dominio de los enlaces">
+          <div className="space-y-3">
+            <Campo label="Dominio propio">
+              <input className="input" value={b.dominio || ''} onChange={e => set('dominio', e.target.value)}
+                placeholder="eventos.miempresa.com" />
+            </Campo>
+            <p className="text-xs text-text-3 leading-relaxed">
+              Es el dominio con el que se arman los enlaces que ve el asistente —el de su boleta, el del QR y el que
+              sale en los correos—. Vacío, se usa el dominio desde el que esté navegando.
+            </p>
+            <p className="text-xs text-warning leading-relaxed">
+              Ojo: esto cambia cómo se escribe el enlace, no dónde vive la página. Ese dominio tiene que apuntar a
+              GESTEK (añadirlo en el hosting y crear el CNAME) o los enlaces no abrirán nada.
+              {b.dominio ? '' : ' Mientras esté vacío no hay riesgo: todo sigue como hoy.'}
+            </p>
+          </div>
+        </Card>
+
         <Card titulo="Footer y redes">
           <div className="space-y-4">
             <Campo label="Texto del footer">
