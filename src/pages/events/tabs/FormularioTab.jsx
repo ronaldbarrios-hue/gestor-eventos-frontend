@@ -233,7 +233,7 @@ function ImportarDefinicion({ catalogo, onAgregar, onCerrar, cupo, nombreEvento 
    contra la lista completa, así que mandar sólo lo visible borraría las
    preguntas de las demás boletas — el error caro que este filtro podría
    introducir si se hiciera a la ligera. */
-export default function FormularioTab({ evento, ticketTypeId = null }) {
+export default function FormularioTab({ evento, ticketTypeId = null, requiereTelefono, onRequiereTelefono }) {
   const [campos, setCampos] = useState([]);
   const [tiposBoleta, setTiposBoleta] = useState([]);
   const [catalogo, setCatalogo] = useState({
@@ -598,6 +598,54 @@ export default function FormularioTab({ evento, ticketTypeId = null }) {
           onCerrar={() => setImportando(false)}
         />
       )}
+
+      {/* Lo que pide la PLATAFORMA, a la vista y bloqueado.
+
+          Nombre, correo y teléfono no son preguntas del formulario: son
+          columnas de la boleta. Con ellas se emite el QR, se manda y se
+          identifica a quien entra en el check-in — si se pudieran borrar, la
+          boleta saldría sin nombre y sin dirección a la que enviarla.
+
+          Pero esconderlas tampoco valía: aparecían como «Paso 1» en el
+          registro, igual que si fueran preguntas del organizador, y desde aquí
+          no se veían. Quien editaba el formulario no entendía de dónde salía
+          ese bloque ni por qué no se podía mover.
+
+          Así que se enseñan, con candado y con el motivo. Y el interruptor del
+          teléfono va SOBRE su fila, que es donde significa algo: antes vivía
+          en una tarjeta aparte, tres bloques más abajo, preguntando por un
+          campo que aquí no se veía. */}
+      <div className="rounded-2xl border border-border bg-surface-2/30 p-4 space-y-2.5">
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Los pide la plataforma</p>
+          <p className="text-[11px] text-text-3">Con esto se emite la boleta y se hace el check-in. No se pueden quitar.</p>
+        </div>
+        {[
+          ['Nombre completo', 'Va impreso en la escarapela y en el QR', true, false],
+          ['Correo electrónico', 'A donde se manda la boleta', true, false],
+          ['Teléfono', 'Para avisar por WhatsApp si el correo no llega', Boolean(requiereTelefono), true],
+        ].map(([etiqueta, porque, obligatorio, esTelefono]) => (
+          <div key={etiqueta} className="flex items-center gap-3 rounded-xl border border-border bg-surface/40 px-3 py-2.5">
+            <span className="text-text-3 text-sm" aria-hidden="true">🔒</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-text-1">
+                {etiqueta}{obligatorio && <span className="text-danger-light"> *</span>}
+              </p>
+              <p className="text-[11px] text-text-3">{porque}</p>
+            </div>
+            {esTelefono && onRequiereTelefono ? (
+              <label className="flex items-center gap-2 text-[11px] text-text-2 cursor-pointer whitespace-nowrap">
+                <input type="checkbox" checked={Boolean(requiereTelefono)}
+                  onChange={e => onRequiereTelefono(e.target.checked)}
+                  className="w-4 h-4 rounded accent-primary" />
+                Obligatorio
+              </label>
+            ) : (
+              <span className="text-[11px] text-text-3 whitespace-nowrap">Siempre</span>
+            )}
+          </div>
+        ))}
+      </div>
 
       <div className="space-y-3">
         {visibles.length === 0 && (

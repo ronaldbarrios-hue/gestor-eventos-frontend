@@ -147,25 +147,28 @@ export default function CheckoutSection({ evento }) {
                 </div>
               )}
 
-              <FormularioTab evento={evento} ticketTypeId={tipoSel} />
+              <FormularioTab evento={evento} ticketTypeId={tipoSel}
+                requiereTelefono={f.requiere_telefono}
+                onRequiereTelefono={v => set({ requiere_telefono: v })} />
             </div>
           </div>
         )}
 
-        {/* Lo que se le exige a quien llena el formulario, junto al formulario.
+        {/* Reglas de la COMPRA, no del formulario.
 
-            Estaba abajo del todo, en una tarjeta llamada «Validaciones», tres
-            bloques por debajo de las preguntas. Son la misma decisión: qué se
-            le pide a la persona y qué tiene que cumplir para poder seguir. */}
+            Aquí vivía además «Teléfono obligatorio», y era la duplicación más
+            confusa de esta pantalla: preguntaba por un campo que se pide en el
+            paso 1 del registro y que desde aquí no se veía. Ese interruptor se
+            movió encima de la fila del teléfono, dentro del editor.
+
+            Lo que queda son las dos cosas que sí son reglas de compra y no
+            preguntas: hasta qué edad se puede comprar y cuántas boletas por
+            compra. */}
         <div className="card">
           <div className="card-header">
-            <h3 className="text-base font-semibold text-text-1">Qué se le exige al comprador</h3>
+            <h3 className="text-base font-semibold text-text-1">Reglas de la compra</h3>
           </div>
           <div className="card-body space-y-3">
-            <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
-              <input type="checkbox" checked={f.requiere_telefono} onChange={e => set({ requiere_telefono: e.target.checked })} className="accent-[#8B5CF6]" />
-              Teléfono obligatorio
-            </label>
             <div className="grid sm:grid-cols-2 gap-3 max-w-md">
               <div>
                 <label className="label">Edad mínima</label>
