@@ -33,7 +33,12 @@ export default function ReporteTab({ evento }) {
   if (!data) return <GLoader message="Reuniendo el reporte…" />;
 
   const r = data.an?.resumen || {};
-  const ventas = data.an?.ventas || [];
+  /* `ventas_por_tipo`, que es como se llama en la respuesta. Aquí ponía
+     `data.an?.ventas`, un nombre que el servidor no devuelve, así que la tabla
+     de ventas por tipo salía siempre vacía y el bloque entero no se pintaba
+     nunca. No fallaba nada: sencillamente no estaba, que es peor de encontrar. */
+  const ventas = data.an?.ventas_por_tipo || data.an?.ventas || [];
+  const part = data.an?.participacion || { sub_eventos: [], torneos: [] };
   const pctAforo = evento.aforo_total > 0 ? Math.round((evento.aforo_vendido || 0) / evento.aforo_total * 100) : null;
   const tareasHechas = data.tareas.filter(t => t.estado === 'hecho').length;
   const puntosExpo = data.ranking.reduce((a, e) => a + (e.puntos || 0), 0);
@@ -86,18 +91,99 @@ export default function ReporteTab({ evento }) {
 
         {/* Ventas por tipo */}
         {ventas.length > 0 && (
-          <Bloque titulo="Ventas por tipo de boleta">
+          <Bloque titulo="Por tipo de boleta">
             <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-widest text-text-3">
+                  <th className="text-left font-semibold pb-2">Boleta</th>
+                  <th className="text-right font-semibold pb-2">Vendidas</th>
+                  <th className="text-right font-semibold pb-2">Entraron</th>
+                  <th className="text-right font-semibold pb-2">Ingresos</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-border">
                 {ventas.map((t, i) => (
                   <tr key={i}>
                     <td className="py-2 text-text-2">{t.nombre || t.tipo || 'Boleta'}</td>
-                    <td className="py-2 text-right text-text-3 tabular-nums">{t.vendidos} vend.</td>
+                    <td className="py-2 text-right text-text-3 tabular-nums">{t.vendidos}</td>
+                    {/* Vender y que la persona aparezca son cosas distintas, y
+                        la diferencia es el dato que se reporta después. Con
+                        «vendidas» a secas, una boleta que nadie usó se ve igual
+                        de bien que una que llenó la sala. */}
+                    <td className="py-2 text-right tabular-nums">
+                      {t.ingresaron == null ? <span className="text-text-3">—</span> : (
+                        <>
+                          <span className="text-text-1 font-semibold">{t.ingresaron}</span>
+                          {t.vendidos > 0 && (
+                            <span className={`ml-1.5 text-[11px] ${t.asistencia >= 60 ? 'text-success' : t.asistencia >= 30 ? 'text-warning' : 'text-text-3'}`}>
+                              {t.asistencia}%
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </td>
                     <td className="py-2 text-right text-text-1 font-semibold tabular-nums">{money(t.ingresos, evento.currency)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </Bloque>
+        )}
+
+        {/* Qué hicieron una vez dentro.
+
+            El resumen dice cuánta gente entró al evento; esto dice a qué fue.
+            Es lo que se pide para reportar después: cuántos pasaron por cada
+            taller y cuántos compitieron en cada torneo. */}
+        {(part.sub_eventos?.length > 0 || part.torneos?.length > 0) && (
+          <Bloque titulo="Participación dentro del evento">
+            {part.sub_eventos?.length > 0 && (
+              <table className="w-full text-sm mb-4">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-widest text-text-3">
+                    <th className="text-left font-semibold pb-2">Sub-evento</th>
+                    <th className="text-right font-semibold pb-2">Inscritos</th>
+                    <th className="text-right font-semibold pb-2">Asistieron</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {part.sub_eventos.map(s => (
+                    <tr key={s.id}>
+                      <td className="py-2 text-text-2">
+                        {s.titulo}
+                        {/* Cuántos venían ya con entrada. Los que no, llegaron
+                            directos al taller: dice si atrae gente nueva o
+                            sólo reparte a la que ya estaba. */}
+                        {s.con_boleta < s.inscritos && (
+                          <span className="text-[11px] text-text-3"> · {s.inscritos - s.con_boleta} sin boleta</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right text-text-1 font-semibold tabular-nums">
+                        {s.inscritos}
+                        {s.ocupacion != null && (
+                          <span className="ml-1.5 text-[11px] text-text-3">de {s.cupo}</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-text-3">
+                        {s.asistieron > 0 ? s.asistieron : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {part.torneos?.length > 0 && (
+              <ul className="divide-y divide-border">
+                {part.torneos.map(t => (
+                  <li key={t.id} className="py-2 flex items-center justify-between gap-3">
+                    <span className="text-sm text-text-2">{t.nombre}</span>
+                    <span className="text-sm text-text-1 font-semibold tabular-nums">
+                      {t.equipos} <span className="text-[11px] font-normal text-text-3">equipo{t.equipos !== 1 ? 's' : ''}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Bloque>
         )}
 
