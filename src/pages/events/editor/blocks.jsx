@@ -1280,6 +1280,9 @@ function MapaEventoPreview({ data, evento }) {
      enseñan como sitio —"aquí está la zona VIP"—, nunca con el conteo de
      gente: eso es información de operación del evento, no del visitante. */
   const zonaPorId = new Map((evento?.page_json?.zonas || []).map(z => [z.id, z]));
+  const accesoPorId = new Map((evento?.page_json?.accesos || []).map(a => [a.id, a]));
+  /* La ocupación sólo llega si el organizador la publicó (mapa.mostrar_aforo). */
+  const aforoPorId = new Map((evento?.mapa_aforo || []).map(z => [z.id, z]));
 
   if (!mapa.imagen_url) {
     return (
@@ -1300,11 +1303,12 @@ function MapaEventoPreview({ data, evento }) {
         <div className="relative">
           <img src={mapa.imagen_url} alt="Mapa del evento" className="block max-h-[75vh] w-auto max-w-full" />
           {marcadores.map((m, i) => {
-            const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : m.zona_id ? 'zona' : 'punto');
+            const tipo = m.tipo || (m.expositor_id ? 'expositor' : m.sesion_id ? 'sesion' : m.zona_id ? 'zona' : m.acceso_id ? 'acceso' : 'punto');
             const pos = { left: `${m.x}%`, top: `${m.y}%` };
             const label = tipo === 'punto' ? m.nombre
               : tipo === 'sesion' ? sesPorId.get(m.sesion_id)?.titulo
               : tipo === 'zona' ? zonaPorId.get(m.zona_id)?.nombre
+              : tipo === 'acceso' ? accesoPorId.get(m.acceso_id)?.nombre
               : expoPorId.get(m.expositor_id)?.nombre;
 
             let circulo = null, onClick = null;
@@ -1327,8 +1331,33 @@ function MapaEventoPreview({ data, evento }) {
             } else if (tipo === 'zona') {
               const z = zonaPorId.get(m.zona_id);
               if (!z) return null;
-              onClick = () => setSel({ kind: 'punto', data: { nombre: z.nombre, descripcion: m.descripcion || '' } });
-              circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center" style={{ background: m.color || '#0EA5E9' }}>{(z.nombre || 'Z')[0].toUpperCase()}</span>;
+              /* Con el aforo publicado, el círculo lleva la gente que hay
+                 dentro y se pone en rojo al llenarse: es lo que le sirve a
+                 quien está decidiendo a qué zona ir. Sin publicar, sólo el
+                 sitio, como antes. */
+              const viva = aforoPorId.get(z.id);
+              const detalle = viva
+                ? `${viva.dentro}${viva.aforo_max ? ` de ${viva.aforo_max}` : ''} personas dentro${viva.lleno ? ' · llena' : ''}`
+                : '';
+              onClick = () => setSel({ kind: 'punto', data: { nombre: z.nombre, descripcion: [detalle, m.descripcion].filter(Boolean).join(' · ') } });
+              circulo = (
+                <span className="min-w-[44px] h-11 px-1.5 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center tabular-nums"
+                  style={{ background: viva?.lleno ? '#EF4444' : (m.color || '#0EA5E9') }}>
+                  {viva ? viva.dentro : (z.nombre || 'Z')[0].toUpperCase()}
+                </span>
+              );
+            } else if (tipo === 'acceso') {
+              const a = accesoPorId.get(m.acceso_id);
+              if (!a) return null;
+              onClick = () => setSel({ kind: 'punto', data: { nombre: a.nombre, descripcion: 'Entrada al evento.' } });
+              circulo = (
+                <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white flex items-center justify-center"
+                  style={{ background: m.color || '#3B82F6' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="M10 17l5-5-5-5M15 12H3" />
+                  </svg>
+                </span>
+              );
             } else {
               onClick = () => setSel({ kind: 'punto', data: m });
               circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center" style={{ background: m.color || '#64748B' }}>{m.codigo || 'P'}</span>;
@@ -1381,7 +1410,15 @@ function MapaEventoPreview({ data, evento }) {
               </div>
               <div className="mt-3 space-y-1 text-sm text-text-2">
                 {sel.data.inicio && <p><span className="text-text-3">Hora:</span> {new Date(sel.data.inicio).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>}
-                {sel.data.ubicacion && <p><span className="text-text-3">Lugar:</span> {sel.data.ubicacion}</p>}
+                {(sel.data.ubicacion || sel.data.track) && <p><span className="text-text-3">Lugar:</span> {[sel.data.track, sel.data.ubicacion].filter(Boolean).join(' · ')}</p>}
+                {/* Lo que de verdad decide si merece la pena acercarse: si hay
+                    que apuntarse y si queda sitio. Antes había que ir a la
+                    agenda a averiguarlo, y por el camino se perdía la gente. */}
+                {sel.data.requiere_inscripcion && (
+                  sel.data.lleno
+                    ? <p className="text-danger">Sin cupo: ya no admite más inscripciones.</p>
+                    : <p><span className="text-text-3">Inscripción:</span> hay que apuntarse aparte{sel.data.libres != null ? ` · quedan ${sel.data.libres}` : ''}</p>
+                )}
               </div>
             </>) : (<>
               <div className="flex items-start gap-3">

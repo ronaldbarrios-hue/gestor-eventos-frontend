@@ -3,7 +3,7 @@ import { clientesApi } from '../../../../api/clientes.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
-import MapaAforo, { nivelDeZona } from '../../../../components/aforo/MapaAforo.jsx';
+import MapaAforo, { nivelDeZona, DetalleMarcador } from '../../../../components/aforo/MapaAforo.jsx';
 import { exportar } from '../../../../lib/hojaEscribir.js';
 
 /* Asistentes · Aforo por zonas — la sala de control del recinto.
@@ -36,22 +36,35 @@ export default function AforoSection({ evento, soyOwner = true }) {
   const { success, error } = useToast();
   const [vista, setVista] = useState('vivo'); // vivo | reporte
   const [zonas, setZonas] = useState(null);
+  const [extra, setExtra] = useState({ accesos: [], sesiones: [] });
   const [total, setTotal] = useState(null);
-  const [selId, setSelId] = useState(null);
+  const [sel, setSel] = useState(null);   // "zona:id" | "acceso:id" | "sesion:id"
   const [enVivo, setEnVivo] = useState(true);
   const [ultimo, setUltimo] = useState(null);
   const [ocupado, setOcupado] = useState(false);
   const vivoRef = useRef(true);
 
   const mapa = evento.page_json?.mapa || null;
-  const hayMapaDeZonas = Boolean(mapa?.imagen_url)
-    && (mapa.marcadores || []).some(m => m.tipo === 'zona' || m.zona_id);
+  /* El plano sirve aquí en cuanto tenga algo con dato vivo encima: una zona,
+     una puerta o un sub-evento. */
+  const hayMapaVivo = Boolean(mapa?.imagen_url)
+    && (mapa.marcadores || []).some(m => ['zona', 'acceso', 'sesion'].includes(m.tipo) || m.zona_id);
 
   const cargar = useCallback(async () => {
     try {
-      const d = await clientesApi.aforoZonas(evento.id);
+      /* Una sola petición trae el plano entero: zonas, puertas y sub-eventos.
+         Si el backend todavía no la tiene (despliegue a medias), se cae al
+         endpoint de sólo aforo, que existe desde antes. */
+      let d;
+      try {
+        d = await clientesApi.mapaVivo(evento.id);
+      } catch (err) {
+        if (err.status !== 404) throw err;
+        d = await clientesApi.aforoZonas(evento.id);
+      }
       if (!vivoRef.current) return;
       setZonas(d.zonas || []);
+      setExtra({ accesos: d.accesos || [], sesiones: d.sesiones || [] });
       setTotal(d.total || null);
       setUltimo(d.at || new Date().toISOString());
     } catch (e) {
@@ -129,7 +142,8 @@ export default function AforoSection({ evento, soyOwner = true }) {
     );
   }
 
-  const sel = zonas.find(z => z.id === selId) || null;
+  const datos = { zonas, ...extra };
+  const zonaSel = sel?.startsWith('zona:') ? zonas.find(z => `zona:${z.id}` === sel) : null;
 
   return (
     <div className="space-y-5">
@@ -156,18 +170,38 @@ export default function AforoSection({ evento, soyOwner = true }) {
         <>
           <Totales total={total} zonas={zonas} ultimo={ultimo} />
 
-          {hayMapaDeZonas ? (
-            <MapaAforo mapa={mapa} zonas={zonas} selId={selId} onSelect={id => setSelId(id === selId ? null : id)} />
+          {hayMapaVivo ? (
+            <div className="grid lg:grid-cols-[1fr_300px] gap-4 items-start">
+              <MapaAforo mapa={mapa} datos={datos} sel={sel} onSelect={setSel} />
+              {sel ? (
+                <DetalleMarcador sel={sel} datos={datos}>
+                  {/* La zona se opera desde su propia ficha: si ya hiciste
+                      clic en ella en el plano, el siguiente gesto natural es
+                      marcar gente, no bajar a buscar su tarjeta. */}
+                  {zonaSel && (
+                    <div className="col-span-2 pt-2 border-t border-border">
+                      <Controles z={zonaSel} ocupado={ocupado}
+                        onMover={(tipo, n) => mover(zonaSel, tipo, n)}
+                        onLimpiar={soyOwner ? () => limpiar(zonaSel) : null} />
+                    </div>
+                  )}
+                </DetalleMarcador>
+              ) : (
+                <p className="text-xs text-text-3 lg:pt-2">
+                  Toca cualquier círculo del plano para ver cómo va: la gente que hay en una zona, los ingresos por una puerta o la inscripción de un sub-evento.
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-xs text-text-3">
-              Este evento tiene zonas pero ninguna colocada en el plano. En <b>Espacio del evento → Mapa</b>, pestaña <b>Zonas</b>, se arrastran al sitio y la ocupación aparece encima del recinto.
+              Nada colocado en el plano todavía. En <b>Espacio del evento → Mapa</b> se arrastran al sitio las zonas, las puertas y los sub-eventos, y su número aparece encima del recinto.
             </p>
           )}
 
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {zonas.map(z => (
-              <TarjetaZona key={z.id} z={z} activa={sel?.id === z.id} ocupado={ocupado}
-                onSelect={() => setSelId(z.id === selId ? null : z.id)}
+              <TarjetaZona key={z.id} z={z} activa={zonaSel?.id === z.id} ocupado={ocupado}
+                onSelect={() => setSel(sel === `zona:${z.id}` ? null : `zona:${z.id}`)}
                 onMover={(tipo, n) => mover(z, tipo, n)}
                 onLimpiar={soyOwner ? () => limpiar(z) : null} />
             ))}
@@ -214,7 +248,6 @@ function Totales({ total, zonas, ultimo }) {
 
 /* ── Una zona: el número grande y los botones para moverlo ── */
 function TarjetaZona({ z, activa, ocupado, onSelect, onMover, onLimpiar }) {
-  const [lote, setLote] = useState(1);
   const nivel = nivelDeZona(z);
   const pct = z.aforo_max ? Math.min(100, Math.round((z.dentro / z.aforo_max) * 100)) : null;
 
@@ -242,6 +275,17 @@ function TarjetaZona({ z, activa, ocupado, onSelect, onMover, onLimpiar }) {
         </div>
       </button>
 
+      <Controles z={z} ocupado={ocupado} onMover={onMover} onLimpiar={onLimpiar} />
+    </div>
+  );
+}
+
+/* Los botones de marcar gente. Viven aparte porque se usan en dos sitios: la
+   tarjeta de la zona y la ficha que abre el plano al hacer clic. */
+function Controles({ z, ocupado, onMover, onLimpiar }) {
+  const [lote, setLote] = useState(1);
+  return (
+    <div className="space-y-3">
       <div className="flex items-center gap-1.5">
         <button onClick={() => onMover('salida', lote)} disabled={ocupado}
           className="flex-1 py-2 rounded-lg border border-border text-sm font-semibold text-text-2 hover:border-danger/50 hover:text-danger transition-colors disabled:opacity-50">
