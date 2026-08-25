@@ -19,6 +19,7 @@ import { verificar } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { dividirEnModulos, convienePaginar } from '../../lib/modulosFormulario.js';
 import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
+import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import { useT } from '../../lib/i18n.js';
 
@@ -422,7 +423,7 @@ export default function EventoPublicoPage() {
         />
       )}
       {reservaOk && (
-        <ConfirmacionModal ticket={reservaOk} evento={evento} checkout={evento.page_json?.checkout || {}} onClose={() => setReservaOk(null)} />
+        <ConfirmacionModal ticket={reservaOk} evento={evento} slug={slug} checkout={evento.page_json?.checkout || {}} onClose={() => setReservaOk(null)} />
       )}
       {waitlistTipo && (
         <WaitlistModal
@@ -946,9 +947,35 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
   );
 }
 
-function ConfirmacionModal({ ticket, evento = {}, checkout = {}, onClose }) {
+function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose }) {
   const qrValue = ticket.qr_token || ticket.codigo;
   const [bajando, setBajando] = useState(false);
+
+  /* El segundo registro, aquí mismo.
+     La entrada al evento no da acceso a los talleres que piden inscripción
+     aparte, y hasta ahora enterarse de eso dependía de volver a la agenda por
+     tu cuenta días después. Este es el único momento en que la persona está
+     mirando: acaba de reservar y tiene su código delante.
+     No hace falta cuenta en GESTEK: la boleta recién emitida es la
+     identificación, y el modal de inscripción la da por buena sin pedir
+     nombre ni correo otra vez. */
+  const [subeventos, setSubeventos] = useState([]);
+  const [preguntas, setPreguntas] = useState({});
+  const [inscribiendo, setInscribiendo] = useState(null);
+  const [inscritas, setInscritas] = useState(new Set());
+
+  useEffect(() => {
+    if (!slug) return;
+    let vivo = true;
+    eventosApi.sesionesPublicas(slug)
+      .then(d => {
+        if (!vivo) return;
+        setSubeventos((d.sesiones || []).filter(s => s.requiere_inscripcion && !s.lleno));
+        setPreguntas(d.preguntas || {});
+      })
+      .catch(() => { /* sin agenda o sin sub-eventos: no se ofrece nada */ });
+    return () => { vivo = false; };
+  }, [slug]);
 
   /* El PDF se pide aquí y no en un correo: el correo puede tardar, caer en spam
      o ni siquiera existir si el organizador no configuró remitente. Esto está
@@ -1002,6 +1029,40 @@ function ConfirmacionModal({ ticket, evento = {}, checkout = {}, onClose }) {
             {enlaceBoleta(evento, ticket.codigo)}
           </a>
         </p>
+        {subeventos.length > 0 && (
+          <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 mb-5 text-left">
+            <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-1">Falta un paso</p>
+            <p className="text-sm text-text-2 mb-3">
+              Tu entrada no incluye estas actividades: hay que apuntarse aparte y tienen cupo. Puedes hacerlo ahora, con la boleta que acabas de sacar.
+            </p>
+            <ul className="space-y-1.5">
+              {subeventos.map(s => {
+                const ya = inscritas.has(s.id);
+                return (
+                  <li key={s.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface/60 px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text-1 truncate">{s.titulo}</p>
+                      <p className="text-[11px] text-text-3">
+                        {s.inicio ? new Date(s.inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                        {s.libres != null ? ` · ${s.libres} cupo${s.libres === 1 ? '' : 's'}` : ''}
+                        {s.ubicacion ? ` · ${s.ubicacion}` : ''}
+                      </p>
+                    </div>
+                    {ya ? (
+                      <span className="text-xs font-semibold text-success flex-shrink-0">Apuntado ✓</span>
+                    ) : (
+                      <button onClick={() => setInscribiendo(s)}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0">
+                        Apuntarme
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <button onClick={descargarPdf} disabled={bajando}
             className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
@@ -1020,6 +1081,25 @@ function ConfirmacionModal({ ticket, evento = {}, checkout = {}, onClose }) {
           <p className="text-[11px] text-text-3 mt-3">Te redirigiremos automáticamente en unos segundos…</p>
         )}
       </div>
+
+      {/* Se monta por encima de esta confirmación (portal, z mayor): la boleta
+          recién emitida entra como identificación, así que no vuelve a pedir
+          nombre ni correo. */}
+      {inscribiendo && (
+        <InscripcionSesionModal
+          slug={slug}
+          sesion={inscribiendo}
+          preguntas={preguntas[inscribiendo.id] || []}
+          boleta={{ codigo: ticket.codigo, nombre: ticket.asistente?.nombre }}
+          onClose={() => setInscribiendo(null)}
+          onInscrito={(id) => {
+            setInscritas(prev => new Set(prev).add(id));
+            setSubeventos(prev => prev.map(x => x.id === id
+              ? { ...x, libres: x.libres == null ? null : Math.max(0, x.libres - 1) }
+              : x));
+          }}
+        />
+      )}
     </ModalShell>
   );
 }

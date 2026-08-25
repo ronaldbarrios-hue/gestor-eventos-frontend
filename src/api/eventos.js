@@ -37,6 +37,10 @@ export const eventosApi = {
   /* Apuntarse a un sub-evento desde fuera del panel. Con `codigo` de boleta se
      cuelga de ella y no hay que volver a escribir los datos; sin código hacen
      falta nombre y correo. */
+  /* Los sub-eventos con su cupo libre y sus preguntas, sin cuenta ni sesión.
+     Es lo que permite ofrecer el segundo registro justo al terminar el
+     primero, sin mandar a nadie a otra pantalla. */
+  sesionesPublicas: (slug) => client.get(`/eventos/publicos/slug/${slug}/sesiones`).then(r => r.data),
   inscribirSesion: (slug, sesionId, body) =>
     client.post(`/eventos/publicos/slug/${slug}/sesiones/${sesionId}/inscribir`, body).then(r => r.data),
   /* Catálogo */
