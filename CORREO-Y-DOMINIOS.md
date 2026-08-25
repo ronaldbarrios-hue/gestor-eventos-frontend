@@ -201,3 +201,33 @@ por hora. El que sí lo cruza es el envío masivo de golpe.
 - [Bulk Email Sender Rules For Google, Yahoo, Microsoft & Apple (2026)](https://powerdmarc.com/bulk-email-sender-requirements/)
 - [Setting the Max Emails Per Hour Setting in WHM](https://www.inmotionhosting.com/support/edu/whm/set-max-hourly-email-limit/)
 - [Domain Has Exceeded the Max Emails per Hour](https://www.inmotionhosting.com/support/email/domain-exceeded-max-emails-per-hour/)
+
+---
+
+## Decisión del 16 de agosto: dos capas, y cuál manda
+
+Se construyeron **dos relevos entre buzones a la vez**, en sesiones distintas.
+Queda escrito cuál se usa para que nadie rehaga el otro.
+
+**El envío lo manda `lib/email.js`** — los buzones de plataforma que se
+alternan por variables de entorno (`CPANEL_SMTP_*` y `CPANEL_SMTP_*2`). Es el
+que se queda, y no por gusto:
+
+- Funciona hoy. El otro exige `SMTP_CRYPTO_KEY`, que no está puesta.
+- Tiene **failover**: si un buzón falla, prueba el otro antes de rendirse. Para
+  el correo de una boleta —que sale una vez— eso pesa más que afinar el cupo.
+- Está probado contra la red real de Render. El arreglo de IPv4
+  (`ENETUNREACH`/timeout) es la clase de fallo que sólo aparece en producción.
+
+**`evento_smtp` NO es para escalar.** Es otra cosa: el buzón propio de UN
+organizador, para que su correo salga con su dirección. Si alguien lo usa para
+repartir volumen acabará con la misma configuración en dos sitios.
+
+**Lo que le falta al que se queda: no sabe de cupo.** Alterna uno y uno, lo que
+duplica la capacidad, pero no mira cuánto lleva enviado cada buzón. Dos buzones
+alternando a toda velocidad llegan a sus dos topes igual de rápido, sólo que a
+la vez — y pasarse **bloquea la cuenta**, no la retrasa.
+
+Portar eso es lo que queda: contar lo enviado por buzón en la última hora y
+saltarlo al 70%. La lógica ya existe probada en `smtpEvento.conSitio()`; es
+moverla, no inventarla.
