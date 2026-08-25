@@ -309,6 +309,65 @@ export default function FormularioTab({ evento, ticketTypeId = null }) {
      Se copia lo PROPIO de la otra —lo que ya vale para todas no hace falta
      duplicarlo— y se saltan las que esta boleta ya tiene con el mismo
      enunciado. */
+  /* Separar los formularios: lo compartido pasa a ser propio de cada boleta.
+
+     El modelo por defecto es «una pregunta vale para todas», y para la mayoría
+     de eventos está bien. Pero cuando de verdad se quiere un formulario por
+     público —persona, staff, empresa— ese default estorba: borrar algo desde
+     una boleta lo borra de todas, y cambiarlo pregunta por pregunta con veinte
+     encima no lo hace nadie.
+
+     Después de esto, cada boleta tiene su lista y se toca sin miedo.
+
+     Dos decisiones que conviene entender antes de pulsarlo:
+
+     La pregunta original SE QUEDA con la boleta que estás mirando, y las demás
+     reciben copias nuevas. Es arbitrario, sí, pero conserva el `id` —y con él
+     las respuestas ya diligenciadas— para al menos una boleta, en vez de
+     perderlas para todas. Por eso se avisa de hacerlo ANTES de abrir el
+     registro, no después.
+
+     Y no hay vuelta atrás con un botón: deshacerlo es volver a poner «todas»
+     en cada pregunta. */
+  const separarFormularios = async () => {
+    const compartidas = campos.filter(c => !c.ticket_type_id);
+    if (compartidas.length === 0) { toastErr('No hay preguntas compartidas que separar.'); return; }
+    if (tiposBoleta.length < 2) { toastErr('Hace falta más de un tipo de boleta.'); return; }
+
+    const nombreActual = tiposBoleta.find(t => t.id === ticketTypeId)?.nombre || 'la boleta actual';
+    const yaGuardadas = compartidas.filter(c => c.id).length;
+
+    const ok = await confirmDialog({
+      title: 'Separar los formularios',
+      message:
+        `${compartidas.length} preguntas se le piden hoy a todas las boletas. Cada una pasará a tener su propia copia, `
+        + `así que a partir de ahí podrás cambiarlas o borrarlas sin tocar a las demás.
+
+`
+        + (yaGuardadas > 0
+            ? `Ojo: ${yaGuardadas} ya están guardadas. Las originales se quedan con «${nombreActual}» —conservando las respuestas ya dadas— y las otras boletas reciben copias nuevas. Conviene hacerlo antes de abrir el registro.`
+            : 'Todavía no hay respuestas, así que es el mejor momento para hacerlo.'),
+      confirmLabel: `Separar en ${tiposBoleta.length} formularios`,
+    });
+    if (!ok) return;
+
+    setCampos(list => {
+      const propias = list.filter(c => c.ticket_type_id);
+      const salida = [];
+      for (const c of list) {
+        if (c.ticket_type_id) continue;
+        /* La original se queda con la boleta que se está mirando. */
+        salida.push({ ...c, ticket_type_id: ticketTypeId });
+        for (const t of tiposBoleta) {
+          if (t.id === ticketTypeId) continue;
+          salida.push(nuevoCampo({ ...c, id: null, _key: undefined, ticket_type_id: t.id }));
+        }
+      }
+      return [...salida, ...propias];
+    });
+    success(`Listo: cada boleta tiene ahora su propio formulario. Revisa y guarda.`);
+  };
+
   const copiarDe = (otroTipoId, nombreOtro) => {
     const suyasDeAlla = campos.filter(c => c.ticket_type_id === otroTipoId);
     if (suyasDeAlla.length === 0) { toastErr(`«${nombreOtro}» no tiene preguntas propias que copiar.`); return; }
@@ -512,6 +571,16 @@ export default function FormularioTab({ evento, ticketTypeId = null }) {
                        text-xs text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
             <span className="text-primary-light">↑</span> Desde Excel o CSV
           </button>
+          {/* Sólo cuando hay algo que separar y más de una boleta. Ofrecerlo
+              siempre lo convertiría en un botón que casi nunca aplica. */}
+          {ticketTypeId && tiposBoleta.length > 1 && campos.some(c => !c.ticket_type_id) && (
+            <button onClick={separarFormularios}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-accent/50
+                         bg-accent/10 text-xs text-text-1 hover:bg-accent/20 transition-colors">
+              <span className="text-accent-light">⇄</span> Separar los formularios
+              <span className="text-text-3">· {campos.filter(c => !c.ticket_type_id).length} compartidas</span>
+            </button>
+          )}
         </div>
         {catalogo.fichas.length > 0 && (
           <p className="text-[11px] text-text-3 leading-relaxed">
