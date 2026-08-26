@@ -1281,7 +1281,10 @@ function MapaEventoPreview({ data, evento }) {
      gente: eso es información de operación del evento, no del visitante. */
   const zonaPorId = new Map((evento?.page_json?.zonas || []).map(z => [z.id, z]));
   const accesoPorId = new Map((evento?.page_json?.accesos || []).map(a => [a.id, a]));
-  /* La ocupación sólo llega si el organizador la publicó (mapa.mostrar_aforo). */
+  /* `mapa_zonas` trae la programación de cada zona —lo que hay dentro, y a qué
+     hora— y, sólo si el organizador lo publicó, cuánta gente hay. La agenda va
+     siempre: es lo que hace que valga la pena tocar el circulito. */
+  const zonaVivaPorId = new Map((evento?.mapa_zonas || []).map(z => [z.id, z]));
   const aforoPorId = new Map((evento?.mapa_aforo || []).map(z => [z.id, z]));
 
   if (!mapa.imagen_url) {
@@ -1335,15 +1338,24 @@ function MapaEventoPreview({ data, evento }) {
                  dentro y se pone en rojo al llenarse: es lo que le sirve a
                  quien está decidiendo a qué zona ir. Sin publicar, sólo el
                  sitio, como antes. */
+              const zv = zonaVivaPorId.get(z.id);
               const viva = aforoPorId.get(z.id);
-              const detalle = viva
-                ? `${viva.dentro}${viva.aforo_max ? ` de ${viva.aforo_max}` : ''} personas dentro${viva.lleno ? ' · llena' : ''}`
-                : '';
-              onClick = () => setSel({ kind: 'punto', data: { nombre: z.nombre, descripcion: [detalle, m.descripcion].filter(Boolean).join(' · ') } });
+              const enCurso = zv?.ahora || [];
+              /* Arde si se llenó con algo pasando dentro. Sólo puede saberse
+                 cuando el organizador publicó el aforo; si no, el círculo es
+                 el sitio y ya. */
+              const arde = Boolean(viva?.lleno && enCurso.length > 0);
+              onClick = () => setSel({ kind: 'zona', data: { ...z, ...(zv || {}), dentro: viva?.dentro ?? null, lleno: viva?.lleno ?? null, arde, descripcion: m.descripcion || '' } });
               circulo = (
-                <span className="min-w-[44px] h-11 px-1.5 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center tabular-nums"
-                  style={{ background: viva?.lleno ? '#EF4444' : (m.color || '#0EA5E9') }}>
+                <span className="relative min-w-[44px] h-11 px-1.5 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center tabular-nums"
+                  style={{
+                    background: viva?.lleno ? '#EF4444' : (m.color || '#0EA5E9'),
+                    boxShadow: arde ? '0 0 0 3px rgba(249,115,22,.55), 0 0 22px 6px rgba(249,115,22,.45)' : undefined,
+                  }}>
                   {viva ? viva.dentro : (z.nombre || 'Z')[0].toUpperCase()}
+                  {enCurso.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse" />
+                  )}
                 </span>
               );
             } else if (tipo === 'acceso') {
@@ -1399,6 +1411,54 @@ function MapaEventoPreview({ data, evento }) {
                 </div>
               )}
               {sel.data.sitio_web && <a href={sel.data.sitio_web} target="_blank" rel="noreferrer noopener" className="text-xs text-primary-light hover:underline mt-3 inline-block">Ver sitio →</a>}
+            </>) : sel.kind === 'zona' ? (<>
+              <div className="flex items-start gap-3">
+                <span className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+                  style={{ background: sel.data.lleno ? '#EF4444' : '#0EA5E9' }}>
+                  {sel.data.dentro != null ? sel.data.dentro : (sel.data.nombre || 'Z')[0].toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-text-1">{sel.data.nombre}</p>
+                  <p className="text-xs text-text-3">
+                    {sel.data.dentro != null
+                      ? `${sel.data.dentro}${sel.data.aforo_max ? ` de ${sel.data.aforo_max}` : ''} personas dentro${sel.data.lleno ? ' · llena' : ''}`
+                      : 'Zona del recinto'}
+                  </p>
+                </div>
+                <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
+              </div>
+              {sel.data.descripcion && <p className="text-sm text-text-2 mt-3 leading-relaxed">{sel.data.descripcion}</p>}
+
+              {/* Lo que pasa dentro. Es la razón de tocar el circulito: la
+                  pregunta del visitante no es cuánta gente hay, sino qué hay. */}
+              {(sel.data.ahora || []).length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Ahora mismo</p>
+                  {sel.data.ahora.map(s => (
+                    <p key={s.id} className="text-sm text-text-1">
+                      {s.titulo}
+                      <span className="text-xs text-text-3"> · {new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
+              {(sel.data.agenda || []).filter(s => s.estado === 'proximo').length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Después, aquí mismo</p>
+                  <ul className="space-y-1">
+                    {sel.data.agenda.filter(s => s.estado === 'proximo').slice(0, 6).map(s => (
+                      <li key={s.id} className="text-sm text-text-2">
+                        <span className="font-mono text-text-3">{new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span> · {s.titulo}
+                        {s.requiere_inscripcion && (
+                          <span className={s.libres === 0 ? 'text-danger text-xs' : 'text-text-3 text-xs'}>
+                            {s.libres === 0 ? ' · sin cupo' : s.libres != null ? ` · quedan ${s.libres}` : ' · pide inscripción'}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>) : sel.kind === 'sesion' ? (<>
               <div className="flex items-start gap-3">
                 <span className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0" style={{ background: tipoEspacio(sel.data.tipo).color }}>{(sel.data.titulo || '?')[0].toUpperCase()}</span>

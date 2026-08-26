@@ -820,6 +820,9 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
     return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'es'));
   }, [sessions]);
 
+  const zonasEvento = useMemo(
+    () => (evento?.page_json?.zonas || []).filter(z => z?.id && String(z.nombre || '').trim()),
+    [evento]);
   const tracksUsados = useMemo(() => sitiosDelEvento(evento, sessions, 'track'), [evento, sessions]);
   const ubicaciones  = useMemo(() => sitiosDelEvento(evento, sessions, 'ubicacion'), [evento, sessions]);
 
@@ -830,6 +833,7 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
     fin        : initial?.fin    ? toLocalInput(initial.fin)    : '',
     track      : initial?.track || 'principal',
     ubicacion  : initial?.ubicacion || '',
+    zona_id    : initial?.zona_id || '',
     speaker_id : initial?.speaker_id || '',
     tipo       : initial?.tipo || TIPO_DEFECTO,
     subcategoria: initial?.subcategoria || '',
@@ -853,6 +857,7 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
       fin        : form.fin ? new Date(form.fin).toISOString() : null,
       track      : form.track,
       ubicacion  : form.ubicacion || null,
+      zona_id    : form.zona_id || null,
       speaker_id : form.speaker_id || null,
       tipo       : form.tipo,
       subcategoria: form.subcategoria.trim() || null,
@@ -944,6 +949,29 @@ function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, ses
             className="input bg-surface-2 rounded-2xl py-3 text-base" />
         </div>
       </div>
+      {zonasEvento.length > 0 && (
+        <div className="field">
+          <label className="label">Zona del plano <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+          <select value={form.zona_id}
+            onChange={e => {
+              const z = zonasEvento.find(x => x.id === e.target.value);
+              /* Elegir la zona rellena la ubicación si estaba vacía: son la
+                 misma respuesta a "dónde es", y escribirla dos veces es lo que
+                 hace que acaben diciendo cosas distintas. */
+              setForm(f => ({ ...f, zona_id: e.target.value, ubicacion: f.ubicacion || (z?.nombre || '') }));
+            }}
+            className="input bg-surface-2 rounded-2xl py-3 text-base">
+            <option value="">Sin zona</option>
+            {zonasEvento.map(z => (
+              <option key={z.id} value={z.id}>{z.nombre}{z.aforo_max ? ` (aforo ${z.aforo_max})` : ''}</option>
+            ))}
+          </select>
+          <p className="text-[11px] text-text-3 mt-1">
+            Al tocar esa zona en el plano, este sub-evento aparece en su programación junto con el aforo del momento.
+          </p>
+        </div>
+      )}
+
       <div className="grid sm:grid-cols-3 gap-3">
         <div className="field">
           <label className="label">Track / sala</label>

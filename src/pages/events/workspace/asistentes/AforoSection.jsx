@@ -3,7 +3,7 @@ import { clientesApi } from '../../../../api/clientes.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
-import MapaAforo, { nivelDeZona, DetalleMarcador } from '../../../../components/aforo/MapaAforo.jsx';
+import MapaAforo, { nivelDeZona, DetalleMarcador, calorDeZona, estaEnLlamas, IconoLlama } from '../../../../components/aforo/MapaAforo.jsx';
 import { exportar } from '../../../../lib/hojaEscribir.js';
 
 /* Asistentes · Aforo por zonas — la sala de control del recinto.
@@ -170,6 +170,8 @@ export default function AforoSection({ evento, soyOwner = true }) {
         <>
           <Totales total={total} zonas={zonas} ultimo={ultimo} />
 
+          <Tendencia zonas={zonas} sel={sel} onSelect={setSel} />
+
           {hayMapaVivo ? (
             <div className="grid lg:grid-cols-[1fr_300px] gap-4 items-start">
               <MapaAforo mapa={mapa} datos={datos} sel={sel} onSelect={setSel} />
@@ -210,6 +212,42 @@ export default function AforoSection({ evento, soyOwner = true }) {
       ) : (
         <Reporte evento={evento} zonas={zonas} />
       )}
+    </div>
+  );
+}
+
+/* Dónde está pasando algo ahora mismo, en una línea.
+
+   En un recinto con siete zonas, la pregunta del organizador a media tarde no
+   es "cuánta gente hay" sino "¿dónde se está formando el lío?". El orden lo da
+   el aforo más lo que haya en curso: una zona al 95% con un torneo empezando
+   importa más que otra al 100% sin nada dentro. */
+function Tendencia({ zonas, sel, onSelect }) {
+  const orden = [...zonas]
+    .filter(z => z.dentro > 0 || (z.ahora || []).length > 0)
+    .sort((a, b) => calorDeZona(b) - calorDeZona(a))
+    .slice(0, 4);
+  if (orden.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ahora mismo</span>
+      {orden.map(z => {
+        const arde = estaEnLlamas(z);
+        const activa = sel === `zona:${z.id}`;
+        return (
+          <button key={z.id} onClick={() => onSelect(activa ? null : `zona:${z.id}`)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs transition-colors
+              ${activa ? 'border-accent' : arde ? 'border-orange-500/50 bg-orange-500/10' : 'border-border hover:border-border-2'}`}>
+            {arde && <span className="text-orange-500"><IconoLlama className="w-3 h-3" /></span>}
+            <span className="text-text-1">{z.nombre}</span>
+            <span className="text-text-3 tabular-nums">{z.dentro}{z.aforo_max ? `/${z.aforo_max}` : ''}</span>
+            {(z.ahora || []).length > 0 && (
+              <span className="text-text-3 truncate max-w-[140px]">· {z.ahora[0].titulo}</span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
