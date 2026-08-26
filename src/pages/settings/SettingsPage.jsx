@@ -314,7 +314,10 @@ export function WhiteLabelTab() {
               <p className="text-xs text-text-3 mt-1.5">Aparece bajo el nombre en el header público.</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            {/* Tres selectores de color en 375px salen a 105px cada uno: la
+                etiqueta se parte y el cuadradito deja de poderse tocar bien.
+                Se apilan en movil y vuelven a la fila en cuanto hay sitio. */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <ColorField label="Color primario"  value={primary} onChange={setPrimary} />
               <ColorField label="Color accent"    value={accent}  onChange={setAccent} />
               <ColorField label="Fondo público"   value={bg}      onChange={setBg} />

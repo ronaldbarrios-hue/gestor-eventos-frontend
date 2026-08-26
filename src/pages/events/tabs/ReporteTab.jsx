@@ -92,7 +92,11 @@ export default function ReporteTab({ evento }) {
         {/* Ventas por tipo */}
         {ventas.length > 0 && (
           <Bloque titulo="Por tipo de boleta">
-            <table className="w-full text-sm">
+            {/* En un movil de 375px, cuatro columnas con dinero y porcentajes no
+                caben: o se parten los numeros o se corta la tabla. Se deja que
+                ruede en horizontal, que es lo unico que no miente. */}
+            <div className="overflow-x-auto -mx-1 px-1">
+            <table className="w-full text-sm min-w-[420px]">
               <thead>
                 <tr className="text-[10px] uppercase tracking-widest text-text-3">
                   <th className="text-left font-semibold pb-2">Boleta</th>
@@ -127,6 +131,7 @@ export default function ReporteTab({ evento }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </Bloque>
         )}
 
@@ -138,7 +143,8 @@ export default function ReporteTab({ evento }) {
         {(part.sub_eventos?.length > 0 || part.torneos?.length > 0) && (
           <Bloque titulo="Participación dentro del evento">
             {part.sub_eventos?.length > 0 && (
-              <table className="w-full text-sm mb-4">
+              <div className="overflow-x-auto -mx-1 px-1 mb-4">
+              <table className="w-full text-sm min-w-[420px]">
                 <thead>
                   <tr className="text-[10px] uppercase tracking-widest text-text-3">
                     <th className="text-left font-semibold pb-2">Sub-evento</th>
@@ -171,6 +177,7 @@ export default function ReporteTab({ evento }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
             {part.torneos?.length > 0 && (
               <ul className="divide-y divide-border">

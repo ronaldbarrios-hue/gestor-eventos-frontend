@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 /* El plano del evento con lo que está pasando encima.
  *
  * El mapa decía DÓNDE está cada cosa y el resto de pantallas decían CÓMO va.
@@ -118,16 +120,36 @@ function resolver(m, datos) {
 }
 
 export default function MapaAforo({ mapa, datos = {}, sel = null, onSelect, alto = '60vh' }) {
-  const marcadores = Array.isArray(mapa?.marcadores) ? mapa.marcadores : [];
-  if (!mapa?.imagen_url) return null;
+  /* Zoom, que en el movil no es un adorno.
 
+     Un plano de recinto metido en 375px de ancho deja los circulos de 46px
+     encima unos de otros: se ve que hay marcadores y no cual es cual, y tocar
+     el correcto es cuestion de suerte. Ampliando, el contenedor ya rueda solo
+     —era `overflow-auto` desde el principio— y cada zona vuelve a ser un sitio
+     al que apuntar con el dedo.
+
+     En pantalla grande arranca en 1: ahi el plano ya se lee entero y un zoom
+     por defecto seria estorbar. */
+  const [zoom, setZoom] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 640) ? 1.8 : 1);
+  const marcadores = Array.isArray(mapa?.marcadores) ? mapa.marcadores : [];
   const vivos = marcadores.map(m => ({ m, r: resolver(m, datos) })).filter(x => x.r);
   const referencia = marcadores.filter(m => !resolver(m, datos));
 
+  if (!mapa?.imagen_url) return null;
+
   return (
-    <div className="rounded-2xl border border-border bg-surface-2 overflow-auto flex justify-center">
-      <div className="relative">
-        <img src={mapa.imagen_url} alt="Plano del evento" className="block w-auto max-w-full" style={{ maxHeight: alto }} />
+    <div className="relative rounded-2xl border border-border bg-surface-2 overflow-auto">
+      <div className="sticky top-2 left-2 z-10 w-fit flex items-center gap-1 rounded-full bg-black/70 backdrop-blur-sm p-1 ml-2 mt-2">
+        <button onClick={() => setZoom(z => Math.max(1, Number((z - 0.4).toFixed(1))))} disabled={zoom <= 1}
+          className="w-7 h-7 rounded-full text-white text-lg leading-none flex items-center justify-center disabled:opacity-30" aria-label="Alejar">−</button>
+        <span className="text-white text-[11px] tabular-nums px-1 min-w-[34px] text-center">{Math.round(zoom * 100)}%</span>
+        <button onClick={() => setZoom(z => Math.min(4, Number((z + 0.4).toFixed(1))))} disabled={zoom >= 4}
+          className="w-7 h-7 rounded-full text-white text-lg leading-none flex items-center justify-center disabled:opacity-30" aria-label="Acercar">+</button>
+      </div>
+      <div className="flex justify-center min-w-fit p-2 pt-0">
+      <div className="relative" style={{ width: `${zoom * 100}%`, maxWidth: zoom > 1 ? 'none' : '100%' }}>
+        <img src={mapa.imagen_url} alt="Plano del evento" className="block w-full"
+          style={{ maxHeight: zoom > 1 ? 'none' : alto }} />
 
         {/* Lo que no lleva número —expositores, puntos de interés— se deja
             tenue: sirve para ubicarse, pero aquí el protagonista es el dato. */}
@@ -169,6 +191,7 @@ export default function MapaAforo({ mapa, datos = {}, sel = null, onSelect, alto
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );
