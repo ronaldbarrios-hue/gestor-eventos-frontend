@@ -83,11 +83,12 @@ navegador las consulte, fallan o responden de más.
 
 ---
 
-## 2 · El motor: MySQL (o MariaDB) y el servidor: cPanel
+## 2 · El motor y el servidor, medidos
 
-El servidor de destino sólo ofrece MySQL, y se administra **por cPanel**. Eso se
-acepta como restricción, pero conviene saber qué cuesta, porque no es «cambiar
-la cadena de conexión».
+**MySQL 8.0.46** sobre hosting compartido con **cPanel**, con Node por
+Application Manager. Todo lo de esta sección está comprobado contra el panel y
+contra el propio servidor. Aun así conviene saber qué cuesta el cambio de motor,
+porque no es «cambiar la cadena de conexión».
 
 ### 2.0 · El servidor, medido
 
