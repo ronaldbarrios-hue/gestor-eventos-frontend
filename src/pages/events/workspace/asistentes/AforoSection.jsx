@@ -5,6 +5,7 @@ import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
 import MapaAforo, { nivelDeZona, DetalleMarcador, calorDeZona, estaEnLlamas, IconoLlama } from '../../../../components/aforo/MapaAforo.jsx';
 import { exportar } from '../../../../lib/hojaEscribir.js';
+import { useSondeo } from '../../../../hooks/useSondeo.js';
 
 /* Asistentes · Aforo por zonas — la sala de control del recinto.
  *
@@ -83,12 +84,13 @@ export default function AforoSection({ evento, soyOwner = true }) {
   }, [cargar]);
 
   /* El pulso se puede parar: en un portátil de la organización con la pantalla
-     abierta toda la noche, una petición cada 5 s es ruido que se paga. */
-  useEffect(() => {
-    if (!enVivo) return;
-    const iv = setInterval(cargar, REFRESCO_MS);
-    return () => clearInterval(iv);
-  }, [enVivo, cargar]);
+     abierta toda la noche, una petición cada 5 s es ruido que se paga.
+
+     Y aunque nadie lo pare, `useSondeo` lo calla mientras la pestaña no se ve,
+     no encadena peticiones si una tarda más que el intervalo, y refresca al
+     volver. Antes era un setInterval pelado: sondeaba igual de fondo, que es de
+     donde salía buena parte del tráfico de una jornada. */
+  useSondeo(cargar, REFRESCO_MS, enVivo);
 
   const mover = async (zona, tipo, cantidad = 1) => {
     setOcupado(true);

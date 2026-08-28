@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { clientesApi } from '../api/clientes.js';
 import { supabase } from '../lib/supabase.js';
+import { useAgrupado } from './useSondeo.js';
 
 /**
  * Cuenta en vivo de asistentes que ya ingresaron (check-in hecho) para un
@@ -29,6 +30,16 @@ export function useAsistenciaEnVivo(eventoId) {
 
   useEffect(() => { refrescar(); }, [refrescar]);
 
+  /* Los avisos de tiempo real se agrupan antes de pedir nada.
+
+     Suscribirse no era el problema; volver a preguntar por CADA aviso, sí. En
+     una jornada de ingreso, cada boleta escaneada notifica a todas las
+     pantallas abiertas, y si cada aviso dispara una petición salen N pantallas
+     × M escaneos. Agrupado, una ráfaga de cien escaneos son una o dos
+     peticiones por pantalla, y el contador va como mucho un segundo por detrás
+     — que en un aforo no lo nota nadie. */
+  const refrescarAgrupado = useAgrupado(refrescar, 1200);
+
   useEffect(() => {
     if (!eventoId) return;
     const channel = supabase
@@ -36,10 +47,10 @@ export function useAsistenciaEnVivo(eventoId) {
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'tickets',
         filter: `evento_id=eq.${eventoId}`,
-      }, () => { refrescar(); })
+      }, () => { refrescarAgrupado(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [eventoId, refrescar]);
+  }, [eventoId, refrescarAgrupado]);
 
   /* Bump optimista: lo usa CheckinTab para reflejar el propio escaneo al
      instante, sin esperar el round-trip de Realtime (que puede tardar

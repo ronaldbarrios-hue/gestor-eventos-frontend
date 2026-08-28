@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { eventosApi } from '../../../../api/eventos.js';
 import { ticketsApi } from '../../../../api/tickets.js';
@@ -6,6 +6,7 @@ import { clientesApi } from '../../../../api/clientes.js';
 import { equipoApi } from '../../../../api/equipo.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
+import { useSondeo } from '../../../../hooks/useSondeo.js';
 
 /* Asistentes · Accesos — control de ingresos por puerta.
    El organizador define cuántas entradas hay, qué tipos de boleta admite cada
@@ -48,14 +49,19 @@ export default function AccesosSection({ evento }) {
      para que quien configura vea de una si la zona ya tiene gente dentro. */
   useEffect(() => {
     let vivo = true;
-    const tick = () => {
-      clientesApi.alertas(evento.id).then(d => { if (vivo) setAlertas(d.alertas || []); }).catch(() => {});
-    };
     clientesApi.aforoZonas(evento.id).then(d => { if (vivo) setAforo(d.zonas || []); }).catch(() => {});
-    tick();
-    const iv = setInterval(tick, 8000);
-    return () => { vivo = false; clearInterval(iv); };
+    clientesApi.alertas(evento.id).then(d => { if (vivo) setAlertas(d.alertas || []); }).catch(() => {});
+    return () => { vivo = false; };
   }, [evento.id]);
+
+  /* El pulso de alertas, callado mientras la pestaña no se ve. Esta pantalla es
+     de configuración: se deja abierta en una pestaña y se vuelve a ella de vez
+     en cuando, así que sondearla de fondo cada 8 segundos era gasto puro. */
+  const refrescarAlertas = useCallback(
+    () => clientesApi.alertas(evento.id).then(d => setAlertas(d.alertas || [])).catch(() => {}),
+    [evento.id]
+  );
+  useSondeo(refrescarAlertas, 8000);
 
   const reportar = async () => {
     if (!nuevaAlerta.trim()) return;
