@@ -3,6 +3,7 @@ import { supabase } from '../../../lib/supabase.js';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
+import { auth } from '../../../lib/sesion.js';
 
 /* Asistentes/Organización · Documentos del evento — sube y guarda archivos
    (PDF, imágenes, ofimática) asociados al evento, dentro de la plataforma.
@@ -65,7 +66,7 @@ export default function DocumentosSection({ evento }) {
     try {
       const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
       /* La carpeta raíz debe ser el uid del usuario (política de Storage). */
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       const uid = session?.user?.id;
       if (!uid) throw new Error('Inicia sesión para subir documentos.');
       const path = `${uid}/docs/${evento.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import logoG from '../assets/logo-g.svg';
+import { auth } from '../lib/sesion.js';
 
 export default function ConfirmarPage() {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ export default function ConfirmarPage() {
   useEffect(() => {
     /* Supabase detectSessionInUrl procesa el hash automaticamente.
        Solo verificamos si la sesion fue creada satisfactoriamente. */
-    supabase.auth.getSession().then(({ data, error }) => {
+    auth.getSession().then(({ data, error }) => {
       if (error) {
         setStatus('error');
         setMessage(error.message);

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { supabase } from '../lib/supabase.js';
 import logoG from '../assets/logo-g.svg';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
+import { auth } from '../lib/sesion.js';
 
 export default function ResetPasswordPage() {
   const { updatePassword } = useAuth();
@@ -21,7 +22,7 @@ export default function ResetPasswordPage() {
      automaticamente cuando detectSessionInUrl=true. Aqui solo confirmamos que
      hay sesion recovery valida. */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    auth.getSession().then(({ data }) => {
       if (data.session) setReady(true);
       else setErr('El enlace de recuperación es inválido o expiró. Solicita uno nuevo.');
     });
