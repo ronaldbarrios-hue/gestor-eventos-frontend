@@ -159,24 +159,48 @@ cPanel**, y no por rendimiento: por dos razones concretas.
 **Seguir con Express no obliga a seguir en Render:** Passenger ejecuta el mismo
 `index.js` sin cambios, y ya está probado en este servidor.
 
-### 2.0.b · MySQL o MariaDB: no es lo mismo para nosotros
+### 2.0.b · El motor, confirmado: MySQL 8.0.46
 
-cPanel casi siempre instala **MariaDB**, no MySQL. La diferencia que nos importa
-es una: **MariaDB no tiene tipo `JSON` nativo** — es un alias de `LONGTEXT` con
-una validación. Nuestras cinco columnas JSON dependen de eso.
+**MySQL 8.0.46 Community Server**, no MariaDB — que era el riesgo. Conexión por
+**socket UNIX local**, PHP 8.4.24, phpMyAdmin 5.2.3. Todavía no hay ninguna base
+creada: sólo están `information_schema` y `performance_schema`.
 
-| | MySQL 8 | MariaDB 10.6+ |
-|---|---|---|
-| Tipo `JSON` | Nativo, binario, validado | Alias de `LONGTEXT` + `CHECK (json_valid(...))` |
-| Funciones `JSON_EXTRACT`, `JSON_SET` | Sí | Sí |
-| Indexar dentro del JSON | Columnas generadas + índice | Columnas generadas, con más limitaciones |
+Con MySQL 8 se confirma lo que este documento daba por supuesto:
 
-Con MariaDB se trabaja igual, pero conviene **no meter lógica dentro del JSON**:
-lo que haya que consultar o filtrar se saca a columnas de verdad. Es buena idea
-en los dos casos, y en MariaDB deja de ser opcional.
+- **Tipo `JSON` nativo**, binario y validado. Las cinco columnas JSON de §6.2 se
+  migran como `JSON` y las funciones `JSON_EXTRACT` / `JSON_SET` están completas.
+- **Columnas generadas indexables** sobre campos del JSON, si hiciera falta
+  buscar dentro.
+- CTEs y funciones de ventana disponibles, que es lo que hace falta para
+  reescribir algunas de las 20 funciones plpgsql sin retorcerlas.
 
-**Qué mirar:** la versión sale en la página de inicio de cPanel, barra lateral
-derecha, o entrando a phpMyAdmin. Hasta saberlo, este documento asume MySQL 8.
+Y el socket local refuerza §2.0.a: con el backend en este mismo servidor, la
+base no sale a la red en ningún momento.
+
+**Dos trampas que hay que evitar al crear la base, no después:**
+
+**a) El juego de caracteres del servidor es `utf8mb3`, no `utf8mb4`.** Es el
+valor por defecto de la instalación, y `utf8mb3` **no puede almacenar emojis** ni
+nada fuera del plano básico: los guarda mal o corta la cadena. Tenemos nombres de
+eventos y mensajes de chat con emoji. La base y las tablas hay que crearlas
+**explícitamente** así:
+
+```sql
+CREATE DATABASE gestek
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_0900_ai_ci;
+```
+
+Y comprobar después que ninguna tabla se creó con el valor heredado. Si esto se
+descubre con datos dentro, se arregla, pero es una conversión de toda la base.
+
+**b) Los UUID: `CHAR(36) CHARACTER SET ascii`.** Un `CHAR(36)` en `utf8mb4`
+reserva **144 bytes** por valor en cada índice, y aquí los UUID son la clave
+primaria de casi todo y viajan por claves ajenas en las 71 tablas. Declarando esa
+columna en `ascii` son 36 bytes: cuatro veces menos índice, sin tocar una línea
+de código. `BINARY(16)` con `UUID_TO_BIN()` sería aún mejor en espacio, pero
+obliga a convertir en cada consulta y a que el UUID deje de leerse a simple
+vista; no compensa para nuestro tamaño.
 
 **Lo que se traduce solo:** las tablas, los índices, las claves ajenas, y las
 consultas normales. El grueso del esquema pasa sin drama.
@@ -576,8 +600,10 @@ que **Node corre por Application Manager con Passenger 6.1.8** y ya hay dos
 aplicaciones registradas; que `api.gestekeventost.dpdns.org/health` responde 200
 en 0,78 s con Express; que el backend completo **no** está desplegado ahí
 (`/categorias` da 404); que la banda ancha es ilimitada, el disco 9,81 GB, las
-bases de datos 2 y las cuentas de correo 2 de 2; y que **Render tarda 21,4 s en
-la primera petición y 0,19 s en la segunda**, que es la causa del congelamiento.
+bases de datos 2 y las cuentas de correo 2 de 2; que el motor es **MySQL 8.0.46**
+por socket local, con el servidor en `utf8mb3` y sin ninguna base creada aún; y
+que **Render tarda 21,4 s en la primera petición y 0,19 s en la segunda**, que es
+la causa del congelamiento.
 
 **No medido:**
 
@@ -595,9 +621,6 @@ la primera petición y 0,19 s en la segunda**, que es la causa del congelamiento
   decide si hace falta plan Pro el mes del evento.
 - **Nada de este plan se ha ensayado.** La primera vez que se corra, contra una
   copia.
-- **La versión de MySQL o MariaDB** (§2.0.b). Es lo único del servidor que sigue
-  sin verse, y decide el plan de las cinco columnas JSON. Está en phpMyAdmin, en
-  su cabecera. Hasta saberlo este documento asume MySQL 8.
 - **Si el proxy deja pasar SSE** (§2.0). Diez minutos de prueba, y condiciona
   todo el módulo de tiempo real.
 - **Si la interfaz se congela también con el backend despierto** (§7.3). El
