@@ -72,7 +72,36 @@ Barrido de las 76 políticas buscando `true`:
 Las dos primeras se arreglan con una vista pública que no exponga columnas de
 contacto, o moviendo esas lecturas al backend.
 
-### 1.3 · Lo que ya estaba anotado y sigue sin tocar
+### 1.3 · Datos sensibles viajando en la URL
+
+Lo que va en la ruta o en la query **queda escrito en los logs de acceso del
+servidor en texto plano, en el historial del navegador y en la cabecera
+`Referer`**. Lo que va en el cuerpo de un POST, no. Tres casos medidos:
+
+| Dónde | Qué viaja | Gravedad |
+|---|---|---|
+| `expositor.js:244`, `interacciones.js:271` | `?qr_token=…&codigo=…` | **Alta.** Es la credencial que valida una boleta |
+| `AuthContext.jsx:96` → `eventos.publicos.js:777` | `?email=…` | Media. Dato personal registrado en los logs |
+| `eventos.publicos.js:777` | — | **Es un oráculo**: endpoint público sin sesión que confirma si un correo tiene invitación. Sin límite de peticiones, permite enumerar |
+
+Los dos primeros se arreglan moviendo el dato al cuerpo de un POST o a una
+cabecera. El tercero, con `authLimiter` y devolviendo siempre la misma forma de
+respuesta tarde lo que tarde.
+
+**Lo que no hay que hacer: ofuscar las rutas.** Con HTTPS la ruta ya viaja
+cifrada — un atacante en la red ve el dominio, no el camino. Poner un
+identificador de sesión dentro de la URL, al estilo del `cpsess…` de cPanel, es
+justo lo contrario de una mejora: convierte la credencial en algo que se guarda
+en historiales y logs. Lo que protege de verdad es que el dato sensible **no esté
+en la URL**, que el token vaya en cookie `httpOnly` (§5.5), y que haya freno
+contra la fuerza bruta.
+
+**Y una de operación, no de código:** al panel y a phpMyAdmin hay que entrar por
+el **dominio**, nunca por la IP (`https://162.214.73.93:2083`). Por IP el
+certificado no valida —el navegador lo marca «No seguro»— y la sesión de cPanel,
+que lleva su token en la URL, queda expuesta a intercepción activa.
+
+### 1.4 · Lo que ya estaba anotado y sigue sin tocar
 
 De `SUPABASE.md` §3.4, sin cambios: subida anónima abierta a `form-uploads`,
 hojas de vida en bucket público, 40 objetos huérfanos (28 MB), y la subida de CV
@@ -360,6 +389,13 @@ Google» sólo cambia el scope y qué se hace al volver.
 Lo que falta de verdad: la tabla de usuarios, la verificación de contraseña, los
 endpoints, y conectar el middleware.
 
+**Y el freno contra fuerza bruta también está listo.** `config/security.js` define
+un `authLimiter` que hoy sólo se aplica a `pagos.js`, con un comentario que dice
+que se dejó preparado «por si se agregan endpoints propios `/auth`». Es
+exactamente lo que se va a hacer: al montar `modules/auth/` hay que enchufarlo a
+`/auth/login`, `/auth/recuperar` y `/auth/registro`, que son las tres puertas que
+se atacan por repetición.
+
 ### 5.3 · Los datos que se migran
 
 ```
@@ -545,7 +581,7 @@ Cada fase deja el sistema funcionando. Nada de un corte grande al final.
 
 | Fase | Qué | Depende de | Riesgo |
 |---|---|---|---|
-| **0** | Cerrar `profiles` y las dos tablas con contacto. Borrar el cron muerto y `quick-processor`. Barrer los 40 huérfanos | Nada | Ninguno |
+| **0** | Cerrar `profiles` y las dos tablas con contacto. Sacar el `qr_token` y el correo de las URL, y poner `authLimiter` al endpoint oráculo (§1.3). Borrar el cron muerto y `quick-processor`. Barrer los 40 huérfanos | Nada | Ninguno |
 | **1** | Verificación local del token (§5.4) | Nada | Bajo. Compatible hacia atrás |
 | **1.b** | **Mover el backend de Render a cPanel** (§2.0.a). Quita los 21 s de arranque en frío y con ellos la razón del sondeo. Los recordatorios salen de `node-cron` a los *Trabajos de cron* de cPanel | Nada — Passenger ya está probado ahí | Medio |
 | **2** | `core/` + `modules/`. Migraciones numeradas | Nada | Ninguno: es andamiaje |
