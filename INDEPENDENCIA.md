@@ -16,6 +16,29 @@ la sección 10.
 
 ---
 
+## Estado — 28 de agosto, final del día
+
+| Fase | Qué | Estado |
+|---|---|---|
+| 0 | `qr_token` y correo fuera de la URL, limitador del oráculo | **Código hecho** |
+| 0 | Cerrar `profiles` y las tablas con contacto en Supabase | Pendiente — toca producción |
+| 1 | Verificación local del token | **Hecho** |
+| 1.b | Backend de Render a cPanel | Pendiente |
+| 2 | `core/` + `modules/` + migraciones numeradas | **Hecho** |
+| 3 | Sondeo que se calla, avisos agrupados | **Hecho** (SSE, pendiente de probar el proxy) |
+| 4 | **Identidad propia sobre MySQL** | **Código hecho y probado.** Falta la configuración: `CONFIGURAR.md` del backend |
+| 5 | Archivos propios | Pendiente |
+| 6 | Las 71 tablas a MySQL | Pendiente |
+| 7 | Permisos que sustituyan a RLS | Pendiente |
+
+Lo de la fase 4 incluye el módulo entero (usuarios, Google, sesiones con
+rotación, recuperación, freno por cuenta), el adaptador del frontend con
+interruptor para volver atrás, el script que trae las 29 cuentas conservando
+UUID y hashes, el que comprueba la base, y 18 pruebas nuevas. Las 159 de la
+suite pasan.
+
+---
+
 ## 0 · Los tres criterios que gobiernan todo lo que sigue
 
 1. **Todo propio.** Ningún servicio de terceros en el camino crítico.
