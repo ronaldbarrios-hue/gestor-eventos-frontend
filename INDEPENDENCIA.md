@@ -83,10 +83,52 @@ navegador las consulte, fallan o responden de más.
 
 ---
 
-## 2 · El motor: MySQL
+## 2 · El motor: MySQL (o MariaDB) y el servidor: cPanel
 
-El servidor de destino sólo ofrece MySQL. Eso se acepta como restricción, pero
-conviene saber qué cuesta, porque no es «cambiar la cadena de conexión».
+El servidor de destino sólo ofrece MySQL, y se administra **por cPanel**. Eso se
+acepta como restricción, pero conviene saber qué cuesta, porque no es «cambiar
+la cadena de conexión».
+
+### 2.0 · Lo que cPanel condiciona, y hay que verificar antes de construir
+
+**La pregunta de fondo, sin resolver:** `TRASPASO.md` dice que el administrador
+tiene root, y eso fue lo que retiró la objeción sobre hosting compartido. cPanel
+normalmente significa lo contrario. Si es un **VPS con cPanel encima**, hay root
+y este plan se sostiene entero. Si es **hosting compartido con cPanel**, cambian
+tres cosas de golpe:
+
+| Pieza | En un VPS | En cPanel compartido |
+|---|---|---|
+| Node | systemd, puerto propio | Passenger («Setup Node.js App»), sin control del proceso, con límites de memoria del plan |
+| **SSE** (§7) | Funciona | **Puede no funcionar**: Apache/LiteSpeed suelen bufferizar la respuesta y el flujo no sale nunca |
+| Archivos privados (§6) | `X-Accel-Redirect` de Nginx | `mod_xsendfile` o el equivalente de LiteSpeed |
+| Módulos como microservicios (§4) | Directo | Cada app Node consume recursos del mismo plan compartido |
+| Cron | systemd timers | Los cron jobs de cPanel sirven igual |
+
+**Verificación obligatoria antes de la fase 3:** un endpoint SSE de prueba que
+emita una línea cada segundo. Si llega goteando, hay SSE. Si llega todo junto al
+final, está bufferizado y el módulo de tiempo real usa sondeo largo (30–60 s) en
+vez de SSE — que sigue siendo cien veces menos tráfico que los 5 segundos de hoy.
+Son diez minutos de comprobación y condicionan todo el §7.
+
+### 2.0.b · MySQL o MariaDB: no es lo mismo para nosotros
+
+cPanel casi siempre instala **MariaDB**, no MySQL. La diferencia que nos importa
+es una: **MariaDB no tiene tipo `JSON` nativo** — es un alias de `LONGTEXT` con
+una validación. Nuestras cinco columnas JSON dependen de eso.
+
+| | MySQL 8 | MariaDB 10.6+ |
+|---|---|---|
+| Tipo `JSON` | Nativo, binario, validado | Alias de `LONGTEXT` + `CHECK (json_valid(...))` |
+| Funciones `JSON_EXTRACT`, `JSON_SET` | Sí | Sí |
+| Indexar dentro del JSON | Columnas generadas + índice | Columnas generadas, con más limitaciones |
+
+Con MariaDB se trabaja igual, pero conviene **no meter lógica dentro del JSON**:
+lo que haya que consultar o filtrar se saca a columnas de verdad. Es buena idea
+en los dos casos, y en MariaDB deja de ser opcional.
+
+**Qué mirar:** la versión sale en la página de inicio de cPanel, barra lateral
+derecha, o entrando a phpMyAdmin. Hasta saberlo, este documento asume MySQL 8.
 
 **Lo que se traduce solo:** las tablas, los índices, las claves ajenas, y las
 consultas normales. El grueso del esquema pasa sin drama.
@@ -368,9 +410,10 @@ multiplica pares de peticiones. §5.4 lo corta a la mitad de un plumazo.
 
 1. **Verificación local del token** (§5.4). Es lo más barato y quita la mitad
    del tráfico sin tocar ninguna pantalla.
-2. **Reemplazar el sondeo por SSE.** Una conexión abierta por pantalla, y el
-   servidor empuja cuando algo cambia. El aforo pasa de 720 peticiones/hora a
-   una conexión.
+2. **Reemplazar el sondeo por SSE** — *si cPanel lo permite*, ver §2.0. Una
+   conexión abierta por pantalla, y el servidor empuja cuando algo cambia. El
+   aforo pasa de 720 peticiones/hora a una conexión. Si el proxy bufferiza,
+   sondeo largo de 30–60 s: peor, pero sigue siendo cien veces menos que hoy.
 3. **Que el evento traiga el dato.** El error de `useAsistenciaEnVivo` no es
    suscribirse: es que al recibir el aviso vuelve a preguntar. Si el mensaje ya
    trae el número nuevo, la petición extra sobra entera.
@@ -380,9 +423,41 @@ multiplica pares de peticiones. §5.4 lo corta a la mitad de un plumazo.
 5. **Instrumentar antes y después.** Un contador de peticiones por minuto en el
    backend, para que «mejoró» sea un número y no una impresión.
 
-Sobre el congelamiento que motivó el sondeo: la causa hay que buscarla, no
-taparla. Un sondeo cada 5 segundos no arregla una fuga de memoria; la disimula
-hasta que hay siete personas conectadas.
+### 7.3 · Por qué se congela: no es Supabase
+
+El sondeo se puso con la idea de que **Supabase se congela si no recibe
+peticiones**, por ser plan gratuito. Medido, eso no es lo que pasa:
+
+- El **28 de agosto, de 07:00 a 15:00, el proyecto recibió 1 petición por hora
+  durante ocho horas seguidas**, y siguió `ACTIVE_HEALTHY`. Si se congelara por
+  falta de tráfico, esas ocho horas lo habrían tumbado.
+- La pausa del plan gratuito de Supabase existe, pero es tras **7 días completos
+  sin actividad**, y es una pausa explícita que se deshace desde el panel. No es
+  algo que se cure sondeando cada 5 segundos.
+- Los síntomas no coinciden. Con Supabase dormido la app daría **errores de red**
+  (503, peticiones fallidas). Lo que se observa es la **interfaz congelada**, que
+  es el navegador, no el servidor.
+
+**Hipótesis, sin confirmar:** el backend está en `onrender.com`, y el plan
+gratuito de Render **sí duerme el servicio a los 15 minutos de inactividad**;
+despertarlo tarda ~50 segundos. Esa primera petición colgada casi un minuto se
+siente exactamente como «se congeló». El sondeo funciona — pero por una razón
+distinta a la que se creía, y contra Render, no contra Supabase.
+
+**Cómo confirmarlo, en dos minutos:** dejar la app sin usar 20 minutos, abrirla y
+mirar en la pestaña de red cuánto tarda la primera petición. Si son ~50 segundos
+y después todo va normal, es Render despertando.
+
+**Si se confirma**, la solución no es sondear desde siete navegadores: es **un
+solo ping cada 10 minutos desde un cron** —cPanel los trae— o pagar el plan de
+Render. Mismo efecto, decenas de miles de peticiones menos. Y cuando el backend
+esté en el servidor propio, el problema desaparece solo: un proceso de Passenger
+no se duerme como un servicio gratuito de Render.
+
+**Lo que no hay que hacer es dar por buena la explicación sin medirla.** Si tras
+la comprobación resulta que la interfaz se congela igual con el backend
+despierto, entonces sí hay algo en el navegador —fuga de memoria, listeners
+acumulados, un bucle de renders— y el SSE lo heredaría igual que el sondeo.
 
 ---
 
@@ -415,7 +490,7 @@ trabajo. Conviene pedirlas al empezar la fase anterior, no el día que se usan.
 
 | Qué | Para qué | Cuándo hace falta | Quién |
 |---|---|---|---|
-| **Acceso al servidor** (SSH, usuario MySQL, dominio) | Todo | **Antes de la fase 2** | Administrador |
+| **Acceso a cPanel** (usuario, base MySQL/MariaDB, dominio) y **si hay SSH/root** | Todo. Ver §2.0 | **Antes de la fase 2** | Administrador |
 | **Google Cloud Console** | Añadir el nuevo dominio de callback **conservando el `client_id`** | **Fase 4.** Si el `client_id` cambia, los 22 usuarios de Google se quedan fuera | Dueño del proyecto Google |
 | **SMTP propio** | Confirmación, recuperación de contraseña | Fase 4 — sin esto no se puede registrar nadie | Administrador |
 | **Certificado TLS** | Cookies `httpOnly` seguras | Fase 4 | Administrador |
@@ -447,18 +522,23 @@ ya implementan lo que se creía por escribir.
 - **Las ~70.000 peticiones de ayer.** No pasaron por Supabase; hay que verlas en
   Render o en el navegador. La aritmética de §7.1 las explica, pero explicar no
   es medir.
-- **Por qué se congela la página.** Es la causa que motivó el sondeo y nadie la
-  ha buscado. Hasta saberlo, cualquier arreglo es una conjetura.
+- **Por qué se congela la página.** Lo que sí está medido es que **no es
+  Supabase por falta de peticiones** (§7.3): ocho horas seguidas a 1 petición
+  por hora y el proyecto siguió sano. La hipótesis de Render dormido explica los
+  síntomas, pero no la he podido medir desde aquí — hace falta la pestaña de red
+  o el panel de Render.
 - **La causa exacta de las 861 reconexiones.** El número es real; el porqué hay
   que instrumentarlo.
 - **El egress.** Sigue sin mirarse desde el 13 de agosto, y es el único dato que
   decide si hace falta plan Pro el mes del evento.
 - **Nada de este plan se ha ensayado.** La primera vez que se corra, contra una
   copia.
-- **El servidor de destino.** Versión de MySQL, versión de Node, si hay
-  systemd, si hay disco para los archivos. Todo §2 y §6 asume MySQL 8 con
-  soporte de tipo `JSON`; si es MySQL 5.7, las cinco columnas JSON cambian de
-  plan.
+- **El servidor de destino.** Se administra por cPanel, y eso es todo lo que se
+  sabe. Falta: si hay root o es compartido (§2.0 — es lo que más condiciona),
+  **si es MySQL 8 o MariaDB** (§2.0.b), versión de Node, si el proxy deja pasar
+  SSE, y cuánto disco hay para los 80 MB de archivos. Todo §2, §6 y §7 asume hoy
+  MySQL 8 y SSE disponible: las dos cosas hay que confirmarlas antes de
+  construir sobre ellas.
 
 **La trampa de siempre:** `VITE_DEV_BYPASS_AUTH=1` (`AuthContext.jsx:11`) hay
 que quitarlo antes de probar de verdad, o la app usa el usuario ficticio y las
