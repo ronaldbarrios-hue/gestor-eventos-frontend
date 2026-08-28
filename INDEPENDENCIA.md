@@ -89,27 +89,75 @@ El servidor de destino sólo ofrece MySQL, y se administra **por cPanel**. Eso s
 acepta como restricción, pero conviene saber qué cuesta, porque no es «cambiar
 la cadena de conexión».
 
-### 2.0 · Lo que cPanel condiciona, y hay que verificar antes de construir
+### 2.0 · El servidor, medido
 
-**La pregunta de fondo, sin resolver:** `TRASPASO.md` dice que el administrador
-tiene root, y eso fue lo que retiró la objeción sobre hosting compartido. cPanel
-normalmente significa lo contrario. Si es un **VPS con cPanel encima**, hay root
-y este plan se sostiene entero. Si es **hosting compartido con cPanel**, cambian
-tres cosas de golpe:
+Hosting **compartido** con cPanel (dice *Shared IP Address*), usuario `gestek`,
+home `/home/gestek`, dominio principal `gestekeventost.dpdns.org`. No hay root,
+lo que corrige lo que daba por bueno `TRASPASO.md`. Pero **sí corre Node**, y eso
+es lo que decide que el plan sea viable.
 
-| Pieza | En un VPS | En cPanel compartido |
+**Node corre por Application Manager (Phusion Passenger).** No aparece como
+«Setup Node.js App» ni lo encuentra el buscador con «node»: está en Software →
+**Application Manager**. Ya hay dos aplicaciones registradas y habilitadas:
+
+| Nombre | Dominio | Ruta |
 |---|---|---|
-| Node | systemd, puerto propio | Passenger («Setup Node.js App»), sin control del proceso, con límites de memoria del plan |
-| **SSE** (§7) | Funciona | **Puede no funcionar**: Apache/LiteSpeed suelen bufferizar la respuesta y el flujo no sale nunca |
-| Archivos privados (§6) | `X-Accel-Redirect` de Nginx | `mod_xsendfile` o el equivalente de LiteSpeed |
-| Módulos como microservicios (§4) | Directo | Cada app Node consume recursos del mismo plan compartido |
-| Cron | systemd timers | Los cron jobs de cPanel sirven igual |
+| `gestek-backend` | `api.gestekeventost.dpdns.org` | `/gestek-api` |
+| `gestek-mailer` | `api.gestekeventost.dpdns.org` | `/gestek-mailer` |
 
-**Verificación obligatoria antes de la fase 3:** un endpoint SSE de prueba que
-emita una línea cada segundo. Si llega goteando, hay SSE. Si llega todo junto al
-final, está bufferizado y el módulo de tiempo real usa sondeo largo (30–60 s) en
-vez de SSE — que sigue siendo cien veces menos tráfico que los 5 segundos de hoy.
-Son diez minutos de comprobación y condicionan todo el §7.
+Comprobado contra el servidor: `GET /health` responde `200` en **0,78 s** con
+`X-Powered-By: Express, Phusion Passenger(R) 6.1.8`. **Express corre aquí tal
+cual, sin reescribir nada.** Lo que todavía no está desplegado es el backend
+completo: `/categorias` devuelve 404, así que hoy sólo vive ahí un `/health`.
+
+**Cuotas del plan, medidas:**
+
+| Recurso | Estado | Lectura |
+|---|---|---|
+| **Banda ancha** | 2,87 MB / **∞** | **Ilimitada.** Cierra el asunto del egress que venía del 13 de agosto |
+| Disco | 536 MB / **9,81 GB** | Los 80 MB de archivos caben de sobra |
+| Base de datos | 0 / 9,29 GB | Los 22 MB no son nada |
+| **Bases de datos** | **0 / 2** | Llega para una, pero sin margen para otra de pruebas al lado |
+| **Cuentas de correo** | **2 / 2** | **Al límite.** Para el SMTP de la app hay que reutilizar una o ampliar |
+| Terminal, SSH, Trabajos de cron, Git | Disponibles | Sirven para desplegar y programar tareas |
+
+**Lo que sigue condicionado por ser compartido:**
+
+| Pieza | Consecuencia |
+|---|---|
+| **SSE** (§7) | Hay **Nginx delante con caché activa**. Puede bufferizar el flujo y dejarlo sin salir. **Hay que probarlo antes de construir el módulo** |
+| Archivos privados (§6) | `X-Accel-Redirect` sí es viable porque el proxy es Nginx, pero hay que confirmar que se puede configurar desde el plan |
+| **`node-cron`** | Passenger **duerme el proceso cuando no hay tráfico**, y un cron dentro del proceso no se ejecuta si el proceso no existe. Los recordatorios de `lib/recordatorios.js` **no se pueden quedar ahí**: van a los *Trabajos de cron* de cPanel, llamando a un endpoint |
+| Módulos como microservicios (§4) | Se pueden registrar varias apps —ya hay dos—, pero todas comparten los recursos del mismo plan |
+
+**Verificación pendiente antes de la fase 3:** un endpoint SSE de prueba que
+emita una línea por segundo. Si llega goteando, hay SSE. Si llega todo junto al
+final, está bufferizado y el módulo de tiempo real usa sondeo largo (30–60 s),
+que sigue siendo cien veces menos tráfico que los 5 segundos de hoy.
+
+### 2.0.a · Dónde vive el backend: cPanel, no Render
+
+Hoy el backend está en Render, plan gratuito. Medido hoy, una detrás de otra:
+
+| | Primera petición | Segunda |
+|---|---|---|
+| **Render** | **21,4 s** | 0,19 s |
+| **cPanel** | 0,78 s | 0,78 s |
+
+Veintiún segundos de arranque en frío. Es la causa del sondeo (§7.3) y la razón
+de las decenas de miles de peticiones. **La recomendación es mover el backend a
+cPanel**, y no por rendimiento: por dos razones concretas.
+
+1. **Desaparece el arranque en frío**, y con él la razón de existir del sondeo.
+2. **La base queda al lado.** Si el backend se queda en Render y la base pasa a
+   MySQL aquí, hay que abrirla por *Remote Database Access* — y Render en plan
+   gratuito **no tiene IP fija**, así que habría que autorizar `%`: MySQL
+   expuesto a internet con usuario y contraseña como única defensa, para una
+   base con los datos de 7.000 asistentes. Con el backend en cPanel, la conexión
+   es local y no se expone nada.
+
+**Seguir con Express no obliga a seguir en Render:** Passenger ejecuta el mismo
+`index.js` sin cambios, y ya está probado en este servidor.
 
 ### 2.0.b · MySQL o MariaDB: no es lo mismo para nosotros
 
@@ -438,26 +486,31 @@ peticiones**, por ser plan gratuito. Medido, eso no es lo que pasa:
   (503, peticiones fallidas). Lo que se observa es la **interfaz congelada**, que
   es el navegador, no el servidor.
 
-**Hipótesis, sin confirmar:** el backend está en `onrender.com`, y el plan
-gratuito de Render **sí duerme el servicio a los 15 minutos de inactividad**;
-despertarlo tarda ~50 segundos. Esa primera petición colgada casi un minuto se
-siente exactamente como «se congeló». El sondeo funciona — pero por una razón
-distinta a la que se creía, y contra Render, no contra Supabase.
+**La causa, medida:** es **Render**, que en plan gratuito duerme el servicio por
+inactividad. Dos peticiones seguidas al mismo endpoint, hoy:
 
-**Cómo confirmarlo, en dos minutos:** dejar la app sin usar 20 minutos, abrirla y
-mirar en la pestaña de red cuánto tarda la primera petición. Si son ~50 segundos
-y después todo va normal, es Render despertando.
+| | Primera petición | Segunda |
+|---|---|---|
+| **Render** | **21,4 s** | 0,19 s |
+| cPanel (Passenger) | 0,78 s | 0,78 s |
 
-**Si se confirma**, la solución no es sondear desde siete navegadores: es **un
-solo ping cada 10 minutos desde un cron** —cPanel los trae— o pagar el plan de
-Render. Mismo efecto, decenas de miles de peticiones menos. Y cuando el backend
-esté en el servidor propio, el problema desaparece solo: un proceso de Passenger
-no se duerme como un servicio gratuito de Render.
+Veintiún segundos esperando la primera respuesta. Eso es lo que se percibe como
+«la página se congeló», y es lo que el sondeo cada 5 segundos venía tapando: al
+mantener tráfico constante, Render nunca se dormía. **El sondeo funcionaba, pero
+por una razón distinta a la que se creía, y contra Render, no contra Supabase.**
 
-**Lo que no hay que hacer es dar por buena la explicación sin medirla.** Si tras
-la comprobación resulta que la interfaz se congela igual con el backend
-despierto, entonces sí hay algo en el navegador —fuga de memoria, listeners
-acumulados, un bucle de renders— y el SSE lo heredaría igual que el sondeo.
+**La solución no es sondear desde siete navegadores.** En orden de preferencia:
+
+1. **Mover el backend a cPanel** (§2.0.a). El arranque en frío desaparece y de
+   paso la base queda al lado. Es la salida buena.
+2. Si se queda en Render por ahora: **un solo ping cada 10 minutos** desde los
+   *Trabajos de cron* de cPanel. Mismo efecto que 7 navegadores sondeando, con
+   cuatro órdenes de magnitud menos de tráfico.
+
+**Queda una comprobación pendiente**, y conviene no saltársela: con el backend ya
+despierto, ¿la interfaz sigue congelándose tras un rato largo de uso? Si sí,
+además del arranque en frío hay algo en el navegador —fuga de memoria, listeners
+acumulados, un bucle de renders— y eso el SSE lo heredaría igual que el sondeo.
 
 ---
 
@@ -469,6 +522,7 @@ Cada fase deja el sistema funcionando. Nada de un corte grande al final.
 |---|---|---|---|
 | **0** | Cerrar `profiles` y las dos tablas con contacto. Borrar el cron muerto y `quick-processor`. Barrer los 40 huérfanos | Nada | Ninguno |
 | **1** | Verificación local del token (§5.4) | Nada | Bajo. Compatible hacia atrás |
+| **1.b** | **Mover el backend de Render a cPanel** (§2.0.a). Quita los 21 s de arranque en frío y con ellos la razón del sondeo. Los recordatorios salen de `node-cron` a los *Trabajos de cron* de cPanel | Nada — Passenger ya está probado ahí | Medio |
 | **2** | `core/` + `modules/`. Migraciones numeradas | Nada | Ninguno: es andamiaje |
 | **3** | Sondeo → SSE, y el evento con el dato dentro (§7.2) | Fase 2 | Bajo |
 | **4** | **Auth propio** (§5) en MySQL, conviviendo con Supabase | Fases 1–2 | **Alto**. Ver §9 |
@@ -492,8 +546,8 @@ trabajo. Conviene pedirlas al empezar la fase anterior, no el día que se usan.
 |---|---|---|---|
 | **Acceso a cPanel** (usuario, base MySQL/MariaDB, dominio) y **si hay SSH/root** | Todo. Ver §2.0 | **Antes de la fase 2** | Administrador |
 | **Google Cloud Console** | Añadir el nuevo dominio de callback **conservando el `client_id`** | **Fase 4.** Si el `client_id` cambia, los 22 usuarios de Google se quedan fuera | Dueño del proyecto Google |
-| **SMTP propio** | Confirmación, recuperación de contraseña | Fase 4 — sin esto no se puede registrar nadie | Administrador |
-| **Certificado TLS** | Cookies `httpOnly` seguras | Fase 4 | Administrador |
+| **SMTP propio** | Confirmación, recuperación de contraseña | Fase 4 — sin esto no se puede registrar nadie | Sale del propio cPanel, pero las **cuentas están a 2 de 2**: hay que reutilizar una o ampliar |
+| ~~Certificado TLS~~ | Cookies `httpOnly` seguras | — | **Ya resuelto**: el SSL del dominio está activo |
 | **Secretos nuevos** (`JWT_SECRET`, refresco) | Firmar los tokens | Fase 4 | Se generan; no se reutiliza ninguno de Supabase |
 | **`QR_JWT_SECRET`** | Que los QR ya emitidos sigan validando | Fase 6. **Tiene que viajar idéntico** | Ya existe |
 
@@ -517,6 +571,14 @@ los 10 hashes `$2a$`; las 22 identidades de Google; el descuadre de 10 contra 9;
 19.789 líneas y 38 archivos de rutas; que `lib/oauth.js` y `lib/googleCalendar.js`
 ya implementan lo que se creía por escribir.
 
+**Medido contra el servidor de destino:** que es hosting compartido con cPanel;
+que **Node corre por Application Manager con Passenger 6.1.8** y ya hay dos
+aplicaciones registradas; que `api.gestekeventost.dpdns.org/health` responde 200
+en 0,78 s con Express; que el backend completo **no** está desplegado ahí
+(`/categorias` da 404); que la banda ancha es ilimitada, el disco 9,81 GB, las
+bases de datos 2 y las cuentas de correo 2 de 2; y que **Render tarda 21,4 s en
+la primera petición y 0,19 s en la segunda**, que es la causa del congelamiento.
+
 **No medido:**
 
 - **Las ~70.000 peticiones de ayer.** No pasaron por Supabase; hay que verlas en
@@ -533,12 +595,16 @@ ya implementan lo que se creía por escribir.
   decide si hace falta plan Pro el mes del evento.
 - **Nada de este plan se ha ensayado.** La primera vez que se corra, contra una
   copia.
-- **El servidor de destino.** Se administra por cPanel, y eso es todo lo que se
-  sabe. Falta: si hay root o es compartido (§2.0 — es lo que más condiciona),
-  **si es MySQL 8 o MariaDB** (§2.0.b), versión de Node, si el proxy deja pasar
-  SSE, y cuánto disco hay para los 80 MB de archivos. Todo §2, §6 y §7 asume hoy
-  MySQL 8 y SSE disponible: las dos cosas hay que confirmarlas antes de
-  construir sobre ellas.
+- **La versión de MySQL o MariaDB** (§2.0.b). Es lo único del servidor que sigue
+  sin verse, y decide el plan de las cinco columnas JSON. Está en phpMyAdmin, en
+  su cabecera. Hasta saberlo este documento asume MySQL 8.
+- **Si el proxy deja pasar SSE** (§2.0). Diez minutos de prueba, y condiciona
+  todo el módulo de tiempo real.
+- **Si la interfaz se congela también con el backend despierto** (§7.3). El
+  arranque en frío ya está explicado y medido; lo que no se ha descartado es que
+  además haya algo en el navegador.
+- **El dominio definitivo.** Hoy es `gestekeventost.dpdns.org`, que parece de
+  pruebas. El callback de Google conviene registrarlo una sola vez, con el bueno.
 
 **La trampa de siempre:** `VITE_DEV_BYPASS_AUTH=1` (`AuthContext.jsx:11`) hay
 que quitarlo antes de probar de verdad, o la app usa el usuario ficticio y las
