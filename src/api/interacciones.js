@@ -11,8 +11,11 @@ export const interaccionesApi = {
   historial     : (eventoId, params)  => client.get(`/eventos/${eventoId}/interacciones`, { params }).then(r => r.data),
   borrar        : (eventoId, id)      => client.delete(`/eventos/${eventoId}/interacciones/${id}`).then(r => r.data),
 
-  /* Canje con el MISMO QR de la escarapela. */
-  saldo         : (eventoId, params)  => client.get(`/eventos/${eventoId}/canje/saldo`, { params }).then(r => r.data),
+  /* Canje con el MISMO QR de la escarapela.
+     Consulta, pero va por POST: el `qr_token` es lo que valida una boleta, y en
+     la query string quedaría escrito en los logs de acceso del servidor y en el
+     historial del navegador. En el cuerpo, no. */
+  saldo         : (eventoId, body)    => client.post(`/eventos/${eventoId}/canje/saldo`, body).then(r => r.data),
   canjear       : (eventoId, body)    => client.post(`/eventos/${eventoId}/canje`, body).then(r => r.data),
 
   /* Ranking de expositores por puntos otorgados e interacciones. */
@@ -29,7 +32,8 @@ export const expositorApi = {
   historial     : (codigo)          => client.get(`${EXPO(codigo)}/interacciones`).then(r => r.data),
   recompensas   : (codigo)          => client.get(`${EXPO(codigo)}/recompensas`).then(r => r.data),
   guardarRecompensas: (codigo, recompensas) => client.put(`${EXPO(codigo)}/recompensas`, { recompensas }).then(r => r.data),
-  saldo         : (codigo, params)  => client.get(`${EXPO(codigo)}/canje/saldo`, { params }).then(r => r.data),
+  /* POST y no GET, por lo mismo que arriba: el qr_token no va en la URL. */
+  saldo         : (codigo, body)    => client.post(`${EXPO(codigo)}/canje/saldo`, body).then(r => r.data),
   canjear       : (codigo, body)    => client.post(`${EXPO(codigo)}/canje`, body).then(r => r.data),
   franjas       : (codigo)          => client.get(`${EXPO(codigo)}/franjas`).then(r => r.data),
   crearFranja   : (codigo, body)    => client.post(`${EXPO(codigo)}/franjas`, body).then(r => r.data),

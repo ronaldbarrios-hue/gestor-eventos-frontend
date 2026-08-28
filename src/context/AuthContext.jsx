@@ -89,11 +89,21 @@ export function AuthProvider({ children }) {
 
   /* Consulta pública (sin sesión) si un email tiene una invitación pendiente.
      Se usa SOLO desde el formulario de registro (antes de tener cuenta/sesión),
-     donde no hay riesgo de condición de carrera con la vinculación automática. */
+     donde no hay riesgo de condición de carrera con la vinculación automática.
+
+     Por POST y no por GET: el correo iba en la query string y quedaba escrito
+     en los logs de acceso del servidor y en el historial del navegador. El
+     servidor además limita este endpoint, porque contesta sobre datos de otros;
+     si responde 429 se trata como "no invitado", que es lo que ya se hacía con
+     cualquier fallo — el registro sigue adelante igual. */
   const checkInvitacionPendiente = useCallback(async (email) => {
     if (!email || !email.includes('@')) return { invitado: false };
     try {
-      const resp = await fetch(`${API_URL}/eventos/publicos/invitacion-pendiente?email=${encodeURIComponent(email.toLowerCase().trim())}`);
+      const resp = await fetch(`${API_URL}/eventos/publicos/invitacion-pendiente`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ email: email.toLowerCase().trim() }),
+      });
       if (!resp.ok) return { invitado: false };
       return await resp.json();
     } catch {
