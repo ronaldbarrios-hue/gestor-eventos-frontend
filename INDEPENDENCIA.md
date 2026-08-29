@@ -79,10 +79,24 @@ mismos conteos del 28.
 > Comprobado después contra las cuatro consultas que el frontend hace a
 > `profiles`: las cuatro piden columnas que siguen concedidas.
 >
-> **Lo que queda:** entre cuentas autenticadas todavía se ven correo y teléfono,
-> porque el chat lee nombre, avatar y correo de otros usuarios. El arreglo es
-> una vista con sólo `(id, nombre, avatar_url)` y cambiar `ChatTab`; va con el
-> próximo despliegue del frontend, no antes, o el chat se queda sin nombres.
+> **La otra mitad, hecha el mismo día.** Entre cuentas autenticadas todavía se
+> veían correo y teléfono, porque el chat pedía la ficha entera de otros
+> usuarios. Ahora hay una vista `perfiles_publicos` con tres columnas —id,
+> nombre y avatar— aplicada ya en producción, y `ChatTab` lee de ahí. El correo
+> como nombre de reserva se quitó: los 29 tienen nombre, así que no se usaba.
+>
+> Falta el último paso, y **no se puede dar hasta que el frontend esté
+> desplegado**: `db/migraciones/postgres/002_cerrar_profiles_entre_cuentas.sql`,
+> que deja la política en «cada quien la suya». Si se corre antes, el chat se
+> queda sin nombres.
+>
+> La vista es `SECURITY DEFINER` y el linter la marca en rojo. Es a propósito:
+> es lo que la hace seguir devolviendo filas cuando la tabla ya no deje leer más
+> que la propia.
+>
+> **Y una buena noticia del linter:** las 21 tablas con RLS activado y sin
+> ninguna política no son un agujero. Sin política, RLS deniega por defecto:
+> sólo se llega a ellas con la service key, o sea desde el backend.
 >
 > ### Dónde está el código de la fase 4, y por qué no está donde debería
 >

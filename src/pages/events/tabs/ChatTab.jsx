@@ -232,8 +232,13 @@ function ChannelView({ evento, channel, usuario }) {
         });
         scrollToBottom();
         /* Hidratar el autor si es de otro user */
+        /* De la vista, no de `profiles`. Aquí se está leyendo la ficha de OTRA
+           persona, y de esa ficha lo único que hace falta para pintar un
+           mensaje es su nombre y su foto. Pedirla entera traía también su
+           correo y su teléfono, y era la razón por la que `profiles` tenía que
+           seguir siendo legible entre cuentas. */
         const { data } = await supabase
-          .from('profiles').select('id, nombre, avatar_url, email').eq('id', row.user_id).maybeSingle();
+          .from('perfiles_publicos').select('id, nombre, avatar_url').eq('id', row.user_id).maybeSingle();
         if (data) setMessages(prev => prev.map(m => m.id === row.id ? { ...m, autor: data } : m));
       })
       .subscribe();
@@ -392,7 +397,10 @@ function MessageBubble({ message, showHeader, isMine }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
           <span className="text-sm font-semibold text-text-1">
-            {message.autor?.nombre || message.autor?.email || 'Usuario'}
+            {/* Sin el correo de reserva: enseñarlo era publicar la dirección de
+                quien escribe a todo el que abra el chat. Las 29 cuentas tienen
+                nombre, así que la reserva no se usaba nunca. */}
+            {message.autor?.nombre || 'Usuario'}
             {isMine && <span className="ml-1.5 text-xs uppercase tracking-widest text-text-3 font-medium">tú</span>}
           </span>
           <span className="text-xs text-text-3 tabular-nums">{fecha}</span>

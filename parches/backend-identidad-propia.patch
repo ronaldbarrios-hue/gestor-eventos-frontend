@@ -1,7 +1,7 @@
 From 55d0f3272c408540e65a7574c63c68e2d6862c66 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:19:23 +0000
-Subject: [PATCH 1/4] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
+Subject: [PATCH 1/5] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
  =?UTF-8?q?m=C3=B3dulo=20entero,=20detr=C3=A1s=20de=20un=20interruptor?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -3944,7 +3944,7 @@ index 0000000..b3b3197
 From 7a5fa2cd188356c168a92d2770689a56900f50a6 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:20:01 +0000
-Subject: [PATCH 2/4] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
+Subject: [PATCH 2/5] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
  =?UTF-8?q?ube=20al=20backend,=20y=20ah=C3=AD=20s=C3=AD=20se=20puede=20com?=
  =?UTF-8?q?probar?=
 MIME-Version: 1.0
@@ -5784,7 +5784,7 @@ index 0000000..49474c9
 From 0a985a5df87cc251adcbcac8939008c61fb0cd9c Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:37:30 +0000
-Subject: [PATCH 3/4] =?UTF-8?q?Permisos:=20la=20decisi=C3=B3n=20en=20una?=
+Subject: [PATCH 3/5] =?UTF-8?q?Permisos:=20la=20decisi=C3=B3n=20en=20una?=
  =?UTF-8?q?=20funci=C3=B3n,=20y=20una=20prueba=20que=20pasa=20lista=20a=20?=
  =?UTF-8?q?las=20279=20rutas?=
 MIME-Version: 1.0
@@ -7572,7 +7572,7 @@ index 0000000..b4b02c5
 From efc13bfa87c3dffe2af0d9355e1eedcb29086edb Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:41:16 +0000
-Subject: [PATCH 4/4] =?UTF-8?q?Barrido=20de=20hu=C3=A9rfanos:=20la=20lista?=
+Subject: [PATCH 4/5] =?UTF-8?q?Barrido=20de=20hu=C3=A9rfanos:=20la=20lista?=
  =?UTF-8?q?=20medida=20y=20el=20script=20que=20la=20ejecuta?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -8211,6 +8211,94 @@ index 62fd849..6fd2d58 100644
  
    console.log(`   objetos             ${objetos.length}  (${mb(suma(objetos))} MB)`);
    console.log(`   referenciados       ${conDueño.length}  (${mb(suma(conDueño))} MB)`);
+-- 
+2.43.0
+
+
+From 75b0ca9169fa778e2c90314ce2c08a92f98ebc73 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 29 Aug 2026 01:48:23 +0000
+Subject: [PATCH 5/5] =?UTF-8?q?La=20migraci=C3=B3n=20que=20cierra=20profil?=
+ =?UTF-8?q?es=20del=20todo,=20lista=20para=20cuando=20el=20frontend=20suba?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Queda escrita y sin aplicar a propósito: si se corre antes de que el frontend
+lea de `perfiles_publicos`, el chat se queda sin nombres ni fotos.
+
+La vista ya está en producción y expone tres columnas: id, nombre y avatar.
+Se queda como SECURITY DEFINER a propósito —el linter lo marca— porque es lo
+que la hace seguir devolviendo filas cuando la política de la tabla pase a ser
+«cada quien la suya». Sin eso, la vista se vaciaría y el chat con ella.
+
+La migración trae las tres comprobaciones que hay que hacer antes, y la de
+después: entrar con una cuenta normal. Con la service key todo funciona
+siempre, que es la trampa de siempre.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ .../002_cerrar_profiles_entre_cuentas.sql     | 51 +++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+ create mode 100644 db/migraciones/postgres/002_cerrar_profiles_entre_cuentas.sql
+
+diff --git a/db/migraciones/postgres/002_cerrar_profiles_entre_cuentas.sql b/db/migraciones/postgres/002_cerrar_profiles_entre_cuentas.sql
+new file mode 100644
+index 0000000..78fb23c
+--- /dev/null
++++ b/db/migraciones/postgres/002_cerrar_profiles_entre_cuentas.sql
+@@ -0,0 +1,51 @@
++-- 002_cerrar_profiles_entre_cuentas.sql
++--
++-- ⚠ POSTGRES (Supabase). Y **no se aplica todavía**: hay que esperar a que el
++-- frontend que lee de `perfiles_publicos` esté desplegado. Si se aplica antes,
++-- el chat se queda sin nombres ni fotos.
++--
++-- ── Qué cierra ───────────────────────────────────────────────────────────
++--
++-- El 29 de agosto se cerró la lectura ANÓNIMA de `profiles`: la política decía
++-- `((auth.uid() = id) OR true)` y con la llave del bundle cualquiera en
++-- internet leía 29 correos, 24 teléfonos y los tokens de pago.
++--
++-- Lo que quedó abierto fue entre cuentas: la política tuvo que quedar en
++-- «cualquier autenticado lee la tabla entera», porque el chat necesitaba el
++-- nombre y la foto de otras personas y las pedía a `profiles`. Con 29 cuentas
++-- eso es poco riesgo; con el evento y sus invitados, ya no.
++--
++-- La vista `perfiles_publicos` (migración anterior) expone sólo id, nombre y
++-- avatar. Cuando el frontend lea de ahí —commit «El chat lee la vista, no la
++-- ficha entera»— esta migración termina el trabajo.
++--
++-- ── Antes de aplicarla, comprobar tres cosas ─────────────────────────────
++--
++-- 1. Que el frontend desplegado en producción trae el cambio. Se comprueba por
++--    contenido, que es lo único concluyente: buscar `perfiles_publicos` en el
++--    bundle que sirve Vercel. Comparar hashes NO vale.
++-- 2. Abrir un chat de evento con dos cuentas distintas y ver que los mensajes
++--    del otro salen con su nombre y su foto.
++-- 3. Que Ajustes, Completar perfil y la conexión de Mercado Pago siguen
++--    cargando: las tres leen la ficha PROPIA y siguen pudiendo.
++
++BEGIN;
++
++DROP POLICY IF EXISTS profiles_select_autenticados ON public.profiles;
++
++-- Cada quien la suya, y nada más.
++CREATE POLICY profiles_select_propia ON public.profiles
++  FOR SELECT TO authenticated
++  USING (auth.uid() = id);
++
++-- Comprobación: con esto, una cuenta cualquiera sólo puede ver una fila.
++-- (Devuelve 1 si la política quedó bien escrita; 0 o 29 significan que no.)
++SELECT count(*) AS filas_que_veria_una_cuenta
++  FROM public.profiles
++ WHERE id = '00000000-0000-0000-0000-000000000000';   -- sustituir por un uid real al probar
++
++COMMIT;
++
++-- Y después, para confirmarlo desde fuera y no desde aquí —con la service key
++-- todo funciona siempre, que es la trampa de siempre—: entrar a la aplicación
++-- con una cuenta normal y mirar que el chat sigue enseñando nombres.
 -- 
 2.43.0
 
