@@ -12,27 +12,15 @@ Complementa, sin repetirlos:
 
 ---
 
-## 0 · Lo primero, porque se pierde
+## 0 · Lo primero: todo está subido
 
-**Hay 20 commits hechos y sin subir**, y el contenedor de esta sesión es
-efímero:
+Ya no hay parches ni commits colgando. El 403 de GitHub se resolvió mergeando
+desde una sesión con permisos, y desde entonces el trabajo va directo a la rama
+`claude/gestek-storage-cleanup-auth-41d8d8` en los dos repositorios.
 
-| Repositorio | Rama | Commits |
-|---|---|---|
-| `gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | **9** |
-| `gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | **11** |
-
-`git push` devuelve **403 en los dos repositorios**. No es un fallo del
-trabajo: es un permiso de la integración de Claude con GitHub, y sólo lo
-concede un admin de esa cuenta. La conexión MCP de GitHub que hay en esta
-sesión es de **sólo lectura**.
-
-Mientras tanto, el trabajo del backend viaja **dentro del repo del frontend**,
-como parche: `parches/backend-identidad-propia.patch` (9 commits, 468 KB). El
-procedimiento para aplicarlo y subirlo está en `SUBIR.md`, paso a paso.
-
-> Si sólo se conserva un archivo de esta sesión, que sea el repo del frontend:
-> lleva el backend dentro.
+**Los dos repos se despliegan JUNTOS.** Pasó una vez y costó: el frontend salió
+con llamadas por POST y el backend se quedó en GET, y los dos escáneres de
+canje devolvieron 401 en producción hasta que se desplegó el otro lado.
 
 ---
 
@@ -49,8 +37,8 @@ Las fases son las de `INDEPENDENCIA.md`.
 | 3 | Cerrar la lectura anónima de datos personales | ✅ **aplicado en producción** |
 | 4 | Barrido de huérfanos del Storage | ⏸ script y lista listos, falta correrlo |
 | 5 | Contingencia del correo (cola, rescate, reintento) | ✅ |
-| 6 | **Las 71 tablas a MySQL** | 🚧 **aquí me quedé** |
-| 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 230 de 281 rutas sin declarar |
+| 6 | **Las 71 tablas a MySQL** | 🚧 4 de 5 pasos escritos; falta el script de carga |
+| 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 230 sin declarar; el tope no ha subido |
 | 8 | Botón de registro incrustable (widget) | ✅ |
 | 9 | La escarapela y la tarjeta, una sola | ✅ un diseño, dos salidas |
 | 10 | Cada punto dice de dónde salió | ✅ y participar en un sub-evento por fin paga |
@@ -59,7 +47,7 @@ Lo que está «escrito, apagado» funciona y tiene pruebas, pero **no cambia el
 comportamiento de nada** hasta que se encienda su interruptor (`AUTH_PROPIA`,
 `ARCHIVOS_PROPIOS`). Subir el código es seguro.
 
-**265 pruebas** en el backend, todas en verde. **7 pruebas** del widget en
+**336 pruebas** en el backend, todas en verde. **7 pruebas** del widget en
 Chromium, en verde.
 
 ---
@@ -131,16 +119,36 @@ Y uno que ahorra un fallo tonto: la colación tiene que ser
 ignora acentos además de mayúsculas, y entonces «José» y «Jose» chocarían donde
 hoy conviven.
 
-### Lo que sigue en la fase 6, por orden
+### Lo que sigue en la fase 6
 
-1. Correr el generador y guardar la salida como `db/migraciones/003_esquema.sql`.
-2. Traducir a mano las 4 vistas (`perfiles_publicos`, `v_bolsa_evento`,
-   `v_consumo_puntos_stand`, `v_participacion_sesiones`). **`perfiles_publicos`
-   no puede quedarse fuera**: es la que cerró la lectura anónima.
-3. El script de carga de datos: 829 campos, `timestamptz` a UTC, 8 arreglos a
-   JSON.
-4. Reescribir en código los 9 disparadores y las 7 funciones RPC.
-5. Una prueba que compare fila a fila las dos bases **antes** del corte.
+De los cinco pasos quedan **uno y medio**. El detalle de cada decisión, con su
+porqué, está en `db/migraciones/NOTAS-ESQUEMA.md` del backend.
+
+| Paso | Estado |
+|---|---|
+| 1 · Correr el generador → `003_esquema.sql` | ⏸ se hace lo más tarde posible: su salida cambia con el esquema |
+| 2 · Las 4 vistas | ✅ `004_vistas.sql`, comprobadas contra Postgres |
+| 3 · El script de carga de datos | ⏸ **lo único que falta de verdad**; se escribe contra un esquema ya creado |
+| 4 · Los 9 disparadores y las 7 funciones RPC | ✅ `modules/contadores/`, `modules/eventos/semillas.js`, `modules/aforo/consultas.js` |
+| 5 · Comparar las dos bases antes del corte | ✅ `scripts/comparar-bases.js` |
+
+Tres cosas de esos módulos que conviene no deshacer:
+
+- Los contadores van con transacción **y** `SELECT … FOR UPDATE`. El bloqueo es
+  lo que serializa; la transacción sola no basta, porque MySQL en REPEATABLE
+  READ deja que dos escaneos lean lo mismo y el stand reparta 520 de una cuota
+  de 500.
+- Al traerlos se arreglaron **dos fallos del original**: `canjear_recompensa`
+  sólo bloqueaba la recompensa, así que dos canjes distintos de la misma
+  persona podían descontar del mismo saldo; y el cupo del sub-evento se
+  comprobaba fuera de transacción.
+- Cada conexión de MySQL fija `SET time_zone = '+00:00'`. `timezone: 'Z'` es
+  del driver y no toca la sesión, y las franjas del aforo se calculan con la de
+  la sesión: el pico de las 8 de la noche habría salido a las 3 de la tarde sin
+  que nada fallara de forma visible.
+
+Nada de esto se llama desde ninguna ruta todavía, a propósito: los datos siguen
+en Supabase y allí los disparadores hacen su trabajo.
 
 ---
 
@@ -224,7 +232,7 @@ esperar a después del pitch.**
 
 | Qué | Qué hace falta | Cuánto |
 |---|---|---|
-| **Desplegar backend y frontend a la vez** | 🔴 **Los dos escáneres de canje están rotos en producción ahora mismo.** El frontend de `main` llama por POST y el backend desplegado sólo tiene GET: medido contra Render, POST devuelve 401 y GET 200. El arreglo ya está en la rama. **Los dos tienen que salir juntos**, o se rompe lo que hoy funciona | 15 min |
+| **Desplegar backend y frontend a la vez** | ✅ Hecho. Los escáneres ya responden 200 en producción. Se deja anotado porque la regla sigue en pie: los dos repos salen juntos, y no hacerlo fue lo que los rompió | — |
 | **Correr el barrido de huérfanos** | `SUPABASE_SERVICE_KEY` en el entorno. Son 36 objetos, 28,1 MB, ya medidos y listados | 2 min |
 | **Cerrar el correo entre cuentas** | Desplegar el frontend y **después** correr `db/migraciones/postgres/002_…`. En ese orden, o el chat se rompe | 10 min |
 | **Conseguir el SMTP** | Bloquea todo el correo, y con él la mitad del recorrido de prueba: boletas con QR, invitaciones, recordatorios, lista de espera. `POR-HACER.md` §1.1 | — |
