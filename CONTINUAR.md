@@ -52,6 +52,8 @@ Las fases son las de `INDEPENDENCIA.md`.
 | 6 | **Las 71 tablas a MySQL** | 🚧 **aquí me quedé** |
 | 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 230 de 281 rutas sin declarar |
 | 8 | Botón de registro incrustable (widget) | ✅ |
+| 9 | La escarapela y la tarjeta, una sola | ✅ un diseño, dos salidas |
+| 10 | Cada punto dice de dónde salió | ✅ y participar en un sub-evento por fin paga |
 
 Lo que está «escrito, apagado» funciona y tiene pruebas, pero **no cambia el
 comportamiento de nada** hasta que se encienda su interruptor (`AUTH_PROPIA`,
@@ -229,7 +231,7 @@ esperar a después del pitch.**
 | **`MP_WEBHOOK_SECRET`** | Del panel de Mercado Pago. Sin ella los webhooks se aceptan **sin verificar firma**: cualquiera que sepa la URL puede marcar una boleta como pagada | 5 min |
 | **Decir si la pasarela de producción es real o de pruebas** | Antes de recorrer el flujo de compra de punta a punta. Si el token de Render es de producción, «comprar una boleta» mueve dinero de verdad | — |
 | **Mirar el egress** | Entrar al panel de Supabase. Es el dato que decide si hace falta plan Pro el mes del evento | 2 min |
-| **Aplicar la migración `0081`** | Cuando se monte la base. No corre prisa: el código ya funciona sin ella | 1 min |
+| **Aplicar las migraciones `0081`, `0082` y `0083`** | Cuando se monte la base. Ninguna corre prisa: el código funciona sin las tres, y lo comprueba en caliente. La 0082 reintenta el insert sin las columnas nuevas si Postgres responde 42703; la 0083 sólo deja escrito lo que el frontend ya deduce al vuelo | 2 min |
 | **Encender la identidad propia** | cPanel: base MySQL, variables, consola de Google. `CONFIGURAR.md`. **No antes del pitch** | 1 h |
 | **Mover el backend de Render a cPanel** | Acceso a cPanel. Quita los 21 s de arranque en frío, que es la causa **medida** del congelamiento | 1 h |
 
