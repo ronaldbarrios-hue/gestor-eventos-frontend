@@ -38,7 +38,7 @@ Las fases son las de `INDEPENDENCIA.md`.
 | 4 | Barrido de huérfanos del Storage | ⏸ script y lista listos, falta correrlo |
 | 5 | Contingencia del correo (cola, rescate, reintento) | ✅ |
 | 6 | **Las 71 tablas a MySQL** | 🚧 4 de 5 pasos escritos; falta el script de carga |
-| 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 de 230 a **124** sin declarar |
+| 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 de 230 a **49** sin declarar |
 | 8 | Botón de registro incrustable (widget) | ✅ |
 | 9 | La escarapela y la tarjeta, una sola | ✅ un diseño, dos salidas |
 | 10 | Cada punto dice de dónde salió | ✅ y participar en un sub-evento por fin paga |
@@ -155,8 +155,8 @@ en Supabase y allí los disparadores hacen su trabajo.
 ## 3 · La otra mitad abierta: la fase 7
 
 El censo de rutas ya existe y la prueba lo sostiene (`test/permisos.test.js`).
-Hoy: **285 rutas**, 161 declaradas y **124 sin declarar**. Se bajó de 230 en
-tres tandas.
+Hoy: **285 rutas**, 236 declaradas y **49 sin declarar**. Se bajó de 230 en
+siete tandas.
 
 El número está anotado como tope en `core/permisos/inventario.json` y **sólo
 puede bajar**: si alguien añade una ruta sin declararla, la prueba se pone roja
@@ -180,10 +180,20 @@ Cuando la lista de permisos ya existía en un helper, se saca a una constante
 que usan los dos — escrita dos veces acaban separándose, y entonces la ruta
 dice que pide un permiso y el handler exige otro.
 
-Y una categoría que el sistema no tenía nombrada, encontrada en `chat` y
-`tareas`: **pertenencia**. «Eres del equipo activo» no es un permiso, no es
-público y no es «esta fila es tuya». Van con `sesion()` y el motivo lo dice;
-inventarles un permiso habría dejado fuera a quien hoy entra.
+Dos categorías que el sistema no tenía nombradas y aparecieron declarando:
+
+- **Pertenencia** (`chat`, `tareas`, `solicitudes`). «Eres del equipo activo»
+  no es un permiso, no es público y no es «esta fila es tuya». Van con
+  `sesion()`; inventarles un permiso habría dejado fuera a quien hoy entra.
+- **Sólo el dueño** (`waitlist`, `promociones`). Comparan `owner_id` y no piden
+  permiso. Aquí `exige()` habría sido un fallo de seguridad y no una
+  declaración: `puede()` deja pasar al dueño **o** a quien tenga la acción, así
+  que ponerle un permiso ABRE la ruta a los editores.
+
+Y un tropiezo que se repitió tres veces, por si sirve en las 49 que quedan: si
+el archivo YA importaba algo de `core/permisos`, la inserción automática del
+import se lo salta y las rutas quedan referenciando algo inexistente. Revienta
+al cargar, no al leer el diff — lo cazaron las pruebas las tres veces.
 
 ---
 
