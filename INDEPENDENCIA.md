@@ -24,7 +24,7 @@ la sección 10.
 | 0 | Cerrar `profiles` y las tablas con contacto en Supabase | **Aplicado en producción el 29** |
 | 0 | Barrer los huérfanos del Storage | Lista y script hechos. Falta ejecutarlo: pide la service key |
 | 1 | Verificación local del token | **Hecho** |
-| 1.b | Backend de Render a cPanel | Pendiente |
+| 1.b | Backend de Render a cPanel | **Código y guía hechos** (`app.js`, crons, `.cpanel.yml`, `DESPLIEGUE-CPANEL.md`). Falta hacerlo en el panel |
 | 2 | `core/` + `modules/` + migraciones numeradas | **Hecho** |
 | 3 | Sondeo que se calla, avisos agrupados | **Hecho** (SSE, pendiente de probar el proxy) |
 | 4 | **Identidad propia sobre MySQL** | **Código hecho y probado**, en `parches/`. Falta la configuración: `CONFIGURAR.md` |
@@ -45,7 +45,11 @@ problemas de `SUPABASE.md` §3.4 quedan arreglados por construcción: el archivo
 anterior se borra, `form-uploads` deja de aceptar a cualquiera, las hojas de
 vida salen del bucket público, y empiezan a poder subirse.
 
-**91 pruebas nuevas entre las dos fases. Las 232 de la suite pasan.**
+La fase 1.b es `app.js` para Passenger, los dos ciclos sacados del proceso a
+los Trabajos de cron de cPanel, el `.cpanel.yml` que reinicia Passenger y
+`DESPLIEGUE-CPANEL.md` con el orden completo. Falta hacerlo en el panel.
+
+**116 pruebas nuevas. Las 257 de la suite pasan.**
 
 Medido otra vez contra producción, el 29: **29 usuarios, 10 con contraseña y
 los 10 con hash bcrypt, 22 identidades de Google, 9 de tipo `email`** —el
@@ -132,6 +136,10 @@ mismos conteos del 28.
 Esto no depende de la migración y está abierto ahora mismo.
 
 ### 1.1 · `profiles` es legible por cualquiera, sin cuenta
+
+> **Cerrado el 29 de agosto.** Lo que sigue es cómo estaba y cómo se midió; el
+> arreglo, lo que resultó ser peor de lo escrito aquí, y lo que aún falta están
+> en el bloque del estado, arriba. No hay que volver a aplicar nada de esto.
 
 La política `profiles_select_self` está escrita así:
 

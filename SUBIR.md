@@ -14,13 +14,13 @@ la sesión en la nube devuelve 403.
 
 | Repositorio | Rama | Commits sin subir |
 |---|---|---|
-| `ronaldbarrios-hue/gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 4 |
-| `ronaldbarrios-hue/gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 4 |
+| `ronaldbarrios-hue/gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 7 |
+| `ronaldbarrios-hue/gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 6 |
 
 Los dos parches vienen del chat:
 
-- `gestek-backend-4-commits.patch`
-- `gestek-frontend-4-commits.patch`
+- `gestek-backend-6-commits.patch`
+- `gestek-frontend-7-commits.patch`
 
 El del frontend **ya lleva dentro** una copia del otro (en `parches/`), así que
 si sólo se conserva uno, que sea ése.
@@ -34,13 +34,13 @@ git clone https://github.com/ronaldbarrios-hue/gestor-eventos-backend
 cd gestor-eventos-backend
 git checkout -b claude/gestek-storage-cleanup-auth-41d8d8-46jiml
 
-git am < ~/Downloads/gestek-backend-4-commits.patch
+git am < ~/Downloads/gestek-backend-6-commits.patch
 
 npm install          # el parche añade bcryptjs y mysql2
-npm test             # tienen que pasar 252
+npm test             # tienen que pasar 257
 ```
 
-Si `npm test` no da 252, **parar y decirlo** en vez de arreglar por encima: el
+Si `npm test` no da 257, **parar y decirlo** en vez de arreglar por encima: el
 parche se aplicó mal o la rama base se movió.
 
 ```bash
@@ -54,7 +54,7 @@ git clone https://github.com/ronaldbarrios-hue/gestor-eventos-frontend
 cd gestor-eventos-frontend
 git checkout -b claude/gestek-storage-cleanup-auth-41d8d8-46jiml origin/claude/gestek-storage-cleanup-auth-41d8d8-46jiml
 
-git am < ~/Downloads/gestek-frontend-4-commits.patch
+git am < ~/Downloads/gestek-frontend-7-commits.patch
 
 npm install
 npm run build        # tiene que construir sin errores
@@ -73,7 +73,7 @@ Pasa si la rama base avanzó. En ese caso:
 
 ```bash
 git am --abort
-git apply --3way ~/Downloads/gestek-backend-4-commits.patch
+git apply --3way ~/Downloads/gestek-backend-6-commits.patch
 # resolver los conflictos como siempre, y commitear a mano
 ```
 
@@ -96,7 +96,7 @@ Se pierden los mensajes de commit originales, que son largos a propósito
 
 ## 5 · Qué lleva cada commit
 
-### Backend (4)
+### Backend (6)
 
 1. **Identidad propia sobre MySQL.** `modules/auth/` entero —usuarios, Google,
    sesiones con rotación, recuperación, freno por cuenta—, `core/db` y
@@ -116,14 +116,23 @@ Se pierden los mensajes de commit originales, que son largos a propósito
    anotadas como tope que sólo puede bajar.
 4. **Barrido de huérfanos.** El script y la lista medida de los 36 objetos
    (28,1 MB) que no referencia ninguna fila.
+5. **La migración que cierra `profiles` del todo**, escrita y SIN aplicar: se
+   corre cuando el frontend nuevo esté desplegado, no antes.
+6. **Arranque en cPanel (fase 1.b).** `app.js` para Passenger, los dos ciclos
+   sacados del proceso a los Trabajos de cron del panel, el `.cpanel.yml` que
+   reinicia Passenger, y `DESPLIEGUE-CPANEL.md`.
 
-### Frontend (4)
+### Frontend (7)
 
 1. **Confirmar y restablecer** dejan de pasar por Supabase, detrás del mismo
    interruptor. Y `parches/`, con el código del backend guardado como parche.
 2. **El candado** anota `eslint`, que estaba declarado y no dentro.
 3. **La fase 5** se anota en el estado, y el parche pasa a llevar dos commits.
 4. **La lectura anónima cerrada**, con lo que se encontró de más y lo que queda.
+5. **Este documento.**
+6. **El chat lee `perfiles_publicos`**, no la ficha entera. Es lo que permite
+   dar el último paso del punto 4.
+7. **El estado al día**, con la fase 1.b y el aviso de que §1.1 ya está cerrada.
 
 ---
 
@@ -134,8 +143,8 @@ Por orden, y con lo que hace falta para cada uno:
 | Qué | Hace falta |
 |---|---|
 | Ejecutar el barrido de huérfanos | La `SUPABASE_SERVICE_KEY` en el entorno. Dos minutos |
-| Cerrar el correo entre cuentas (chat) | Una vista `perfiles_publicos` y cambiar `ChatTab`; hay que desplegar el frontend a la vez |
+| Cerrar el correo entre cuentas | Ya está la vista y el cambio del chat. Falta desplegar el frontend y **después** correr `db/migraciones/postgres/002_…` |
 | Encender la identidad propia | cPanel: base MySQL, variables, consola de Google. `CONFIGURAR.md` |
-| Mover el backend de Render a cPanel | Acceso a cPanel. Quita los 21 s de arranque en frío, que es la causa medida del congelamiento |
+| Mover el backend de Render a cPanel | Acceso a cPanel. El código y la guía están; falta hacerlo en el panel. Quita los 21 s de arranque en frío, que es la causa medida del congelamiento |
 | Mirar el egress | Entrar al panel de Supabase. Es el dato que decide si hace falta plan Pro el mes del evento |
 | Las 71 tablas y el resto de la fase 7 | Que lo de arriba esté corriendo |

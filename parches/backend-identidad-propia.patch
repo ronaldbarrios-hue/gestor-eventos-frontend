@@ -1,7 +1,7 @@
 From 55d0f3272c408540e65a7574c63c68e2d6862c66 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:19:23 +0000
-Subject: [PATCH 1/5] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
+Subject: [PATCH 1/6] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
  =?UTF-8?q?m=C3=B3dulo=20entero,=20detr=C3=A1s=20de=20un=20interruptor?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -3944,7 +3944,7 @@ index 0000000..b3b3197
 From 7a5fa2cd188356c168a92d2770689a56900f50a6 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:20:01 +0000
-Subject: [PATCH 2/5] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
+Subject: [PATCH 2/6] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
  =?UTF-8?q?ube=20al=20backend,=20y=20ah=C3=AD=20s=C3=AD=20se=20puede=20com?=
  =?UTF-8?q?probar?=
 MIME-Version: 1.0
@@ -5784,7 +5784,7 @@ index 0000000..49474c9
 From 0a985a5df87cc251adcbcac8939008c61fb0cd9c Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:37:30 +0000
-Subject: [PATCH 3/5] =?UTF-8?q?Permisos:=20la=20decisi=C3=B3n=20en=20una?=
+Subject: [PATCH 3/6] =?UTF-8?q?Permisos:=20la=20decisi=C3=B3n=20en=20una?=
  =?UTF-8?q?=20funci=C3=B3n,=20y=20una=20prueba=20que=20pasa=20lista=20a=20?=
  =?UTF-8?q?las=20279=20rutas?=
 MIME-Version: 1.0
@@ -7572,7 +7572,7 @@ index 0000000..b4b02c5
 From efc13bfa87c3dffe2af0d9355e1eedcb29086edb Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:41:16 +0000
-Subject: [PATCH 4/5] =?UTF-8?q?Barrido=20de=20hu=C3=A9rfanos:=20la=20lista?=
+Subject: [PATCH 4/6] =?UTF-8?q?Barrido=20de=20hu=C3=A9rfanos:=20la=20lista?=
  =?UTF-8?q?=20medida=20y=20el=20script=20que=20la=20ejecuta?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -8218,7 +8218,7 @@ index 62fd849..6fd2d58 100644
 From 75b0ca9169fa778e2c90314ce2c08a92f98ebc73 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:48:23 +0000
-Subject: [PATCH 5/5] =?UTF-8?q?La=20migraci=C3=B3n=20que=20cierra=20profil?=
+Subject: [PATCH 5/6] =?UTF-8?q?La=20migraci=C3=B3n=20que=20cierra=20profil?=
  =?UTF-8?q?es=20del=20todo,=20lista=20para=20cuando=20el=20frontend=20suba?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -8299,6 +8299,453 @@ index 0000000..78fb23c
 +-- Y después, para confirmarlo desde fuera y no desde aquí —con la service key
 +-- todo funciona siempre, que es la trampa de siempre—: entrar a la aplicación
 +-- con una cuenta normal y mirar que el chat sigue enseñando nombres.
+-- 
+2.43.0
+
+
+From 455ded6820870269ba9448a3f82aec2b71bfb60d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 29 Aug 2026 01:52:27 +0000
+Subject: [PATCH 6/6] El backend listo para cPanel, y los recordatorios fuera
+ del proceso
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Es la fase 1.b, la que quita el congelamiento sin tocar la interfaz. Render
+duerme el servicio: 21,4 segundos la primera petición y 0,19 la segunda. Eso es
+lo que la gente llama «se congela», y es el origen del sondeo cada 5 y 8
+segundos que alguien puso para que no pasara.
+
+`app.js` es el arranque de Passenger, y existe separado por una razón concreta:
+en cPanel Passenger duerme la aplicación cuando nadie la usa, así que un
+`node-cron` dentro del proceso no corre. El fallo sería silencioso y sólo
+aparecería con poca actividad — de madrugada, que es cuando salen los
+recordatorios del día siguiente. Los ciclos pasan a dos scripts de una pasada
+para los Trabajos de cron del panel: los recordatorios cada quince minutos y la
+cola cada minuto, que va aparte porque su gracia es repartir los envíos y a
+ráfagas el SMTP corta por spam.
+
+El `.cpanel.yml` instala y toca `tmp/restart.txt`, que es la línea que se
+olvida: sin ella el código nuevo está en el disco y el proceso viejo sigue
+sirviendo el de antes.
+
+Cinco pruebas guardan el borde entre las dos formas de arrancar. La que importa
+es que app.js no encienda el planificador: con el cron del panel encendido a la
+vez, cada asistente recibiría los correos por duplicado.
+
+DESPLIEGUE-CPANEL.md trae el orden completo, incluido que Render y cPanel no
+pueden correr los recordatorios a la vez, y que QR_JWT_SECRET viaja idéntico o
+ninguna boleta valida en la puerta.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ .cpanel.yml                   |  23 +++++++
+ DESPLIEGUE-CPANEL.md          | 125 ++++++++++++++++++++++++++++++++++
+ app.js                        |  39 +++++++++++
+ lib/recordatorios.js          |  11 ++-
+ scripts/cron-cola.js          |  35 ++++++++++
+ scripts/cron-recordatorios.js |  38 +++++++++++
+ test/arranque.test.js         |  76 +++++++++++++++++++++
+ 7 files changed, 346 insertions(+), 1 deletion(-)
+ create mode 100644 .cpanel.yml
+ create mode 100644 DESPLIEGUE-CPANEL.md
+ create mode 100644 app.js
+ create mode 100644 scripts/cron-cola.js
+ create mode 100644 scripts/cron-recordatorios.js
+ create mode 100644 test/arranque.test.js
+
+diff --git a/.cpanel.yml b/.cpanel.yml
+new file mode 100644
+index 0000000..8f17bf7
+--- /dev/null
++++ b/.cpanel.yml
+@@ -0,0 +1,23 @@
++---
++# Despliegue en cPanel (Git Version Control → "Deploy HEAD Commit").
++#
++# El backend no se construye: se instala y se reinicia. Los pasos son tres y el
++# tercero es el que se olvida.
++#
++# ⚠️ REVISA ESTO ANTES DE DESPLEGAR:
++#   DEPLOYPATH = carpeta de la aplicación en "Setup Node.js App"
++#   (Application root). Aquí se asume `api`; $HOME ya apunta a /home/TU_USUARIO.
++#
++#   Si el repositorio ya está clonado EN esa carpeta, las tareas de copia
++#   sobran y basta con el npm ci y el restart: dejá sólo las dos últimas.
++deployment:
++  tasks:
++    - export DEPLOYPATH=$HOME/api
++    # 1 · El código
++    - /bin/bash -lc 'mkdir -p "$DEPLOYPATH" && rsync -a --delete --exclude ".git" --exclude "node_modules" --exclude ".env" ./ "$DEPLOYPATH"/'
++    # 2 · Las dependencias, con el node del entorno virtual (login shell)
++    - /bin/bash -lc 'cd "$DEPLOYPATH" && npm ci --omit=dev --no-audit --no-fund'
++    # 3 · El reinicio. Passenger recarga cuando cambia este archivo; sin esta
++    #     línea el código nuevo está en el disco y el proceso viejo sigue
++    #     corriendo, y se pierde media hora buscando por qué "no subió".
++    - /bin/bash -lc 'mkdir -p "$DEPLOYPATH/tmp" && touch "$DEPLOYPATH/tmp/restart.txt"'
+diff --git a/DESPLIEGUE-CPANEL.md b/DESPLIEGUE-CPANEL.md
+new file mode 100644
+index 0000000..31907d2
+--- /dev/null
++++ b/DESPLIEGUE-CPANEL.md
+@@ -0,0 +1,125 @@
++# Mover el backend de Render a cPanel
++
++Es la fase 1.b, y es la que quita el congelamiento de la aplicación. No cambia
++ni una línea de la interfaz.
++
++## Por qué, en un párrafo
++
++Render duerme el servicio del plan gratuito. Medido: **la primera petición
++tarda 21,4 segundos y la segunda 0,19**. Veintiún segundos con la pantalla
++quieta es exactamente lo que la gente describe como «se congela», y es también
++el origen del sondeo cada 5 y 8 segundos que alguien puso para que no pasara —
++sondeo que multiplicó las peticiones hasta las decenas de miles al día.
++
++En cPanel el arranque en frío también existe, pero es despertar un proceso Node
++con el disco caliente: del orden de un segundo, no de veintiuno.
++
++Ya está comprobado que el servidor sirve: **Passenger 6.1.8** corriendo Node por
++Application Manager, con dos aplicaciones registradas, y
++`api.gestekeventost.dpdns.org/health` responde 200 en 0,78 s. Lo que **no** está
++desplegado ahí es el backend completo: `/categorias` da 404.
++
++---
++
++## 1 · La aplicación en cPanel
++
++**Setup Node.js App** → *Create Application*:
++
++| Campo | Valor |
++|---|---|
++| Node.js version | 22.x (o la más nueva que ofrezca) |
++| Application mode | Production |
++| Application root | `api` (la carpeta donde va el repositorio) |
++| Application URL | el subdominio de la API |
++| **Application startup file** | **`app.js`** |
++
++`app.js` y no `index.js`, y la diferencia importa: `index.js` abre el puerto a
++mano y enciende el planificador de recordatorios dentro del proceso. En cPanel
++las dos cosas están mal — el puerto lo pone Passenger, y del planificador habla
++el punto 3.
++
++Luego, en esa misma pantalla, **Run NPM Install**.
++
++## 2 · Las variables
++
++Las mismas que hay hoy en Render, en *Environment variables*. Passenger las lee
++**al reiniciar la aplicación**, no al guardarlas: hay que pulsar *Restart*.
++
++Las que no pueden faltar: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
++`QR_JWT_SECRET`, `FRONTEND_URL`.
++
++> **`QR_JWT_SECRET` tiene que viajar idéntico.** Los QR ya emitidos se firmaron
++> con él; si cambia, ninguna boleta valida en la puerta. Es el único secreto que
++> se copia tal cual.
++
++## 3 · Los recordatorios, al cron del panel
++
++Hoy corren con `node-cron` dentro del proceso. En cPanel eso no vale:
++**Passenger duerme la aplicación cuando nadie la usa**, y un planificador
++dentro de un proceso dormido no corre. El fallo sería silencioso y sólo
++aparecería con poca actividad — o sea de madrugada, que es cuando salen los
++recordatorios del día siguiente.
++
++**Cron Jobs** → dos entradas. La ruta de `node` se copia de *Setup Node.js App*
++(el botón que da el comando de entrada al entorno virtual); **no** es el `node`
++del sistema, que suele ser más viejo.
++
++Cada quince minutos, los recordatorios:
++
++```
++*/15 * * * *   cd /home/CUENTA/api && /home/CUENTA/nodevenv/api/22/bin/node scripts/cron-recordatorios.js >> /home/CUENTA/logs/recordatorios.log 2>&1
++```
++
++Cada minuto, la cola de correo:
++
++```
++* * * * *      cd /home/CUENTA/api && /home/CUENTA/nodevenv/api/22/bin/node scripts/cron-cola.js >> /home/CUENTA/logs/cola.log 2>&1
++```
++
++La cola va aparte y cada minuto porque su gracia es repartir los envíos: a
++ráfagas cada quince minutos, el proveedor de SMTP corta por spam.
++
++Los dos scripts salen con código 1 si fallan, así que un fallo se ve en el
++panel en vez de perderse en un log que nadie abre. Y el de la cola sólo escribe
++cuando hay algo que decir: una línea por minuto son medio millón al año
++diciendo «nada que hacer», en un disco de 9,81 GB compartido.
++
++## 4 · El despliegue
++
++Con **Git Version Control** de cPanel, el `.cpanel.yml` de este repositorio hace
++el `npm ci` y reinicia Passenger al pulsar *Deploy HEAD Commit*.
++
++Passenger reinicia cuando cambia `tmp/restart.txt`, que es lo que hace la última
++línea del `.cpanel.yml`. Sin eso, el código nuevo está en el disco y el proceso
++viejo sigue corriendo — y se pierde media hora buscando por qué el arreglo «no
++subió».
++
++## 5 · El cambio de dominio
++
++Mientras Render siga en pie, los dos responden. El orden:
++
++1. Desplegar en cPanel y comprobar contra su dominio directamente:
++   `curl -s https://api.gestekeventost.dpdns.org/health` y
++   `curl -s https://api.gestekeventost.dpdns.org/categorias` — el segundo tiene
++   que devolver el catálogo, no un 404. Ése es el que dice si está desplegado el
++   backend entero o sólo el «hola mundo» que hay hoy.
++2. Cambiar `VITE_API_URL` en Vercel y volver a desplegar el frontend.
++3. Mirar un rato. Si algo va mal, se devuelve la variable a Render: los dos
++   siguen vivos.
++4. Sólo cuando lleve unos días bien, apagar el de Render — y con él, sus crons.
++
++> **Los dos a la vez, no.** Si Render y cPanel corren los recordatorios al mismo
++> tiempo, cada asistente recibe dos correos. Al encender los crons de cPanel hay
++> que apagar el servicio de Render o dejarlo sin las variables de correo.
++
++## 6 · Lo que hay que mirar después
++
++- **Si el congelamiento se acabó.** Es la pregunta que motivó todo esto. Con el
++  backend despierto, ¿la interfaz sigue quedándose quieta tras un rato largo de
++  uso? Si sí, además del arranque en frío hay algo en el navegador, y eso hay
++  que buscarlo aparte.
++- **Cuántas peticiones llegan de verdad.** Las ~70.000 de un día siguen sin
++  medirse: no pasaron por Supabase. Con el backend en cPanel se ven en los logs
++  de acceso del panel, que es la primera vez que ese número va a ser visible.
++- **Que los recordatorios salen.** El primer ciclo después de configurarlos, y
++  al día siguiente.
+diff --git a/app.js b/app.js
+new file mode 100644
+index 0000000..e5117bd
+--- /dev/null
++++ b/app.js
+@@ -0,0 +1,39 @@
++'use strict';
++
++/* app.js — el arranque en cPanel, por Passenger.
++ *
++ * ── Por qué existe este archivo y no se usa index.js ─────────────────────
++ *
++ * En cPanel, «Setup Node.js App» arranca la aplicación con Passenger, y
++ * Passenger la ejecuta como el archivo principal. `index.js` ya sirve para
++ * eso... pero hace dos cosas más que en cPanel no queremos: abrir el puerto a
++ * mano, y encender el planificador de recordatorios dentro del proceso.
++ *
++ * Lo segundo es lo importante. **Passenger duerme la aplicación cuando nadie
++ * la usa**, y un `node-cron` que vive dentro de un proceso dormido no corre.
++ * Los recordatorios saldrían tarde o no saldrían, y peor: sólo fallaría cuando
++ * hay poca actividad, que es justo cuando nadie está mirando. Por eso en cPanel
++ * los ciclos salen a los *Trabajos de cron* del panel, que los ejecuta el
++ * sistema operativo pase lo que pase (`scripts/cron-recordatorios.js` y
++ * `scripts/cron-cola.js`).
++ *
++ * Lo primero, el puerto, lo pone Passenger en `process.env.PORT`.
++ *
++ * ── Lo que este archivo NO arregla ───────────────────────────────────────
++ *
++ * Passenger también tiene arranque en frío: la primera petición después de un
++ * rato despierta el proceso. La diferencia con Render, que es lo medido, es de
++ * escala: allí son **21,4 segundos** —levantar un contenedor entero— y aquí es
++ * arrancar un Node que ya tiene el disco caliente, del orden de un segundo.
++ * Esa diferencia es la razón de esta fase: es lo que quita el congelamiento sin
++ * tocar ni una línea de la interfaz.
++ */
++
++const app = require('./index.js');
++
++const PORT = process.env.PORT || 3000;
++
++app.listen(PORT, () => {
++  console.log(`[cPanel] GESTEK API escuchando en ${PORT} (Passenger)`);
++  console.log('[cPanel] los recordatorios NO corren aquí: van en los Trabajos de cron del panel.');
++});
+diff --git a/lib/recordatorios.js b/lib/recordatorios.js
+index f240cf4..83dbf0d 100644
+--- a/lib/recordatorios.js
++++ b/lib/recordatorios.js
+@@ -234,4 +234,13 @@ function iniciarCronRecordatorios() {
+     : '[cola] apagada (EMAIL_COLA_ACTIVA=1 para encenderla). Envio directo.');
+ }
+ 
+-module.exports = { iniciarCronRecordatorios, correrCicloRecordatorios };
++/* Una pasada de la cola, para quien la quiera correr desde fuera.
++   La usa `scripts/cron-cola.js`, que es lo que sustituye al planificador de
++   dentro del proceso cuando el backend vive en cPanel: allí Passenger duerme
++   la aplicación cuando nadie la usa, y un cron que vive dentro de un proceso
++   dormido no corre. */
++async function drenarCola() {
++  return cola.drenar(enviarDesdeLaCola);
++}
++
++module.exports = { iniciarCronRecordatorios, correrCicloRecordatorios, drenarCola };
+diff --git a/scripts/cron-cola.js b/scripts/cron-cola.js
+new file mode 100644
+index 0000000..992bd37
+--- /dev/null
++++ b/scripts/cron-cola.js
+@@ -0,0 +1,35 @@
++#!/usr/bin/env node
++'use strict';
++
++/* scripts/cron-cola.js — una pasada de la cola de correo, y se muere.
++ *
++ * La cola va cada minuto y aparte de los recordatorios a propósito: su gracia
++ * es repartir los envíos en el tiempo. Con la cadencia de quince minutos, los
++ * correos saldrían a ráfagas, que es justo lo que la cola existe para evitar —
++ * y lo que hace que un proveedor de SMTP corte por spam.
++ *
++ * Cada minuto, en el cron de cPanel. La línea exacta está en
++ * DESPLIEGUE-CPANEL.md.
++ *
++ * Si la cola está apagada (`EMAIL_COLA_ACTIVA` sin poner), esto no hace nada y
++ * sale en silencio: el envío es directo y no hay nada que drenar.
++ */
++
++require('dotenv').config();
++
++const { drenarCola } = require('../lib/recordatorios.js');
++
++drenarCola()
++  .then((r) => {
++    /* Sólo se imprime si hubo algo. Un cron que escribe una línea cada minuto
++       llena el disco de la cuenta —9,81 GB compartidos con todo lo demás— con
++       medio millón de líneas al año que dicen «nada que hacer». */
++    if (r?.enviados || r?.fallidos) {
++      console.log(`[cron] cola: ${r.enviados} enviados, ${r.fallidos} fallidos — ${new Date().toISOString()}`);
++    }
++    process.exit(0);
++  })
++  .catch((e) => {
++    console.error(`[cron] cola: FALLÓ — ${e.message}`);
++    process.exit(1);
++  });
+diff --git a/scripts/cron-recordatorios.js b/scripts/cron-recordatorios.js
+new file mode 100644
+index 0000000..662dd2e
+--- /dev/null
++++ b/scripts/cron-recordatorios.js
+@@ -0,0 +1,38 @@
++#!/usr/bin/env node
++'use strict';
++
++/* scripts/cron-recordatorios.js — una pasada de recordatorios, y se muere.
++ *
++ * Es lo que llama el cron de cPanel cada quince minutos. Sustituye al
++ * `node-cron` que hoy vive dentro del proceso, y no por gusto: en cPanel
++ * Passenger duerme la aplicación cuando nadie la usa, y un planificador dentro
++ * de un proceso dormido no corre. El fallo sería silencioso y sólo aparecería
++ * cuando hay poca actividad — o sea, de madrugada, que es cuando salen los
++ * recordatorios del día siguiente.
++ *
++ * En el cron de cPanel, cada quince minutos. La línea exacta está en
++ * DESPLIEGUE-CPANEL.md — aquí no se puede escribir porque la expresión lleva
++ * una barra pegada a un asterisco y eso cierra este comentario.
++ *
++ * La ruta de `node` sale de «Setup Node.js App» → botón de copiar el comando
++ * de entorno; NO es el `node` del sistema, que suele ser más viejo.
++ *
++ * Sale con código 1 si el ciclo falla, para que el cron lo marque como fallido
++ * y se vea en el panel en vez de perderse en un log que nadie abre.
++ */
++
++require('dotenv').config();
++
++const { correrCicloRecordatorios } = require('../lib/recordatorios.js');
++
++const inicio = Date.now();
++
++correrCicloRecordatorios()
++  .then(() => {
++    console.log(`[cron] recordatorios: ciclo completo en ${Date.now() - inicio} ms — ${new Date().toISOString()}`);
++    process.exit(0);
++  })
++  .catch((e) => {
++    console.error(`[cron] recordatorios: FALLÓ tras ${Date.now() - inicio} ms — ${e.message}`);
++    process.exit(1);
++  });
+diff --git a/test/arranque.test.js b/test/arranque.test.js
+new file mode 100644
+index 0000000..ceccb3a
+--- /dev/null
++++ b/test/arranque.test.js
+@@ -0,0 +1,76 @@
++'use strict';
++
++/* El arranque tiene dos formas y no pueden mezclarse:
++ *
++ *   · `node index.js` — desarrollo. Abre el puerto y enciende el planificador
++ *     de recordatorios dentro del proceso.
++ *   · `app.js` con Passenger — cPanel. Passenger pone el puerto, y los ciclos
++ *     los corre el cron del panel, porque Passenger duerme la aplicación
++ *     cuando nadie la usa y un planificador dormido no corre.
++ *
++ * Lo que estas pruebas protegen es el borde entre las dos. Si alguien quita el
++ * `require.main === module` de index.js, requerirlo desde una prueba abriría un
++ * puerto y encendería dos crones — y en cPanel habría dos planificadores
++ * mandando los mismos recordatorios, o sea correos duplicados a los asistentes.
++ * Es un fallo que no se ve en desarrollo y se ve en la bandeja de la gente. */
++
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++
++const test = require('node:test');
++const assert = require('node:assert');
++const fs = require('node:fs');
++const path = require('node:path');
++
++const RAIZ = path.join(__dirname, '..');
++const leer = (f) => fs.readFileSync(path.join(RAIZ, f), 'utf8');
++
++test('requerir index.js no abre ningún puerto', () => {
++  const app = require('../index.js');
++
++  /* Si escuchara, `listen` habría dejado un servidor colgado y el proceso de
++     pruebas no terminaría solo. Se comprueba además que lo exportado es una
++     aplicación de Express y no otra cosa. */
++  assert.equal(typeof app, 'function');
++  assert.equal(typeof app.listen, 'function');
++  assert.ok(app._router || app.router, 'lo exportado no parece una app de Express');
++});
++
++test('index.js sólo arranca si se le llama directamente', () => {
++  const fuente = leer('index.js');
++  assert.match(fuente, /require\.main === module/,
++    'index.js volvió a arrancar al importarlo: eso abre un puerto y enciende el cron desde cualquier prueba');
++  assert.match(fuente, /module\.exports = app/);
++});
++
++test('app.js existe, escucha, y no enciende el cron', () => {
++  /* Es el archivo que cPanel arranca. Si encendiera el planificador, en el
++     servidor correrían a la vez el cron del panel y el de dentro del proceso, y
++     cada asistente recibiría dos correos. */
++  const fuente = leer('app.js');
++
++  assert.match(fuente, /require\('\.\/index\.js'\)/);
++  assert.match(fuente, /app\.listen\(/);
++  assert.doesNotMatch(fuente, /iniciarCronRecordatorios/,
++    'app.js no debe encender el planificador: en cPanel los ciclos van en los Trabajos de cron');
++});
++
++test('los dos scripts de cron corren una pasada y se mueren', () => {
++  for (const archivo of ['scripts/cron-recordatorios.js', 'scripts/cron-cola.js']) {
++    const fuente = leer(archivo);
++    /* Sin `process.exit` explícito, un script que dejó una conexión abierta se
++       queda vivo, y el cron acumula procesos hasta que la cuenta se queda sin
++       ellos. */
++    assert.match(fuente, /process\.exit\(0\)/, `${archivo} no sale al terminar`);
++    assert.match(fuente, /process\.exit\(1\)/, `${archivo} no marca el fallo, y el cron lo daría por bueno`);
++    assert.doesNotMatch(fuente, /cron\.schedule/, `${archivo} no debe programar nada: lo programa cPanel`);
++  }
++});
++
++test('el despliegue reinicia Passenger', () => {
++  /* La línea que más se olvida: sin tocar `tmp/restart.txt`, el código nuevo
++     está en el disco y el proceso viejo sigue sirviendo el de antes. */
++  const yml = leer('.cpanel.yml');
++  assert.match(yml, /restart\.txt/);
++  assert.match(yml, /npm ci/);
++});
 -- 
 2.43.0
 
