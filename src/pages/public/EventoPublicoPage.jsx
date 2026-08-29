@@ -11,6 +11,7 @@ import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '..
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
+import { camposVisibles } from '../../lib/camposCondicionales.js';
 /* `verificar` y no `verificarCorreo`: la primera añade la pista cruzada
    —«eso parece un teléfono, aquí va el correo»—, que es justo lo que hace
    falta en la casilla de al lado. Llamar a la comprobación base se saltaba esa
@@ -613,8 +614,15 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   const pagoWompi = Boolean(evento?.pago_wompi);
   const pagoMp = Boolean(evento?.pago_mp);
   const gatewayRef = useRef(pagoWompi ? 'wompi' : 'mp');
-  /* Campos aplicables a ESTE tipo de boleta: los globales + los propios del tipo. */
-  const camposForm = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
+  /* Campos aplicables a ESTE tipo de boleta: los globales + los propios del
+     tipo, y de esos, los que las respuestas de ahora dejan ver.
+
+     Va aquí y no al pintar cada campo porque de esta lista salen también los
+     módulos, el paginado y la validación: si el filtro estuviera más abajo, un
+     paso podría quedarse sin ninguna pregunta visible y aun así aparecer como
+     un paso vacío que hay que pasar. */
+  const camposDelTipo = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
+  const camposForm = camposVisibles(camposDelTipo, respuestas);
   const checkout = evento?.page_json?.checkout || {};
 
   /* Módulos. El reparto lo decide la columna «Grupo» de la plantilla, no este
