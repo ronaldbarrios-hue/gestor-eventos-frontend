@@ -5,6 +5,7 @@ import { emailsApi } from '../../../../api/emails.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
 import BuzonPropio from './BuzonPropio.jsx';
+import EstadoCola from './EstadoCola.jsx';
 
 /* Event Experience · Emails — editor de las plantillas de correo por tipo,
    con variables y segmentación de destinatarios. Se guarda en
@@ -126,6 +127,10 @@ export default function EmailsSection({ evento, reload }) {
     {/* Desde que correo salen: va arriba porque decide si los correos de este
         evento llevan la direccion del organizador o la de la plataforma. */}
     <BuzonPropio evento={evento} />
+
+    {/* Justo debajo del buzón: quien viene aquí porque «a fulano no le llegó»
+        encuentra la respuesta antes de ponerse a revisar plantillas. */}
+    <EstadoCola evento={evento} />
 
     <div className="grid lg:grid-cols-[240px_1fr_340px] gap-5 items-start">
       {/* Tipos de correo */}
