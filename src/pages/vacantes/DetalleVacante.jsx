@@ -4,6 +4,7 @@
    sitios: la vitrina pública de Explorar y el panel interno. */
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { vacantesApi, formatoPago, ETAPAS_VACANTE } from '../../api/vacantes.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
@@ -11,6 +12,7 @@ import Spinner from '../../components/ui/Spinner.jsx';
 
 export default function DetalleVacante({ id, onClose, onPostulado }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { success, error: toastErr } = useToast();
   const [data, setData] = useState(null);
   const [respuestas, setRespuestas] = useState({});
@@ -33,7 +35,19 @@ export default function DetalleVacante({ id, onClose, onPostulado }) {
       success('¡Postulación enviada!');
       onPostulado?.();
       onClose();
-    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    } catch (e) {
+      const msg = e.response?.data?.error || e.message;
+      /* El perfil de talento se crea al postularse por primera vez, así que
+         la pestaña puede no estar todavía en Mi Espacio: se lleva al usuario
+         directo a ella en vez de dejarle un mensaje sin camino. */
+      if (e.response?.status === 400 && /perfil de talento/i.test(msg)) {
+        toastErr(t('Crea tu perfil de talento para poder postularte.'));
+        onClose();
+        navigate('/mi-espacio?tab=talento');
+        return;
+      }
+      toastErr(msg);
+    }
     finally { setEnviando(false); }
   };
 

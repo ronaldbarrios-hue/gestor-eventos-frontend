@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useI18n } from '../../context/I18nContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { meApi } from '../../api/me.js';
+import { solicitudesApi } from '../../api/solicitudes.js';
+import { vacantesApi } from '../../api/vacantes.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useWidgets } from '../../hooks/useWidgets.js';
 import { EspacioDataProvider, useEspacioData } from '../../components/widgets/espacio/EspacioData.jsx';
@@ -65,14 +67,27 @@ export default function MiEspacioPage() {
     window.history.replaceState({}, '', url);
   };
 
+  /* Las facetas aparecen cuando se usan, no antes. Seis pestañas de entrada,
+     la mayoría vacías, es lo que hacía sentir la aplicación duplicada aunque
+     no lo estuviera; "Mis stands" ya se comportaba así y es el patrón que se
+     extiende al resto. La pestaña pedida por ?tab= siempre se muestra, para
+     que un enlace guardado no caiga en el panel sin explicación. */
   const [expositores, setExpositores] = useState([]);
-  useEffect(() => { meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {}); }, []);
+  const [usa, setUsa] = useState({ colaborador: false, talento: false, postulaciones: false });
+  useEffect(() => {
+    meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {});
+    solicitudesApi.misEventos().then(d => setUsa(u => ({ ...u, colaborador: (d.eventos || []).length > 0 }))).catch(() => {});
+    vacantesApi.miPerfil().then(d => setUsa(u => ({ ...u, talento: Boolean(d.perfil) }))).catch(() => {});
+    vacantesApi.misPostulaciones().then(d => setUsa(u => ({ ...u, postulaciones: (d.postulaciones || []).length > 0 }))).catch(() => {});
+  }, []);
 
   const TABS = [
-    ['panel', t('Mi panel')], ['colaborador', t('Colaborador')],
-    ['talento', t('Perfil de talento')], ['postulaciones', t('Mis postulaciones')],
+    ['panel', t('Mi panel')],
+    ...(usa.colaborador   || vista === 'colaborador'   ? [['colaborador', t('Colaborador')]]           : []),
+    ...(usa.talento       || vista === 'talento'       ? [['talento', t('Perfil de talento')]]         : []),
+    ...(usa.postulaciones || vista === 'postulaciones' ? [['postulaciones', t('Mis postulaciones')]]   : []),
     ['organizador', t('Perfil de organizador')],
-    ...(expositores.length ? [['expositor', t('Mis stands')]] : []),
+    ...(expositores.length || vista === 'expositor'    ? [['expositor', t('Mis stands')]]              : []),
   ];
 
   return (

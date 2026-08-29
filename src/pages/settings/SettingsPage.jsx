@@ -27,6 +27,8 @@ export default function SettingsPage() {
 
   const [perfil, setPerfil] = useState({
     nombre  : usuario?.nombre   || '',
+    telefono: usuario?.telefono || '',
+    ciudad  : usuario?.ciudad   || '',
     password: '',
     confirm : '',
   });
@@ -37,15 +39,25 @@ export default function SettingsPage() {
       error('Las contraseñas no coinciden.');
       return;
     }
-    const hayNombre = perfil.nombre && perfil.nombre !== usuario?.nombre;
+    const hayNombre   = perfil.nombre && perfil.nombre !== usuario?.nombre;
+    const hayTelefono = perfil.telefono !== (usuario?.telefono || '');
+    const hayCiudad   = perfil.ciudad   !== (usuario?.ciudad   || '');
     const hayPassword = Boolean(perfil.password);
-    if (!hayNombre && !hayPassword) { warning('Sin cambios que guardar.'); return; }
+    if (!hayNombre && !hayTelefono && !hayCiudad && !hayPassword) { warning('Sin cambios que guardar.'); return; }
 
     setLoading(true);
     try {
-      if (hayNombre) {
-        const r = await updateProfile({ nombre: perfil.nombre });
+      /* Nombre, teléfono y ciudad son de la persona, no de una faceta:
+         se guardan aquí y sólo aquí (ver CONTINUAR.md §3.7). Igual que el
+         avatar más abajo, van a los metadatos Y a `profiles` — es la misma
+         forma dual que ya usa el registro (CompletarPerfilPage). */
+      if (hayNombre || hayTelefono || hayCiudad) {
+        const r = await updateProfile({ nombre: perfil.nombre, telefono: perfil.telefono, ciudad: perfil.ciudad });
         if (!r.ok) throw new Error(r.error);
+        const { error: e2 } = await supabase.from('profiles')
+          .update({ nombre: perfil.nombre, telefono: perfil.telefono || null, ciudad: perfil.ciudad || null })
+          .eq('id', usuario.id);
+        if (e2) throw new Error(e2.message);
       }
       if (hayPassword) {
         const r = await updatePassword(perfil.password);
@@ -139,6 +151,18 @@ export default function SettingsPage() {
                 <label className="label">Nombre completo</label>
                 <input type="text" className="input" value={perfil.nombre}
                   onChange={e => setPerfil(p => ({ ...p, nombre: e.target.value }))} required />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="field">
+                  <label className="label">Teléfono</label>
+                  <input type="tel" className="input" value={perfil.telefono}
+                    onChange={e => setPerfil(p => ({ ...p, telefono: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label className="label">Ciudad</label>
+                  <input type="text" className="input" value={perfil.ciudad}
+                    onChange={e => setPerfil(p => ({ ...p, ciudad: e.target.value }))} />
+                </div>
               </div>
 
               <div className="pt-3 border-t border-border space-y-3">
