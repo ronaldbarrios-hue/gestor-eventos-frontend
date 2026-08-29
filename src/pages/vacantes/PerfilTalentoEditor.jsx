@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { vacantesApi } from '../../api/vacantes.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { supabase } from '../../lib/supabase.js';
 import { validarArchivo, sanitizarNombre, TIPOS_CV, MAX_CV, ACCEPT_CV } from '../../lib/archivos.js';
-import ImagePicker from '../../components/ui/ImagePicker.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { auth } from '../../lib/sesion.js';
@@ -17,7 +18,13 @@ import { auth } from '../../lib/sesion.js';
 
    El formulario se reparte en dos columnas en pantallas anchas. Antes iba
    encajonado en max-w-2xl contra el borde izquierdo, dejando media pantalla
-   vacía mientras los campos se apretaban. */
+   vacía mientras los campos se apretaban.
+
+   Foto, teléfono y ciudad NO se editan aquí: son de la persona, no de esta
+   faceta (perfil_talento dejó de tener esas columnas, ver la migración 0081
+   del backend). Se muestran heredadas de Ajustes → Mi Perfil, con un enlace
+   para cambiarlas ahí — la misma idea que ya usa "Mis stands" con el estado
+   de la ficha. */
 
 const Icono = ({ d, className = '' }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"
@@ -26,6 +33,7 @@ const Icono = ({ d, className = '' }) => (
 
 export default function PerfilTalentoEditor() {
   const { t } = useI18n();
+  const { usuario } = useAuth();
   const { success, error: toastErr } = useToast();
   const [perfil, setPerfil] = useState(null);
   const [form, setForm] = useState(null);
@@ -42,8 +50,7 @@ export default function PerfilTalentoEditor() {
       setForm({
         titular: d.perfil?.titular || '', bio: d.perfil?.bio || '',
         habilidades: (d.perfil?.habilidades || []).join(', '),
-        ciudad: d.perfil?.ciudad || '', telefono: d.perfil?.telefono || '',
-        foto_url: d.perfil?.foto_url || '', portfolio_url: d.perfil?.portfolio_url || '',
+        portfolio_url: d.perfil?.portfolio_url || '',
         cv_url: d.perfil?.cv_url || '', cv_nombre: d.perfil?.cv_nombre || '',
       });
     } catch (e) { toastErr(e.message); }
@@ -154,8 +161,17 @@ export default function PerfilTalentoEditor() {
           <div className="space-y-5">
             <div>
               <label className="label text-xs">{t('Foto')}</label>
-              <ImagePicker value={form.foto_url} onChange={url => set({ foto_url: url })}
-                           ownerId={perfil?.user_id} placeholder={t('URL o subir')} />
+              <div className="rounded-2xl border border-border bg-surface-2/40 p-3 flex items-center gap-3">
+                {usuario?.foto
+                  ? <img src={usuario.foto} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                  : <div className="w-14 h-14 rounded-xl bg-surface-3 flex items-center justify-center text-text-3 font-bold flex-shrink-0">
+                      {(usuario?.nombre || '?').charAt(0).toUpperCase()}
+                    </div>}
+                <p className="text-[11px] text-text-3 leading-snug min-w-0">
+                  {t('Viene de tu perfil.')}{' '}
+                  <Link to="/ajustes?a=perfil" className="text-primary hover:underline">{t('Cambiar')}</Link>
+                </p>
+              </div>
             </div>
 
             {/* Hoja de vida */}
@@ -227,19 +243,29 @@ export default function PerfilTalentoEditor() {
                      className="input rounded-xl py-2.5 text-sm" placeholder={t('servicio al cliente, montaje, sonido')} />
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div className="field">
-                <label className="label text-xs">{t('Ciudad')}</label>
-                <input value={form.ciudad} onChange={e => set({ ciudad: e.target.value })} className="input rounded-xl py-2.5 text-sm" />
-              </div>
-              <div className="field">
-                <label className="label text-xs">{t('Teléfono')}</label>
-                <input value={form.telefono} onChange={e => set({ telefono: e.target.value })} className="input rounded-xl py-2.5 text-sm" />
-              </div>
-              <div className="field">
-                <label className="label text-xs">{t('Portafolio (URL)')}</label>
-                <input value={form.portfolio_url} onChange={e => set({ portfolio_url: e.target.value })}
-                       className="input rounded-xl py-2.5 text-sm" placeholder="https://" />
+            <div className="field">
+              <label className="label text-xs">{t('Portafolio (URL)')}</label>
+              <input value={form.portfolio_url} onChange={e => set({ portfolio_url: e.target.value })}
+                     className="input rounded-xl py-2.5 text-sm" placeholder="https://" />
+            </div>
+
+            {/* Datos de la persona: se ven aquí porque el organizador los mira
+                al leer una postulación, pero se escriben en un solo sitio. */}
+            <div className="rounded-2xl border border-border bg-surface-2/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex gap-6 min-w-0 text-sm">
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-text-3">{t('País')}</p>
+                    <p className="text-text-1 truncate">{usuario?.ciudad || <span className="text-text-3">{t('Sin indicar')}</span>}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-text-3">{t('Teléfono')}</p>
+                    <p className="text-text-1 truncate">{usuario?.telefono || <span className="text-text-3">{t('Sin indicar')}</span>}</p>
+                  </div>
+                </div>
+                <Link to="/ajustes?a=perfil" className="text-[11px] text-primary hover:underline flex-shrink-0">
+                  {t('Vienen de tu perfil · cambiar')}
+                </Link>
               </div>
             </div>
 

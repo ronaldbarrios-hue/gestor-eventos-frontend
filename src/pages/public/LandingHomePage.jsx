@@ -19,26 +19,6 @@ function useReveal(threshold = 0.15) {
   return [ref, visible];
 }
 
-/* Cuenta numérica suave hasta `to` cuando entra al viewport */
-function CountUp({ to, suffix = '', duration = 1400 }) {
-  const [n, setN] = useState(0);
-  const [ref, visible] = useReveal(0.3);
-  useEffect(() => {
-    if (!visible) return;
-    const start = performance.now();
-    let raf;
-    const tick = (now) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setN(Math.round(to * eased));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [visible, to, duration]);
-  return <span ref={ref}>{n.toLocaleString('es-CO')}{suffix}</span>;
-}
-
 export default function LandingHomePage() {
   return (
     <>

@@ -10,6 +10,7 @@ import { pagosApi } from '../../api/pagos.js';
 import { usePush } from '../../hooks/usePush.js';
 import { guardarBrandingLocal } from '../../hooks/useBranding.js';
 import { auth } from '../../lib/sesion.js';
+import { PAISES, bandera } from '../../lib/paises.js';
 
 /* Pagos, Notificaciones y Recompensas viven ahora como secciones
    propias en el sidebar (páginas dedicadas). */
@@ -27,6 +28,8 @@ export default function SettingsPage() {
 
   const [perfil, setPerfil] = useState({
     nombre  : usuario?.nombre   || '',
+    telefono: usuario?.telefono || '',
+    ciudad  : usuario?.ciudad   || '',
     password: '',
     confirm : '',
   });
@@ -37,15 +40,25 @@ export default function SettingsPage() {
       error('Las contraseñas no coinciden.');
       return;
     }
-    const hayNombre = perfil.nombre && perfil.nombre !== usuario?.nombre;
+    const hayNombre   = perfil.nombre && perfil.nombre !== usuario?.nombre;
+    const hayTelefono = perfil.telefono !== (usuario?.telefono || '');
+    const hayCiudad   = perfil.ciudad   !== (usuario?.ciudad   || '');
     const hayPassword = Boolean(perfil.password);
-    if (!hayNombre && !hayPassword) { warning('Sin cambios que guardar.'); return; }
+    if (!hayNombre && !hayTelefono && !hayCiudad && !hayPassword) { warning('Sin cambios que guardar.'); return; }
 
     setLoading(true);
     try {
-      if (hayNombre) {
-        const r = await updateProfile({ nombre: perfil.nombre });
+      /* Nombre, teléfono y ciudad son de la persona, no de una faceta:
+         se guardan aquí y sólo aquí (ver CONTINUAR.md §3.7). Igual que el
+         avatar más abajo, van a los metadatos Y a `profiles` — es la misma
+         forma dual que ya usa el registro (CompletarPerfilPage). */
+      if (hayNombre || hayTelefono || hayCiudad) {
+        const r = await updateProfile({ nombre: perfil.nombre, telefono: perfil.telefono, ciudad: perfil.ciudad });
         if (!r.ok) throw new Error(r.error);
+        const { error: e2 } = await supabase.from('profiles')
+          .update({ nombre: perfil.nombre, telefono: perfil.telefono || null, ciudad: perfil.ciudad || null })
+          .eq('id', usuario.id);
+        if (e2) throw new Error(e2.message);
       }
       if (hayPassword) {
         const r = await updatePassword(perfil.password);
@@ -139,6 +152,27 @@ export default function SettingsPage() {
                 <label className="label">Nombre completo</label>
                 <input type="text" className="input" value={perfil.nombre}
                   onChange={e => setPerfil(p => ({ ...p, nombre: e.target.value }))} required />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="field">
+                  <label className="label">Teléfono</label>
+                  <input type="tel" className="input" value={perfil.telefono}
+                    onChange={e => setPerfil(p => ({ ...p, telefono: e.target.value }))} />
+                </div>
+                {/* Se llama `ciudad` en la base, pero lo que guarda —aquí y en
+                    las dos pantallas de registro— es el PAÍS, de la misma
+                    lista. Un campo de texto libre habría metido ciudades en
+                    una columna que en todas las demás filas tiene países. */}
+                <div className="field">
+                  <label className="label">País</label>
+                  <select className="input pr-10" value={perfil.ciudad}
+                    onChange={e => setPerfil(p => ({ ...p, ciudad: e.target.value }))}>
+                    <option value="">Seleccionar...</option>
+                    {PAISES.map(p => (
+                      <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-border space-y-3">
@@ -807,9 +841,6 @@ export function PagosTab() {
 
 function TrophyIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8m-4-4v4m7-13a3 3 0 003-3V3H6v2a3 3 0 003 3m6 0a6 6 0 11-6 0m9-3h2a2 2 0 01-2 2m-13-2H3a2 2 0 002 2" /></svg>;
-}
-function GiftIcon({ className }) {
-  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h3.5a2 2 0 012 2v2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-7 12V8m0 0V6a2 2 0 012-2H17a2 2 0 110 4m-5 0h5" /></svg>;
 }
 
 /* ──────────── Logros Tab (fidelidad: cliente / empleado / insignias) ──────────── */

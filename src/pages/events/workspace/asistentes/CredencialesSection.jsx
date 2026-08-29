@@ -4,6 +4,7 @@ import { clientesApi } from '../../../../api/clientes.js';
 import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
+import { impresionConfig, variantesConImpresion } from '../../../../lib/wallet.js';
 
 /* Asistentes · Credenciales — diseñador de escarapelas imprimibles.
    El organizador elige tamaño, logo, qué datos se imprimen y el color por
@@ -56,7 +57,13 @@ export default function CredencialesSection({ evento }) {
   const [filtro, setFiltro] = useState('');
   const [sel, setSel] = useState(new Set());
   const [saving, setSaving] = useState(false);
-  const [cfg, setCfg] = useState(() => ({ ...DEFECTO, ...(evento.page_json?.credenciales || {}) }));
+  /* El diseño sale de la MISMA variante de `wallet` que la tarjeta digital, no
+     de una clave aparte. Eran la misma escarapela —mismo QR, mismo portador—
+     con dos editores, y cambiar el logo en uno dejaba el otro como estaba.
+     `impresionConfig` traduce la variante a las claves que esta pantalla ya
+     usaba, incluido el viejo `page_json.credenciales` de los eventos que lo
+     tuvieran, así que nadie ve cambiar su escarapela. */
+  const [cfg, setCfg] = useState(() => ({ ...DEFECTO, ...impresionConfig(evento.page_json, { publico: 'asistentes' }) }));
 
   const set = (patch) => setCfg(c => ({ ...c, ...patch }));
   const setMostrar = (k, v) => setCfg(c => ({ ...c, mostrar: { ...c.mostrar, [k]: v } }));
@@ -102,7 +109,12 @@ export default function CredencialesSection({ evento }) {
   const guardar = async () => {
     setSaving(true);
     try {
-      await eventosApi.update(evento.id, { page_json: { credenciales: cfg } });
+      /* Se guarda DENTRO de la variante de wallet, no en una clave aparte: es
+         la misma escarapela que la digital. El PATCH mezcla por claves de
+         primer nivel (migración 0064), así que mandar sólo `wallet` no pisa lo
+         demás de page_json. */
+      const variantes = variantesConImpresion(evento.page_json, cfg, { publico: 'asistentes' });
+      await eventosApi.update(evento.id, { page_json: { wallet: { variantes } } });
       success('Diseño de escarapela guardado.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }

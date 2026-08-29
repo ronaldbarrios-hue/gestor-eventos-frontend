@@ -52,6 +52,8 @@ Las fases son las de `INDEPENDENCIA.md`.
 | 6 | **Las 71 tablas a MySQL** | 🚧 **aquí me quedé** |
 | 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 230 de 281 rutas sin declarar |
 | 8 | Botón de registro incrustable (widget) | ✅ |
+| 9 | La escarapela y la tarjeta, una sola | ✅ un diseño, dos salidas |
+| 10 | Cada punto dice de dónde salió | ✅ y participar en un sub-evento por fin paga |
 
 Lo que está «escrito, apagado» funciona y tiene pruebas, pero **no cambia el
 comportamiento de nada** hasta que se encienda su interruptor (`AUTH_PROPIA`,
@@ -190,22 +192,53 @@ lugar y tipos de entrada para crearlo.
 
 ---
 
+## 4.b · La regla que manda sobre todo lo demás: Supabase NO se apaga todavía
+
+**Se migra por partes, pero la plataforma sigue corriendo sobre Supabase hasta
+que todo lo nuevo esté conectado y probado.** Hay un pitch pronto: si se
+desconecta Supabase de golpe, no hay plataforma que enseñar.
+
+Qué significa en la práctica, para no tener que preguntarlo cada vez:
+
+- **`AUTH_PROPIA` y `ARCHIVOS_PROPIOS` se quedan apagados.** Ya lo están por
+  defecto (`core/config/index.js` los lee de una variable que nadie ha puesto),
+  y el código detrás sólo se monta si se encienden. Subirlo es seguro;
+  encenderlo es otra conversación.
+- **Las migraciones destructivas se escriben, no se corren.** `0081` quita tres
+  columnas de `perfil_talento` y está pendiente a propósito. El código que la
+  acompaña ya funciona **sin** aplicarla: dejó de escribir en esas columnas y
+  lee de `profiles`, que también está en Supabase. Ése es el patrón a seguir —
+  primero que el código deje de depender de algo, y sólo al final se quita.
+- **La fase 6 (las 71 tablas a MySQL) se prepara en paralelo, no se corta.** El
+  generador, el esquema y el script de carga se pueden tener listos y probados
+  contra una base de pruebas sin tocar la de producción. El corte es lo último.
+- Y sigue en pie lo de siempre: en septiembre no se migra nada, que el evento
+  es a mediados de mes.
+
+---
+
 ## 5 · Lo que sólo puede hacer alguien con accesos
 
-Por orden de urgencia:
+Por orden de urgencia. **Lo de arriba corre prisa de verdad; lo de abajo puede
+esperar a después del pitch.**
 
 | Qué | Qué hace falta | Cuánto |
 |---|---|---|
-| **Subir los 20 commits** | Una sesión local con permiso de escritura. `SUBIR.md` lo explica paso a paso | 15 min |
+| **Desplegar backend y frontend a la vez** | 🔴 **Los dos escáneres de canje están rotos en producción ahora mismo.** El frontend de `main` llama por POST y el backend desplegado sólo tiene GET: medido contra Render, POST devuelve 401 y GET 200. El arreglo ya está en la rama. **Los dos tienen que salir juntos**, o se rompe lo que hoy funciona | 15 min |
 | **Correr el barrido de huérfanos** | `SUPABASE_SERVICE_KEY` en el entorno. Son 36 objetos, 28,1 MB, ya medidos y listados | 2 min |
 | **Cerrar el correo entre cuentas** | Desplegar el frontend y **después** correr `db/migraciones/postgres/002_…`. En ese orden, o el chat se rompe | 10 min |
+| **Conseguir el SMTP** | Bloquea todo el correo, y con él la mitad del recorrido de prueba: boletas con QR, invitaciones, recordatorios, lista de espera. `POR-HACER.md` §1.1 | — |
+| **`MP_WEBHOOK_SECRET`** | Del panel de Mercado Pago. Sin ella los webhooks se aceptan **sin verificar firma**: cualquiera que sepa la URL puede marcar una boleta como pagada | 5 min |
+| **Decir si la pasarela de producción es real o de pruebas** | Antes de recorrer el flujo de compra de punta a punta. Si el token de Render es de producción, «comprar una boleta» mueve dinero de verdad | — |
 | **Mirar el egress** | Entrar al panel de Supabase. Es el dato que decide si hace falta plan Pro el mes del evento | 2 min |
-| **Encender la identidad propia** | cPanel: base MySQL, variables, consola de Google. `CONFIGURAR.md` | 1 h |
+| **Aplicar las migraciones `0081`, `0082` y `0083`** | Cuando se monte la base. Ninguna corre prisa: el código funciona sin las tres, y lo comprueba en caliente. La 0082 reintenta el insert sin las columnas nuevas si Postgres responde 42703; la 0083 sólo deja escrito lo que el frontend ya deduce al vuelo | 2 min |
+| **Encender la identidad propia** | cPanel: base MySQL, variables, consola de Google. `CONFIGURAR.md`. **No antes del pitch** | 1 h |
 | **Mover el backend de Render a cPanel** | Acceso a cPanel. Quita los 21 s de arranque en frío, que es la causa **medida** del congelamiento | 1 h |
 
-Los dos primeros son los que corren prisa. El resto puede esperar, pero el
-arranque en frío de Render es la causa medida de lo que se ve como
-«congelamiento», así que cuanto antes se mueva, mejor.
+El primero es el que corre prisa: no es trabajo pendiente, es algo que hoy está
+roto. El arranque en frío de Render es la causa medida de lo que se ve como
+«congelamiento», así que para un pitch conviene tenerlo caliente antes de
+empezar, aunque no se mueva de sitio.
 
 ---
 

@@ -477,28 +477,6 @@ function Fila({ k, v, mono }) {
   );
 }
 
-function MenuHeader({ onEditar, onAnuncio, onEliminar }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen(v => !v)} aria-label="Más acciones" className="btn-icon btn-ghost">
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-20 w-52 card-glass rounded-xl overflow-hidden py-1.5">
-            <button onClick={() => { setOpen(false); onEditar(); }} className="w-full text-left px-3.5 py-2 text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">Editar información</button>
-            <button onClick={() => { setOpen(false); onAnuncio(); }} className="w-full text-left px-3.5 py-2 text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">Enviar anuncio</button>
-            <div className="border-t border-border my-1" />
-            <button onClick={() => { setOpen(false); onEliminar(); }} className="w-full text-left px-3.5 py-2 text-sm text-danger hover:bg-danger/10 transition-colors">Eliminar evento</button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 /* ── Icons ── */
 function HomeIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>; }
 function SparkIcon({ className }) { return <svg className={className} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9L12 2zm7 12l.95 2.85L22.8 17.8l-2.85.95L19 21.6l-.95-2.85-2.85-.95 2.85-.95L19 14z"/></svg>; }
