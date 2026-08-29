@@ -38,7 +38,7 @@ Las fases son las de `INDEPENDENCIA.md`.
 | 4 | Barrido de huérfanos del Storage | ⏸ script y lista listos, falta correrlo |
 | 5 | Contingencia del correo (cola, rescate, reintento) | ✅ |
 | 6 | **Las 71 tablas a MySQL** | 🚧 4 de 5 pasos escritos; falta el script de carga |
-| 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 230 sin declarar; el tope no ha subido |
+| 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 de 230 a **124** sin declarar |
 | 8 | Botón de registro incrustable (widget) | ✅ |
 | 9 | La escarapela y la tarjeta, una sola | ✅ un diseño, dos salidas |
 | 10 | Cada punto dice de dónde salió | ✅ y participar en un sub-evento por fin paga |
@@ -155,10 +155,10 @@ en Supabase y allí los disparadores hacen su trabajo.
 ## 3 · La otra mitad abierta: la fase 7
 
 El censo de rutas ya existe y la prueba lo sostiene (`test/permisos.test.js`).
-Hoy: **281 rutas**, de las cuales 36 públicas, 13 de sesión, 2 con permiso
-exigido y **230 sin declarar**.
+Hoy: **285 rutas**, 161 declaradas y **124 sin declarar**. Se bajó de 230 en
+tres tandas.
 
-El número 230 está anotado como tope en `core/permisos/inventario.json` y **sólo
+El número está anotado como tope en `core/permisos/inventario.json` y **sólo
 puede bajar**: si alguien añade una ruta sin declararla, la prueba se pone roja
 el mismo día. Eso es lo que hay que ir bajando, en tandas, con:
 
@@ -172,6 +172,18 @@ piensa: `exige([...])` cuando cuelga de un permiso de evento, `sesion('motivo')`
 cuando es «esta fila es suya», `publica('motivo')` cuando no pide sesión a
 propósito. El motivo es obligatorio en las dos últimas porque es lo que se lee
 dentro de un año.
+
+**El método que funcionó en las tres tandas:** leer qué comprueba el handler
+HOY y declarar exactamente eso. `exige()` es un guardia real, no un marcador
+como `sesion()`, así que declarar de más deja gente fuera de su propio evento.
+Cuando la lista de permisos ya existía en un helper, se saca a una constante
+que usan los dos — escrita dos veces acaban separándose, y entonces la ruta
+dice que pide un permiso y el handler exige otro.
+
+Y una categoría que el sistema no tenía nombrada, encontrada en `chat` y
+`tareas`: **pertenencia**. «Eres del equipo activo» no es un permiso, no es
+público y no es «esta fila es tuya». Van con `sesion()` y el motivo lo dice;
+inventarles un permiso habría dejado fuera a quien hoy entra.
 
 ---
 
