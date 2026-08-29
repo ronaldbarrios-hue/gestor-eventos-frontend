@@ -489,16 +489,6 @@ function EmptyState({ hasFilter }) {
   );
 }
 
-/* ─────────── Import CSV modal ─────────── */
-function downloadTemplate() {
-  const csv = 'nombre,email,telefono\nJuan Pérez,juan@example.com,300 000 0000\nMaría García,maria@example.com,';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'plantilla-asistentes.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
 function exportarPDF(clientes, evento) {
   if (!clientes?.length) return;
 

@@ -842,9 +842,6 @@ export function PagosTab() {
 function TrophyIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 21h8m-4-4v4m7-13a3 3 0 003-3V3H6v2a3 3 0 003 3m6 0a6 6 0 11-6 0m9-3h2a2 2 0 01-2 2m-13-2H3a2 2 0 002 2" /></svg>;
 }
-function GiftIcon({ className }) {
-  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h3.5a2 2 0 012 2v2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-7 12V8m0 0V6a2 2 0 012-2H17a2 2 0 110 4m-5 0h5" /></svg>;
-}
 
 /* ──────────── Logros Tab (fidelidad: cliente / empleado / insignias) ──────────── */
 function LogrosTab() {
