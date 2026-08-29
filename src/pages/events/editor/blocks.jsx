@@ -1673,6 +1673,19 @@ function CitaPreview({ data }) {
    REGISTRY
    ============================================================ */
 
+/* ⚠️ Este catálogo tiene un gemelo en el servidor —`lib/bloquesLanding.js` del
+   backend—, que es quien VALIDA lo que se guarda.
+
+   No se puede unificar del todo: aquí cada bloque trae sus componentes React
+   de edición y vista previa, y eso no viaja por HTTP. Lo que se comparte es el
+   contrato: los tipos y qué campos admite cada uno.
+
+   Lo que impide que se separen en silencio —que es lo que pasó dos veces en
+   este proyecto, con los tipos de campo del formulario y con las plantillas de
+   correo— es que el servidor RECHAZA lo que no conoce. Si añades un bloque
+   aquí y no allá, guardar la landing falla con un mensaje que enumera los
+   tipos válidos. Molesta en el momento y evita enterarse con la página pública
+   ya rota delante del público. */
 export const BLOCKS = {
   /* SYSTEM */
   portada: {

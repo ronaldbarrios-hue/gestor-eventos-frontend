@@ -11,6 +11,7 @@ import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '..
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
+import { camposVisibles } from '../../lib/camposCondicionales.js';
 /* `verificar` y no `verificarCorreo`: la primera añade la pista cruzada
    —«eso parece un teléfono, aquí va el correo»—, que es justo lo que hace
    falta en la casilla de al lado. Llamar a la comprobación base se saltaba esa
@@ -223,8 +224,20 @@ export default function EventoPublicoPage() {
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-6xl mx-auto">
 
       {/* Barra secundaria: volver + Rueda de Negocios/Torneo/Agenda (si aplican)
-          + compartir (oculta "Explorar eventos" en modo standalone) */}
-      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+          + compartir (oculta "Explorar eventos" en modo standalone).
+
+          Va FIJA. Estas son las salidas del evento —rueda de negocios, espacio,
+          ranking, mapa— y quedaban arriba del todo: quien bajaba a mirar la
+          agenda o las boletas tenía que volver hasta el principio para llegar
+          a ellas, y en un móvil eso son varias pasadas de dedo.
+
+          `top-0` con el fondo de la página detrás, y no `top-4` como la píldora
+          de páginas, porque son dos barras distintas y si las dos flotaran a la
+          misma altura se solaparían. Ésta se pega arriba y la otra queda por
+          debajo, que además es el orden en que se leen. */}
+      <div className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
+                      bg-bg/85 backdrop-blur-md border-b border-border/60
+                      flex items-center justify-between gap-4 flex-wrap">
         {(isStandalone || !nav.mostrar_explorar) ? <span /> : (
           <Link to="/explorar"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
@@ -287,8 +300,11 @@ export default function EventoPublicoPage() {
           la píldora es sticky dentro de este contenedor, así que se mantiene visible mientras
           se hace scroll por toda la página, no solo mientras se ve la imagen de portada. */}
       <div className="relative">
+        {/* La píldora va por debajo de la barra de salidas, que ahora también
+            es fija: a `top-4` quedaría tapada por ella. El desplazamiento es
+            la altura de esa barra más un respiro. */}
         {hasCover && (
-          <div className={`sticky top-4 z-20 flex ${pillAlign} mb-[-1px]`}>
+          <div className={`sticky top-[72px] z-20 flex ${pillAlign} mb-[-1px]`}>
             <div className="max-w-[calc(100%-2rem)]">
               {tabsPill}
             </div>
@@ -586,6 +602,8 @@ function AvisoCupo({ cupo, onTomar }) {
 export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
+  /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
+  const [prellenado, setPrellenado] = useState(null);
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
@@ -598,8 +616,15 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   const pagoWompi = Boolean(evento?.pago_wompi);
   const pagoMp = Boolean(evento?.pago_mp);
   const gatewayRef = useRef(pagoWompi ? 'wompi' : 'mp');
-  /* Campos aplicables a ESTE tipo de boleta: los globales + los propios del tipo. */
-  const camposForm = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
+  /* Campos aplicables a ESTE tipo de boleta: los globales + los propios del
+     tipo, y de esos, los que las respuestas de ahora dejan ver.
+
+     Va aquí y no al pintar cada campo porque de esta lista salen también los
+     módulos, el paginado y la validación: si el filtro estuviera más abajo, un
+     paso podría quedarse sin ninguna pregunta visible y aun así aparecer como
+     un paso vacío que hay que pasar. */
+  const camposDelTipo = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
+  const camposForm = camposVisibles(camposDelTipo, respuestas);
   const checkout = evento?.page_json?.checkout || {};
 
   /* Módulos. El reparto lo decide la columna «Grupo» de la plantilla, no este
@@ -809,6 +834,24 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
                   className={`h-1 flex-1 rounded-full transition-colors ${i <= paso ? 'bg-primary' : 'bg-surface-2'}`} />
               ))}
             </div>
+            {/* Si vino del padrón, qué le queda por rellenar. Se recalcula con
+                las respuestas de AHORA y no con las que trajo el padrón: lo que
+                ya escribió mientras avanzaba deja de contar como pendiente, que
+                es lo que convierte esto en un avance y no en un reproche fijo. */}
+            {prellenado?.encontrado && (() => {
+              const quedan = (prellenado.faltan || []).filter(f => {
+                const v = respuestas[f.id];
+                return v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+              });
+              if (!quedan.length) return (
+                <p className="text-[11px] text-success mt-2">Ya no falta nada de lo que traíamos.</p>
+              );
+              return (
+                <p className="text-[11px] text-text-3 mt-2">
+                  Te falta{quedan.length === 1 ? '' : 'n'} por llenar: {quedan.map(f => f.etiqueta).join(', ')}.
+                </p>
+              );
+            })()}
           </div>
         )}
 
@@ -820,6 +863,11 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         {/* El paso 0 también entra: si no, volver a él desde el 1 se siente
             como un salto seco justo después de haber visto deslizarse el resto. */}
         {(!paginado || paso === 0) && (<>
+        <BuscarPorDocumento slug={slug} campos={camposDelTipo}
+          onEncontrado={(r) => {
+            setRespuestas(prev => ({ ...prev, ...r.respuestas }));
+            setPrellenado(r);
+          }} />
         <div className={`field ancho ${claseEntrada}`}>
           <label className="label" htmlFor="res-nombre">Nombre completo *</label>
           <input id="res-nombre" required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
@@ -1253,4 +1301,72 @@ export function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
   if (!B) return null;
   const Preview = B.Preview;
   return <Preview data={{}} evento={evento} onReservar={onReservar} onWaitlist={onWaitlist} />;
+}
+
+/* ─────────── Buscar por documento en el padrón de eventos anteriores ───────────
+
+   Quien ya vino a una edición pasada no debería volver a escribirlo todo. Al
+   poner la cédula se consulta el padrón que subió el organizador y se rellena
+   lo que ya se sabía.
+
+   Es opcional a propósito y no un paso obligatorio: si no hay padrón, o la
+   persona es nueva, el formulario sigue igual. Un buscador que no encuentra
+   nada no puede bloquear un registro.
+
+   No se dice «no estás en la base». Cuando no hay coincidencia, el servidor
+   contesta igual que si el padrón estuviera vacío — distinguir las dos cosas
+   es justo lo que haría útil probar cédulas ajenas. */
+function BuscarPorDocumento({ slug, campos, onEncontrado }) {
+  const [doc, setDoc] = useState('');
+  const [buscando, setBuscando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+
+  /* Si el formulario no pregunta nada, no hay nada que prellenar. */
+  if (!campos?.length) return null;
+
+  const buscar = async () => {
+    if (!doc.trim() || buscando) return;
+    setBuscando(true);
+    try {
+      const r = await eventosApi.prellenar(slug, doc.trim());
+      setResultado(r);
+      if (r.encontrado) onEncontrado?.(r);
+    } catch {
+      /* Incluye el 429 del limitador. Se trata como "no encontrado": el
+         registro tiene que poder seguir aunque esto falle. */
+      setResultado({ encontrado: false });
+    } finally { setBuscando(false); }
+  };
+
+  return (
+    <div className="ancho rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-2">
+      <label className="label text-xs" htmlFor="res-doc">
+        ¿Ya viniste a un evento nuestro? <span className="text-text-3 font-normal">(opcional)</span>
+      </label>
+      <div className="flex gap-2">
+        <input id="res-doc" value={doc} onChange={e => setDoc(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } }}
+          inputMode="numeric" autoComplete="off"
+          className="input-form flex-1 min-w-0" placeholder="Tu número de documento" />
+        <button type="button" onClick={buscar} disabled={buscando || !doc.trim()}
+          className="btn-secondary btn-sm flex-shrink-0 disabled:opacity-40">
+          {buscando ? 'Buscando…' : 'Traer mis datos'}
+        </button>
+      </div>
+      {resultado && (
+        resultado.encontrado ? (
+          <p className="text-[11px] text-success">
+            Listo, rellenamos lo que ya sabíamos.
+            {resultado.faltan?.length
+              ? ` Falta${resultado.faltan.length === 1 ? '' : 'n'}: ${resultado.faltan.map(f => f.etiqueta).join(', ')}.`
+              : ' No falta nada más.'}
+          </p>
+        ) : (
+          <p className="text-[11px] text-text-3">
+            No encontramos datos previos. Sigue y llena el formulario normalmente.
+          </p>
+        )
+      )}
+    </div>
+  );
 }

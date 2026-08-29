@@ -3,6 +3,7 @@ import Icono from '../../../components/ui/Iconos.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import { clientesApi } from '../../../api/clientes.js';
 import { agendaApi } from '../../../api/agenda.js';
+import { interaccionesApi } from '../../../api/interacciones.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
@@ -10,9 +11,9 @@ import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
 import { leerQr } from '../../../lib/qrEscaneado.js';
 
-/* Tab Check-in — escanea boletas con cámara o ingresa código manual.
+/* Tab Escanear — el ÚNICO sitio donde se pasa una escarapela por un móvil.
 
-   Tres modos, y la diferencia entre ellos es la que sostiene todo el reporte:
+   Cinco modos, y la diferencia entre ellos es la que sostiene todo el reporte:
 
    · Check-in   → la persona ENTRA AL EVENTO. Suma al ingreso del recinto y a
                   nada más. Invalida la boleta para una segunda entrada.
@@ -23,13 +24,22 @@ import { leerQr } from '../../../lib/qrEscaneado.js';
                   que esté inscrita en él: haber entrado al evento no significa
                   haber asistido a la charla, y contarlo así convertiría
                   "asistentes al taller" en "gente que estaba en el edificio".
+   · Puntos     → se le marca un motivo en un stand y suma (o resta) puntos.
+   · Canjear    → cambia sus puntos por un premio.
+
+   Los dos últimos vivían en «Stands y puntos», que era otra pantalla con otro
+   escáner. La acción física es UNA —pasar una escarapela por un móvil— y lo
+   único que cambia es qué se hace con el resultado; obligar a cambiar de
+   pantalla con la misma persona delante y la misma escarapela en la mano era
+   trabajo de más. En Stands se queda lo que es configuración: crear el stand,
+   su cuota y el catálogo de motivos.
 
    Quien no esté inscrito no se marca a la fuerza: se registra primero y se
    vuelve a escanear. */
 
 export default function CheckinTab({ evento }) {
   const [mode, setMode]       = useState('manual'); // manual | camara
-  const [accion, setAccion]   = useState('checkin'); // checkin | reingreso | subevento
+  const [accion, setAccion]   = useState('checkin'); // checkin | reingreso | subevento | puntos | canjear
   const [working, setWorking] = useState(false);
   const [last, setLast]       = useState(null); // { ok, ticket, error, sound }
   const [historial, setHistorial] = useState([]); // últimos check-ins de esta sesión
@@ -79,6 +89,25 @@ export default function CheckinTab({ evento }) {
       .catch(() => setSesiones([]));
     /* eslint-disable-next-line */
   }, [accion, evento.id, sesiones]);
+
+  /* Motivos del catálogo — sólo hacen falta en modo Puntos, y se piden una vez.
+     Igual que los sub-eventos: el escáner de la puerta principal no los
+     necesita y pedirlos siempre sería una consulta por cada apertura. */
+  const [motivos, setMotivos] = useState(null);
+  const [motivoSel, setMotivoSel] = useState(null);
+  const [lugar, setLugar] = useState('');
+  const motivoRef = useRef(null);
+  const elegirMotivo = (m) => { setMotivoSel(m); motivoRef.current = m; setLast(null); };
+  useEffect(() => {
+    if (accion !== 'puntos' || motivos !== null) return;
+    interaccionesApi.motivos(evento.id)
+      .then(d => setMotivos((d.motivos || []).filter(m => m.activo)))
+      .catch(() => setMotivos([]));
+  }, [accion, evento.id, motivos]);
+
+  /* Premios: en modo Canjear hay que saber qué puede llevarse quien escanea,
+     y eso depende de su saldo, así que se pide con la boleta ya leída. */
+  const [premios, setPremios] = useState([]);
 
   const { ingresados, total: totalAsistentes, bumpOptimista } = useAsistenciaEnVivo(evento.id);
 
@@ -200,18 +229,78 @@ export default function CheckinTab({ evento }) {
     }
   }, [evento.id, working]);
 
+  /* Dar puntos: el motivo lo elige el operador ANTES de escanear y se queda
+     fijo, porque en un stand se marca lo mismo cien veces seguidas. */
+  const handlePuntos = useCallback(async (payload) => {
+    if (working) return;
+    const m = motivoRef.current;
+    if (!m) { setLast({ puntosMode: true, ok: false, error: 'Elige primero qué le vas a marcar.' }); return; }
+    setWorking(true);
+    setLast(null);
+    try {
+      const r = await interaccionesApi.registrar(evento.id, {
+        ...payload, motivo_id: m.id, lugar: lugar.trim() || null,
+      });
+      setLast({ puntosMode: true, ok: true, motivo: m, ...r });
+      setHistorial(h => [{
+        guest_nombre: r.ticket?.nombre || r.ticket?.guest_nombre, codigo: r.ticket?.codigo,
+        at: new Date(), ok: true, puntos: `${m.tipo === 'negativo' ? '' : '+'}${r.puntos ?? m.puntos ?? ''}`,
+      }, ...h].slice(0, 10));
+    } catch (e) {
+      setLast({ puntosMode: true, ok: false, error: e.response?.data?.error || e.message });
+    } finally {
+      setTimeout(() => setWorking(false), 600);
+    }
+  }, [evento.id, lugar, working]);
+
+  /* Canjear va en dos pasos y no en uno: primero se lee la escarapela para ver
+     el saldo y qué le alcanza, y sólo después se elige el premio. Hacerlo de
+     una sola pasada obligaría a saber el premio antes de saber si puede
+     pagarlo. */
+  const handleSaldo = useCallback(async (payload) => {
+    if (working) return;
+    setWorking(true);
+    setLast(null);
+    try {
+      const r = await interaccionesApi.saldo(evento.id, payload);
+      setPremios(r.recompensas || []);
+      setLast({ canjearMode: true, ok: true, saldoInfo: r, escaneado: payload });
+    } catch (e) {
+      setLast({ canjearMode: true, ok: false, error: e.response?.data?.error || e.message });
+    } finally {
+      setTimeout(() => setWorking(false), 600);
+    }
+  }, [evento.id, working]);
+
+  const confirmarCanje = useCallback(async (recompensa) => {
+    const escaneado = last?.escaneado;
+    if (!escaneado || working) return;
+    setWorking(true);
+    try {
+      const r = await interaccionesApi.canjear(evento.id, { ...escaneado, recompensa_id: recompensa.id });
+      setLast({ canjearMode: true, ok: true, canjeHecho: { ...r, titulo: recompensa.titulo } });
+      setHistorial(h => [{
+        guest_nombre: r.ticket?.nombre, codigo: r.ticket?.codigo,
+        at: new Date(), ok: true, canje: recompensa.titulo,
+      }, ...h].slice(0, 10));
+    } catch (e) {
+      setLast({ canjearMode: true, ok: false, error: e.response?.data?.error || e.message });
+    } finally {
+      setTimeout(() => setWorking(false), 600);
+    }
+  }, [evento.id, last, working]);
+
   /* onScan estable (misma identidad siempre): QrScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
-  const onScanQr = useCallback((qr) => {
-    const leido = leerQr(qr);
+  const despachar = useCallback((leido) => {
     if (accion === 'subevento') return handleSubevento(leido);
     if (accion === 'reingreso') return handleReingreso(leido);
+    if (accion === 'puntos')    return handlePuntos(leido);
+    if (accion === 'canjear')   return handleSaldo(leido);
     return handleCheckin(leido);
-  }, [accion, handleCheckin, handleReingreso, handleSubevento]);
-  const onSubmitCodigo = (codigo) =>
-    (accion === 'subevento' ? handleSubevento({ codigo })
-      : accion === 'reingreso' ? handleReingreso({ codigo })
-      : handleCheckin({ codigo }));
+  }, [accion, handleCheckin, handleReingreso, handleSubevento, handlePuntos, handleSaldo]);
+  const onScanQr = useCallback((qr) => despachar(leerQr(qr)), [despachar]);
+  const onSubmitCodigo = (codigo) => despachar({ codigo });
 
   return (
     <div className="space-y-5">
@@ -233,7 +322,7 @@ export default function CheckinTab({ evento }) {
         <div className="flex items-center gap-3 flex-wrap">
           <AsistenciaContador ingresados={ingresados} total={totalAsistentes} compact />
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-            {[['checkin', 'Check-in'], ['reingreso', 'Reingreso'], ['subevento', 'Sub-evento']].map(([k, l]) => (
+            {[['checkin', 'Check-in'], ['reingreso', 'Reingreso'], ['subevento', 'Sub-evento'], ['puntos', 'Puntos'], ['canjear', 'Canjear']].map(([k, l]) => (
               <button key={k} onClick={() => { setAccion(k); setLast(null); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${accion === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
                 {l}
@@ -313,17 +402,64 @@ export default function CheckinTab({ evento }) {
         </div>
       )}
 
+      {accion === 'puntos' && (
+        <div className="rounded-2xl border border-success/30 bg-success/5 px-4 py-3 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-text-2">
+              Modo <b className="text-text-1">puntos</b>: elige qué le vas a marcar y queda fijo — en un stand se marca lo mismo muchas veces seguidas.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-3">Lugar:</span>
+              <input value={lugar} onChange={e => setLugar(e.target.value)}
+                placeholder="Stand 12 (opcional)"
+                className="input !h-8 !py-1 text-sm w-auto max-w-[180px]" />
+            </div>
+          </div>
+          {motivos === null ? (
+            <p className="text-[11px] text-text-3">Cargando motivos…</p>
+          ) : motivos.length === 0 ? (
+            <p className="text-[11px] text-warning">
+              No hay motivos definidos. Créalos en <b>Espacio del evento → Stands</b>: sin motivo no se sabe por qué se dieron los puntos, y el historial queda sin explicación.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {motivos.map(m => {
+                const sel = motivoSel?.id === m.id;
+                const neg = m.tipo === 'negativo';
+                return (
+                  <button key={m.id} onClick={() => elegirMotivo(m)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all
+                      ${sel ? (neg ? 'border-danger bg-danger/15 text-danger' : 'border-success bg-success/15 text-success')
+                            : 'border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+                    {m.nombre} <span className="tabular-nums opacity-80">{neg ? '' : '+'}{m.puntos}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {accion === 'canjear' && (
+        <div className="rounded-2xl border border-warning/30 bg-warning/5 px-4 py-2.5">
+          <p className="text-xs text-text-2">
+            Modo <b className="text-text-1">canjear</b>: al escanear se ve el saldo y qué le alcanza; el premio se elige después.
+            Primero leer y luego elegir, porque el premio no se puede escoger antes de saber si puede pagarlo.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* Scanner / input */}
         <div className="space-y-4">
           {mode === 'camara'
-            ? <QrScanner onScan={onScanQr} overlay={last ? <TarjetaResultado result={last} compact /> : null} />
+            ? <QrScanner onScan={onScanQr} overlay={last ? <TarjetaResultado result={last} compact onCanjear={confirmarCanje} /> : null} />
             : <ManualInput onSubmit={onSubmitCodigo} disabled={working} />
           }
 
           {/* Resultado del último scan (solo se muestra aquí fuera de pantalla completa,
               ya que en modo cámara el resultado aparece flotando sobre el video) */}
-          {mode !== 'camara' && last && <TarjetaResultado result={last} />}
+          {mode !== 'camara' && last && <TarjetaResultado result={last} onCanjear={confirmarCanje} />}
         </div>
 
         {/* Historial */}
@@ -445,10 +581,102 @@ function ResultadoCard({ result, compact }) {
 /* Una sola puerta para pintar el resultado: antes cada sitio decidía por su
    cuenta qué tarjeta tocaba, y añadir un tercer modo significaba acordarse de
    los dos. */
-function TarjetaResultado({ result, compact }) {
+function TarjetaResultado({ result, compact, onCanjear }) {
   if (result.subeventoMode) return <SubeventoCard result={result} compact={compact} />;
   if (result.reingresoMode) return <ReingresoCard result={result} compact={compact} />;
+  if (result.puntosMode)    return <PuntosCard result={result} compact={compact} />;
+  if (result.canjearMode)   return <CanjearCard result={result} compact={compact} onCanjear={onCanjear} />;
   return <ResultadoCard result={result} compact={compact} />;
+}
+
+/* ─────────── Resultado de dar puntos ─────────── */
+
+function PuntosCard({ result, compact }) {
+  const { ok, error, motivo, ticket, saldo } = result;
+  const neg = motivo?.tipo === 'negativo';
+  const cls = !ok ? 'border-danger/40 bg-danger/10'
+    : neg ? 'border-warning/40 bg-warning/10' : 'border-success/40 bg-success/10';
+  return (
+    <div className={`rounded-3xl border-2 ${cls} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 text-white ${!ok ? 'bg-danger' : neg ? 'bg-warning' : 'bg-success'}`}>
+          {ok ? (neg ? '−' : '+') : '✕'}
+        </div>
+        <div className="min-w-0">
+          {!ok ? (
+            <><h3 className="text-xl font-bold font-display text-text-1">No se pudo marcar</h3>
+              <p className="text-sm text-text-2">{error}</p></>
+          ) : (
+            <>
+              <h3 className="text-xl font-bold font-display text-text-1 truncate">
+                {ticket?.nombre || ticket?.guest_nombre || 'Asistente'}
+              </h3>
+              <p className="text-sm text-text-2">
+                {motivo?.nombre}
+                {saldo != null && <span className="text-text-3"> · saldo {saldo} pts</span>}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Canjear: primero el saldo, después el premio ─────────── */
+
+function CanjearCard({ result, compact, onCanjear }) {
+  const { ok, error, saldoInfo, canjeHecho } = result;
+  if (!ok) return (
+    <div className={`rounded-3xl border-2 border-danger/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-danger/10 p-6'}`}>
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-danger text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">✕</div>
+        <div><h3 className="text-xl font-bold font-display text-text-1">No se pudo leer</h3><p className="text-sm text-text-2">{error}</p></div>
+      </div>
+    </div>
+  );
+  if (canjeHecho) return (
+    <div className={`rounded-3xl border-2 border-success/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-success/10 p-6'}`}>
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-success text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">✓</div>
+        <div className="min-w-0">
+          <h3 className="text-xl font-bold font-display text-text-1 truncate">{canjeHecho.titulo}</h3>
+          <p className="text-sm text-text-2">
+            Canjeado{canjeHecho.codigo ? <> · código <b className="font-mono text-text-1">{canjeHecho.codigo}</b></> : null}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const t = saldoInfo?.ticket;
+  const premios = saldoInfo?.recompensas || [];
+  return (
+    <div className={`rounded-3xl border-2 border-primary/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-primary/5 p-6'} space-y-3`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-lg font-bold font-display text-text-1 truncate">{t?.nombre || 'Asistente'}</h3>
+        <span className="text-lg font-bold tabular-nums text-text-1 flex-shrink-0">{saldoInfo?.saldo ?? 0} pts</span>
+      </div>
+      {premios.length === 0 ? (
+        <p className="text-sm text-text-3">Este evento no tiene premios definidos todavía.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {premios.map(r => (
+            <li key={r.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface/60 px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-text-1 truncate">{r.titulo}</p>
+                <p className="text-[11px] text-text-3">{r.costo_puntos} pts{r.agotada ? ' · agotado' : ''}</p>
+              </div>
+              <button onClick={() => onCanjear?.(r)} disabled={!r.alcanzable}
+                className="btn-primary btn-sm flex-shrink-0 disabled:opacity-40">
+                {r.agotada ? 'Agotado' : r.alcanzable ? 'Canjear' : 'No alcanza'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 /* ─────────── Resultado de asistencia a un sub-evento ─────────── */

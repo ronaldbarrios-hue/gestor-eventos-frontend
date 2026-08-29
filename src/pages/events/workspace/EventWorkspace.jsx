@@ -94,6 +94,15 @@ const SECCIONES = [
     { id: 'torneos',    label: 'Torneos',           perm: ['gestionar_torneo'] },
     { id: 'networking', label: 'Rueda de negocios', perm: null },
     { id: 'mapa',       label: 'Mapa del evento',   perm: 'editar_evento' },
+    /* El aforo y los stands son del ESPACIO: una zona con su cupo y un stand
+       con su sitio son DÓNDE pasan las cosas, no quién asiste. Estaban en
+       Asistentes —que es de personas— y por eso había que salir del mapa para
+       tocar la zona que se estaba mirando.
+       El aforo lo opera quien está en la puerta, no sólo el dueño: por eso va
+       con el permiso de check-in. Limpiar el contador sí queda reservado al
+       owner, y eso lo decide el backend. */
+    { id: 'aforo',      label: 'Aforo por zonas',   perm: 'checkin' },
+    { id: 'stands',     label: 'Stands',            perm: 'checkin' },
     { id: 'ranking',    label: 'Ranking',           perm: null },
   ]},
   { id: 'organizacion', label: 'Organización', icon: UsersIcon, tabs: [
@@ -113,13 +122,12 @@ const SECCIONES = [
   ]},
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
     { id: 'clientes',     label: 'Clientes',        perm: 'ver_clientes' },
-    { id: 'checkin',      label: 'Control de ingreso', perm: 'checkin' },
+    /* «Escanear» y no «Control de ingreso»: ya no sólo controla el ingreso.
+       Es el único sitio donde se pasa una escarapela por un móvil —entrada,
+       reingreso, sub-evento, puntos y canje—, y llamarlo por la primera de
+       las cinco cosas mandaba a buscar las otras cuatro a otra pantalla. */
+    { id: 'checkin',      label: 'Escanear',        perm: 'checkin' },
     { id: 'accesos',      label: 'Accesos e ingresos', perm: '__solo_owner__' },
-    /* El aforo lo opera quien está en la puerta, no sólo el dueño: por eso
-       va con el permiso de check-in y no con '__solo_owner__'. Limpiar el
-       contador sí queda reservado al owner, y eso lo decide el backend. */
-    { id: 'aforo',        label: 'Aforo por zonas', perm: 'checkin' },
-    { id: 'stands',       label: 'Stands y puntos',  perm: 'checkin' },
     { id: 'waitlist',     label: 'Lista de espera', perm: '__solo_owner__' },
     { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes' },
     { id: 'credenciales', label: 'Credenciales',    perm: 'checkin' },
@@ -172,6 +180,10 @@ export default function EventWorkspace() {
     'dinamicas/mapa'       : ['espacio', 'mapa'],
     'organizacion/agenda'  : ['espacio', 'calendario'],
     'organizacion/ranking' : ['espacio', 'ranking'],
+    /* El aforo y los stands se fueron a Espacio del evento. Un enlace guardado
+       o un correo antiguo seguirían apuntando aquí. */
+    'asistentes/aforo'     : ['espacio', 'aforo'],
+    'asistentes/stands'    : ['espacio', 'stands'],
   };
   const sBruto = searchParams.get('s') || 'resumen';
   const tBruto = searchParams.get('t') || '';
@@ -416,8 +428,8 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
     case 'asistentes/accesos'       : return <AccesosSection evento={evento} />;
-    case 'asistentes/aforo'         : return <AforoSection evento={evento} soyOwner={soyOwner} />;
-    case 'asistentes/stands'        : return <StandsTab evento={evento} soyOwner={soyOwner} />;
+    case 'espacio/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
+    case 'espacio/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
     case 'asistentes/credenciales'  : return <CredencialesSection evento={evento} />;
     case 'asistentes/invitaciones'  : return <InvitacionesSection evento={evento} />;

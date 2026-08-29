@@ -14,6 +14,9 @@ export const eventosApi = {
   duplicar  : (id, titulo) => client.post(`/eventos/${id}/duplicar`, titulo ? { titulo } : {}).then(r => r.data),
   /* Formulario personalizado de compra */
   getFormulario     : (id)        => client.get(`/eventos/${id}/formulario`).then(r => r.data),
+  subirPadron  : (id, filas, origen) => client.post(`/eventos/${id}/padron`, { filas, origen }).then(r => r.data),
+  padronEstado : (id)          => client.get(`/eventos/${id}/padron/estado`).then(r => r.data),
+  borrarPadron : (id)          => client.delete(`/eventos/${id}/padron`).then(r => r.data),
   guardarFormulario : (id, campos) => client.put(`/eventos/${id}/formulario`, { campos }).then(r => r.data),
   /* Públicas (sin auth) */
   publicos     : (params = {}) => client.get('/eventos/publicos', { params }).then(r => r.data),
@@ -24,6 +27,10 @@ export const eventosApi = {
   legal        : (id)          => client.get(`/eventos/${id}/legal`).then(r => r.data),
   guardarLegal : (id, body)    => client.put(`/eventos/${id}/legal`, body).then(r => r.data),
   reservar     : (slug, body)  => client.post(`/eventos/publicos/slug/${slug}/reservar`, body).then(r => r.data),
+  /* Prellenar desde el padrón de eventos anteriores. Va por POST y no por GET:
+     una cédula en la query string queda escrita en los logs de acceso del
+     servidor y en el historial del navegador. */
+  prellenar    : (slug, documento) => client.post(`/eventos/publicos/slug/${slug}/prellenar`, { documento }).then(r => r.data),
   ticketByCode : (codigo)      => client.get(`/eventos/publicos/ticket/${codigo}`).then(r => r.data),
   completarFormularioTicket: (codigo, respuestas) =>
     client.post(`/eventos/publicos/ticket/${codigo}/formulario`, { respuestas }).then(r => r.data),
