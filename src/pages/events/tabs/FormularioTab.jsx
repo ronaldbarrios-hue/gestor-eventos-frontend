@@ -825,6 +825,11 @@ export default function FormularioTab({ evento, ticketTypeId = null, requiereTel
         <div ref={finLista} />
       </div>
 
+      {/* Sólo en el formulario del EVENTO. Un sub-evento tiene su propio editor
+          de preguntas cortas y no tiene sentido subirle un padrón: quien se
+          apunta a un taller ya pasó por el formulario grande. */}
+      {!ticketTypeId && <PadronPrevio evento={evento} campos={campos} />}
+
       <div className="flex items-center justify-between gap-3 flex-wrap pt-2">
         <div className="flex items-center gap-3 flex-wrap">
           <button onClick={() => agregar()} disabled={cupo === 0}
@@ -922,6 +927,109 @@ function CondicionEditor({ campo, campos, onChange }) {
       {campo.requerido && (
         <p className="text-[11px] text-text-3">
           Sigue siendo obligatoria, pero sólo cuando se muestra: si la condición no se cumple, no se le pide a nadie.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─────────── Padrón de eventos anteriores ───────────
+
+   Sube la base de asistentes de ediciones pasadas. Al escribir la cédula en el
+   formulario público, se rellena solo lo que ya se sabía.
+
+   Dos cosas que conviene no perder de vista al leer esto:
+
+   · El documento NO se guarda. El servidor lo convierte en un hash con la sal
+     del evento y guarda sólo eso, así que la tabla no sirve para listar
+     cédulas ni aunque alguien la lea entera. Ver la migración 0085.
+   · Se avisa de las columnas que ninguna pregunta recoge. Es la mitad útil de
+     todo esto: subir un archivo con «Empresa» cuando el formulario no pregunta
+     la empresa no sirve de nada, y sin el aviso no hay forma de enterarse. */
+function PadronPrevio({ evento, campos }) {
+  const { success, error: toastErr } = useToast();
+  const [estado, setEstado]   = useState(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [informe, setInforme]   = useState(null);
+
+  useEffect(() => {
+    eventosApi.padronEstado(evento.id).then(setEstado).catch(() => setEstado({ filas: 0, disponible: false }));
+  }, [evento.id]);
+
+  const tomar = async (file) => {
+    if (!file) return;
+    setSubiendo(true); setInforme(null);
+    try {
+      const hoja = await leerHoja(file);
+      if (!hoja.filas?.length) throw new Error('La hoja no tiene filas.');
+      /* `__fila` es del lector, no del padrón: se quita para no guardar un
+         número de fila de un archivo que nadie va a volver a abrir. */
+      const filas = hoja.filas.map(({ __fila, ...resto }) => resto);
+      const r = await eventosApi.subirPadron(evento.id, filas, file.name);
+      setInforme(r);
+      setEstado(e => ({ ...(e || {}), filas: r.guardadas, disponible: true }));
+      success(`${r.guardadas} personas en el padrón.`);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setSubiendo(false); }
+  };
+
+  const borrar = async () => {
+    if (!(await confirmDialog({ message: '¿Borrar el padrón de este evento? El formulario dejará de prellenarse.', danger: true }))) return;
+    try { await eventosApi.borrarPadron(evento.id); setEstado({ filas: 0, disponible: true }); setInforme(null); success('Padrón borrado.'); }
+    catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-1">Datos de eventos anteriores</p>
+          <p className="text-xs text-text-3 mt-0.5 leading-relaxed max-w-xl">
+            Sube la base de quienes ya vinieron. Al escribir su documento, el formulario se rellena
+            con lo que ya sabías y sólo le pides lo que falta.
+            El documento no se guarda: se guarda un código derivado de él.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <label className="btn-secondary btn-sm cursor-pointer">
+            {subiendo ? <><Spinner size="sm" /> Subiendo…</> : estado?.filas ? 'Reemplazar' : 'Subir archivo'}
+            <input type="file" accept={FORMATOS_ACEPTADOS} className="hidden"
+              onChange={e => tomar(e.target.files?.[0])} />
+          </label>
+          {estado?.filas > 0 && (
+            <button onClick={borrar} className="text-xs text-text-3 hover:text-danger transition-colors">Borrar</button>
+          )}
+        </div>
+      </div>
+
+      {estado && (
+        <p className="text-[11px] text-text-3">
+          {estado.filas > 0
+            ? `${estado.filas} personas en el padrón.`
+            : 'Todavía no hay padrón. La columna del documento puede llamarse documento, cédula, identificación, NIT o DNI.'}
+        </p>
+      )}
+
+      {informe?.sin_documento > 0 && (
+        <p className="text-[11px] text-warning">
+          {informe.sin_documento} fila{informe.sin_documento === 1 ? '' : 's'} sin documento reconocible. Esas no se pueden buscar.
+        </p>
+      )}
+
+      {informe?.columnas_sin_pregunta?.length > 0 && (
+        <div className="rounded-xl border border-accent/30 bg-accent/5 px-3 py-2.5">
+          <p className="text-[11px] text-text-2 leading-relaxed">
+            <b className="text-text-1">Tu archivo trae datos que nadie pregunta.</b>{' '}
+            Para aprovechar {informe.columnas_sin_pregunta.length === 1 ? 'esta columna' : 'estas columnas'},
+            añade una pregunta con ese mismo enunciado:{' '}
+            <b className="text-text-1">{informe.columnas_sin_pregunta.join(', ')}</b>.
+          </p>
+        </div>
+      )}
+
+      {campos?.length === 0 && (
+        <p className="text-[11px] text-warning">
+          Este formulario todavía no tiene preguntas, así que no hay nada que prellenar.
         </p>
       )}
     </div>

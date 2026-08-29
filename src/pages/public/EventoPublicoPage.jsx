@@ -602,6 +602,8 @@ function AvisoCupo({ cupo, onTomar }) {
 export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
+  /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
+  const [prellenado, setPrellenado] = useState(null);
   const [working, setWorking] = useState(false);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
@@ -832,6 +834,24 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
                   className={`h-1 flex-1 rounded-full transition-colors ${i <= paso ? 'bg-primary' : 'bg-surface-2'}`} />
               ))}
             </div>
+            {/* Si vino del padrón, qué le queda por rellenar. Se recalcula con
+                las respuestas de AHORA y no con las que trajo el padrón: lo que
+                ya escribió mientras avanzaba deja de contar como pendiente, que
+                es lo que convierte esto en un avance y no en un reproche fijo. */}
+            {prellenado?.encontrado && (() => {
+              const quedan = (prellenado.faltan || []).filter(f => {
+                const v = respuestas[f.id];
+                return v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+              });
+              if (!quedan.length) return (
+                <p className="text-[11px] text-success mt-2">Ya no falta nada de lo que traíamos.</p>
+              );
+              return (
+                <p className="text-[11px] text-text-3 mt-2">
+                  Te falta{quedan.length === 1 ? '' : 'n'} por llenar: {quedan.map(f => f.etiqueta).join(', ')}.
+                </p>
+              );
+            })()}
           </div>
         )}
 
@@ -843,6 +863,11 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         {/* El paso 0 también entra: si no, volver a él desde el 1 se siente
             como un salto seco justo después de haber visto deslizarse el resto. */}
         {(!paginado || paso === 0) && (<>
+        <BuscarPorDocumento slug={slug} campos={camposDelTipo}
+          onEncontrado={(r) => {
+            setRespuestas(prev => ({ ...prev, ...r.respuestas }));
+            setPrellenado(r);
+          }} />
         <div className={`field ancho ${claseEntrada}`}>
           <label className="label" htmlFor="res-nombre">Nombre completo *</label>
           <input id="res-nombre" required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
@@ -1276,4 +1301,72 @@ export function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
   if (!B) return null;
   const Preview = B.Preview;
   return <Preview data={{}} evento={evento} onReservar={onReservar} onWaitlist={onWaitlist} />;
+}
+
+/* ─────────── Buscar por documento en el padrón de eventos anteriores ───────────
+
+   Quien ya vino a una edición pasada no debería volver a escribirlo todo. Al
+   poner la cédula se consulta el padrón que subió el organizador y se rellena
+   lo que ya se sabía.
+
+   Es opcional a propósito y no un paso obligatorio: si no hay padrón, o la
+   persona es nueva, el formulario sigue igual. Un buscador que no encuentra
+   nada no puede bloquear un registro.
+
+   No se dice «no estás en la base». Cuando no hay coincidencia, el servidor
+   contesta igual que si el padrón estuviera vacío — distinguir las dos cosas
+   es justo lo que haría útil probar cédulas ajenas. */
+function BuscarPorDocumento({ slug, campos, onEncontrado }) {
+  const [doc, setDoc] = useState('');
+  const [buscando, setBuscando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+
+  /* Si el formulario no pregunta nada, no hay nada que prellenar. */
+  if (!campos?.length) return null;
+
+  const buscar = async () => {
+    if (!doc.trim() || buscando) return;
+    setBuscando(true);
+    try {
+      const r = await eventosApi.prellenar(slug, doc.trim());
+      setResultado(r);
+      if (r.encontrado) onEncontrado?.(r);
+    } catch {
+      /* Incluye el 429 del limitador. Se trata como "no encontrado": el
+         registro tiene que poder seguir aunque esto falle. */
+      setResultado({ encontrado: false });
+    } finally { setBuscando(false); }
+  };
+
+  return (
+    <div className="ancho rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-2">
+      <label className="label text-xs" htmlFor="res-doc">
+        ¿Ya viniste a un evento nuestro? <span className="text-text-3 font-normal">(opcional)</span>
+      </label>
+      <div className="flex gap-2">
+        <input id="res-doc" value={doc} onChange={e => setDoc(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } }}
+          inputMode="numeric" autoComplete="off"
+          className="input-form flex-1 min-w-0" placeholder="Tu número de documento" />
+        <button type="button" onClick={buscar} disabled={buscando || !doc.trim()}
+          className="btn-secondary btn-sm flex-shrink-0 disabled:opacity-40">
+          {buscando ? 'Buscando…' : 'Traer mis datos'}
+        </button>
+      </div>
+      {resultado && (
+        resultado.encontrado ? (
+          <p className="text-[11px] text-success">
+            Listo, rellenamos lo que ya sabíamos.
+            {resultado.faltan?.length
+              ? ` Falta${resultado.faltan.length === 1 ? '' : 'n'}: ${resultado.faltan.map(f => f.etiqueta).join(', ')}.`
+              : ' No falta nada más.'}
+          </p>
+        ) : (
+          <p className="text-[11px] text-text-3">
+            No encontramos datos previos. Sigue y llena el formulario normalmente.
+          </p>
+        )
+      )}
+    </div>
+  );
 }
