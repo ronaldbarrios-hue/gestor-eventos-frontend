@@ -17,7 +17,7 @@ import { TEMPLATES, instanciarTemplate } from './templates.jsx';
 import CanvasEditor from './canvas/CanvasEditor.jsx';
 import CanvasPublico from './canvas/CanvasPublico.jsx';
 import { ANIMACIONES } from './canvas/elementos.jsx';
-import { EventNavbar, blocksVisibles, resolveBranding, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../../components/public/EventChrome.jsx';
+import { EventNavbar, blocksVisibles, resolveBranding, coverLayout, navbarConfig, SECCIONES_NAVBAR, NAVBAR_ALINEACION } from '../../../components/public/EventChrome.jsx';
 import { BrandHeader } from '../../../components/public/Branding.jsx';
 import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
 import PublicacionSection from '../workspace/PublicacionSection.jsx';
@@ -419,6 +419,8 @@ export default function ExperienceBuilder({ evento, onClose }) {
           </div>
 
           {!verPlantillas ? (<>
+            <SeccionesQueFaltan page={page} extras={extras} evento={evento}
+              onAgregar={addBlock} />
             <ul className="flex-1 p-2 space-y-0.5 overflow-y-auto no-scrollbar">
               {page?.blocks?.map((b, i) => {
                 const Icon = IconDe(b.type);
@@ -715,6 +717,34 @@ export default function ExperienceBuilder({ evento, onClose }) {
                   <input type="checkbox" checked={navbar.mostrar_compartir} onChange={e => setNav({ mostrar_compartir: e.target.checked })} className="accent-[#8B5CF6] w-4 h-4" />
                 </label>
               </div>
+
+              {/* Las secciones del evento. Antes aparecían solas en cuanto el
+                  dato existía —creabas un mapa y el botón se ponía arriba— y no
+                  había forma de quitarlo. «Si existe» sigue siendo el defecto,
+                  así que quien no toque nada ve lo de siempre. */}
+              <div>
+                <label className="text-xs text-text-2 block mb-1">Secciones del evento</label>
+                <p className="text-[11px] text-text-3 mb-2 leading-snug">
+                  Cuándo sale cada botón. «Si existe» es lo que hacía hasta ahora.
+                </p>
+                <div className="space-y-1.5">
+                  {SECCIONES_NAVBAR.map(({ id, label }) => (
+                    <div key={id} className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-text-2 min-w-0 truncate">{label}</span>
+                      <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-lg p-0.5 flex-shrink-0">
+                        {[['auto', 'Si existe'], ['si', 'Siempre'], ['no', 'Nunca']].map(([v, t]) => (
+                          <button key={v}
+                            onClick={() => setNav({ secciones: { ...navbar.secciones, [id]: v } })}
+                            className={`px-2 py-1 rounded text-[11px] font-medium transition-all
+                              ${(navbar.secciones?.[id] || 'auto') === v ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs text-text-2">Enlaces personalizados</label>
@@ -903,6 +933,55 @@ function EditorTopChrome({ evento, pages, onPortada, portadaData, navbar = {} })
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────── «Tienes esto configurado y no está en la página» ───────────
+
+   El caso que lo motiva, medido en producción: un evento con TRES tipos de
+   boleta activos y ninguna sección de boletas en su landing. Desde fuera se ve
+   como si las boletas no estuvieran configuradas — y desde el panel tampoco
+   había forma de notarlo, porque una sección que no existe no ocupa sitio ni
+   deja hueco.
+
+   Por qué avisar en vez de añadirla sola: es justo lo contrario de lo que
+   molestaba del navbar, donde el botón del mapa se ponía arriba en cuanto
+   creabas un mapa y no se podía quitar. Una landing es del organizador; la
+   plataforma puede decirle que le falta algo, no decidir por él.
+
+   Sólo se avisa de lo que YA tiene datos. Ofrecer «te falta el bloque de
+   patrocinadores» a quien no tiene ninguno sería ruido, y el ruido se aprende
+   a ignorar en dos días. */
+function SeccionesQueFaltan({ page, extras, evento, onAgregar }) {
+  const puestos = new Set((page?.blocks || []).map(b => b?.type));
+
+  const candidatos = [
+    { type: 'tickets',     label: 'Boletas',      hay: (extras.ticket_types || []).length,
+      dice: (n) => `${n} tipo${n === 1 ? '' : 's'} de boleta activo${n === 1 ? '' : 's'}` },
+    { type: 'expositores', label: 'Expositores',  hay: (extras.expositores || []).length,
+      dice: (n) => `${n} expositor${n === 1 ? '' : 'es'}` },
+    { type: 'recompensas', label: 'Premios',      hay: (extras.recompensas || []).length,
+      dice: (n) => `${n} premio${n === 1 ? '' : 's'}` },
+    { type: 'mapa_evento', label: 'Mapa del evento', hay: evento?.page_json?.mapa ? 1 : 0,
+      dice: () => 'el mapa está armado' },
+  ].filter(c => c.hay > 0 && !puestos.has(c.type));
+
+  if (!candidatos.length) return null;
+
+  return (
+    <div className="m-2 rounded-xl border border-warning/40 bg-warning/10 p-2.5 space-y-2">
+      <p className="text-[11px] text-text-2 leading-snug">
+        <b className="text-text-1">Esto no se está viendo.</b> Lo tienes configurado, pero no hay
+        una sección que lo muestre.
+      </p>
+      {candidatos.map(c => (
+        <button key={c.type} onClick={() => onAgregar(c.type)}
+          className="w-full text-left rounded-lg bg-surface/60 hover:bg-surface px-2.5 py-2 transition-colors">
+          <p className="text-[12px] font-medium text-text-1">+ {c.label}</p>
+          <p className="text-[10px] text-text-3">{c.dice(c.hay)}</p>
+        </button>
+      ))}
     </div>
   );
 }

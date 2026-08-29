@@ -7,7 +7,7 @@ import { pagosApi }   from '../../api/pagos.js';
 import { waitlistApi } from '../../api/waitlist.js';
 import { BLOCKS, BLOCK_TYPES_SISTEMA } from '../events/editor/blocks.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/public/Branding.jsx';
-import { blocksVisibles, coverLayout, navbarConfig, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
+import { blocksVisibles, coverLayout, navbarConfig, muestraSeccion, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
@@ -255,28 +255,28 @@ export default function EventoPublicoPage() {
               {l.label}
             </a>
           ))}
-          {evento.tiene_networking && (
+          {muestraSeccion(nav, 'networking', evento.tiene_networking) && (
             <Link to={`/explorar/${slug}/networking`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30
                          bg-primary/10 text-sm text-primary-light hover:bg-primary/20 transition-colors">
               <Icono nombre="manos" className="w-4 h-4" />Rueda de Negocios
             </Link>
           )}
-          {evento.tiene_torneo && (
+          {muestraSeccion(nav, 'torneo', evento.tiene_torneo) && (
             <Link to={`/explorar/${slug}/torneo`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-warning/30
                          bg-warning/10 text-sm text-warning hover:bg-warning/20 transition-colors">
               Ver Torneo
             </Link>
           )}
-          {(evento.tiene_espacio ?? evento.tiene_agenda) && (
+          {muestraSeccion(nav, 'espacio', evento.tiene_espacio ?? evento.tiene_agenda) && (
             <Link to={`/explorar/${slug}/agenda`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-success/30
                          bg-success/10 text-sm text-success hover:bg-success/20 transition-colors">
               <Icono nombre="calendario" className="w-4 h-4" />Espacio del evento
             </Link>
           )}
-          {evento.tiene_expositores && (
+          {muestraSeccion(nav, 'ranking', evento.tiene_expositores) && (
             <Link to={`/explorar/${slug}/ranking`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
                          text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
@@ -285,7 +285,7 @@ export default function EventoPublicoPage() {
           )}
           {/* El mapa, si el organizador lo configuró. Faltaba aquí y en todas
               partes: se armaba en el panel y no había un solo enlace hacia él. */}
-          {evento.page_json?.mapa && (
+          {muestraSeccion(nav, 'mapa', evento.page_json?.mapa) && (
             <Link to={`/explorar/${slug}/mapa`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
                          text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
