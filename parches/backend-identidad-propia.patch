@@ -1,8 +1,8 @@
-From b4f821f9ab1f1bdf4569016f320275d3a8258ecd Mon Sep 17 00:00:00 2001
-From: Sekkon0906 <juan.medina@hytrex.co>
-Date: Sat, 29 Aug 2026 00:41:38 +0000
-Subject: [PATCH] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20m?=
- =?UTF-8?q?=C3=B3dulo=20entero,=20detr=C3=A1s=20de=20un=20interruptor?=
+From 55d0f3272c408540e65a7574c63c68e2d6862c66 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 29 Aug 2026 01:19:23 +0000
+Subject: [PATCH 1/2] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
+ =?UTF-8?q?m=C3=B3dulo=20entero,=20detr=C3=A1s=20de=20un=20interruptor?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -33,8 +33,8 @@ Los hashes se migran intactos —los 10 son bcrypt, verificado contra
 producción— y los UUID se conservan, que es lo que sostiene las claves ajenas
 del resto del esquema.
 
-58 pruebas nuevas, sin base de datos ni servidor: el servicio recibe un
-repositorio falso. Las 199 de la suite pasan.
+65 pruebas nuevas, sin base de datos ni servidor: el servicio recibe un
+repositorio falso. Las 206 de la suite pasan.
 
 Falta la configuración en cPanel, que va en CONFIGURAR.md. Con AUTH_PROPIA
 apagado —como queda— el backend se comporta exactamente como hoy.
@@ -3936,6 +3936,1846 @@ index 0000000..b3b3197
 +  }));
 +  const claves = Object.keys(carga).sort();
 +  assert.deepEqual(claves, ['aud', 'email', 'exp', 'iat', 'iss', 'sub', 'tipo']);
++});
+-- 
+2.43.0
+
+
+From 7a5fa2cd188356c168a92d2770689a56900f50a6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 29 Aug 2026 01:20:01 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
+ =?UTF-8?q?ube=20al=20backend,=20y=20ah=C3=AD=20s=C3=AD=20se=20puede=20com?=
+ =?UTF-8?q?probar?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hoy sube directo a Supabase, y por eso ninguno de los cuatro problemas del
+almacenamiento se podía arreglar: no había dónde poner la comprobación. Al
+pasar la subida por aquí, los cuatro caen solos.
+
+Los 40 huérfanos y los 28 MB —más de un tercio del bucket— salían de que
+cuatro de los cinco uploaders suben el archivo nuevo y dejan el viejo donde
+estaba. Ahora hay una ficha por archivo, con dueño y tamaño, y subir un avatar
+marca el anterior. El borrado es lógico: los bytes se los lleva el barrido un
+día después, por si el borrado fue un error.
+
+`form-uploads` deja de aceptar escritura de cualquiera con la llave anónima que
+va en el bundle; el expositor sin cuenta sigue pudiendo subir, que era lo
+deliberado. Las hojas de vida salen del bucket público a una carpeta privada
+con enlace firmado y caducidad — eran datos personales servidos por URL
+adivinable. Y empiezan a poder subirse: el código mandaba PDF de 8 MB a un
+bucket que sólo admitía imágenes de 4 MB, así que nunca se subió ninguno.
+
+El tipo se deduce de los primeros bytes, no de la extensión ni del
+Content-Type, que los escribe quien sube. Hay cuota por cuenta: sin ella una
+sola puede llenar los 9,81 GB del disco compartido y tumbar la aplicación para
+todos.
+
+La estructura de carpetas es idéntica a la de los buckets. No es estética: es
+lo que convierte la reescritura de las 13 columnas que llevan la URL dentro de
+la fila en un cambio de prefijo. El SQL de esa reescritura va en
+db/migraciones/postgres, dentro de una transacción y comparando los conteos
+contra los medidos — que hoy siguen siendo 57 filas exactas.
+
+26 pruebas nuevas, 232 en la suite. Entre ellas la que importa más y no está en
+la lista de hallazgos: que una ruta con `..` no escriba fuera del almacén, que
+en un hosting compartido es el resto de la cuenta.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ CONFIGURAR.md                                 |  89 +++++
+ core/config/index.js                          |  29 ++
+ db/migraciones/002_archivos.sql               |  60 ++++
+ .../postgres/001_reescribir_urls.sql          | 160 +++++++++
+ index.js                                      |  18 +
+ modules/archivos/almacen.js                   | 134 +++++++
+ modules/archivos/firmas.js                    |  62 ++++
+ modules/archivos/index.js                     |  35 ++
+ modules/archivos/repositorio.js               | 103 ++++++
+ modules/archivos/rutas.js                     | 129 +++++++
+ modules/archivos/servicio.js                  | 177 +++++++++
+ modules/archivos/tipos.js                     | 124 +++++++
+ scripts/copiar-storage.js                     | 207 +++++++++++
+ test/archivos.test.js                         | 339 ++++++++++++++++++
+ 14 files changed, 1666 insertions(+)
+ create mode 100644 db/migraciones/002_archivos.sql
+ create mode 100644 db/migraciones/postgres/001_reescribir_urls.sql
+ create mode 100644 modules/archivos/almacen.js
+ create mode 100644 modules/archivos/firmas.js
+ create mode 100644 modules/archivos/index.js
+ create mode 100644 modules/archivos/repositorio.js
+ create mode 100644 modules/archivos/rutas.js
+ create mode 100644 modules/archivos/servicio.js
+ create mode 100644 modules/archivos/tipos.js
+ create mode 100644 scripts/copiar-storage.js
+ create mode 100644 test/archivos.test.js
+
+diff --git a/CONFIGURAR.md b/CONFIGURAR.md
+index c075e1d..66299b2 100644
+--- a/CONFIGURAR.md
++++ b/CONFIGURAR.md
+@@ -194,6 +194,95 @@ nunca se borraron de Supabase.
+   refresco. `repositorio.limpiarCaducados()` está escrita para el cron; conviene
+   engancharla cuando haya tráfico de verdad.
+ 
++---
++
++# Encender el almacén propio
++
++Va aparte de la identidad y con su propio interruptor (`ARCHIVOS_PROPIOS`): se
++encienden en días distintos y se vuelve atrás por separado. Necesita la
++identidad encendida, porque quien sube tiene que poder ser reconocido.
++
++## A · El disco
++
++```
++ARCHIVOS_RAIZ=/home/cuenta/gestek-archivos
++ARCHIVOS_URL_BASE=https://api.gestekeventost.dpdns.org/archivos
++ARCHIVOS_CUOTA_BYTES=52428800
++ARCHIVOS_X_ACCEL=            # sólo si hay Nginx delante; en cPanel, vacío
++```
++
++**`ARCHIVOS_RAIZ` fuera de la carpeta del código.** Si estuviera dentro, un
++despliegue que reemplace el directorio se lleva por delante las fotos de todos
++los eventos, y no hay copia. Y las tablas:
++
++```bash
++mysql -u cuenta_usuario -p cuenta_gestek < db/migraciones/002_archivos.sql
++```
++
++`ARCHIVOS_URL_BASE` es el prefijo que va a sustituir al de Supabase dentro de
++las filas. Elegirlo bien **ahora**: cambiarlo después obliga a repetir la
++reescritura de las 13 columnas. Sin comillas, sin barras invertidas y sin
++espacios — cinco de esas columnas son JSON.
++
++## B · Traer los archivos
++
++```bash
++node scripts/copiar-storage.js              # lista y cuenta, no baja nada
++node scripts/copiar-storage.js --aplicar    # baja los referenciados
++```
++
++La primera pasada no baja nada: enseña cuántos objetos hay, cuántos referencia
++alguna fila y cuántos no. De los 107, **40 son huérfanos y suman 28 MB** —más
++de un tercio— y por defecto se quedan fuera: copiarlos es pagar dos veces un
++trabajo que sólo mueve basura.
++
++La ruta de destino es idéntica a la de origen (`bucket/carpeta/archivo`). Eso
++es lo que convierte el paso siguiente en un cambio de prefijo.
++
++## C · Servir las dos copias a la vez
++
++Antes de reescribir nada, comprobar que una URL nueva responde:
++
++```bash
++curl -I https://api.gestekeventost.dpdns.org/archivos/avatars/<uid>/<archivo>
++```
++
++Y que las viejas **siguen respondiendo**. Las dos copias en paralelo durante
++toda la ventana: si se apaga el origen antes de tiempo, cada portada sin migrar
++es un hueco en una página pública de un evento publicado.
++
++## D · Reescribir las URL
++
++`db/migraciones/postgres/001_reescribir_urls.sql`, en el editor SQL de Supabase,
++**entero y de una vez**. Termina en `ROLLBACK`: la primera pasada enseña los
++conteos sin cambiar nada. Tienen que dar exactamente 16, 13, 5, 5, 4, 4, 3, 2,
++1, 1, 1, 1, 1 — 57 filas, vueltas a medir el 29 de agosto. Si no cuadran,
++parar: o alguien subió cosas desde entonces, o hay filas que la reescritura no
++está alcanzando.
++
++Cuando cuadren, cambiar `ROLLBACK` por `COMMIT` y repetir.
++
++## E · Lo que cambia para quien usa la aplicación
++
++Nada, si todo va bien. Por dentro sí cambian cuatro cosas, y las cuatro son
++arreglos de problemas medidos:
++
++- **La foto anterior se borra.** Hoy no la borra nadie, y por eso el
++  almacenamiento pasó de 24 a 80 MB sin que se subiera más.
++- **`form-uploads` deja de aceptar escritura de cualquiera.** La política de
++  Supabase permitía escribir con la llave anónima, que va en el bundle del
++  navegador. Ahora hace falta sesión o el código del expositor.
++- **Las hojas de vida salen del bucket público** a una carpeta privada, servida
++  con enlace firmado que caduca en quince minutos.
++- **La subida de CV empieza a funcionar.** Nunca funcionó: el código mandaba
++  PDF de 8 MB a un bucket que sólo admitía imágenes de 4 MB.
++
++Lo último obliga a tocar los cinco uploaders del frontend, que hoy suben
++directos a Supabase con `getPublicUrl()`. Ese cambio va con el interruptor del
++frontend, no con éste.
++
++---
++
+ ## 8 · Lo que este documento NO cubre
+ 
+ - **Apagar Supabase Auth.** No se toca hasta que pasen unos días con todo el
+diff --git a/core/config/index.js b/core/config/index.js
+index e19422b..a31f605 100644
+--- a/core/config/index.js
++++ b/core/config/index.js
+@@ -85,6 +85,35 @@ const config = {
+   INTENTOS_MAX  : parseInt(process.env.AUTH_INTENTOS_MAX, 10) || 8,
+   BLOQUEO_MIN   : parseInt(process.env.AUTH_BLOQUEO_MIN, 10)  || 15,
+ 
++  /* ── Archivos ─────────────────────────────────────────────────────────
++     Su propio interruptor, separado del de la identidad: se pueden encender en
++     días distintos y volver atrás por separado. Mientras esté apagado, el
++     navegador sigue subiendo directo a Supabase como hoy. */
++  ARCHIVOS_PROPIOS: process.env.ARCHIVOS_PROPIOS === 'true' || process.env.ARCHIVOS_PROPIOS === '1',
++
++  /* La raíz va FUERA de la carpeta del código: si estuviera dentro, un
++     despliegue que reemplace el directorio se lleva por delante las fotos de
++     todos los eventos, y no hay copia. En cPanel algo como
++     `/home/cuenta/gestek-archivos`. */
++  ARCHIVOS_RAIZ: process.env.ARCHIVOS_RAIZ || (IS_PROD ? '/var/gestek/archivos' : './.archivos'),
++
++  /* El prefijo público de las URL. Tiene que ser EXACTAMENTE el que sustituye
++     al de Supabase en las 13 columnas que llevan la URL dentro de la fila, o
++     la reescritura deja de ser un cambio de prefijo. Y sin caracteres que haya
++     que escapar en JSON: cinco de esas columnas son JSON. */
++  ARCHIVOS_URL_BASE: (process.env.ARCHIVOS_URL_BASE || '/archivos').replace(/\/$/, ''),
++
++  /* Cuota por cuenta. 50 MB es holgado para fotos de perfil y galería —hoy los
++     tres buckets enteros suman 80 MB entre 29 usuarios— y evita que una sola
++     cuenta llene los 9,81 GB del disco compartido y tumbe la aplicación para
++     todos. */
++  ARCHIVOS_CUOTA_BYTES: parseInt(process.env.ARCHIVOS_CUOTA_BYTES, 10) || 50 * 1024 * 1024,
++
++  /* La ubicación interna de Nginx para servir los privados sin que los bytes
++     pasen por Node. Vacío = se sirven desde el proceso, que vale en desarrollo
++     y no en un evento con gente descargando a la vez. */
++  ARCHIVOS_X_ACCEL: process.env.ARCHIVOS_X_ACCEL || null,
++
+   /* ── Google ───────────────────────────────────────────────────────────
+      El `client_id` TIENE que ser el mismo que usa Supabase hoy, o los 22
+      usuarios que entran con Google dejan de entrar aunque sus filas estén
+diff --git a/db/migraciones/002_archivos.sql b/db/migraciones/002_archivos.sql
+new file mode 100644
+index 0000000..4ab6422
+--- /dev/null
++++ b/db/migraciones/002_archivos.sql
+@@ -0,0 +1,60 @@
++-- 002_archivos.sql — el registro de los archivos.
++--
++-- ── Por qué hace falta una tabla si los archivos están en disco ───────────
++--
++-- Hoy no hay ninguna, y ése es exactamente el problema medido: **40 objetos
++-- huérfanos y 28 MB**, más de un tercio del almacenamiento, son archivos que ya
++-- no apunta ninguna fila. Pasó porque cuatro de los cinco uploaders suben el
++-- archivo nuevo y dejan el viejo donde estaba. Nadie los borra porque nadie
++-- sabe que existen: el disco no se puede preguntar «¿de quién es esto y quién
++-- lo usa?».
++--
++-- Con esta tabla sí se puede. Cada archivo tiene dueño, carpeta, tamaño y fecha
++-- de borrado, y con eso salen las tres cosas que hoy no se pueden hacer:
++-- reemplazar borrando el anterior, cobrar una cuota por usuario, y barrer lo
++-- que sobra sin adivinar.
++--
++-- ── Lo que NO guarda ──────────────────────────────────────────────────────
++--
++-- El contenido. Los bytes viven en disco, fuera de la carpeta del código y
++-- fuera del repositorio, para que un despliegue no se los lleve por delante.
++-- Aquí sólo está la ficha.
++
++CREATE TABLE IF NOT EXISTS archivos (
++  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- La ruta relativa a la raíz del almacén: `avatars/<uid>/avatar-<ts>.jpg`.
++  -- Es la MISMA estructura que tienen hoy los buckets de Supabase, y no es
++  -- casualidad: conservarla convierte la reescritura de las 13 columnas que
++  -- llevan la URL dentro en una sustitución de prefijo y nada más.
++  ruta          VARCHAR(512) NOT NULL,
++
++  carpeta       VARCHAR(64)  NOT NULL,     -- avatars | event-media | form-uploads | hojas-de-vida
++  usuario_id    CHAR(36)         NULL,     -- NULL: subida sin cuenta (el expositor con su código)
++  evento_id     CHAR(36)         NULL,     -- para poder cobrar y barrer por evento
++
++  nombre_original VARCHAR(255)   NULL,
++  -- El tipo REAL, el que se dedujo de los primeros bytes. Nunca el que declaró
++  -- el navegador: eso lo escribe quien sube, y un `.jpg` que dentro es otra
++  -- cosa es la forma barata de colar lo que sea.
++  tipo_mime     VARCHAR(128) NOT NULL,
++  bytes         BIGINT UNSIGNED NOT NULL,
++
++  -- Los públicos los sirve Nginx directamente. Los privados —las hojas de
++  -- vida— sólo salen con un enlace firmado y con caducidad. Hoy están en un
++  -- bucket público, que es el hallazgo (c) de SUPABASE.md §3.4: no se pueden
++  -- listar, pero cada uno se lee por su URL, y son datos personales.
++  publico       TINYINT(1)   NOT NULL DEFAULT 1,
++
++  creado_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  -- Borrado lógico: la fila se marca y el barrido se lleva los bytes después.
++  -- Borrar la fila y el archivo a la vez deja huérfano lo que falle en medio,
++  -- que es justo lo que se está arreglando.
++  borrado_at    DATETIME         NULL,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY uk_archivos_ruta (ruta),
++  KEY idx_archivos_usuario (usuario_id, carpeta, borrado_at),
++  KEY idx_archivos_evento (evento_id, borrado_at),
++  KEY idx_archivos_barrido (borrado_at)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+diff --git a/db/migraciones/postgres/001_reescribir_urls.sql b/db/migraciones/postgres/001_reescribir_urls.sql
+new file mode 100644
+index 0000000..331587a
+--- /dev/null
++++ b/db/migraciones/postgres/001_reescribir_urls.sql
+@@ -0,0 +1,160 @@
++-- 001_reescribir_urls.sql — cambiar el host de Supabase por el nuestro en las
++-- 13 columnas donde la URL está guardada dentro de la fila.
++--
++-- ⚠ Esto corre contra POSTGRES (Supabase), no contra MySQL. Va aparte por eso.
++--
++-- ── Antes de correrlo, tres cosas ─────────────────────────────────────────
++--
++-- 1. Los archivos ya están copiados (`scripts/copiar-storage.js --aplicar`) y
++--    las URLs NUEVAS responden. Si no, cada portada reescrita es un hueco en
++--    una página pública.
++-- 2. Las URLs VIEJAS siguen respondiendo. Las dos copias en paralelo durante
++--    toda la ventana: esto se deshace, pero no instantáneamente.
++-- 3. Hay copia de seguridad de la base. La transacción protege de un fallo a
++--    mitad, no de haber puesto mal el host.
++--
++-- ── Cómo se usa ──────────────────────────────────────────────────────────
++--
++-- Sustituir NUEVO_HOST abajo y pegar todo esto en el editor SQL de Supabase.
++-- Termina en ROLLBACK a propósito: la primera pasada enseña los conteos sin
++-- cambiar nada. Cuando los números cuadren, se cambia ROLLBACK por COMMIT.
++--
++-- **Entero y de una vez.** No por trozos, y no con una herramienta que mande
++-- cada sentencia por separado: si el BEGIN y el ROLLBACK caen en transacciones
++-- distintas, los UPDATE se confirman y el ROLLBACK avisa de que no había nada
++-- que deshacer. Es el único modo de que esta primera pasada «que no toca nada»
++-- toque producción.
++--
++-- Los conteos de control se volvieron a medir el 29 de agosto y no han
++-- cambiado: 16, 13, 5, 5, 4, 4, 3, 2, 1, 1, 1, 1, 1 — 57 filas.
++--
++-- ── La condición que no se puede saltar ──────────────────────────────────
++--
++-- Cinco de las trece columnas son JSON (`gallery`, `page_json`, `paginas`,
++-- `branding`, `tickets.respuestas`). Se reescriben pasando por texto y
++-- volviendo, y eso funciona porque la sustitución no cambia la estructura del
++-- JSON ni introduce comillas. **El host nuevo no puede llevar caracteres que
++-- haya que escapar en JSON.** Un host normal no los lleva; uno con una comilla
++-- o una barra invertida rompería las cinco columnas a la vez.
++
++BEGIN;
++
++-- El prefijo viejo y el nuevo, en un solo sitio.
++CREATE TEMP TABLE _sust (viejo text, nuevo text) ON COMMIT DROP;
++INSERT INTO _sust VALUES (
++  'https://yopontbwgdybfsniqawz.supabase.co/storage/v1/object/public/',
++  'https://NUEVO_HOST/archivos/'
++);
++
++-- Comprobación de seguridad: si el host nuevo lleva algo que hay que escapar
++-- en JSON, se para aquí y no se toca nada.
++DO $$
++DECLARE n text;
++BEGIN
++  SELECT nuevo INTO n FROM _sust;
++  -- Comillas, barra invertida o espacios en blanco. Los guiones y los puntos
++  -- de un host normal no dan problema y no se rechazan.
++  IF n ~ '["\\]' OR n ~ '\s' THEN
++    RAISE EXCEPTION 'El host nuevo lleva caracteres que hay que escapar en JSON: %', n;
++  END IF;
++  IF n LIKE '%NUEVO_HOST%' THEN
++    RAISE EXCEPTION 'Falta sustituir NUEVO_HOST.';
++  END IF;
++END $$;
++
++-- Para poder comparar al final contra los conteos medidos.
++CREATE TEMP TABLE _hechas (tabla text, columna text, filas bigint, esperadas bigint) ON COMMIT DROP;
++
++-- ── Las ocho de texto ─────────────────────────────────────────────────────
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE eventos SET cover_url = replace(cover_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE cover_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'eventos', 'cover_url', count(*), 16 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE torneo_equipos SET foto_url = replace(foto_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE foto_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'torneo_equipos', 'foto_url', count(*), 13 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE profiles SET empresa_logo_url = replace(empresa_logo_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE empresa_logo_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'profiles', 'empresa_logo_url', count(*), 4 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE profiles SET avatar_url = replace(avatar_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE avatar_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'profiles', 'avatar_url', count(*), 3 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE chat_messages SET file_url = replace(file_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE file_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'chat_messages', 'file_url', count(*), 2 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE eventos SET pago_qr_url = replace(pago_qr_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE pago_qr_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'eventos', 'pago_qr_url', count(*), 1 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE speakers SET foto_url = replace(foto_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE foto_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'speakers', 'foto_url', count(*), 1 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE networking_expositores SET logo_url = replace(logo_url, (SELECT viejo FROM s), (SELECT nuevo FROM s))
++   WHERE logo_url LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'networking_expositores', 'logo_url', count(*), 1 FROM u;
++
++-- ── Las cinco de JSON ─────────────────────────────────────────────────────
++-- Por texto y de vuelta. La URL puede estar a cualquier profundidad —`page_json`
++-- es el constructor de páginas y la imagen puede vivir en cualquier bloque—, así
++-- que no hay forma de llegar a ella por clave.
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE eventos SET gallery = replace(gallery::text, (SELECT viejo FROM s), (SELECT nuevo FROM s))::jsonb
++   WHERE gallery::text LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'eventos', 'gallery', count(*), 5 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE tickets SET respuestas = replace(respuestas::text, (SELECT viejo FROM s), (SELECT nuevo FROM s))::jsonb
++   WHERE respuestas::text LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'tickets', 'respuestas', count(*), 5 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE eventos SET page_json = replace(page_json::text, (SELECT viejo FROM s), (SELECT nuevo FROM s))::jsonb
++   WHERE page_json::text LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'eventos', 'page_json', count(*), 4 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE eventos SET paginas = replace(paginas::text, (SELECT viejo FROM s), (SELECT nuevo FROM s))::jsonb
++   WHERE paginas::text LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'eventos', 'paginas', count(*), 1 FROM u;
++
++WITH s AS (SELECT * FROM _sust), u AS (
++  UPDATE eventos SET branding = replace(branding::text, (SELECT viejo FROM s), (SELECT nuevo FROM s))::jsonb
++   WHERE branding::text LIKE '%/storage/v1/object/public/%' RETURNING 1)
++INSERT INTO _hechas SELECT 'eventos', 'branding', count(*), 1 FROM u;
++
++-- ── El control ────────────────────────────────────────────────────────────
++-- Los esperados son los medidos el 28 de agosto (SUPABASE.md §3.3). Si no
++-- cuadran, PARAR: o alguien subió cosas desde entonces —y hay que volver a
++-- medir— o hay filas que esta reescritura no está alcanzando.
++
++SELECT tabla, columna, filas, esperadas,
++       CASE WHEN filas = esperadas THEN 'ok' ELSE '⚠ NO CUADRA' END AS control
++  FROM _hechas
++ ORDER BY esperadas DESC, tabla, columna;
++
++SELECT sum(filas) AS total_reescrito, sum(esperadas) AS total_esperado FROM _hechas;
++
++-- Que nadie se quede atrás: después de esto, ninguna columna debería seguir
++-- llevando el host viejo.
++SELECT count(*) AS quedan_en_eventos FROM eventos
++ WHERE cover_url LIKE '%/storage/v1/object/public/%'
++    OR page_json::text LIKE '%/storage/v1/object/public/%'
++    OR gallery::text LIKE '%/storage/v1/object/public/%';
++
++-- Primera pasada: ROLLBACK. Cuando los conteos cuadren, cambiar por COMMIT.
++ROLLBACK;
+diff --git a/index.js b/index.js
+index 466f5d7..572ff4f 100644
+--- a/index.js
++++ b/index.js
+@@ -67,6 +67,24 @@ if (configPropia.AUTH_PROPIA) {
+   console.log('[auth] identidad propia montada en /auth');
+ }
+ 
++/* ── Almacén propio ────────────────────────────────────────────────────────
++   Interruptor aparte del de la identidad: se encienden en días distintos y se
++   vuelve atrás por separado. Apagado, el navegador sigue subiendo directo a
++   Supabase como hasta hoy.
++
++   Necesita la identidad encendida: quien sube tiene que poder ser reconocido, y
++   eso lo resuelve `modules/auth`. */
++if (configPropia.ARCHIVOS_PROPIOS) {
++  const archivos = require('./modules/archivos');
++  app.use('/archivos', archivos.rutas);
++  /* Comprobar que el almacén se puede escribir AHORA y no cuando el primer
++     usuario suba una foto: un permiso mal puesto se ve en el log del arranque
++     o no se ve hasta que alguien se queja. */
++  archivos.comprobarAlmacen()
++    .then((raiz) => console.log(`[archivos] almacén propio montado en /archivos → ${raiz}`))
++    .catch((e) => console.error(`[archivos] NO se puede escribir en el almacén: ${e.message}`));
++}
++
+ /* TEMPORAL — diagnóstico de red saliente hacia Hostinger, para depurar el
+    ENETUNREACH/timeout que ve el envío de correo. Sin parámetros de entrada
+    (no hay riesgo de SSRF: los destinos están fijos en el código), y no
+diff --git a/modules/archivos/almacen.js b/modules/archivos/almacen.js
+new file mode 100644
+index 0000000..3ba57fb
+--- /dev/null
++++ b/modules/archivos/almacen.js
+@@ -0,0 +1,134 @@
++'use strict';
++
++/* modules/archivos/almacen.js — el disco. Es el único archivo del módulo que
++ * toca `fs`, por la misma razón por la que sólo `repositorio.js` toca SQL: el
++ * día que esto sea S3, o un disco montado en otra máquina, se reescribe uno.
++ *
++ * ── Dónde viven los archivos ──────────────────────────────────────────────
++ *
++ * Fuera del repositorio y fuera de la carpeta del código. En cPanel eso es algo
++ * como `/home/cuenta/gestek-archivos`, y en el .env `ARCHIVOS_RAIZ`. Si
++ * estuvieran dentro del proyecto, un despliegue que reemplace la carpeta se
++ * lleva por delante las fotos de todos los eventos, y no hay copia.
++ *
++ * ── La ruta es lo peligroso ───────────────────────────────────────────────
++ *
++ * Todo lo que llega de fuera puede llevar `..`, una barra inicial, un byte
++ * nulo o una ruta absoluta. Cualquiera de esas cosas, concatenada sin mirar,
++ * escribe o lee fuera del almacén — que en un hosting compartido significa el
++ * resto de la cuenta. Por eso hay una sola función que convierte ruta relativa
++ * en ruta absoluta, comprueba que el resultado sigue dentro, y es la que usan
++ * todas las demás.
++ */
++
++const fs = require('fs');
++const fsp = require('fs/promises');
++const path = require('path');
++const crypto = require('crypto');
++const config = require('../../core/config');
++
++function raiz() {
++  return path.resolve(config.ARCHIVOS_RAIZ);
++}
++
++/* Sólo lo que no da problemas en un nombre de archivo, en ningún sistema.
++   Nada de espacios, acentos ni comillas: el nombre bonito se guarda en la
++   ficha (`nombre_original`) y se usa al descargar. */
++function limpiarSegmento(s) {
++  return String(s || '')
++    .normalize('NFKD')
++    .replace(/[^\w.-]/g, '-')
++    .replace(/-{2,}/g, '-')
++    .replace(/^[-.]+|[-.]+$/g, '')
++    .slice(0, 80);
++}
++
++/* Convierte `avatars/<uid>/foto.jpg` en una ruta absoluta, o lanza.
++ *
++ * `path.resolve` ya normaliza los `..`, así que la comprobación de después es
++ * la que decide: si el resultado no empieza por la raíz más el separador, es
++ * que la ruta se salió. Compararlo con `startsWith(raiz)` a secas no vale —
++ * `/var/gestek/archivos-otro` empieza por `/var/gestek/archivos`. */
++function absoluta(rutaRelativa) {
++  const r = String(rutaRelativa || '');
++  if (!r || r.includes('\0')) throw new Error('Ruta inválida.');
++
++  const base = raiz();
++  const destino = path.resolve(base, r);
++  if (destino !== base && !destino.startsWith(base + path.sep)) {
++    throw new Error('Ruta fuera del almacén.');
++  }
++  return destino;
++}
++
++/* Arma la ruta de un archivo nuevo. El nombre lleva la marca de tiempo y seis
++   bytes al azar: dos personas subiendo a la vez no se pisan, y la ruta no se
++   puede adivinar a partir de la anterior — que es la mitad del problema de las
++   hojas de vida de hoy, donde `<uid>/cv-<timestamp>.pdf` se acota probando. */
++function nuevaRuta({ carpeta, propietario, prefijo = 'archivo', extension }) {
++  const trozos = [
++    limpiarSegmento(carpeta),
++    limpiarSegmento(propietario || 'anonimo'),
++    `${limpiarSegmento(prefijo)}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}${extension}`,
++  ];
++  return trozos.join('/');
++}
++
++/* ── Operaciones ───────────────────────────────────────────────────────── */
++
++async function guardar(rutaRelativa, contenido) {
++  const destino = absoluta(rutaRelativa);
++  await fsp.mkdir(path.dirname(destino), { recursive: true });
++  /* `wx`: falla si ya existe. Con la marca de tiempo y los seis bytes al azar
++     no debería pasar nunca, y si pasa es mejor un error que sobrescribir el
++     archivo de otro. */
++  await fsp.writeFile(destino, contenido, { flag: 'wx' });
++  return destino;
++}
++
++async function borrar(rutaRelativa) {
++  try {
++    await fsp.unlink(absoluta(rutaRelativa));
++    return true;
++  } catch (e) {
++    /* Que ya no esté no es un fallo: el barrido puede haber pasado antes, o
++       alguien lo borró a mano. Lo que importa es que después de esto no está. */
++    if (e.code === 'ENOENT') return false;
++    throw e;
++  }
++}
++
++async function existe(rutaRelativa) {
++  try {
++    await fsp.access(absoluta(rutaRelativa), fs.constants.R_OK);
++    return true;
++  } catch { return false; }
++}
++
++async function tamaño(rutaRelativa) {
++  const s = await fsp.stat(absoluta(rutaRelativa));
++  return s.size;
++}
++
++/* Para servir un privado desde Node cuando no hay Nginx delante. Con Nginx se
++   usa `X-Accel-Redirect` y los bytes no pasan por el proceso, que es lo que
++   evita que una descarga de 8 MB bloquee el bucle de eventos del servidor. */
++function flujoDeLectura(rutaRelativa) {
++  return fs.createReadStream(absoluta(rutaRelativa));
++}
++
++/* Comprueba que el almacén está utilizable. Se llama al arrancar: mejor un
++   error en el log del arranque que el primer usuario que sube una foto. */
++async function comprobar() {
++  const base = raiz();
++  await fsp.mkdir(base, { recursive: true });
++  const testigo = path.join(base, `.escritura-${crypto.randomBytes(4).toString('hex')}`);
++  await fsp.writeFile(testigo, 'ok');
++  await fsp.unlink(testigo);
++  return base;
++}
++
++module.exports = {
++  raiz, absoluta, nuevaRuta, limpiarSegmento,
++  guardar, borrar, existe, tamaño, flujoDeLectura, comprobar,
++};
+diff --git a/modules/archivos/firmas.js b/modules/archivos/firmas.js
+new file mode 100644
+index 0000000..8b4557b
+--- /dev/null
++++ b/modules/archivos/firmas.js
+@@ -0,0 +1,62 @@
++'use strict';
++
++/* modules/archivos/firmas.js — enlaces que caducan, para lo privado.
++ *
++ * ── Qué problema resuelve ─────────────────────────────────────────────────
++ *
++ * Las hojas de vida están hoy en un bucket público. El comentario del código
++ * dice que se quitó la política de lectura «para que nadie pudiera listar las
++ * fotos de otros invitados», y es verdad a medias: no se pueden **listar**,
++ * pero cada archivo **se lee** por su URL, porque el bucket es público y eso no
++ * pasa por RLS. Con rutas del tipo `<uid>/cv-<timestamp>.pdf`, el uid se conoce
++ * y la marca de tiempo se acota probando. Son datos personales de gente que
++ * buscaba trabajo.
++ *
++ * Un enlace firmado arregla las dos mitades: la ruta ya no es adivinable
++ * (`almacen.nuevaRuta` le mete seis bytes al azar) y, aunque se filtre, deja de
++ * valer en quince minutos.
++ *
++ * ── Por qué no es un JWT ──────────────────────────────────────────────────
++ *
++ * Un JWT aquí sobra: no hay nada que transportar más allá de la ruta y la hora,
++ * y su cabecera y su base64 harían la URL el doble de larga en un enlace que se
++ * pega en un correo. Un HMAC sobre `ruta.caducidad` hace lo mismo con 64
++ * caracteres.
++ */
++
++const crypto = require('crypto');
++const config = require('../../core/config');
++
++const VIDA_POR_DEFECTO_S = 15 * 60;
++
++function firmar(ruta, expira) {
++  return crypto.createHmac('sha256', config.JWT_SECRET)
++    .update(`${ruta}.${expira}`)
++    .digest('hex');
++}
++
++/* Devuelve `{ ruta, expira, firma }`. Quien llama arma la URL, porque el host
++   depende de la petición y este archivo no sabe de HTTP. */
++function firmarRuta(ruta, { vidaSegundos = VIDA_POR_DEFECTO_S, ahora = Date.now } = {}) {
++  const expira = Math.floor(ahora() / 1000) + vidaSegundos;
++  return { ruta, expira, firma: firmar(ruta, expira) };
++}
++
++/* Comprueba la firma y la hora. Devuelve true/false y nunca lanza: le llegan
++   valores de la barra de direcciones de cualquiera.
++ *
++ * La comparación es en tiempo constante. Con `===`, el tiempo que tarda en
++ * fallar dice cuántos caracteres se acertaron, y una firma se puede reconstruir
++ * carácter a carácter con suficientes intentos. */
++function comprobar({ ruta, expira, firma }, { ahora = Date.now } = {}) {
++  const exp = Number(expira);
++  if (!ruta || !firma || !Number.isFinite(exp)) return false;
++  if (exp * 1000 < ahora()) return false;
++
++  const esperada = Buffer.from(firmar(ruta, exp));
++  const recibida = Buffer.from(String(firma));
++  if (esperada.length !== recibida.length) return false;
++  return crypto.timingSafeEqual(esperada, recibida);
++}
++
++module.exports = { firmarRuta, comprobar, VIDA_POR_DEFECTO_S, _firmar: firmar };
+diff --git a/modules/archivos/index.js b/modules/archivos/index.js
+new file mode 100644
+index 0000000..5d5925d
+--- /dev/null
++++ b/modules/archivos/index.js
+@@ -0,0 +1,35 @@
++'use strict';
++
++/* modules/archivos/index.js — la única puerta del módulo.
++ *
++ * Lo que se exporta:
++ *
++ *   rutas      el Router, para montar en `/archivos`
++ *   servicio   subir, borrar, listar y barrer, para el cron y los scripts
++ *   urlDe      la URL pública de una ruta guardada, para los demás módulos
++ *
++ * `almacen`, `repositorio` y `tipos` no salen de aquí: quien los necesite, lo
++ * pide por la puerta.
++ */
++
++const { crearServicio } = require('./servicio.js');
++const { crearRutas } = require('./rutas.js');
++const repositorio = require('./repositorio.js');
++const almacen = require('./almacen.js');
++const auth = require('../auth');
++const config = require('../../core/config');
++
++const servicio = crearServicio({ repo: repositorio, almacen });
++
++const rutas = crearRutas({
++  servicio,
++  repo          : repositorio,
++  /* La identidad la pone el módulo de auth: aquí no se verifica ningún token.
++     Es la regla de que nadie entra por la ventana de otro módulo. */
++  sesionOpcional: auth.sesionOpcional,
++  exigirSesion  : auth.exigirSesion,
++});
++
++const urlDe = (ruta) => `${config.ARCHIVOS_URL_BASE}/${ruta}`;
++
++module.exports = { rutas, servicio, urlDe, comprobarAlmacen: almacen.comprobar };
+diff --git a/modules/archivos/repositorio.js b/modules/archivos/repositorio.js
+new file mode 100644
+index 0000000..bac7079
+--- /dev/null
++++ b/modules/archivos/repositorio.js
+@@ -0,0 +1,103 @@
++'use strict';
++
++/* modules/archivos/repositorio.js — la ficha de cada archivo. El único sitio
++ * del módulo que escribe SQL, igual que en `auth`.
++ */
++
++const db = require('../../core/db/mysql.js');
++
++function aArchivo(fila) {
++  if (!fila) return null;
++  return {
++    id            : fila.id,
++    ruta          : fila.ruta,
++    carpeta       : fila.carpeta,
++    usuarioId     : fila.usuario_id,
++    eventoId      : fila.evento_id,
++    nombreOriginal: fila.nombre_original,
++    tipoMime      : fila.tipo_mime,
++    bytes         : Number(fila.bytes),
++    publico       : Boolean(fila.publico),
++    creadoAt      : fila.creado_at,
++    borradoAt     : fila.borrado_at,
++  };
++}
++
++async function registrar({ ruta, carpeta, usuarioId, eventoId, nombreOriginal, tipoMime, bytes, publico }) {
++  const r = await db.consultar(
++    `INSERT INTO archivos (ruta, carpeta, usuario_id, evento_id, nombre_original, tipo_mime, bytes, publico)
++     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
++    [ruta, carpeta, usuarioId || null, eventoId || null,
++     (nombreOriginal || '').slice(0, 255) || null, tipoMime, bytes, publico ? 1 : 0]
++  );
++  return porId(r.insertId);
++}
++
++async function porId(id) {
++  return aArchivo(await db.unaFila('SELECT * FROM archivos WHERE id = ? LIMIT 1', [id]));
++}
++
++async function porRuta(ruta) {
++  return aArchivo(await db.unaFila('SELECT * FROM archivos WHERE ruta = ? LIMIT 1', [ruta]));
++}
++
++/* Los que hay que borrar cuando alguien sube uno nuevo en la misma carpeta.
++ * Es la función que arregla los 40 huérfanos: hoy nadie la tiene, así que cada
++ * cambio de foto deja la anterior en el disco para siempre. */
++async function anterioresDe({ usuarioId, carpeta, exceptoId }) {
++  const filas = await db.consultar(
++    `SELECT * FROM archivos
++      WHERE usuario_id = ? AND carpeta = ? AND borrado_at IS NULL AND id <> ?`,
++    [usuarioId, carpeta, exceptoId || 0]
++  );
++  return filas.map(aArchivo);
++}
++
++async function marcarBorrado(id) {
++  const r = await db.consultar(
++    'UPDATE archivos SET borrado_at = NOW() WHERE id = ? AND borrado_at IS NULL',
++    [id]
++  );
++  return (r.affectedRows || 0) === 1;
++}
++
++/* Lo que lleva gastado una cuenta. Sólo lo vivo: lo borrado no ocupa. */
++async function bytesDe(usuarioId) {
++  const fila = await db.unaFila(
++    'SELECT COALESCE(SUM(bytes), 0) AS total FROM archivos WHERE usuario_id = ? AND borrado_at IS NULL',
++    [usuarioId]
++  );
++  return Number(fila?.total || 0);
++}
++
++async function deUsuario(usuarioId, carpeta) {
++  const filas = await db.consultar(
++    `SELECT * FROM archivos
++      WHERE usuario_id = ? AND borrado_at IS NULL ${carpeta ? 'AND carpeta = ?' : ''}
++      ORDER BY creado_at DESC`,
++    carpeta ? [usuarioId, carpeta] : [usuarioId]
++  );
++  return filas.map(aArchivo);
++}
++
++/* Para el barrido: las fichas marcadas hace más de un día. El retraso es a
++   propósito — si el borrado fue un error, hay margen para deshacerlo antes de
++   que los bytes desaparezcan. */
++async function borradosPendientes({ dias = 1, limite = 500 } = {}) {
++  const filas = await db.consultar(
++    `SELECT * FROM archivos
++      WHERE borrado_at IS NOT NULL AND borrado_at < DATE_SUB(NOW(), INTERVAL ? DAY)
++      LIMIT ?`,
++    [dias, limite]
++  );
++  return filas.map(aArchivo);
++}
++
++async function olvidar(id) {
++  await db.consultar('DELETE FROM archivos WHERE id = ?', [id]);
++}
++
++module.exports = {
++  registrar, porId, porRuta, anterioresDe, marcarBorrado,
++  bytesDe, deUsuario, borradosPendientes, olvidar,
++};
+diff --git a/modules/archivos/rutas.js b/modules/archivos/rutas.js
+new file mode 100644
+index 0000000..09d0566
+--- /dev/null
++++ b/modules/archivos/rutas.js
+@@ -0,0 +1,129 @@
++'use strict';
++
++/* modules/archivos/rutas.js — la puerta HTTP del almacén.
++ *
++ * ── Por qué el cuerpo es el archivo, y no un formulario ───────────────────
++ *
++ * Lo normal sería `multipart/form-data`, y Express no lo parsea solo: haría
++ * falta una librería más. Aquí el cuerpo de la petición **es** el archivo, y el
++ * nombre viaja en la query:
++ *
++ *     PUT /archivos/avatars?nombre=foto.jpg
++ *     Content-Type: image/jpeg
++ *     <los bytes>
++ *
++ * Desde el navegador es una línea (`fetch(url, { method:'PUT', body: file })`),
++ * no arrastra dependencia, y el límite de tamaño se aplica antes de leer nada.
++ * El `Content-Type` que llega se ignora a propósito: el tipo se deduce de los
++ * primeros bytes, porque la cabecera la escribe quien sube.
++ */
++
++const express = require('express');
++const { authLimiter } = require('../../config/security.js');
++const tipos = require('./tipos.js');
++const firmas = require('./firmas.js');
++const almacen = require('./almacen.js');
++const config = require('../../core/config');
++
++function responder(res, resultado, exito = 200) {
++  if (resultado?.error) {
++    return res.status(resultado.status || 400).json({ error: resultado.error, codigo: resultado.codigo });
++  }
++  return res.status(exito).json(resultado);
++}
++
++/* El tope más grande de todas las carpetas. Es el límite del parser; el de cada
++   carpeta lo aplica el servicio después, con su mensaje. Sin este de aquí, una
++   petición de 2 GB se leería entera en memoria antes de que nadie la rechace. */
++const TOPE_ABSOLUTO = Math.max(...Object.values(tipos.CARPETAS).map(c => c.maxBytes));
++
++function crearRutas({ servicio, sesionOpcional, exigirSesion, repo }) {
++  const r = express.Router();
++
++  /* `express.raw` aceptando cualquier tipo: el cuerpo llega como Buffer sea
++     cual sea la cabecera. Va sólo en estas rutas, no en toda la aplicación,
++     para no tocar cómo recibe el JSON el resto. */
++  const cuerpoCrudo = express.raw({ type: () => true, limit: TOPE_ABSOLUTO });
++
++  r.put('/:carpeta', authLimiter, sesionOpcional, cuerpoCrudo, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.subir({
++        contenido     : req.body,
++        carpeta       : req.params.carpeta,
++        nombreOriginal: req.query.nombre,
++        usuarioId     : req.user?.id || null,
++        eventoId      : req.query.evento || null,
++      }), 201);
++    } catch (e) { next(e); }
++  });
++
++  r.get('/mios', exigirSesion, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.listar({ usuarioId: req.user.id, carpeta: req.query.carpeta }));
++    } catch (e) { next(e); }
++  });
++
++  r.delete('/:id', exigirSesion, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.borrar({ id: Number(req.params.id), usuarioId: req.user.id }));
++    } catch (e) { next(e); }
++  });
++
++  /* ── Lo privado ─────────────────────────────────────────────────────── */
++
++  /* Pide un enlace con caducidad para un archivo privado. Sólo el dueño.
++     Quince minutos: lo que se tarda en abrir un CV desde el panel, no lo que
++     dura un enlace olvidado en un chat. */
++  r.post('/:id/enlace', exigirSesion, async (req, res, next) => {
++    try {
++      const ficha = await repo.porId(Number(req.params.id));
++      if (!ficha || ficha.borradoAt) return res.status(404).json({ error: 'Ese archivo no existe.' });
++      if (ficha.usuarioId !== req.user.id) return res.status(403).json({ error: 'Ese archivo no es tuyo.' });
++
++      const { expira, firma } = firmas.firmarRuta(ficha.ruta);
++      const p = new URLSearchParams({ ruta: ficha.ruta, expira: String(expira), firma });
++      return res.json({ url: `${config.ARCHIVOS_URL_BASE}/privado?${p.toString()}`, expira });
++    } catch (e) { next(e); }
++  });
++
++  /* Sirve un privado. No mira la sesión: mira la firma. Así el enlace se puede
++     abrir desde el cliente de correo o pegarlo en otra pestaña, que es lo que
++     la gente hace, sin que eso signifique que cualquiera pueda entrar. */
++  r.get('/privado', async (req, res, next) => {
++    try {
++      const { ruta, expira, firma } = req.query;
++      if (!firmas.comprobar({ ruta, expira, firma })) {
++        return res.status(403).json({ error: 'El enlace no vale o ya caducó.' });
++      }
++
++      const ficha = await repo.porRuta(String(ruta));
++      if (!ficha || ficha.borradoAt) return res.status(404).json({ error: 'Ese archivo no existe.' });
++
++      res.setHeader('Content-Type', ficha.tipoMime);
++      /* `attachment` para que un PDF se descargue en vez de abrirse dentro de
++         la página, y `nosniff` para que el navegador no reinterprete el tipo.
++         El nombre entre comillas y sin comillas dentro: si no, un nombre con
++         comillas parte la cabecera. */
++      const nombre = String(ficha.nombreOriginal || 'archivo').replace(/["\r\n]/g, '');
++      res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
++      res.setHeader('X-Content-Type-Options', 'nosniff');
++      /* Un privado no se guarda en ninguna caché intermedia. */
++      res.setHeader('Cache-Control', 'private, no-store');
++
++      /* Con Nginx delante, los bytes no pasan por Node: se le dice qué servir y
++         él lo hace. Una descarga de 8 MB atendida desde el proceso bloquea el
++         bucle de eventos y frena a todos los demás. Sin Nginx —en desarrollo—
++         se manda desde aquí. */
++      if (config.ARCHIVOS_X_ACCEL) {
++        res.setHeader('X-Accel-Redirect', `${config.ARCHIVOS_X_ACCEL}/${ficha.ruta}`);
++        return res.end();
++      }
++
++      return almacen.flujoDeLectura(ficha.ruta).on('error', next).pipe(res);
++    } catch (e) { next(e); }
++  });
++
++  return r;
++}
++
++module.exports = { crearRutas, TOPE_ABSOLUTO };
+diff --git a/modules/archivos/servicio.js b/modules/archivos/servicio.js
+new file mode 100644
+index 0000000..88fd4bf
+--- /dev/null
++++ b/modules/archivos/servicio.js
+@@ -0,0 +1,177 @@
++'use strict';
++
++/* modules/archivos/servicio.js — las decisiones: qué se acepta, qué se borra y
++ * cuánto puede ocupar cada uno. Ni disco ni SQL ni HTTP: eso son `almacen.js`,
++ * `repositorio.js` y `rutas.js`.
++ *
++ * ── Los cuatro problemas que esto arregla ─────────────────────────────────
++ *
++ * Están medidos en SUPABASE.md §3.4 y ninguno se podía arreglar mientras el
++ * navegador subiera directo a Supabase, porque no había dónde poner la
++ * comprobación. Al pasar la subida por aquí, los cuatro caen solos:
++ *
++ *   a) **40 huérfanos, 28 MB.** Subir uno nuevo borra el anterior de la misma
++ *      carpeta. Es lo que explica el salto de 24 a 80 MB: no es que se suba
++ *      más, es que no se borraba nunca.
++ *   b) **Subida anónima abierta.** `form-uploads` aceptaba escritura de
++ *      cualquiera con la llave anónima, que va en el bundle. Aquí cada carpeta
++ *      dice si exige sesión.
++ *   c) **Hojas de vida en bucket público.** Carpeta nueva y privada, servida
++ *      con enlace firmado.
++ *   d) **La subida de CV no podía funcionar.** El código mandaba PDF de 8 MB a
++ *      un bucket que sólo admitía imágenes de 4 MB, así que nunca se subió uno.
++ *      Aquí los límites y los tipos están en el mismo sitio que la validación.
++ */
++
++const tipos = require('./tipos.js');
++const almacenReal = require('./almacen.js');
++const repositorioReal = require('./repositorio.js');
++const config = require('../../core/config');
++
++const err = (mensaje, codigo, status = 400) => ({ error: mensaje, codigo, status });
++
++/* Dónde el archivo nuevo sustituye al anterior. `event-media` no está: un
++   evento tiene galería, y ahí cada imagen es una más. */
++const UNA_SOLA_POR_USUARIO = ['avatars', 'hojas-de-vida'];
++
++function crearServicio({ almacen = almacenReal, repo = repositorioReal } = {}) {
++
++  /* Sube un archivo. `contenido` es un Buffer: los límites de tamaño son de
++     pocos MB y leerlo entero en memoria es más simple y más seguro que
++     escribir mientras se recibe —así, si el archivo se pasa de tamaño o no es
++     lo que dice ser, no llegó a tocar el disco. */
++  async function subir({ contenido, carpeta, nombreOriginal, usuarioId, eventoId, reemplazar = true }) {
++    if (!tipos.carpetaValida(carpeta)) return err('Esa carpeta no existe.', 'carpeta_invalida', 404);
++    const reglas = tipos.reglasDe(carpeta);
++
++    if (reglas.exigeSesion && !usuarioId) {
++      return err('Hay que entrar para subir esto.', 'sin_sesion', 401);
++    }
++
++    if (!Buffer.isBuffer(contenido) || contenido.length === 0) {
++      return err('No llegó ningún archivo.', 'vacio');
++    }
++
++    if (contenido.length > reglas.maxBytes) {
++      const mb = Math.round(reglas.maxBytes / (1024 * 1024));
++      return err(`El archivo pasa de ${mb} MB.`, 'demasiado_grande', 413);
++    }
++
++    /* El tipo real, deducido de los primeros bytes. Nunca el que declaró el
++       cliente: eso lo escribe quien sube. */
++    const mime = tipos.detectar(contenido);
++    if (!mime || !reglas.mimes.includes(mime)) {
++      return err(
++        `Ese tipo de archivo no se admite aquí. Se aceptan: ${reglas.mimes.join(', ')}.`,
++        'tipo_no_admitido', 415
++      );
++    }
++
++    /* La cuota. Sin ella, una cuenta puede llenar el disco de la máquina —que
++       en el hosting de destino son 9,81 GB compartidos con todo lo demás— y
++       tirar abajo la aplicación entera para todos. */
++    if (usuarioId) {
++      const usados = await repo.bytesDe(usuarioId);
++      if (usados + contenido.length > config.ARCHIVOS_CUOTA_BYTES) {
++        return err(
++          'Te quedaste sin espacio. Borrá algún archivo antes de subir otro.',
++          'sin_cuota', 413
++        );
++      }
++    }
++
++    const ruta = almacen.nuevaRuta({
++      carpeta,
++      propietario: usuarioId || eventoId,
++      prefijo    : carpeta === 'avatars' ? 'avatar' : 'archivo',
++      extension  : tipos.extensionDe(mime, nombreOriginal),
++    });
++
++    await almacen.guardar(ruta, contenido);
++
++    let ficha;
++    try {
++      ficha = await repo.registrar({
++        ruta, carpeta, usuarioId, eventoId,
++        nombreOriginal, tipoMime: mime,
++        bytes  : contenido.length,
++        publico: reglas.publico,
++      });
++    } catch (e) {
++      /* Si la ficha no se pudo escribir, el archivo del disco no lo referencia
++         nadie: es un huérfano recién nacido. Se borra aquí mismo, que es
++         exactamente lo que no se hacía antes. */
++      await almacen.borrar(ruta).catch(() => {});
++      throw e;
++    }
++
++    /* El reemplazo: una foto de perfil es una, no un historial. Se hace después
++       de que el nuevo esté guardado y registrado, para que un fallo a mitad
++       deje dos archivos (recuperable) y nunca cero (una pantalla sin foto). */
++    let reemplazados = 0;
++    if (reemplazar && usuarioId && UNA_SOLA_POR_USUARIO.includes(carpeta)) {
++      const anteriores = await repo.anterioresDe({ usuarioId, carpeta, exceptoId: ficha.id });
++      for (const viejo of anteriores) {
++        if (await repo.marcarBorrado(viejo.id)) reemplazados += 1;
++      }
++    }
++
++    return { ok: true, archivo: publico(ficha), reemplazados };
++  }
++
++  /* Borrar es marcar. Los bytes se los lleva el barrido un día después, por si
++     el borrado fue un error. */
++  async function borrar({ id, usuarioId }) {
++    const ficha = await repo.porId(id);
++    if (!ficha || ficha.borradoAt) return err('Ese archivo no existe.', 'no_existe', 404);
++
++    /* El dueño, y nadie más. Es la comprobación que hoy hace RLS y que, cuando
++       RLS desaparezca, tiene que estar escrita en sitios como éste. */
++    if (!usuarioId || ficha.usuarioId !== usuarioId) {
++      return err('Ese archivo no es tuyo.', 'ajeno', 403);
++    }
++
++    await repo.marcarBorrado(id);
++    return { ok: true };
++  }
++
++  /* Lo que se puede enseñar de una ficha. La ruta absoluta del disco no sale de
++     aquí ni por error: dice dónde vive el archivo en la máquina. */
++  function publico(ficha) {
++    return {
++      id      : ficha.id,
++      ruta    : ficha.ruta,
++      url     : ficha.publico ? `${config.ARCHIVOS_URL_BASE}/${ficha.ruta}` : null,
++      carpeta : ficha.carpeta,
++      nombre  : ficha.nombreOriginal,
++      tipo    : ficha.tipoMime,
++      bytes   : ficha.bytes,
++      publico : ficha.publico,
++      creadoAt: ficha.creadoAt,
++    };
++  }
++
++  async function listar({ usuarioId, carpeta }) {
++    const fichas = await repo.deUsuario(usuarioId, carpeta);
++    return { ok: true, archivos: fichas.map(publico), bytesUsados: await repo.bytesDe(usuarioId) };
++  }
++
++  /* El barrido, para el cron. Lo que se lleva son bytes de fichas marcadas hace
++     más de un día — nunca adivina: si no hay ficha, no lo toca. */
++  async function barrer({ dias = 1 } = {}) {
++    const pendientes = await repo.borradosPendientes({ dias });
++    let bytes = 0;
++    let borrados = 0;
++    for (const ficha of pendientes) {
++      await almacen.borrar(ficha.ruta).catch(() => {});
++      await repo.olvidar(ficha.id);
++      bytes += ficha.bytes;
++      borrados += 1;
++    }
++    return { ok: true, borrados, bytes };
++  }
++
++  return { subir, borrar, listar, barrer, _publico: publico };
++}
++
++module.exports = { crearServicio };
+diff --git a/modules/archivos/tipos.js b/modules/archivos/tipos.js
+new file mode 100644
+index 0000000..de8759c
+--- /dev/null
++++ b/modules/archivos/tipos.js
+@@ -0,0 +1,124 @@
++'use strict';
++
++/* modules/archivos/tipos.js — qué es de verdad este archivo, y si cabe aquí.
++ *
++ * ── Por qué no se mira la extensión ni el Content-Type ────────────────────
++ *
++ * Los dos los escribe quien sube. Un archivo llamado `foto.jpg` con
++ * `Content-Type: image/jpeg` puede ser cualquier cosa por dentro, y hoy nadie
++ * lo comprueba: los cinco uploaders del frontend miran `file.type`, que es lo
++ * que el navegador deduce de la extensión.
++ *
++ * Lo que sí es difícil de falsear son los primeros bytes. No es infalible
++ * —nada lo es—, pero convierte «subir lo que sea con el nombre correcto» en un
++ * trabajo, en vez de en un renombrado.
++ *
++ * ── El caso raro: DOCX ────────────────────────────────────────────────────
++ *
++ * Un `.docx` es un ZIP. Por bytes es indistinguible de un `.zip` cualquiera, y
++ * aceptarlo significa aceptar cualquier ZIP. Se acepta igual, pero sólo en la
++ * carpeta de hojas de vida, que es privada, y sabiendo esto: no es una
++ * comprobación, es una decisión.
++ */
++
++/* Las firmas, en orden de más específica a menos. `desplazamiento` porque WEBP
++   no empieza por su marca: empieza por RIFF, el tamaño, y luego WEBP. */
++const FIRMAS = [
++  { mime: 'image/jpeg', bytes: [0xFF, 0xD8, 0xFF] },
++  { mime: 'image/png',  bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] },
++  { mime: 'image/gif',  bytes: [0x47, 0x49, 0x46, 0x38] },
++  { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46] },     // %PDF
++  { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46] , luego: { desplazamiento: 8, bytes: [0x57, 0x45, 0x42, 0x50] } },
++  /* ZIP. Puede ser un .docx o un .zip pelado; quien lo use decide. */
++  { mime: 'application/zip', bytes: [0x50, 0x4B, 0x03, 0x04] },
++];
++
++const EXTENSION = {
++  'image/jpeg': '.jpg',
++  'image/png' : '.png',
++  'image/webp': '.webp',
++  'image/gif' : '.gif',
++  'application/pdf': '.pdf',
++  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
++  'application/zip': '.zip',
++};
++
++function empiezaPor(buffer, bytes, desplazamiento = 0) {
++  if (buffer.length < desplazamiento + bytes.length) return false;
++  for (let i = 0; i < bytes.length; i += 1) {
++    if (buffer[desplazamiento + i] !== bytes[i]) return false;
++  }
++  return true;
++}
++
++/* Devuelve el mime deducido, o null si no se reconoce. Con 16 bytes basta para
++   todas las firmas de arriba; no hace falta leer el archivo entero. */
++function detectar(buffer) {
++  if (!buffer || buffer.length < 4) return null;
++  for (const f of FIRMAS) {
++    if (!empiezaPor(buffer, f.bytes)) continue;
++    if (f.luego && !empiezaPor(buffer, f.luego.bytes, f.luego.desplazamiento)) continue;
++    return f.mime;
++  }
++  return null;
++}
++
++/* ── Qué admite cada carpeta ──────────────────────────────────────────────
++ *
++ * Los límites son los de hoy, con dos correcciones que arreglan hallazgos
++ * medidos:
++ *
++ *   · `hojas-de-vida` es carpeta nueva y PRIVADA. Hasta ahora los CV iban a
++ *     `form-uploads`, que es público (§3.4c). Y encima no funcionaba: ese
++ *     bucket sólo admite jpeg/png/webp de 4 MB mientras el código mandaba PDF
++ *     de hasta 8 MB, así que **nunca se subió un CV con éxito** (§3.4d). En
++ *     `form-uploads` hay 16 objetos y ninguno es PDF.
++ *
++ *   · `form-uploads` deja de aceptar subidas de cualquiera. La política de
++ *     Supabase era literalmente `bucket_id = 'form-uploads'` para el rol
++ *     `public`: con la llave anónima, que va en el bundle, cualquiera en
++ *     internet podía escribir ahí. Aquí hace falta o sesión o el código del
++ *     expositor, que es quien tiene que poder subir sin cuenta.
++ */
++const CARPETAS = {
++  'avatars': {
++    mimes  : ['image/jpeg', 'image/png', 'image/webp'],
++    maxBytes: 4 * 1024 * 1024,
++    publico: true,
++    exigeSesion: true,
++  },
++  'event-media': {
++    mimes  : ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
++    maxBytes: 8 * 1024 * 1024,
++    publico: true,
++    exigeSesion: true,
++  },
++  'form-uploads': {
++    mimes  : ['image/jpeg', 'image/png', 'image/webp'],
++    maxBytes: 4 * 1024 * 1024,
++    publico: true,
++    exigeSesion: false,
++  },
++  'hojas-de-vida': {
++    mimes  : ['application/pdf', 'application/zip'],
++    maxBytes: 8 * 1024 * 1024,
++    publico: false,
++    exigeSesion: true,
++  },
++};
++
++const carpetaValida = (nombre) => Object.prototype.hasOwnProperty.call(CARPETAS, nombre);
++
++const reglasDe = (nombre) => (carpetaValida(nombre) ? CARPETAS[nombre] : null);
++
++/* La extensión sale del tipo detectado, nunca del nombre que mandó el cliente.
++   Así un `factura.pdf.exe` se guarda como `.pdf` si es un PDF, y el nombre
++   original queda en la ficha para enseñarlo, no para escribirlo en el disco. */
++function extensionDe(mime, nombreOriginal) {
++  /* El único caso en el que el nombre aporta algo: distinguir un .docx de un
++     .zip, porque por bytes son lo mismo. */
++  if (mime === 'application/zip' && /\.docx$/i.test(String(nombreOriginal || ''))) return '.docx';
++  return EXTENSION[mime] || '.bin';
++}
++
++module.exports = { detectar, reglasDe, carpetaValida, extensionDe, CARPETAS, _FIRMAS: FIRMAS };
+diff --git a/scripts/copiar-storage.js b/scripts/copiar-storage.js
+new file mode 100644
+index 0000000..62fd849
+--- /dev/null
++++ b/scripts/copiar-storage.js
+@@ -0,0 +1,207 @@
++#!/usr/bin/env node
++'use strict';
++
++/* scripts/copiar-storage.js — trae los archivos de Supabase Storage al disco.
++ *
++ * ── El orden, que es lo que tiene filo ───────────────────────────────────
++ *
++ * 1. **Barrer antes de copiar.** De los 107 objetos, 40 no los referencia
++ *    ninguna fila: 28 MB, más de un tercio. Copiarlos es pagar el trabajo dos
++ *    veces. Con `--solo-referenciados` (que es como viene por defecto) sólo se
++ *    traen los que alguien usa.
++ * 2. **Copiar conservando la ruta**, `carpeta/archivo` tal cual. Es lo que
++ *    convierte la reescritura de las 13 columnas en un cambio de prefijo.
++ * 3. **Servir las dos copias en paralelo** mientras dure la ventana. Las URLs
++ *    viejas tienen que seguir respondiendo hasta que la reescritura esté
++ *    verificada, o cada portada sin migrar es un hueco en una página pública.
++ * 4. **Reescribir** con `db/migraciones/postgres/001_reescribir_urls.sql`, que
++ *    va dentro de una transacción y compara los conteos.
++ * 5. Sólo entonces, apagar el origen.
++ *
++ * Este script hace el 1 y el 2. El resto es SQL y decisión humana.
++ *
++ * ── Cómo se usa ──────────────────────────────────────────────────────────
++ *
++ *   node scripts/copiar-storage.js                 # lista y cuenta, no baja nada
++ *   node scripts/copiar-storage.js --aplicar       # baja los referenciados
++ *   node scripts/copiar-storage.js --aplicar --todos   # baja también los huérfanos
++ *
++ * Se puede repetir: lo que ya está en disco se salta.
++ */
++
++const path = require('path');
++const supabase = require('../lib/supabase.js');
++const almacen = require('../modules/archivos/almacen.js');
++const repositorio = require('../modules/archivos/repositorio.js');
++const tipos = require('../modules/archivos/tipos.js');
++const db = require('../core/db/mysql.js');
++
++const args = process.argv.slice(2);
++const APLICAR = args.includes('--aplicar');
++const TODOS   = args.includes('--todos');
++
++const BUCKETS = ['avatars', 'event-media', 'form-uploads'];
++
++/* Las 13 columnas de 9 tablas donde la URL vive dentro de la fila. Salen de
++   SUPABASE.md §3.3, medidas contra las 71 tablas, no supuestas. Las cinco
++   marcadas son JSON, y ahí la URL está a profundidad variable: por eso se
++   busca sobre el texto de la columna y no por clave. */
++const COLUMNAS_CON_URL = [
++  ['eventos', 'cover_url'], ['eventos', 'gallery'], ['eventos', 'page_json'],
++  ['eventos', 'paginas'], ['eventos', 'branding'], ['eventos', 'pago_qr_url'],
++  ['torneo_equipos', 'foto_url'], ['tickets', 'respuestas'],
++  ['profiles', 'empresa_logo_url'], ['profiles', 'avatar_url'],
++  ['chat_messages', 'file_url'], ['speakers', 'foto_url'],
++  ['networking_expositores', 'logo_url'],
++];
++
++/* Recorre un bucket entero. `list` pagina de 100 en 100 y no baja a las
++   subcarpetas solo, así que hay que recorrerlas. */
++async function listarBucket(bucket, prefijo = '') {
++  const encontrados = [];
++  let desde = 0;
++
++  for (;;) {
++    const { data, error } = await supabase.storage.from(bucket)
++      .list(prefijo, { limit: 100, offset: desde });
++    if (error) throw new Error(`No se pudo listar ${bucket}/${prefijo}: ${error.message}`);
++    if (!data || data.length === 0) break;
++
++    for (const objeto of data) {
++      /* Sin `id` es una carpeta, no un archivo. */
++      if (!objeto.id) {
++        encontrados.push(...await listarBucket(bucket, prefijo ? `${prefijo}/${objeto.name}` : objeto.name));
++        continue;
++      }
++      encontrados.push({
++        bucket,
++        ruta : prefijo ? `${prefijo}/${objeto.name}` : objeto.name,
++        bytes: objeto.metadata?.size || 0,
++        mime : objeto.metadata?.mimetype || null,
++      });
++    }
++
++    if (data.length < 100) break;
++    desde += data.length;
++  }
++  return encontrados;
++}
++
++/* Qué rutas menciona alguna fila. Se busca el nombre del archivo dentro del
++   texto de cada columna, que es lo único que funciona con las cinco JSON. */
++async function rutasReferenciadas() {
++  const usadas = new Set();
++
++  for (const [tabla, columna] of COLUMNAS_CON_URL) {
++    const { data, error } = await supabase
++      .from(tabla).select(columna)
++      .not(columna, 'is', null);
++    if (error) {
++      console.warn(`   ⚠ no se pudo leer ${tabla}.${columna}: ${error.message}`);
++      continue;
++    }
++    for (const fila of data || []) {
++      const texto = typeof fila[columna] === 'string' ? fila[columna] : JSON.stringify(fila[columna]);
++      /* `/object/public/<bucket>/<ruta>` hasta la comilla, el paréntesis o el
++         final. Sirve igual dentro de un JSON serializado. */
++      for (const m of String(texto).matchAll(/\/storage\/v1\/object\/(?:public|sign)\/([^"'\\)\s?]+)/g)) {
++        usadas.add(decodeURIComponent(m[1]));
++      }
++    }
++  }
++  return usadas;
++}
++
++async function main() {
++  console.log('\n── Inventario ────────────────────────────────────────────');
++
++  const objetos = [];
++  for (const b of BUCKETS) objetos.push(...await listarBucket(b));
++
++  const usadas = await rutasReferenciadas();
++  const conDueño = objetos.filter(o => usadas.has(`${o.bucket}/${o.ruta}`));
++  const huerfanos = objetos.filter(o => !usadas.has(`${o.bucket}/${o.ruta}`));
++
++  const mb = (n) => (n / (1024 * 1024)).toFixed(1);
++  const suma = (lista) => lista.reduce((n, o) => n + o.bytes, 0);
++
++  console.log(`   objetos             ${objetos.length}  (${mb(suma(objetos))} MB)`);
++  console.log(`   referenciados       ${conDueño.length}  (${mb(suma(conDueño))} MB)`);
++  console.log(`   huérfanos           ${huerfanos.length}  (${mb(suma(huerfanos))} MB)`);
++
++  if (huerfanos.length) {
++    console.log('\n   Los huérfanos no los apunta ninguna fila. Se quedan fuera de la copia');
++    console.log('   salvo que se pase --todos. Barrerlos en el origen es la fase 0.');
++  }
++
++  const aCopiar = TODOS ? objetos : conDueño;
++
++  if (!APLICAR) {
++    console.log(`\n✓ Se copiarían ${aCopiar.length} objetos (${mb(suma(aCopiar))} MB). Nada bajado (falta --aplicar).\n`);
++    return;
++  }
++
++  console.log(`\n── Copiando ${aCopiar.length} objetos ────────────────────────────`);
++
++  let copiados = 0;
++  let saltados = 0;
++  const fallos = [];
++
++  for (const o of aCopiar) {
++    /* La ruta de destino es la de origen, con el bucket como carpeta. Idéntica
++       a propósito: es lo que hace que reescribir sea cambiar el prefijo. */
++    const destino = `${o.bucket}/${o.ruta}`;
++
++    if (await almacen.existe(destino)) { saltados += 1; continue; }
++
++    const { data, error } = await supabase.storage.from(o.bucket).download(o.ruta);
++    if (error) { fallos.push(`${destino}: ${error.message}`); continue; }
++
++    const contenido = Buffer.from(await data.arrayBuffer());
++
++    /* Se comprueba el tipo también aquí. Si en el bucket hay algo que no es lo
++       que dice ser, mejor saberlo ahora que después de servirlo desde nuestro
++       dominio. */
++    const mime = tipos.detectar(contenido);
++    if (!mime) fallos.push(`${destino}: tipo no reconocido (se copia igual)`);
++
++    await almacen.guardar(destino, contenido);
++
++    if (db.configurada()) {
++      /* La ficha, para que el archivo tenga dueño y entre en las cuotas y en el
++         barrido. El dueño sale de la primera carpeta de la ruta, que en
++         `avatars` y `event-media` es el uid. */
++      const primerSegmento = o.ruta.split('/')[0];
++      const esUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(primerSegmento);
++      await repositorio.registrar({
++        ruta          : destino,
++        carpeta       : o.bucket,
++        usuarioId     : esUuid ? primerSegmento : null,
++        eventoId      : esUuid ? null : primerSegmento,
++        nombreOriginal: path.basename(o.ruta),
++        tipoMime      : mime || o.mime || 'application/octet-stream',
++        bytes         : contenido.length,
++        publico       : true,
++      }).catch((e) => fallos.push(`${destino}: ficha no registrada (${e.message})`));
++    }
++
++    copiados += 1;
++    if (copiados % 20 === 0) console.log(`   ${copiados}/${aCopiar.length}…`);
++  }
++
++  console.log('\n── Resultado ─────────────────────────────────────────────');
++  console.log(`   copiados            ${copiados}`);
++  console.log(`   ya estaban          ${saltados}`);
++  if (fallos.length) {
++    console.log(`   con problemas       ${fallos.length}`);
++    for (const f of fallos) console.log(`     · ${f}`);
++  }
++
++  console.log('\n  Ahora, y NO antes: servir las dos copias en paralelo, y sólo cuando');
++  console.log('  las URLs nuevas respondan, correr la reescritura');
++  console.log('  (db/migraciones/postgres/001_reescribir_urls.sql).\n');
++}
++
++main()
++  .catch((e) => { console.error('\n✗', e.message, '\n'); process.exitCode = 1; })
++  .finally(() => db.cerrar().catch(() => {}));
+diff --git a/test/archivos.test.js b/test/archivos.test.js
+new file mode 100644
+index 0000000..49474c9
+--- /dev/null
++++ b/test/archivos.test.js
+@@ -0,0 +1,339 @@
++'use strict';
++
++/* El almacén propio. Lo que se prueba aquí son los cuatro problemas medidos en
++   SUPABASE.md §3.4, que es la razón de que este módulo exista:
++ *
++ *   a) 40 huérfanos y 28 MB porque nadie borraba el archivo anterior;
++ *   b) `form-uploads` aceptando escritura de cualquiera desde internet;
++ *   c) las hojas de vida en un bucket público;
++ *   d) la subida de CV que no podía funcionar nunca por límites incompatibles.
++ *
++ * Y la que no está en esa lista pero es la que abre la máquina entera: que una
++ * ruta con `..` no escriba fuera del almacén. */
++
++process.env.JWT_SECRET = 'secreto-de-prueba-que-no-es-el-de-produccion';
++process.env.AUTH_PROPIA = 'true';
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++
++const test = require('node:test');
++const assert = require('node:assert');
++const path = require('node:path');
++const os = require('node:os');
++const fsp = require('node:fs/promises');
++const crypto = require('node:crypto');
++
++/* La raíz del almacén tiene que quedar fijada ANTES de cargar la config, que
++   la lee del entorno una sola vez. */
++const RAIZ = path.join(os.tmpdir(), `gestek-archivos-${crypto.randomBytes(6).toString('hex')}`);
++process.env.ARCHIVOS_RAIZ = RAIZ;
++process.env.ARCHIVOS_URL_BASE = 'https://archivos.ejemplo.com';
++
++const tipos = require('../modules/archivos/tipos.js');
++const firmas = require('../modules/archivos/firmas.js');
++const almacen = require('../modules/archivos/almacen.js');
++const { crearServicio } = require('../modules/archivos/servicio.js');
++const config = require('../core/config');
++
++/* ── Archivos de mentira, con los bytes de verdad ──────────────────────── */
++
++const JPEG = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(200, 7)]);
++const PNG  = Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), Buffer.alloc(200, 7)]);
++const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4, 1), Buffer.from('WEBP'), Buffer.alloc(200, 7)]);
++const PDF  = Buffer.concat([Buffer.from('%PDF-1.7'), Buffer.alloc(200, 7)]);
++const EXE  = Buffer.concat([Buffer.from([0x4D, 0x5A]), Buffer.alloc(200, 7)]);   // MZ, un ejecutable
++
++/* Un repositorio en memoria con el contrato de `repositorio.js`. */
++function crearRepoFalso() {
++  const filas = [];
++  let siguiente = 1;
++  return {
++    _filas: filas,
++    async registrar(datos) {
++      const f = { id: siguiente++, borradoAt: null, creadoAt: new Date(), ...datos };
++      f.usuarioId = datos.usuarioId || null;
++      filas.push(f);
++      return f;
++    },
++    async porId(id) { return filas.find(f => f.id === id) || null; },
++    async porRuta(ruta) { return filas.find(f => f.ruta === ruta) || null; },
++    async anterioresDe({ usuarioId, carpeta, exceptoId }) {
++      return filas.filter(f => f.usuarioId === usuarioId && f.carpeta === carpeta && !f.borradoAt && f.id !== exceptoId);
++    },
++    async marcarBorrado(id) {
++      const f = filas.find(x => x.id === id);
++      if (!f || f.borradoAt) return false;
++      f.borradoAt = new Date();
++      return true;
++    },
++    async bytesDe(usuarioId) {
++      return filas.filter(f => f.usuarioId === usuarioId && !f.borradoAt).reduce((n, f) => n + f.bytes, 0);
++    },
++    async deUsuario(usuarioId, carpeta) {
++      return filas.filter(f => f.usuarioId === usuarioId && !f.borradoAt && (!carpeta || f.carpeta === carpeta));
++    },
++    async borradosPendientes() { return filas.filter(f => f.borradoAt); },
++    async olvidar(id) { const i = filas.findIndex(f => f.id === id); if (i >= 0) filas.splice(i, 1); },
++  };
++}
++
++const montar = () => {
++  const repo = crearRepoFalso();
++  return { repo, servicio: crearServicio({ repo, almacen }) };
++};
++
++const USUARIO = '11111111-2222-3333-4444-555555555555';
++
++test.after(() => fsp.rm(RAIZ, { recursive: true, force: true }).catch(() => {}));
++
++/* ── El tipo real ──────────────────────────────────────────────────────── */
++
++test('el tipo se deduce de los bytes, no de la extensión', () => {
++  assert.equal(tipos.detectar(JPEG), 'image/jpeg');
++  assert.equal(tipos.detectar(PNG), 'image/png');
++  assert.equal(tipos.detectar(WEBP), 'image/webp');
++  assert.equal(tipos.detectar(PDF), 'application/pdf');
++  assert.equal(tipos.detectar(EXE), null);
++  assert.equal(tipos.detectar(Buffer.alloc(0)), null);
++});
++
++test('un WEBP a medias no se confunde con un WEBP', () => {
++  /* Empieza por RIFF, que también es un .wav o un .avi. La marca WEBP está en
++     el byte 8, y sin comprobarla se acepta cualquier RIFF como imagen. */
++  const riffCualquiera = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4, 1), Buffer.from('AVI '), Buffer.alloc(50)]);
++  assert.equal(tipos.detectar(riffCualquiera), null);
++});
++
++test('la extensión sale del tipo, no del nombre que mandó el cliente', () => {
++  /* `factura.pdf.exe` con bytes de PDF se guarda como .pdf. Y al revés: un
++     nombre inofensivo no convierte en inofensivo lo que lleva dentro. */
++  assert.equal(tipos.extensionDe('application/pdf', 'factura.pdf.exe'), '.pdf');
++  assert.equal(tipos.extensionDe('image/jpeg', 'cosa.php'), '.jpg');
++  /* El único caso donde el nombre aporta: un .docx es un ZIP por dentro. */
++  assert.equal(tipos.extensionDe('application/zip', 'hoja-de-vida.docx'), '.docx');
++  assert.equal(tipos.extensionDe('application/zip', 'cosas.zip'), '.zip');
++});
++
++/* ── La ruta ───────────────────────────────────────────────────────────── */
++
++test('una ruta con .. no sale del almacén', () => {
++  /* Es la que abre la máquina entera: en un hosting compartido, escribir fuera
++     del almacén es escribir en el resto de la cuenta. */
++  assert.throws(() => almacen.absoluta('../../etc/passwd'));
++  assert.throws(() => almacen.absoluta('avatars/../../../etc/passwd'));
++  assert.throws(() => almacen.absoluta('/etc/passwd'));
++  assert.throws(() => almacen.absoluta('avatars/x\0.jpg'));
++  assert.throws(() => almacen.absoluta(''));
++});
++
++test('una ruta normal sí resuelve, y dentro', () => {
++  const abs = almacen.absoluta('avatars/uid/foto.jpg');
++  assert.ok(abs.startsWith(path.resolve(RAIZ) + path.sep));
++});
++
++test('dos subidas seguidas no comparten nombre', () => {
++  const a = almacen.nuevaRuta({ carpeta: 'avatars', propietario: USUARIO, prefijo: 'avatar', extension: '.jpg' });
++  const b = almacen.nuevaRuta({ carpeta: 'avatars', propietario: USUARIO, prefijo: 'avatar', extension: '.jpg' });
++  assert.notEqual(a, b);
++  /* Y la estructura es la misma que en Supabase: carpeta/dueño/archivo. Es lo
++     que hace que reescribir las 13 columnas sea cambiar un prefijo. */
++  assert.match(a, /^avatars\/11111111-2222-3333-4444-555555555555\/avatar-\d+-[0-9a-f]{12}\.jpg$/);
++});
++
++test('un nombre con sorpresas se limpia antes de tocar el disco', () => {
++  assert.equal(almacen.limpiarSegmento('../../etc'), 'etc');
++  assert.equal(almacen.limpiarSegmento('foto de perfil.jpg'), 'foto-de-perfil.jpg');
++  assert.equal(almacen.limpiarSegmento('a/b/c'), 'a-b-c');
++});
++
++/* ── Subir ─────────────────────────────────────────────────────────────── */
++
++test('una imagen válida se guarda, se registra y queda en el disco', async () => {
++  const { servicio } = montar();
++  const r = await servicio.subir({ contenido: JPEG, carpeta: 'avatars', nombreOriginal: 'yo.jpg', usuarioId: USUARIO });
++
++  assert.equal(r.ok, true);
++  assert.equal(r.archivo.tipo, 'image/jpeg');
++  assert.equal(r.archivo.bytes, JPEG.length);
++  assert.equal(await almacen.existe(r.archivo.ruta), true);
++  /* La URL pública lleva el prefijo nuevo, que es el que sustituye al de
++     Supabase dentro de las filas. */
++  assert.ok(r.archivo.url.startsWith('https://archivos.ejemplo.com/avatars/'));
++});
++
++test('lo que no es lo que dice ser se rechaza', async () => {
++  const { servicio, repo } = montar();
++  const r = await servicio.subir({ contenido: EXE, carpeta: 'avatars', nombreOriginal: 'foto.jpg', usuarioId: USUARIO });
++
++  assert.equal(r.codigo, 'tipo_no_admitido');
++  assert.equal(r.status, 415);
++  /* Y no llegó a tocar el disco ni a dejar ficha. */
++  assert.equal(repo._filas.length, 0);
++});
++
++test('un PDF no entra donde van las fotos', async () => {
++  const { servicio } = montar();
++  const r = await servicio.subir({ contenido: PDF, carpeta: 'avatars', usuarioId: USUARIO });
++  assert.equal(r.codigo, 'tipo_no_admitido');
++});
++
++test('el PDF sí entra en hojas de vida — y ahí sí funciona', async () => {
++  /* El hallazgo (d): el código mandaba PDF de hasta 8 MB a un bucket que sólo
++     admitía imágenes de 4 MB, así que NUNCA se subió un CV con éxito. En
++     `form-uploads` hay 16 objetos y ninguno es PDF. */
++  const { servicio } = montar();
++  const r = await servicio.subir({ contenido: PDF, carpeta: 'hojas-de-vida', nombreOriginal: 'cv.pdf', usuarioId: USUARIO });
++
++  assert.equal(r.ok, true);
++  assert.equal(r.archivo.tipo, 'application/pdf');
++});
++
++test('una hoja de vida NO es pública y no tiene URL directa', async () => {
++  /* El hallazgo (c): hoy los CV están en un bucket público. No se pueden
++     listar, pero cada uno se lee por su URL, y son datos personales. */
++  const { servicio } = montar();
++  const r = await servicio.subir({ contenido: PDF, carpeta: 'hojas-de-vida', usuarioId: USUARIO });
++
++  assert.equal(r.archivo.publico, false);
++  assert.equal(r.archivo.url, null);
++});
++
++test('sin sesión no se sube a las carpetas que la exigen', async () => {
++  const { servicio } = montar();
++  assert.equal((await servicio.subir({ contenido: JPEG, carpeta: 'avatars' })).codigo, 'sin_sesion');
++  assert.equal((await servicio.subir({ contenido: PDF, carpeta: 'hojas-de-vida' })).codigo, 'sin_sesion');
++
++  /* `form-uploads` sigue admitiendo al expositor sin cuenta, que es
++     deliberado: edita su ficha con el código de su boleta. Lo que ya no puede
++     es escribir cualquiera en internet con la llave anónima del bundle. */
++  const r = await servicio.subir({ contenido: JPEG, carpeta: 'form-uploads', eventoId: 'evt-1' });
++  assert.equal(r.ok, true);
++});
++
++test('una carpeta inventada no existe', async () => {
++  const { servicio } = montar();
++  assert.equal((await servicio.subir({ contenido: JPEG, carpeta: '../../etc', usuarioId: USUARIO })).codigo, 'carpeta_invalida');
++});
++
++test('un archivo demasiado grande se rechaza con su medida', async () => {
++  const { servicio } = montar();
++  const gordo = Buffer.concat([JPEG, Buffer.alloc(5 * 1024 * 1024)]);
++  const r = await servicio.subir({ contenido: gordo, carpeta: 'avatars', usuarioId: USUARIO });
++
++  assert.equal(r.codigo, 'demasiado_grande');
++  assert.equal(r.status, 413);
++});
++
++test('un cuerpo vacío no crea un archivo de cero bytes', async () => {
++  const { servicio } = montar();
++  assert.equal((await servicio.subir({ contenido: Buffer.alloc(0), carpeta: 'avatars', usuarioId: USUARIO })).codigo, 'vacio');
++});
++
++/* ── El reemplazo, que es lo de los 40 huérfanos ───────────────────────── */
++
++test('subir un avatar nuevo marca el anterior para borrar', async () => {
++  /* El hallazgo (a): cuatro de los cinco uploaders suben el nuevo y dejan el
++     viejo donde estaba. 40 objetos y 28 MB —más de un tercio del
++     almacenamiento— que ya no apunta nadie. Es lo que explica el salto de 24 a
++     80 MB: no es que se suba más, es que no se borraba nunca. */
++  const { servicio, repo } = montar();
++
++  const primero = await servicio.subir({ contenido: JPEG, carpeta: 'avatars', usuarioId: USUARIO });
++  const segundo = await servicio.subir({ contenido: PNG, carpeta: 'avatars', usuarioId: USUARIO });
++
++  assert.equal(segundo.reemplazados, 1);
++  assert.ok((await repo.porId(primero.archivo.id)).borradoAt);
++  assert.equal((await repo.porId(segundo.archivo.id)).borradoAt, null);
++});
++
++test('la galería del evento NO reemplaza: ahí cada imagen es una más', async () => {
++  const { servicio } = montar();
++  await servicio.subir({ contenido: JPEG, carpeta: 'event-media', usuarioId: USUARIO });
++  const segunda = await servicio.subir({ contenido: PNG, carpeta: 'event-media', usuarioId: USUARIO });
++
++  assert.equal(segunda.reemplazados, 0);
++});
++
++test('el archivo viejo sigue en disco hasta que pasa el barrido', async () => {
++  /* A propósito: si el reemplazo fue un error, hay margen para deshacerlo. Y
++     si el proceso se cae entre marcar y barrer, lo peor que queda es un
++     archivo de más, nunca una pantalla sin foto. */
++  const { servicio } = montar();
++  const primero = await servicio.subir({ contenido: JPEG, carpeta: 'avatars', usuarioId: USUARIO });
++  await servicio.subir({ contenido: PNG, carpeta: 'avatars', usuarioId: USUARIO });
++
++  assert.equal(await almacen.existe(primero.archivo.ruta), true);
++
++  const barrido = await servicio.barrer({ dias: 0 });
++  assert.equal(barrido.borrados, 1);
++  assert.equal(await almacen.existe(primero.archivo.ruta), false);
++});
++
++/* ── La cuota ──────────────────────────────────────────────────────────── */
++
++test('pasada la cuota no se sube más', async () => {
++  /* Sin esto, una cuenta puede llenar los 9,81 GB del disco compartido y
++     tumbar la aplicación para todos. */
++  const { servicio, repo } = montar();
++  repo._filas.push({
++    id: 999, usuarioId: USUARIO, carpeta: 'event-media', bytes: config.ARCHIVOS_CUOTA_BYTES, borradoAt: null,
++  });
++
++  const r = await servicio.subir({ contenido: JPEG, carpeta: 'event-media', usuarioId: USUARIO });
++  assert.equal(r.codigo, 'sin_cuota');
++});
++
++test('lo borrado deja de ocupar cuota', async () => {
++  const { servicio, repo } = montar();
++  const primero = await servicio.subir({ contenido: JPEG, carpeta: 'event-media', usuarioId: USUARIO });
++  assert.equal(await repo.bytesDe(USUARIO), JPEG.length);
++
++  await servicio.borrar({ id: primero.archivo.id, usuarioId: USUARIO });
++  assert.equal(await repo.bytesDe(USUARIO), 0);
++});
++
++/* ── Borrar ────────────────────────────────────────────────────────────── */
++
++test('nadie borra el archivo de otro', async () => {
++  /* Hoy esto lo sostiene RLS. Cuando RLS desaparezca, tiene que estar escrito
++     en sitios como éste — es el trabajo de la fase 7, y aquí empieza. */
++  const { servicio } = montar();
++  const mio = await servicio.subir({ contenido: JPEG, carpeta: 'avatars', usuarioId: USUARIO });
++
++  const r = await servicio.borrar({ id: mio.archivo.id, usuarioId: 'otro-usuario' });
++  assert.equal(r.status, 403);
++});
++
++test('borrar dos veces no revienta', async () => {
++  const { servicio } = montar();
++  const mio = await servicio.subir({ contenido: JPEG, carpeta: 'avatars', usuarioId: USUARIO });
++
++  assert.equal((await servicio.borrar({ id: mio.archivo.id, usuarioId: USUARIO })).ok, true);
++  assert.equal((await servicio.borrar({ id: mio.archivo.id, usuarioId: USUARIO })).status, 404);
++});
++
++/* ── Los enlaces firmados ──────────────────────────────────────────────── */
++
++test('un enlace firmado vale, y uno tocado no', async () => {
++  const f = firmas.firmarRuta('hojas-de-vida/uid/cv-1.pdf');
++
++  assert.equal(firmas.comprobar(f), true);
++  assert.equal(firmas.comprobar({ ...f, ruta: 'hojas-de-vida/otro/cv-2.pdf' }), false);
++  assert.equal(firmas.comprobar({ ...f, firma: 'a'.repeat(64) }), false);
++  /* Alargar la caducidad tampoco cuela: va dentro de lo firmado. */
++  assert.equal(firmas.comprobar({ ...f, expira: f.expira + 3600 }), false);
++});
++
++test('un enlace firmado caduca', async () => {
++  const f = firmas.firmarRuta('hojas-de-vida/uid/cv.pdf', { vidaSegundos: 60 });
++  const dentroDeUnaHora = () => Date.now() + 3600 * 1000;
++
++  assert.equal(firmas.comprobar(f, { ahora: dentroDeUnaHora }), false);
++});
++
++test('la basura en la firma no lanza', () => {
++  for (const malo of [{}, { ruta: 'x' }, { ruta: 'x', expira: 'ayer', firma: 'z' }, { ruta: 'x', expira: 1, firma: '' }]) {
++    assert.doesNotThrow(() => firmas.comprobar(malo));
++    assert.equal(firmas.comprobar(malo), false);
++  }
 +});
 -- 
 2.43.0

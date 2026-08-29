@@ -45,4 +45,7 @@ Cuando eso pase: aplicar los parches, subirlos, y borrar esta carpeta.
 
 | Archivo | Qué es | Del día |
 |---|---|---|
-| `backend-identidad-propia.patch` | La fase 4 entera: `modules/auth/`, `core/`, la migración de MySQL, los dos scripts, 58 pruebas y `CONFIGURAR.md` | 29 de agosto |
+| `backend-identidad-propia.patch` | **Dos commits.** La fase 4 (`modules/auth/`, `core/`, migración MySQL, dos scripts) y la fase 5 (`modules/archivos/`, la copia del Storage y la reescritura de URLs). 91 pruebas nuevas, 232 en la suite. Con `CONFIGURAR.md` | 29 de agosto |
+
+`git am` los aplica los dos en orden. Si sólo interesa uno, `git am` para y se
+puede seguir con `git am --skip`.

@@ -27,7 +27,7 @@ la sección 10.
 | 2 | `core/` + `modules/` + migraciones numeradas | **Hecho** |
 | 3 | Sondeo que se calla, avisos agrupados | **Hecho** (SSE, pendiente de probar el proxy) |
 | 4 | **Identidad propia sobre MySQL** | **Código hecho y probado**, en `parches/`. Falta la configuración: `CONFIGURAR.md` |
-| 5 | Archivos propios | Pendiente |
+| 5 | **Archivos propios** | **Código hecho y probado**, en `parches/`. Falta copiar y reescribir |
 | 6 | Las 71 tablas a MySQL | Pendiente |
 | 7 | Permisos que sustituyan a RLS | Pendiente |
 
@@ -35,13 +35,22 @@ La fase 4 incluye el módulo entero (usuarios, Google, sesiones con rotación,
 recuperación, freno por cuenta), el adaptador del frontend con interruptor para
 volver atrás, las dos pantallas que faltaban —confirmar y restablecer, que
 seguían hablando con Supabase—, el script que trae las 29 cuentas conservando
-UUID y hashes, el que comprueba la base, y **58 pruebas nuevas**. Las 199 de la
-suite pasan.
+UUID y hashes, y el que comprueba la base.
 
-Medido otra vez contra producción antes de escribir el script: **29 usuarios,
-10 con contraseña y los 10 con hash bcrypt, 22 identidades de Google, 9 de tipo
-`email`**. El descuadre de 10 contra 9 sigue ahí y el script lo señala por
-nombre.
+La fase 5 incluye `modules/archivos/` con su interruptor aparte, el script que
+copia los objetos del Storage saltándose los huérfanos, y el SQL que reescribe
+las 13 columnas dentro de una transacción comparando los conteos. Los cuatro
+problemas de `SUPABASE.md` §3.4 quedan arreglados por construcción: el archivo
+anterior se borra, `form-uploads` deja de aceptar a cualquiera, las hojas de
+vida salen del bucket público, y empiezan a poder subirse.
+
+**91 pruebas nuevas entre las dos fases. Las 232 de la suite pasan.**
+
+Medido otra vez contra producción, el 29: **29 usuarios, 10 con contraseña y
+los 10 con hash bcrypt, 22 identidades de Google, 9 de tipo `email`** —el
+descuadre de 10 contra 9 sigue ahí, y el script lo señala por nombre— y las
+**57 filas con URL dentro repartidas en las 13 columnas**, exactamente los
+mismos conteos del 28.
 
 > ### Dónde está el código de la fase 4, y por qué no está donde debería
 >
