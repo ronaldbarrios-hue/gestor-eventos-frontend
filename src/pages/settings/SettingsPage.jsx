@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase.js';
 import { pagosApi } from '../../api/pagos.js';
 import { usePush } from '../../hooks/usePush.js';
 import { guardarBrandingLocal } from '../../hooks/useBranding.js';
+import { auth } from '../../lib/sesion.js';
 
 /* Pagos, Notificaciones y Recompensas viven ahora como secciones
    propias en el sidebar (páginas dedicadas). */
@@ -104,7 +105,7 @@ export default function SettingsPage() {
                 value={usuario?.foto}
                 onChange={async (url) => {
                   try {
-                    await supabase.auth.updateUser({ data: { foto: url } });
+                    await auth.updateUser({ data: { foto: url } });
                     await supabase.from('profiles').update({ avatar_url: url || null }).eq('id', usuario.id);
                     success(url ? 'Avatar actualizado.' : 'Avatar quitado.');
                   } catch (e) { error(e.message); }
@@ -261,7 +262,7 @@ export function WhiteLabelTab() {
         web: web.trim() || null, instagram: instagram.trim() || null,
         whatsapp: whatsapp.trim() || null, footer: footer.trim() || null,
       };
-      await supabase.auth.updateUser({
+      await auth.updateUser({
         data: { branding: newBranding, empresa_logo_url: logo || null },
       });
       await supabase.from('profiles').update({

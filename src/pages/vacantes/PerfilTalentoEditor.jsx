@@ -7,6 +7,7 @@ import { validarArchivo, sanitizarNombre, TIPOS_CV, MAX_CV, ACCEPT_CV } from '..
 import ImagePicker from '../../components/ui/ImagePicker.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
+import { auth } from '../../lib/sesion.js';
 
 /* Perfil de talento — el CV reutilizable del candidato.
 
@@ -89,7 +90,7 @@ export default function PerfilTalentoEditor() {
     if (problema) { toastErr(problema); return; }
     setSubiendoCv(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       const uid = session?.user?.id;
       if (!uid) throw new Error(t('Inicia sesión para subir tu hoja de vida.'));
       const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();

@@ -1,8 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { createRoot } from 'react-dom/client';
-import { flushSync } from 'react-dom';
-import { QRCodeCanvas } from 'qrcode.react';
+import { qrPng } from './qrPng.jsx';
 
 /* La boleta en PDF: QR, código y todo lo que hay que enseñar en la puerta.
  *
@@ -21,29 +19,6 @@ import { QRCodeCanvas } from 'qrcode.react';
 const NEGRO = [10, 15, 26];
 const GRIS  = [100, 116, 139];
 const BORDE = [226, 232, 240];
-
-/* El QR se dibuja fuera de la pantalla y se saca como PNG.
-   La página ya tiene uno en SVG, pero serializarlo depende de que el navegador
-   sepa rasterizar un SVG en un canvas, y Safari lo hace mal cuando hay CSS de
-   por medio. Un canvas propio, a la resolución que quiere el PDF, no tiene esa
-   duda: lo que se imprime es exactamente lo que se generó. */
-function qrPng(valor, px = 480) {
-  const caja = document.createElement('div');
-  caja.style.cssText = 'position:fixed;left:-9999px;top:0;pointer-events:none';
-  document.body.appendChild(caja);
-  const root = createRoot(caja);
-  let dataUrl = null;
-  try {
-    flushSync(() => {
-      root.render(<QRCodeCanvas value={valor} size={px} level="M" marginSize={2} />);
-    });
-    dataUrl = caja.querySelector('canvas')?.toDataURL('image/png') || null;
-  } catch { dataUrl = null; }
-  /* Desmontar en el mismo tick provoca el aviso de React por desmontar
-     mientras renderiza; se hace justo después y da igual: ya tenemos el PNG. */
-  setTimeout(() => { try { root.unmount(); } catch { /* noop */ } caja.remove(); }, 0);
-  return dataUrl;
-}
 
 const limpio = (s) => String(s ?? '').trim();
 

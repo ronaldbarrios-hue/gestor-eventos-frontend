@@ -10,6 +10,7 @@ import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploade
 import { supabase } from '../lib/supabase.js';
 import { PAISES, bandera, INDICATIVOS } from '../lib/paises.js';
 import { verificar } from '../lib/validarDato.js';
+import { auth } from '../lib/sesion.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 const DUR_OUT = 420;
@@ -529,7 +530,7 @@ function RegisterForm() {
     if (res.ok && paso2.fotoFile && res.data?.user?.id) {
       try {
         const url = await uploadAvatarFile(paso2.fotoFile, res.data.user.id);
-        await supabase.auth.updateUser({ data: { foto: url } });
+        await auth.updateUser({ data: { foto: url } });
       } catch (e) {
         console.warn('[register] upload avatar falló (no crítico):', e.message);
       }

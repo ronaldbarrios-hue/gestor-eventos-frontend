@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { auth } from '../../lib/sesion.js';
 
 /* Uploader de portada (cover) del evento.
    Aspect 16:9 grande. Sube directo a Supabase Storage en /<owner_id>/...
@@ -18,7 +19,7 @@ const ACCEPTED  = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export async function uploadEventImage(file, ownerId, prefix = 'cover') {
   const ext = file.name.split('.').pop().toLowerCase();
   const rand = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await auth.getSession();
   const uid = session?.user?.id;
 
   if (uid) {

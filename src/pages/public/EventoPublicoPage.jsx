@@ -19,9 +19,11 @@ import { verificar } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { dividirEnModulos, convienePaginar } from '../../lib/modulosFormulario.js';
 import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
+import { descargarQrPng } from '../../lib/qrPng.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import { useT } from '../../lib/i18n.js';
+import { irAPagar } from '../../lib/embed.js';
 
 /* Los mismos bloques que siembra el editor, y en su orden: así lo que ve el
    público sin que nadie haya tocado nada es lo que el organizador se
@@ -579,7 +581,7 @@ function AvisoCupo({ cupo, onTomar }) {
   );
 }
 
-function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess }) {
+export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
   const [working, setWorking] = useState(false);
@@ -746,16 +748,22 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
         const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas,
           ...(acepta ? { legal_aceptado: true } : {}),
           ...(cupoToken ? { waitlist_token: cupoToken } : {}) };
+        /* `irAPagar` navega igual que siempre en la página pública. Dentro del
+           botón incrustado en la web de otro, en cambio, le pide al anfitrión
+           que abra la pasarela en una pestaña de verdad: un checkout dentro de
+           un iframe ajeno se rompe por las cookies de terceros, por el 3-D
+           Secure —que se niega a cargarse enmarcado— y por la redirección de
+           vuelta, que aterrizaría dentro del recuadro. */
         if (gatewayRef.current === 'wompi') {
           const res = await pagosApi.comprarWompi(slug, body);
           const url = res.checkout?.url;
           if (!url) throw new Error('Wompi no devolvió el link de pago.');
-          window.location.href = url;
+          irAPagar(url);
         } else {
           const res = await pagosApi.comprar(slug, body);
           const url = res.checkout?.init_point || res.checkout?.sandbox_init_point;
           if (!url) throw new Error('Mercado Pago no devolvió el link de pago.');
-          window.location.href = url;
+          irAPagar(url);
         }
       }
     } catch (e) { setErr(e.response?.data?.error || e.message); }
@@ -947,7 +955,7 @@ function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, o
   );
 }
 
-function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose }) {
+export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose }) {
   const qrValue = ticket.qr_token || ticket.codigo;
   const [bajando, setBajando] = useState(false);
 
@@ -991,6 +999,14 @@ function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose }
       });
     } finally { setBajando(false); }
   };
+  const descargarQr = () => {
+    if (!descargarQrPng(qrValue, `qr-${ticket.codigo}`)) {
+      /* Si el navegador no pudo dibujarlo, el PDF sigue estando: es mejor
+         decirlo que dejar un botón que no responde. */
+      alert('No se pudo generar la imagen del QR. Descargá la boleta en PDF, que lo lleva dentro.');
+    }
+  };
+
   const redirectUrl = checkout.redirect_url;
   useEffect(() => {
     if (redirectUrl && checkout.redirect_auto) {
@@ -1067,6 +1083,13 @@ function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose }
           <button onClick={descargarPdf} disabled={bajando}
             className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
             {bajando ? 'Generando…' : 'Descargar boleta (PDF)'}
+          </button>
+          {/* El QR suelto, además del PDF. Es lo que la gente reenvía por
+              WhatsApp y lo que enseña en la puerta sin abrir un lector de PDF
+              con el móvil al 4% de batería. */}
+          <button onClick={descargarQr}
+            className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all">
+            Descargar QR
           </button>
           <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
             Listo
@@ -1196,7 +1219,7 @@ function SalidaAWebPropia({ evento }) {
 }
 
 /* Boletas funcionales incrustadas en el lienzo libre */
-function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
+export function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
   const B = BLOCKS['tickets'];
   if (!B) return null;
   const Preview = B.Preview;

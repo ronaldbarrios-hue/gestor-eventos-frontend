@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { supabase } from '../lib/supabase.js';
+import { auth } from '../lib/sesion.js';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -13,7 +13,9 @@ const client = axios.create({
    si de verdad se mandó token, porque de eso depende cómo interpretar un
    401 más abajo. */
 client.interceptors.request.use(async (config) => {
-  const { data } = await supabase.auth.getSession();
+  /* getSession() refresca solo si el token está por caducar, así que aquí no
+     hay que preocuparse de eso: siempre devuelve uno utilizable o ninguno. */
+  const { data } = await auth.getSession();
   const token = data.session?.access_token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -34,7 +36,7 @@ client.interceptors.response.use(
        /login a cualquiera, incluido un visitante anónimo mirando una página
        pública, que es justo lo contrario de lo que uno quiere ahí. */
     if (status === 401 && err.config?.__conSesion) {
-      supabase.auth.signOut().finally(() => {
+      auth.signOut().finally(() => {
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
           window.location.href = '/login';
         }

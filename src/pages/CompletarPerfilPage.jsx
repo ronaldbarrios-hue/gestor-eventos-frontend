@@ -9,6 +9,7 @@ import logoG from '../assets/logo-g.svg';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader from '../components/ui/AvatarUploader.jsx';
 import { PAISES, bandera } from '../lib/paises.js';
+import { auth } from '../lib/sesion.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 
@@ -90,7 +91,7 @@ export default function CompletarPerfilPage() {
 
     setLoading(true);
     try {
-      const { error: e1 } = await supabase.auth.updateUser({
+      const { error: e1 } = await auth.updateUser({
         data: {
           nombre        : form.nombre,
           foto          : form.avatar_url,

@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 import { pantallaInicial, setPantallaInicial } from '../../lib/prefs.js';
 import SettingsPage, { NotificacionesTab, PagosTab, WhiteLabelTab, AparienciaCard } from '../settings/SettingsPage.jsx';
+import { auth } from '../../lib/sesion.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Ajustes — Rework Fase 5 (estructura del PDF)
@@ -305,7 +306,7 @@ function Seguridad() {
 
   const cerrarTodas = async () => {
     setWorking(true);
-    try { await supabase.auth.signOut({ scope: 'global' }); } catch { /* noop */ }
+    try { await auth.signOut({ scope: 'global' }); } catch { /* noop */ }
     logout(); navigate('/login');
   };
 

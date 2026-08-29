@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { supabase } from '../lib/supabase.js';
 import logoG from '../assets/logo-g.svg';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
+import { auth, AUTH_PROPIA } from '../lib/sesion.js';
 
 export default function ResetPasswordPage() {
   const { updatePassword } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const token = params.get('token');
 
   const [ready, setReady] = useState(false);
   const [pwd, setPwd]     = useState('');
@@ -17,15 +19,27 @@ export default function ResetPasswordPage() {
   const [err, setErr]     = useState('');
   const [done, setDone]   = useState(false);
 
-  /* Supabase usa flow PKCE: la URL trae un token que getSession() recoge
-     automaticamente cuando detectSessionInUrl=true. Aqui solo confirmamos que
-     hay sesion recovery valida. */
+  /* Dos maneras de llegar aquí, según quién lleve la sesión.
+   *
+   * Con Supabase (flow PKCE): la URL trae un token que `getSession()` canjea
+   * solo, y quien abre el enlace queda DENTRO de la cuenta antes de escribir
+   * nada. Basta con comprobar que hay sesión.
+   *
+   * Con la identidad propia: el enlace trae `?token=` y no abre ninguna
+   * sesión. El token sólo sirve para poner la contraseña nueva; después hay
+   * que entrar con ella. Es más pasos y es lo correcto — un enlace que se
+   * quedó en un historial compartido no debería dejar a nadie dentro. */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    if (AUTH_PROPIA) {
+      if (token) setReady(true);
+      else setErr('El enlace de recuperación es inválido o expiró. Solicita uno nuevo.');
+      return;
+    }
+    auth.getSession().then(({ data }) => {
       if (data.session) setReady(true);
       else setErr('El enlace de recuperación es inválido o expiró. Solicita uno nuevo.');
     });
-  }, []);
+  }, [token]);
 
   const onSubmit = async e => {
     e.preventDefault();
@@ -33,6 +47,18 @@ export default function ResetPasswordPage() {
     if (pwd !== pwd2)   { setErr('Las contraseñas no coinciden.'); return; }
     setLoading(true);
     setErr('');
+
+    if (AUTH_PROPIA) {
+      const { error } = await auth.restablecerConToken(token, pwd);
+      setLoading(false);
+      if (error) { setErr(error.message); return; }
+      setDone(true);
+      /* A la pantalla de entrada, no al panel: aquí no se abrió sesión, y
+         mandarlo a `/inicio` lo dejaría mirando una pantalla que lo echa. */
+      setTimeout(() => navigate('/login'), 1500);
+      return;
+    }
+
     const res = await updatePassword(pwd);
     setLoading(false);
     if (res.ok) {
@@ -76,7 +102,9 @@ export default function ResetPasswordPage() {
             <h1 className="text-3xl font-bold font-display tracking-tight mb-3">
               Contraseña actualizada
             </h1>
-            <p className="text-base text-text-2">Redirigiendo al dashboard...</p>
+            <p className="text-base text-text-2">
+              {AUTH_PROPIA ? 'Ya podés entrar con ella. Llevándote a la pantalla de entrada...' : 'Redirigiendo al dashboard...'}
+            </p>
           </div>
         ) : (
           <>

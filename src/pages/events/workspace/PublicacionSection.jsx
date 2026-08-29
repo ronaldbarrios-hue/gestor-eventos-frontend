@@ -4,6 +4,8 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import {
   MODOS_PUBLICACION, EMBED_ESPECIALES, EMBED_TEMAS,
   embedSnippet, embedUrl, embedFrameId,
+  WIDGET_DEFECTOS, WIDGET_TAMANOS, WIDGET_SOMBRAS,
+  estiloBotonWidget, widgetSnippet, widgetSnippetEnSitio,
 } from '../../../lib/embed.js';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -126,7 +128,12 @@ export default function PublicacionSection({ evento, reload, valor, onChange }) 
       {/* ── El catálogo de secciones incrustables ──
           Sólo en el modo que las usa: en los otros dos sería ruido. El botón
           de exportar sección a sección sigue estando en el editor. */}
-      {v.modo_publico === 'iframe' && <CatalogoEmbeds evento={evento} />}
+      {v.modo_publico === 'iframe' && (
+        <>
+          <BotonDeRegistro evento={evento} />
+          <CatalogoEmbeds evento={evento} />
+        </>
+      )}
 
       {!controlado && (
         <div className="pt-4 border-t border-border">
@@ -234,6 +241,178 @@ function CatalogoEmbeds({ evento }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+
+/* ── El botón de registro para la web del cliente ──────────────────────────
+ *
+ * Lo de abajo incrusta una SECCIÓN entera. Esto es lo otro que hacía falta y
+ * no existía: sólo un botón, y al pulsarlo el registro se abre ENCIMA de su
+ * página. Antes, el botón de una sección incrustada mandaba al visitante a
+ * GESTEK en otra pestaña, que es justo lo que un organizador con web propia no
+ * quiere: pierde a la persona en mitad de su sitio.
+ *
+ * Todo lo que se toca aquí sale del mismo sitio que lo aplica `widget.js`, así
+ * que la vista previa es el botón de verdad y no una aproximación.
+ */
+function BotonDeRegistro({ evento }) {
+  const { success, error } = useToast();
+  const [cfg, setCfg] = useState({ ...WIDGET_DEFECTOS, degradado: false, color2: '#F2D66B', ancho: 'auto' });
+  const [comoSitio, setComoSitio] = useState(false);
+
+  const slug = evento.slug;
+  const set = (patch) => setCfg(c => ({ ...c, ...patch }));
+
+  /* El degradado es un interruptor en el panel y "hay segundo color" en el
+     widget: se traduce aquí para que la casilla no tenga que borrar el color
+     que el organizador ya eligió. */
+  const opciones = useMemo(() => ({
+    ...cfg,
+    color2: cfg.degradado ? cfg.color2 : '',
+  }), [cfg]);
+
+  const snippet = useMemo(
+    () => (comoSitio ? widgetSnippetEnSitio : widgetSnippet)({ slug, ...opciones }),
+    [comoSitio, slug, opciones],
+  );
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(snippet);
+      success('Código del botón copiado');
+    } catch {
+      error('No se pudo copiar — selecciona el texto y usa Ctrl+C');
+    }
+  };
+
+  if (!slug) return null;
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
+        <p className="text-sm font-semibold text-text-1">Botón de registro</p>
+        <p className="text-[11px] text-text-3 mt-0.5">
+          Un botón en tu web. Al pulsarlo, el formulario se abre encima de tu página:
+          quien se registra no sale de tu sitio.
+        </p>
+      </div>
+
+      <div className="p-4 grid lg:grid-cols-[1fr_minmax(260px,320px)] gap-5 items-start">
+        <div className="space-y-3 min-w-0">
+          <div>
+            <label className="label">Texto del botón</label>
+            <input value={cfg.texto} onChange={e => set({ texto: e.target.value })}
+              className="input w-full" placeholder="Registrarme" />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Color etiqueta="Color" valor={cfg.color} onChange={v => set({ color: v })} />
+            <Color etiqueta="Color del texto" valor={cfg.colorTexto} onChange={v => set({ colorTexto: v })} />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
+            <input type="checkbox" checked={cfg.degradado}
+              onChange={e => set({ degradado: e.target.checked })} className="accent-[#8B5CF6]" />
+            Degradado de dos colores
+          </label>
+
+          {cfg.degradado && (
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Color etiqueta="Segundo color" valor={cfg.color2} onChange={v => set({ color2: v })} />
+              <div>
+                <label className="label">Ángulo</label>
+                <select value={cfg.gradiente} onChange={e => set({ gradiente: e.target.value })} className="input w-full">
+                  {['90deg', '120deg', '135deg', '180deg', 'to right', 'to bottom right'].map(g =>
+                    <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className="label">Esquinas (px)</label>
+              <input type="number" min={0} max={999} value={cfg.radio}
+                onChange={e => set({ radio: e.target.value })} className="input w-full" />
+            </div>
+            <div>
+              <label className="label">Borde (px)</label>
+              <input type="number" min={0} max={8} value={cfg.borde}
+                onChange={e => set({ borde: e.target.value })} className="input w-full" />
+            </div>
+            <Color etiqueta="Color del borde" valor={cfg.colorBorde === 'transparent' ? '#ffffff' : cfg.colorBorde}
+              onChange={v => set({ colorBorde: v })} />
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className="label">Sombra</label>
+              <select value={cfg.sombra} onChange={e => set({ sombra: e.target.value })} className="input w-full">
+                {Object.keys(WIDGET_SOMBRAS).map(s =>
+                  <option key={s} value={s}>{{ no: 'Sin sombra', sm: 'Suave', md: 'Media', lg: 'Marcada' }[s]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Tamaño</label>
+              <select value={cfg.tamano} onChange={e => set({ tamano: e.target.value })} className="input w-full">
+                {Object.keys(WIDGET_TAMANOS).map(s =>
+                  <option key={s} value={s}>{{ sm: 'Pequeño', md: 'Mediano', lg: 'Grande' }[s]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Ancho</label>
+              <select value={cfg.ancho} onChange={e => set({ ancho: e.target.value })} className="input w-full">
+                <option value="auto">Del texto</option>
+                <option value="completo">Todo el ancho</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="label">Así se verá</label>
+            {/* Sobre un gris neutro: encima del fondo del panel, un botón
+                claro parecería tener menos contraste del que tendrá en la web
+                del organizador. */}
+            <div className="rounded-2xl border border-border bg-[#f4f4f5] p-6 flex items-center justify-center">
+              <button type="button" style={estiloBotonWidget(opciones)}>{cfg.texto || 'Registrarme'}</button>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-text-2 cursor-pointer">
+            <input type="checkbox" checked={comoSitio}
+              onChange={e => setComoSitio(e.target.checked)} className="accent-[#8B5CF6]" />
+            Quiero colocarlo yo (varios botones o dentro de un menú)
+          </label>
+
+          <textarea readOnly value={snippet} rows={comoSitio ? 10 : 8}
+            onFocus={e => e.target.select()}
+            className="input w-full font-mono text-[11px] leading-relaxed resize-y" />
+          <button onClick={copiar} className="btn btn-sm w-full">Copiar código</button>
+          <p className="text-[11px] text-text-3 leading-relaxed">
+            Pégalo en tu web donde quieras que salga el botón. El pago, si la entrada
+            es de pago, se abre en una pestaña aparte: las pasarelas no funcionan
+            dentro de una ventana incrustada.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Color({ etiqueta, valor, onChange }) {
+  return (
+    <div>
+      <label className="label">{etiqueta}</label>
+      <div className="flex items-center gap-2">
+        <input type="color" value={valor} onChange={e => onChange(e.target.value)}
+          className="h-9 w-12 rounded-lg border border-border bg-transparent cursor-pointer" />
+        <input value={valor} onChange={e => onChange(e.target.value)}
+          className="input flex-1 font-mono text-xs" />
+      </div>
     </div>
   );
 }

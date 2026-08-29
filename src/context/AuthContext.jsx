@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, supabaseConfigured, authRedirect } from '../lib/supabase.js';
+import { auth, authConfigurado, authRedirect, AUTH_PROPIA } from '../lib/sesion.js';
 
 const AuthContext = createContext(null);
 
@@ -89,11 +89,21 @@ export function AuthProvider({ children }) {
 
   /* Consulta pública (sin sesión) si un email tiene una invitación pendiente.
      Se usa SOLO desde el formulario de registro (antes de tener cuenta/sesión),
-     donde no hay riesgo de condición de carrera con la vinculación automática. */
+     donde no hay riesgo de condición de carrera con la vinculación automática.
+
+     Por POST y no por GET: el correo iba en la query string y quedaba escrito
+     en los logs de acceso del servidor y en el historial del navegador. El
+     servidor además limita este endpoint, porque contesta sobre datos de otros;
+     si responde 429 se trata como "no invitado", que es lo que ya se hacía con
+     cualquier fallo — el registro sigue adelante igual. */
   const checkInvitacionPendiente = useCallback(async (email) => {
     if (!email || !email.includes('@')) return { invitado: false };
     try {
-      const resp = await fetch(`${API_URL}/eventos/publicos/invitacion-pendiente?email=${encodeURIComponent(email.toLowerCase().trim())}`);
+      const resp = await fetch(`${API_URL}/eventos/publicos/invitacion-pendiente`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ email: email.toLowerCase().trim() }),
+      });
       if (!resp.ok) return { invitado: false };
       return await resp.json();
     } catch {
@@ -111,30 +121,39 @@ export function AuthProvider({ children }) {
     return invitacionInfo;
   }, [invitacionInfo]);
 
-  /* Inicializar: si volvemos de OAuth con ?code= en URL, lo intercambiamos
-     por sesión explícitamente. Luego leemos la sesión y nos suscribimos. */
+  /* Inicializar: recoger la sesión que deja el proveedor al volver de OAuth, y
+     luego leer la que hubiera guardada y suscribirse a los cambios.
+
+     Cada backend la entrega de una forma y por eso hay dos ramas:
+     · Supabase vuelve con ?code= en la query y hay que canjearlo.
+     · El nuestro vuelve con los tokens en el fragmento (#), que no llega al
+       servidor ni a sus logs; sólo hay que recogerlos y limpiar la barra. */
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
         if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          const code = url.searchParams.get('code');
-          if (code) {
-            await supabase.auth.exchangeCodeForSession(window.location.href);
-            /* Limpia ?code y ?state del URL sin recargar */
-            url.searchParams.delete('code');
-            url.searchParams.delete('state');
-            window.history.replaceState({}, document.title, url.pathname + (url.search || '') + url.hash);
+          if (AUTH_PROPIA) {
+            await auth.recogerSesionDeUrl();
+          } else {
+            const url = new URL(window.location.href);
+            const code = url.searchParams.get('code');
+            if (code) {
+              await auth.exchangeCodeForSession(window.location.href);
+              /* Limpia ?code y ?state del URL sin recargar */
+              url.searchParams.delete('code');
+              url.searchParams.delete('state');
+              window.history.replaceState({}, document.title, url.pathname + (url.search || '') + url.hash);
+            }
           }
         }
       } catch (e) {
-        console.warn('[auth] exchangeCodeForSession falló:', e?.message || e);
+        console.warn('[auth] no se pudo recoger la sesión del proveedor:', e?.message || e);
       }
 
       if (DEV_BYPASS) { setLoading(false); return; }
-      const { data } = await supabase.auth.getSession();
+      const { data } = await auth.getSession();
       if (!mounted) return;
       setSession(data.session ?? null);
       setUsuario(mapUser(data.session?.user));
@@ -146,7 +165,7 @@ export function AuthProvider({ children }) {
       }
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+    const { data: sub } = auth.onAuthStateChange(async (_event, sess) => {
       if (DEV_BYPASS) return;
       setSession(sess ?? null);
       setUsuario(mapUser(sess?.user));
@@ -164,16 +183,16 @@ export function AuthProvider({ children }) {
   }, [vincularInvitacionesPendientes]);
 
   const login = useCallback(async (email, password) => {
-    if (!supabaseConfigured) return { ok: false, error: 'Supabase no está configurado. Ver docs/SUPABASE_SETUP.md' };
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!authConfigurado) return { ok: false, error: 'El servicio de identidad no está configurado.' };
+    const { data, error } = await auth.signInWithPassword({ email, password });
     if (error) return { ok: false, error: traducirError(error.message) };
     return { ok: true, data };
   }, []);
 
   const register = useCallback(async (fields) => {
-    if (!supabaseConfigured) return { ok: false, error: 'Supabase no está configurado. Ver docs/SUPABASE_SETUP.md' };
+    if (!authConfigurado) return { ok: false, error: 'El servicio de identidad no está configurado.' };
     const { nombre, email, password, ...metadata } = fields;
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await auth.signUp({
       email,
       password,
       options: {
@@ -191,15 +210,15 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    await auth.signOut();
     setSession(null);
     setUsuario(null);
     setInvitacionInfo(null);
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    if (!supabaseConfigured) return { ok: false, error: 'Supabase no está configurado.' };
-    const { error } = await supabase.auth.signInWithOAuth({
+    if (!authConfigurado) return { ok: false, error: 'El servicio de identidad no está configurado.' };
+    const { error } = await auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: authRedirect('/inicio') },
     });
@@ -208,8 +227,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const resetPassword = useCallback(async (email) => {
-    if (!supabaseConfigured) return { ok: false, error: 'Supabase no está configurado.' };
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    if (!authConfigurado) return { ok: false, error: 'El servicio de identidad no está configurado.' };
+    const { error } = await auth.resetPasswordForEmail(email, {
       redirectTo: authRedirect('/restablecer'),
     });
     if (error) return { ok: false, error: traducirError(error.message) };
@@ -217,13 +236,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   const updatePassword = useCallback(async (newPassword) => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error } = await auth.updateUser({ password: newPassword });
     if (error) return { ok: false, error: traducirError(error.message) };
     return { ok: true };
   }, []);
 
   const updateProfile = useCallback(async (metadata) => {
-    const { data, error } = await supabase.auth.updateUser({ data: metadata });
+    const { data, error } = await auth.updateUser({ data: metadata });
     if (error) return { ok: false, error: traducirError(error.message) };
     setUsuario(mapUser(data.user));
     return { ok: true };
@@ -237,7 +256,7 @@ export function AuthProvider({ children }) {
   }, [updateProfile]);
 
   const resendConfirmation = useCallback(async (email) => {
-    const { error } = await supabase.auth.resend({
+    const { error } = await auth.resend({
       type: 'signup',
       email,
       options: { emailRedirectTo: authRedirect('/confirmar') },
