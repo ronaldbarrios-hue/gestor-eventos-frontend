@@ -14,13 +14,13 @@ la sesión en la nube devuelve 403.
 
 | Repositorio | Rama | Commits sin subir |
 |---|---|---|
-| `ronaldbarrios-hue/gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 9 |
-| `ronaldbarrios-hue/gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 7 |
+| `ronaldbarrios-hue/gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 11 |
+| `ronaldbarrios-hue/gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 8 |
 
 Los dos parches vienen del chat:
 
-- `gestek-backend-7-commits.patch`
-- `gestek-frontend-9-commits.patch`
+- `gestek-backend-8-commits.patch`
+- `gestek-frontend-11-commits.patch`
 
 El del frontend **ya lleva dentro** una copia del otro (en `parches/`), así que
 si sólo se conserva uno, que sea ése.
@@ -34,13 +34,13 @@ git clone https://github.com/ronaldbarrios-hue/gestor-eventos-backend
 cd gestor-eventos-backend
 git checkout -b claude/gestek-storage-cleanup-auth-41d8d8-46jiml
 
-git am < ~/Downloads/gestek-backend-7-commits.patch
+git am < ~/Downloads/gestek-backend-8-commits.patch
 
 npm install          # el parche añade bcryptjs y mysql2
-npm test             # tienen que pasar 264
+npm test             # tienen que pasar 265
 ```
 
-Si `npm test` no da 264, **parar y decirlo** en vez de arreglar por encima: el
+Si `npm test` no da 265, **parar y decirlo** en vez de arreglar por encima: el
 parche se aplicó mal o la rama base se movió.
 
 ```bash
@@ -54,7 +54,7 @@ git clone https://github.com/ronaldbarrios-hue/gestor-eventos-frontend
 cd gestor-eventos-frontend
 git checkout -b claude/gestek-storage-cleanup-auth-41d8d8-46jiml origin/claude/gestek-storage-cleanup-auth-41d8d8-46jiml
 
-git am < ~/Downloads/gestek-frontend-9-commits.patch
+git am < ~/Downloads/gestek-frontend-11-commits.patch
 
 npm install
 npm run build        # tiene que construir sin errores
@@ -74,7 +74,7 @@ Pasa si la rama base avanzó. En ese caso:
 
 ```bash
 git am --abort
-git apply --3way ~/Downloads/gestek-backend-7-commits.patch
+git apply --3way ~/Downloads/gestek-backend-8-commits.patch
 # resolver los conflictos como siempre, y commitear a mano
 ```
 
@@ -97,7 +97,7 @@ Se pierden los mensajes de commit originales, que son largos a propósito
 
 ## 5 · Qué lleva cada commit
 
-### Backend (7)
+### Backend (8)
 
 1. **Identidad propia sobre MySQL.** `modules/auth/` entero —usuarios, Google,
    sesiones con rotación, recuperación, freno por cuenta—, `core/db` y
@@ -126,8 +126,10 @@ Se pierden los mensajes de commit originales, que son largos a propósito
    la segunda no se configura, cae a la primera y todo sigue igual—, y el
    rescate de los correos que se quedan a medias cuando el proceso muere, con
    su ruta para reintentarlos a propósito.
+8. **Fase 7, de 247 rutas sin declarar a 230**, con la tercera forma de
+   declarar (`sesion()`) para lo que es de la propia cuenta.
 
-### Frontend (9)
+### Frontend (11)
 
 1. **Confirmar y restablecer** dejan de pasar por Supabase, detrás del mismo
    interruptor. Y `parches/`, con el código del backend guardado como parche.
@@ -142,6 +144,9 @@ Se pierden los mensajes de commit originales, que son largos a propósito
    se abre en la web del cliente en vez de en una pestaña de GESTEK, y lo del
    QR: descargarlo como imagen y centrarlo en la escarapela vertical.
 9. **Este documento al día**, y el parche del backend a siete commits.
+10. **Los correos que no salieron** se ven en la sección de correos, con su
+    motivo y un botón para reintentarlos.
+11. **Este documento otra vez al día**, con la fase 7 y el parche a ocho.
 
 ---
 

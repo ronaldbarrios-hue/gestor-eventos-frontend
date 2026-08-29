@@ -1,7 +1,7 @@
 From 55d0f3272c408540e65a7574c63c68e2d6862c66 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:19:23 +0000
-Subject: [PATCH 1/7] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
+Subject: [PATCH 1/8] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
  =?UTF-8?q?m=C3=B3dulo=20entero,=20detr=C3=A1s=20de=20un=20interruptor?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -3944,7 +3944,7 @@ index 0000000..b3b3197
 From 7a5fa2cd188356c168a92d2770689a56900f50a6 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:20:01 +0000
-Subject: [PATCH 2/7] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
+Subject: [PATCH 2/8] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
  =?UTF-8?q?ube=20al=20backend,=20y=20ah=C3=AD=20s=C3=AD=20se=20puede=20com?=
  =?UTF-8?q?probar?=
 MIME-Version: 1.0
@@ -5784,7 +5784,7 @@ index 0000000..49474c9
 From 0a985a5df87cc251adcbcac8939008c61fb0cd9c Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:37:30 +0000
-Subject: [PATCH 3/7] =?UTF-8?q?Permisos:=20la=20decisi=C3=B3n=20en=20una?=
+Subject: [PATCH 3/8] =?UTF-8?q?Permisos:=20la=20decisi=C3=B3n=20en=20una?=
  =?UTF-8?q?=20funci=C3=B3n,=20y=20una=20prueba=20que=20pasa=20lista=20a=20?=
  =?UTF-8?q?las=20279=20rutas?=
 MIME-Version: 1.0
@@ -7572,7 +7572,7 @@ index 0000000..b4b02c5
 From efc13bfa87c3dffe2af0d9355e1eedcb29086edb Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:41:16 +0000
-Subject: [PATCH 4/7] =?UTF-8?q?Barrido=20de=20hu=C3=A9rfanos:=20la=20lista?=
+Subject: [PATCH 4/8] =?UTF-8?q?Barrido=20de=20hu=C3=A9rfanos:=20la=20lista?=
  =?UTF-8?q?=20medida=20y=20el=20script=20que=20la=20ejecuta?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -8218,7 +8218,7 @@ index 62fd849..6fd2d58 100644
 From 75b0ca9169fa778e2c90314ce2c08a92f98ebc73 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:48:23 +0000
-Subject: [PATCH 5/7] =?UTF-8?q?La=20migraci=C3=B3n=20que=20cierra=20profil?=
+Subject: [PATCH 5/8] =?UTF-8?q?La=20migraci=C3=B3n=20que=20cierra=20profil?=
  =?UTF-8?q?es=20del=20todo,=20lista=20para=20cuando=20el=20frontend=20suba?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -8306,7 +8306,7 @@ index 0000000..78fb23c
 From 455ded6820870269ba9448a3f82aec2b71bfb60d Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:52:27 +0000
-Subject: [PATCH 6/7] El backend listo para cPanel, y los recordatorios fuera
+Subject: [PATCH 6/8] El backend listo para cPanel, y los recordatorios fuera
  del proceso
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -8753,7 +8753,7 @@ index 0000000..ceccb3a
 From 2564e9a3a00fc01d38de8cd48c7eee128878b849 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 05:12:25 +0000
-Subject: [PATCH 7/7] Dos bases separadas, y el correo que se quedaba a medias
+Subject: [PATCH 7/8] Dos bases separadas, y el correo que se quedaba a medias
  deja de perderse
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9800,6 +9800,366 @@ index 0000000..8f53237
 +    process.env.EMAIL_COLA_ACTIVA = previo;
 +  }
 +});
+-- 
+2.43.0
+
+
+From 8ed0a807e2de3a37be2dafa3635c56c6cfad5164 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 29 Aug 2026 05:26:35 +0000
+Subject: [PATCH 8/8] Fase 7: de 247 rutas sin declarar a 230, y una tercera
+ forma de declararlas
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Faltaba una pieza para que el censo pudiera terminar el trabajo: había rutas
+que no son públicas y tampoco cuelgan de un permiso de evento —el perfil
+propio, las integraciones de la cuenta—, donde la comprobación es «esta fila es
+suya» y la hace el handler contra `req.user.id`. Sin una forma de declararlas,
+se habrían quedado en el montón para siempre, y un contador que nunca puede
+llegar a cero es un contador que nadie mira. Eso es `sesion(motivo)`.
+
+Declaradas 17 más, todas sin tocar una línea de comportamiento:
+
+- `/me` y las integraciones, con `sesion()`: son de la cuenta, no de un evento.
+- Los webhooks entrantes, con `publica()`: llegan sin sesión por definición
+  —los manda otro servidor— y lo que los autentica es la firma del proveedor,
+  dentro del handler.
+- La portada, `/health` y el diagnóstico de red, que no llevan datos de nadie.
+
+El tope baja de 247 a 230 y se queda anotado ahí: sólo puede seguir bajando.
+
+265 pruebas.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ core/permisos/censo.js        | 10 ++++---
+ core/permisos/index.js        | 22 ++++++++++++++-
+ core/permisos/inventario.json | 53 +++++++++++++++++++++++------------
+ index.js                      |  7 +++--
+ routes/integraciones.js       |  4 +++
+ routes/me.js                  |  5 ++++
+ routes/webhooks.js            |  5 ++++
+ scripts/censar-rutas.js       |  6 ++--
+ test/permisos.test.js         | 16 ++++++++++-
+ 9 files changed, 98 insertions(+), 30 deletions(-)
+
+diff --git a/core/permisos/censo.js b/core/permisos/censo.js
+index ad5b1e1..be75529 100644
+--- a/core/permisos/censo.js
++++ b/core/permisos/censo.js
+@@ -26,15 +26,17 @@ function censar(app) {
+   return listarRutas(app).map(r => {
+     const exige = r.marcas.find(m => m.tipo === 'exige');
+     const publica = r.marcas.find(m => m.tipo === 'publica');
++    const sesion = r.marcas.find(m => m.tipo === 'sesion');
+     return {
+       metodo  : r.metodo,
+       ruta    : r.ruta,
+       id      : r.id,
+-      /* `exige` gana a `publica`: si una ruta concreta pide un permiso dentro
+-         de un router declarado público, manda la de la ruta. */
+-      estado  : exige ? 'exige' : (publica ? 'publica' : 'pendiente'),
++      /* El orden manda: `exige` gana a todo —si una ruta concreta pide un
++         permiso dentro de un router declarado de otra forma, manda la de la
++         ruta—, y `sesion` gana a `publica` por lo mismo. */
++      estado  : exige ? 'exige' : (sesion ? 'sesion' : (publica ? 'publica' : 'pendiente')),
+       acciones: exige?.acciones || null,
+-      motivo  : publica?.motivo || null,
++      motivo  : sesion?.motivo || publica?.motivo || null,
+     };
+   });
+ }
+diff --git a/core/permisos/index.js b/core/permisos/index.js
+index 1c6cb8d..7051aeb 100644
+--- a/core/permisos/index.js
++++ b/core/permisos/index.js
+@@ -112,6 +112,26 @@ function exige(acciones, { eventoDe, cargador } = {}) {
+   return guardia;
+ }
+ 
++/* ── La declaración de «esto es tuyo» ──────────────────────────────────────
++ *
++ * Hay rutas que no son públicas y tampoco cuelgan de un permiso de evento: el
++ * perfil propio, las integraciones de la cuenta, las conexiones del conector.
++ * Ahí la comprobación no es «¿qué permisos tiene en este evento?» sino «¿esta
++ * fila es suya?», y eso lo hace el handler filtrando por `req.user.id`.
++ *
++ * Sin esta tercera forma, esas rutas no se podrían declarar nunca y el censo
++ * las contaría como olvidadas para siempre — que es la manera más rápida de
++ * que un contador deje de significar algo y nadie lo mire.
++ *
++ * No hace nada en tiempo de ejecución: la sesión ya la exige el middleware del
++ * router. Es una declaración, y por eso pide el motivo. */
++function sesion(motivo) {
++  if (!motivo) throw new Error('sesion() necesita un motivo: se lee dentro de un año.');
++  const paso = function rutaDeSesion(_req, _res, next) { next(); };
++  paso[MARCA] = { tipo: 'sesion', motivo };
++  return paso;
++}
++
+ /* ── La declaración de que algo es público ─────────────────────────────────
+  *
+  * No hace nada en tiempo de ejecución, y ése es el punto: existe para que el
+@@ -162,4 +182,4 @@ async function cargarEvento(eventoId, usuarioId) {
+ /* Lee la marca de un middleware. La usa el censo. */
+ const marcaDe = (fn) => (typeof fn === 'function' ? fn[MARCA] || null : null);
+ 
+-module.exports = { puede, exige, publica, cargarEvento, marcaDe, MARCA };
++module.exports = { puede, exige, publica, sesion, cargarEvento, marcaDe, MARCA };
+diff --git a/core/permisos/inventario.json b/core/permisos/inventario.json
+index bcca9e4..c7170c1 100644
+--- a/core/permisos/inventario.json
++++ b/core/permisos/inventario.json
+@@ -1,16 +1,19 @@
+ {
+-  "pendientes_maximo": 247,
++  "pendientes_maximo": 230,
+   "censado_el": "2026-08-29",
+   "total": 281,
+   "rutas": {
+     "GET /": {
+-      "estado": "pendiente"
++      "estado": "publica",
++      "motivo": "Portada de la API: dice qué es esto y qué endpoints hay. Sin datos de nadie."
+     },
+     "GET /health": {
+-      "estado": "pendiente"
++      "estado": "publica",
++      "motivo": "Latido del servidor: lo consultan el panel de cPanel y cualquier vigilante externo."
+     },
+     "GET /debug-red": {
+-      "estado": "pendiente"
++      "estado": "publica",
++      "motivo": "Diagnóstico de red saliente, sin parámetros de entrada y sin datos sensibles. Temporal."
+     },
+     "GET /api/v1/eventos": {
+       "estado": "pendiente"
+@@ -207,43 +210,56 @@
+       "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
+     },
+     "GET /me/": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "El perfil y los datos de la propia cuenta: cada handler filtra por req.user.id."
+     },
+     "PATCH /me/": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "El perfil y los datos de la propia cuenta: cada handler filtra por req.user.id."
+     },
+     "GET /me/boletas": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "El perfil y los datos de la propia cuenta: cada handler filtra por req.user.id."
+     },
+     "POST /me/boletas/:id/transferir": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "El perfil y los datos de la propia cuenta: cada handler filtra por req.user.id."
+     },
+     "GET /me/expositor": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "El perfil y los datos de la propia cuenta: cada handler filtra por req.user.id."
+     },
+     "GET /me/integraciones/tokens": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "POST /me/integraciones/tokens": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "DELETE /me/integraciones/tokens/:id": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "GET /me/integraciones/webhooks": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "POST /me/integraciones/webhooks": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "PATCH /me/integraciones/webhooks/:id": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "DELETE /me/integraciones/webhooks/:id": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "GET /me/integraciones/webhooks/:id/deliveries": {
+-      "estado": "pendiente"
++      "estado": "sesion",
++      "motivo": "Integraciones de la propia cuenta, comprobadas contra req.user.id."
+     },
+     "POST /me/sugerencias/dinamica": {
+       "estado": "pendiente"
+@@ -294,7 +310,8 @@
+       "estado": "pendiente"
+     },
+     "POST /webhooks/truora": {
+-      "estado": "pendiente"
++      "estado": "publica",
++      "motivo": "Webhook entrante de un proveedor: se autentica por firma, no por sesión."
+     },
+     "GET /push/vapid-key": {
+       "estado": "pendiente"
+diff --git a/index.js b/index.js
+index 2c98e3e..10dcc2f 100644
+--- a/index.js
++++ b/index.js
+@@ -5,6 +5,7 @@ const express = require('express');
+ const Sentry  = require('@sentry/node');
+ const env     = require('./config/env.js');
+ const { applySecurity, authLimiter } = require('./config/security.js');
++const { publica } = require('./core/permisos');
+ const { iniciarCronRecordatorios } = require('./lib/recordatorios.js');
+ 
+ const app = express();
+@@ -24,7 +25,7 @@ app.use((req, _res, next) => {
+ 
+ /* ── Rutas públicas SIN auth — deben ir PRIMERO de todo,
+    antes de cualquier router montado en '/' con auth global ── */
+-app.get('/', (_req, res) => {
++app.get('/', publica('Portada de la API: dice qué es esto y qué endpoints hay. Sin datos de nadie.'), (_req, res) => {
+   res.json({
+     producto: 'GESTEK Event OS',
+     version : '0.2.0-fase-a',
+@@ -49,7 +50,7 @@ app.get('/', (_req, res) => {
+   });
+ });
+ 
+-app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
++app.get('/health', publica('Latido del servidor: lo consultan el panel de cPanel y cualquier vigilante externo.'), (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+ 
+ /* ── Identidad propia ──────────────────────────────────────────────────────
+    Detrás de un interruptor (`AUTH_PROPIA`) y montada antes que nada: son rutas
+@@ -90,7 +91,7 @@ if (configPropia.ARCHIVOS_PROPIOS) {
+    (no hay riesgo de SSRF: los destinos están fijos en el código), y no
+    expone nada sensible — solo si la conexión abre o no. Borrar este bloque
+    una vez resuelto. */
+-app.get('/debug-red', async (_req, res) => {
++app.get('/debug-red', publica('Diagnóstico de red saliente, sin parámetros de entrada y sin datos sensibles. Temporal.'), async (_req, res) => {
+   const net = require('net');
+   const probar = (host, port) => new Promise((resolve) => {
+     const inicio = Date.now();
+diff --git a/routes/integraciones.js b/routes/integraciones.js
+index dfb4114..15f7736 100644
+--- a/routes/integraciones.js
++++ b/routes/integraciones.js
+@@ -10,6 +10,10 @@ const { generarToken } = require('../lib/apitoken.js');
+ const router = express.Router();
+ router.use(verifySupabaseJWT);
+ 
++/* Las integraciones son de la cuenta, no de un evento: Google, webhooks
++   salientes, claves de API. Se comprueban contra `req.user.id`. */
++router.use(require('../core/permisos').sesion('Integraciones de la propia cuenta, comprobadas contra req.user.id.'));
++
+ const TIPOS_WEBHOOK = ['ticket.pagado', 'checkin.realizado', 'evento.publicado'];
+ 
+ /* ── API TOKENS ── */
+diff --git a/routes/me.js b/routes/me.js
+index de7c4a4..394b045 100644
+--- a/routes/me.js
++++ b/routes/me.js
+@@ -9,6 +9,11 @@ const { enviarEmailEvento } = require('../lib/emailPlantillas.js');
+ const router = express.Router();
+ router.use(verifySupabaseJWT);
+ 
++/* Todo lo de aquí es la ficha de quien pregunta: la comprobación no es «qué
++   permisos tiene en este evento» sino «esto es suyo», y la hace cada handler
++   filtrando por `req.user.id`. */
++router.use(require('../core/permisos').sesion('El perfil y los datos de la propia cuenta: cada handler filtra por req.user.id.'));
++
+ /* GET /me — perfil del usuario logueado */
+ router.get('/', async (req, res) => {
+   const { data, error } = await supabase
+diff --git a/routes/webhooks.js b/routes/webhooks.js
+index b3585ea..d79697d 100644
+--- a/routes/webhooks.js
++++ b/routes/webhooks.js
+@@ -6,6 +6,11 @@ const { estadoDesde } = require('../lib/truora.js');
+ 
+ const router = express.Router();
+ 
++/* Los webhooks entrantes llegan sin sesión por definición: los manda otro
++   servidor. Lo que los autentica es la firma del proveedor, dentro del
++   handler, no un token de usuario. */
++router.use(require('../core/permisos').publica('Webhook entrante de un proveedor: se autentica por firma, no por sesión.'));
++
+ /* POST /webhooks/truora — resultado de una verificación KYC. Actualiza el
+    perfil de talento cuyo `verificacion_ref` coincide con la validación.
+    (El validation_id es no-adivinable; al integrar con la cuenta real se
+diff --git a/scripts/censar-rutas.js b/scripts/censar-rutas.js
+index 0ff8b13..1ea4bd3 100644
+--- a/scripts/censar-rutas.js
++++ b/scripts/censar-rutas.js
+@@ -47,9 +47,9 @@ const rutas = {};
+ for (const x of r.actuales) {
+   rutas[x.id] = x.estado === 'exige'
+     ? { estado: 'exige', acciones: x.acciones }
+-    : x.estado === 'publica'
+-      ? { estado: 'publica', motivo: x.motivo }
+-      : { estado: 'pendiente' };
++    : x.estado === 'pendiente'
++      ? { estado: 'pendiente' }
++      : { estado: x.estado, motivo: x.motivo };
+ }
+ 
+ guardarInventario({
+diff --git a/test/permisos.test.js b/test/permisos.test.js
+index b4b02c5..6611da8 100644
+--- a/test/permisos.test.js
++++ b/test/permisos.test.js
+@@ -18,7 +18,7 @@ process.env.JWT_SECRET = 'secreto-de-prueba-que-no-es-el-de-produccion';
+ const test = require('node:test');
+ const assert = require('node:assert');
+ 
+-const { puede, exige, publica, marcaDe } = require('../core/permisos');
++const { puede, exige, publica, sesion, marcaDe } = require('../core/permisos');
+ const { comparar, leerInventario } = require('../core/permisos/censo.js');
+ 
+ const ANA  = { id: 'ana' };
+@@ -162,6 +162,15 @@ test('exige() y publica() dejan marca legible para el censo', () => {
+   assert.equal(marcaDe(() => {}), null);
+ });
+ 
++test('sesion() marca lo que es «tuyo» y también pide motivo', () => {
++  /* La tercera forma de declarar: ni pública ni colgada de un permiso de
++     evento. Sin ella, las rutas de /me no se podrían declarar nunca y el censo
++     las contaría como olvidadas para siempre — que es como un contador deja de
++     significar algo y nadie vuelve a mirarlo. */
++  assert.equal(marcaDe(sesion('el perfil propio')).tipo, 'sesion');
++  assert.throws(() => sesion());
++});
++
+ test('publica() sin motivo no se puede escribir', () => {
+   /* El motivo es lo que se lee dentro de un año, cuando nadie recuerde por qué
+      la página de compra no pide sesión. */
+@@ -210,6 +219,11 @@ test('el censo ve de verdad las rutas públicas ya declaradas', () => {
+ 
+   assert.ok(publicas.length >= 20, `el censo sólo reconoce ${publicas.length} rutas públicas`);
+   assert.ok(publicas.every(x => x.motivo), 'hay rutas públicas sin motivo escrito');
++
++  /* Y las de sesión, que son las de la propia cuenta. */
++  const propias = r.actuales.filter(x => x.estado === 'sesion');
++  assert.ok(propias.length >= 10, `el censo sólo reconoce ${propias.length} rutas de cuenta propia`);
++  assert.ok(propias.every(x => x.motivo), 'hay rutas de cuenta propia sin motivo escrito');
+   assert.ok(
+     r.actuales.some(x => x.ruta.startsWith('/categorias')),
+     'el censo ya no encuentra /categorias: revisá cómo lee los prefijos de montaje'
 -- 
 2.43.0
 
