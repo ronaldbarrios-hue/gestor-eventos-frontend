@@ -14,13 +14,13 @@ la sesión en la nube devuelve 403.
 
 | Repositorio | Rama | Commits sin subir |
 |---|---|---|
-| `ronaldbarrios-hue/gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 11 |
-| `ronaldbarrios-hue/gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 8 |
+| `ronaldbarrios-hue/gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 12 |
+| `ronaldbarrios-hue/gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | 9 |
 
 Los dos parches vienen del chat:
 
-- `gestek-backend-8-commits.patch`
-- `gestek-frontend-11-commits.patch`
+- `gestek-backend-9-commits.patch`
+- `gestek-frontend-12-commits.patch`
 
 El del frontend **ya lleva dentro** una copia del otro (en `parches/`), así que
 si sólo se conserva uno, que sea ése.
@@ -128,6 +128,10 @@ Se pierden los mensajes de commit originales, que son largos a propósito
    su ruta para reintentarlos a propósito.
 8. **Fase 7, de 247 rutas sin declarar a 230**, con la tercera forma de
    declarar (`sesion()`) para lo que es de la propia cuenta.
+9. **El traductor del esquema a MySQL** y las decisiones que no se traducen
+   solas: los 8 índices únicos parciales resueltos uno por uno, la colación que
+   tiene que ser `as_ci` y no `ai_ci`, y las 8 claves hacia `auth.users` que
+   dejan de serlo. Sólo añade SQL y notas: no toca el backend.
 
 ### Frontend (11)
 
@@ -147,6 +151,8 @@ Se pierden los mensajes de commit originales, que son largos a propósito
 10. **Los correos que no salieron** se ven en la sección de correos, con su
     motivo y un botón para reintentarlos.
 11. **Este documento otra vez al día**, con la fase 7 y el parche a ocho.
+12. **`CONTINUAR.md` reescrito** como traspaso del 29 de agosto: dónde quedó la
+    fase 6, qué falta de la 7, y los siete puntos de la lista con su estado.
 
 ---
 

@@ -1,207 +1,220 @@
-# GESTEK · Cómo seguir — 28 de agosto de 2026
+# GESTEK · Cómo seguir — 29 de agosto de 2026
 
-Para retomar en otra sesión sin releer la conversación. Complementa a
-`TRASPASO.md` (25 de agosto) y a `SUPABASE.md` (hoy); no los repite.
+Para retomar en otra sesión sin releer la conversación. Sustituye a la versión
+del 28 de agosto, que ya no describe el estado.
+
+Complementa, sin repetirlos:
+
+- `SUBIR.md` — cómo subir los commits que no se pudieron empujar
+- `INDEPENDENCIA.md` — el plan de las 9 fases y en cuál va cada una
+- `db/migraciones/NOTAS-ESQUEMA.md` (repo del **backend**) — el detalle técnico
+  de la fase 6
 
 ---
 
 ## 0 · Lo primero, porque se pierde
 
-**Hay un commit hecho y sin subir: `44107c8`, «Supabase medido hoy».** Contiene
-`SUPABASE.md`, que es todo el trabajo de esta sesión.
+**Hay 20 commits hechos y sin subir**, y el contenedor de esta sesión es
+efímero:
 
-No se pudo empujar. GitHub responde **403** a la app de Claude sobre
-`ronaldbarrios-hue/gestor-eventos-frontend` — la lectura funciona, la escritura
-no. Se intentó por git y por la API; el mismo resultado. **Esto no es un fallo
-del trabajo, es un permiso de la integración**, y sólo lo concede un admin de esa
-cuenta de GitHub en https://github.com/apps/claude/installations/select_target.
+| Repositorio | Rama | Commits |
+|---|---|---|
+| `gestor-eventos-backend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | **9** |
+| `gestor-eventos-frontend` | `claude/gestek-storage-cleanup-auth-41d8d8-46jiml` | **11** |
 
-El contenedor de la sesión es efímero: **si nadie guarda el archivo, el commit
-desaparece con él.** Tres formas de rescatarlo, cualquiera sirve:
+`git push` devuelve **403 en los dos repositorios**. No es un fallo del
+trabajo: es un permiso de la integración de Claude con GitHub, y sólo lo
+concede un admin de esa cuenta. La conexión MCP de GitHub que hay en esta
+sesión es de **sólo lectura**.
 
-1. Subir `SUPABASE.md` por la web de GitHub (*Add file → Upload files*), con la
-   sesión del navegador, que sí escribe.
-2. Aplicar el parche `0001-supabase-doc.patch` en un clon local:
-   `git am 0001-supabase-doc.patch && git push -u origin claude/traspaso-handoff-doc-ivr7go`
-3. Que un admin instale la app, y en **una sesión nueva** el push sale directo
-   (las credenciales se emiten al arrancar; reconectar a mitad no las refresca).
+Mientras tanto, el trabajo del backend viaja **dentro del repo del frontend**,
+como parche: `parches/backend-identidad-propia.patch` (9 commits, 468 KB). El
+procedimiento para aplicarlo y subirlo está en `SUBIR.md`, paso a paso.
 
-Si al intentar (1) o (2) GitHub también rechaza **con tu cuenta personal**,
-entonces el problema ya no es la app: es que la cuenta perdió escritura sobre el
-repo, y eso lo devuelve Ronald.
+> Si sólo se conserva un archivo de esta sesión, que sea el repo del frontend:
+> lleva el backend dentro.
 
 ---
 
-## 1 · Coordenadas
+## 1 · Qué se hizo, en una tabla
 
-| | |
-|---|---|
-| Proyecto Supabase | `GestorEventosMarcaBlanca` · ref `yopontbwgdybfsniqawz` |
-| Postgres | 17.6.1.121 · región `us-east-2` · plan **free** |
-| Repos | `ronaldbarrios-hue/gestor-eventos-{frontend,backend}` |
-| Rama de trabajo | `claude/traspaso-handoff-doc-ivr7go` |
-| Documentos vigentes | `TRASPASO.md` · `SUPABASE.md` · `MIGRACION-SUPABASE.md` (plan, números caducos) |
+Las fases son las de `INDEPENDENCIA.md`.
 
-El MCP de Supabase funciona sin problema en la sesión: lectura, SQL y linter.
-Es lo que permitió medir todo esto. **El de GitHub sólo lee.**
+| Fase | Qué | Estado |
+|---|---|---|
+| 0 | Medir Supabase (egress, tablas, políticas) | ✅ |
+| 1 | Identidad propia sobre MySQL (`modules/auth`) | ✅ escrito, **apagado** |
+| 1.b | Arranque en cPanel (Passenger, cron fuera del proceso) | ✅ escrito |
+| 2 | Almacén propio de archivos (`modules/archivos`) | ✅ escrito, **apagado** |
+| 3 | Cerrar la lectura anónima de datos personales | ✅ **aplicado en producción** |
+| 4 | Barrido de huérfanos del Storage | ⏸ script y lista listos, falta correrlo |
+| 5 | Contingencia del correo (cola, rescate, reintento) | ✅ |
+| 6 | **Las 71 tablas a MySQL** | 🚧 **aquí me quedé** |
+| 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 230 de 281 rutas sin declarar |
+| 8 | Botón de registro incrustable (widget) | ✅ |
 
----
+Lo que está «escrito, apagado» funciona y tiene pruebas, pero **no cambia el
+comportamiento de nada** hasta que se encienda su interruptor (`AUTH_PROPIA`,
+`ARCHIVOS_PROPIOS`). Subir el código es seguro.
 
-## 2 · Qué se hizo esta sesión
-
-Una sola cosa: **revisar Supabase de punta a punta y escribir `SUPABASE.md`**,
-con el estado medido hoy, cómo se almacenan las fotos y el arranque concreto de
-la migración. Nada de código. **Nada tocado en Supabase**: ni una política, ni
-un borrado, ni el job de cron. Todo lo que sigue son hallazgos, no arreglos.
-
----
-
-## 3 · Lo que hay que saber sin abrir nada más
-
-**El almacenamiento es el problema, no la base.** La base son 22 MB contra un
-techo de 500. Los archivos van así:
-
-| | 13 ago | 25 ago | 28 ago |
-|---|---|---|---|
-| Total | 24 MB · 73 obj. | 62 MB · 103 obj. | **80 MB · 107 obj.** |
-
-**+17 MB en tres días.** La causa está medida: **40 objetos, 28 MB, no los
-referencia ninguna fila.** Sólo `DocumentosSection` borra el archivo al quitar el
-registro; los otros cuatro uploaders dejan la foto anterior cada vez que alguien
-cambia la suya. No es que se suba más — es que no se borra nunca.
-
-**Las fotos se guardan como URL absoluta dentro de la fila.** Buscado en las 71
-tablas: **13 columnas, 9 tablas, 57 filas**. Cinco de esas columnas son JSON
-(`gallery`, `page_json`, `paginas`, `branding`, `tickets.respuestas`), así que un
-`replace` sobre texto no las alcanza. La tabla completa y la forma que sí
-funciona están en `SUPABASE.md` §3.3 y §6.4.
-
-**Cuatro problemas del almacenamiento, ninguno arreglado** (`SUPABASE.md` §3.4):
-
-- 40 huérfanos, 28 MB.
-- **Subida anónima abierta**: la política de `form-uploads` es literalmente
-  `bucket_id = 'form-uploads'` para el rol `public`. Con la llave anónima del
-  bundle, cualquiera escribe en el bucket, y no hay política de DELETE para
-  limpiar lo que metan.
-- **Hojas de vida en bucket público.** No se pueden *listar*, pero cada archivo
-  se *lee* por su URL. Son datos personales.
-- **La subida de CV no puede funcionar**: el código manda PDF/DOCX de 8 MB a un
-  bucket que sólo admite jpeg/png/webp de 4 MB. Cero PDFs en `form-uploads` lo
-  confirma. Nunca se cargó un CV.
-
-**Corrección al plan de auth de `TRASPASO.md`.** Dice que los hashes bcrypt son
-portables y nadie tendría que restablecer contraseña. Eso vale para **10 de los
-29 usuarios**; los otros 19 entran **por Google** (22 identidades OAuth). Los
-hashes se migran solos, pero el OAuth hay que reconectarlo con el mismo
-`client_id`, o esos usuarios quedan fuera con sus filas intactas.
-
-**Peso muerto** (`SUPABASE.md` §5): el job `send-reminders-hourly` ya está
-desactivado (1.981 de 1.981 fallos) pero no borrado; la Edge Function
-`send-reminders` **nunca se desplegó**, sólo está en el repo; y sí hay una
-desplegada y activa, `quick-processor`, que es el «Hello World» de ejemplo de
-Supabase del 18 de mayo, sin referencias en ningún repo.
+**265 pruebas** en el backend, todas en verde. **7 pruebas** del widget en
+Chromium, en verde.
 
 ---
 
-## 4 · Por dónde seguir
+## 2 · Dónde me quedé exactamente: la fase 6
 
-En este orden. Los tres primeros no dependen de decidir nada.
+Es el bloque grande que queda. Esta sesión hizo la **medición y el traductor**;
+falta generar el archivo y mover los datos.
 
-1. **Mirar el egress** en Organization → Usage del panel de Supabase. Es el
-   único dato que falta para saber si la migración corre o espera, y **no se
-   puede leer desde una sesión** — hay que entrar al panel. Sin él, todo lo que
-   se diga sobre el techo del plan gratis es aritmética de servilleta.
-2. **Cerrar la subida anónima a `form-uploads` y sacar los CV del bucket
-   público.** Son datos personales expuestos hoy y no dependen de migrar nada.
-3. **Barrer los 40 huérfanos y el peso muerto** del §5. Media hora, riesgo cero,
-   y deja el inventario limpio antes de que alguien copie archivos.
-4. **Verificación local del token** (`TRASPASO.md` §3.1). Sigue siendo correcta
-   y sigue siendo pequeña: quince líneas en `middleware/auth.js`, con
-   `jsonwebtoken` ya instalado. Va después de las tres de arriba sólo porque
-   esas son más baratas todavía.
+### Lo que ya está en el repo del backend
 
-Lo que sigue **pendiente de decisión**, sin cambios desde `TRASPASO.md`:
-Realtime (autoalojar o sustituir por sondeo/SSE) y si los archivos se migran
-antes que la base. Mi recomendación en `SUPABASE.md` §7 es **los archivos
-primero**, que es al revés de lo que parece natural, porque son lo que crece y lo
-que se cobra por tráfico.
-
-Y sigue en pie lo de `TRASPASO.md`: **en septiembre no se migra nada.** El evento
-es a mediados de mes.
-
----
-
-## 5 · Consultas que conviene no reescribir
-
-Todas se lanzan con el MCP de Supabase contra `yopontbwgdybfsniqawz`.
-
-**Dónde están las URLs de Storage metidas en filas** (regenera la tabla de §3.3):
-
-```sql
-select * from (
-  select c.table_name, c.column_name,
-    (xpath('/row/n/text()', query_to_xml(format(
-      'select count(*) as n from public.%I where %I::text like ''%%/storage/v1/object/%%''',
-      c.table_name, c.column_name), false, true, '')))[1]::text::int as filas
-  from information_schema.columns c
-  join information_schema.tables t
-    on t.table_schema='public' and t.table_name=c.table_name and t.table_type='BASE TABLE'
-  where c.table_schema='public' and c.data_type in ('text','character varying','jsonb','json')
-) s where filas > 0 order by filas desc;
+```
+db/migraciones/
+  generar-esquema-mysql.sql          ← el traductor. Se corre CONTRA POSTGRES
+  003_esquema_indices_parciales.sql  ← los 8 índices que van a mano
+  NOTAS-ESQUEMA.md                   ← cada decisión, con su porqué
 ```
 
-**Cuántos objetos sobran** (los 40 huérfanos):
+`generar-esquema-mysql.sql` es de **sólo lectura** y se puede pegar tal cual en
+el editor SQL de Supabase. Devuelve el DDL de MySQL en tres tandas: las tablas,
+los índices y las claves foráneas. Está probado contra producción: las tres
+secciones corren y devuelven lo que deben.
 
-```sql
-with refs as (
-  select unnest(regexp_matches(t::text, '/storage/v1/object/public/([^"''\s\)]+)', 'g')) as ruta
-  from (
-    select cover_url::text||' '||coalesce(gallery::text,'')||' '||coalesce(page_json::text,'')||' '||
-           coalesce(paginas::text,'')||' '||coalesce(branding::text,'')||' '||coalesce(pago_qr_url,'') from eventos
-    union all select coalesce(foto_url,'') from torneo_equipos
-    union all select coalesce(respuestas::text,'') from tickets
-    union all select coalesce(empresa_logo_url,'')||' '||coalesce(avatar_url,'') from profiles
-    union all select coalesce(file_url,'') from chat_messages
-    union all select coalesce(foto_url,'') from speakers
-    union all select coalesce(logo_url,'') from networking_expositores
-  ) x(t) where t is not null
-)
-select count(*) as huerfanos, pg_size_pretty(sum((o.metadata->>'size')::bigint)) as peso
-from storage.objects o
-where not exists (select 1 from refs r where r.ruta = o.bucket_id||'/'||o.name);
-```
+Es un generador y no un archivo escrito a mano a propósito: el esquema se va a
+seguir moviendo hasta el día del corte, y un archivo a mano queda viejo en una
+semana sin que nadie se entere.
 
-**Reparto de usuarios entre contraseña y Google:**
+### El tamaño del problema, medido
 
-```sql
-select
- (select count(*) from auth.users) as usuarios,
- (select count(*) from auth.users where encrypted_password is not null and encrypted_password<>'') as con_contrasena,
- (select count(*) from auth.identities where provider<>'email') as identidades_oauth;
-```
+71 tablas · 829 columnas · 156 claves foráneas · 225 índices · 13 disparadores ·
+20 funciones · 4 vistas · 6 tipos enumerados.
+
+### Las cinco cosas que no se traducen solas
+
+1. **Los 8 índices únicos parciales.** El riesgo real de la fase. Postgres puede
+   decir «único, pero sólo en las filas que cumplan esto»; MySQL no. Tirarles la
+   condición convierte un índice que *permitía* repetidos en uno que los
+   *prohíbe* — y eso no se ve al migrar, se ve cuando una inscripción legítima
+   falla. Resueltos uno por uno en `003_esquema_indices_parciales.sql`.
+
+2. **Los 8 arreglos → JSON.** Obligan a tocar código: lo que hoy se consulta con
+   `@>` o `= ANY(...)` pasa a `JSON_CONTAINS` / `MEMBER OF`. El que más importa
+   es `event_members.custom_permissions`, porque lo lee el guardia de todas las
+   rutas de evento.
+
+3. **Los 9 disparadores** que quedan (los otros 4 son `set_updated_at` y se
+   resuelven en el propio DDL). Se van al código, no se reescriben en MySQL.
+   Cuidado con los dos que **cuentan** —la cuota del stand y los inscritos por
+   sesión—: un contador en un disparador es atómico y el mismo contador desde el
+   código no lo es. Necesitan transacción y `SELECT ... FOR UPDATE`, o el aforo
+   se pasa de largo el día del evento.
+
+4. **Las 7 funciones que el backend llama por RPC.** `canjear_recompensa` es la
+   delicada: descuenta puntos y crea el canje en una sola transacción. Partida
+   en dos consultas sin transacción, se puede canjear dos veces lo mismo.
+
+5. **Las 8 claves hacia `auth.users` dejan de ser claves foráneas.** Es una
+   pérdida real: hoy la base impide la fila huérfana y mañana no.
+
+Dos hallazgos que ahorran trabajo, por si sirven de consuelo:
+
+- **Los 6 tipos enumerados no los usa ninguna columna.** Restos de un diseño
+  anterior. No hay nada que migrar.
+- **Los 829 campos usan sólo diez tipos y los diez se traducen.** No hay ningún
+  tipo raro escondido.
+
+Y uno que ahorra un fallo tonto: la colación tiene que ser
+**`utf8mb4_0900_as_ci`**, no la `ai_ci` que se pone por costumbre. `ai_ci`
+ignora acentos además de mayúsculas, y entonces «José» y «Jose» chocarían donde
+hoy conviven.
+
+### Lo que sigue en la fase 6, por orden
+
+1. Correr el generador y guardar la salida como `db/migraciones/003_esquema.sql`.
+2. Traducir a mano las 4 vistas (`perfiles_publicos`, `v_bolsa_evento`,
+   `v_consumo_puntos_stand`, `v_participacion_sesiones`). **`perfiles_publicos`
+   no puede quedarse fuera**: es la que cerró la lectura anónima.
+3. El script de carga de datos: 829 campos, `timestamptz` a UTC, 8 arreglos a
+   JSON.
+4. Reescribir en código los 9 disparadores y las 7 funciones RPC.
+5. Una prueba que compare fila a fila las dos bases **antes** del corte.
 
 ---
 
-## 6 · Qué está verificado y qué no
+## 3 · La otra mitad abierta: la fase 7
 
-**Verificado hoy contra producción:** tamaños y conteos; los tres buckets con
-sus límites y tipos; los 107 objetos y su reparto por carpeta; los 40 huérfanos
-y sus 28 MB; las 13 columnas con URLs y sus 57 filas; las 8 políticas de
-`storage`; las 21 tablas con RLS y sin política; los 29 usuarios con su reparto;
-el cron desactivado con sus 1.981 fallos; que la Edge Function desplegada es
-`quick-processor`; que en `form-uploads` no hay ningún PDF.
+El censo de rutas ya existe y la prueba lo sostiene (`test/permisos.test.js`).
+Hoy: **281 rutas**, de las cuales 36 públicas, 13 de sesión, 2 con permiso
+exigido y **230 sin declarar**.
 
-**Sin verificar:**
+El número 230 está anotado como tope en `core/permisos/inventario.json` y **sólo
+puede bajar**: si alguien añade una ruta sin declararla, la prueba se pone roja
+el mismo día. Eso es lo que hay que ir bajando, en tandas, con:
 
-- **El egress real.** Es el punto 1 de la sección 4 y sigue sin mirarse.
-- Los límites vigentes del plan gratis. Supabase los cambia.
-- **Nada del plan de migración se ha ensayado.** El volcado, la restauración y
-  la reescritura de URLs están escritos a partir del esquema real, pero no se
-  han ejecutado ni contra una copia. La primera vez, contra un proyecto de
-  pruebas.
-- Sigue sin verificarse lo que `TRASPASO.md` §8 ya marcaba: el workspace
-  completo con sesión iniciada, que nunca se pudo recorrer.
+```bash
+node scripts/censar-rutas.js            # ver el estado
+node scripts/censar-rutas.js --guardar  # anotar y bajar el tope
+```
 
-**Y no olvidar la trampa que ya estaba anotada:** `VITE_DEV_BYPASS_AUTH=1` hay
-que quitarlo antes de iniciar sesión de verdad, o la app sigue usando el usuario
-ficticio y las pantallas salen vacías.
+Hay tres formas de declarar una ruta y elegir la correcta es la parte que
+piensa: `exige([...])` cuando cuelga de un permiso de evento, `sesion('motivo')`
+cuando es «esta fila es suya», `publica('motivo')` cuando no pide sesión a
+propósito. El motivo es obligatorio en las dos últimas porque es lo que se lee
+dentro de un año.
+
+---
+
+## 4 · Los siete puntos de la lista que mandaste
+
+| # | Qué pediste | Estado |
+|---|---|---|
+| 1 | Botón personalizable (colores, gradientes, sombras, bordes, esquinas) | ✅ Panel con vista previa en vivo, en `PublicacionSection.jsx` |
+| 2 | Que se integre sólo el botón, no toda la sección | ✅ `public/widget.js`, sin dependencias |
+| 3 | Que el formulario abra el modal en la web del cliente, no redirija a GESTEK | ✅ El registro va en un iframe sobre la página del cliente |
+| 4 | Una base para el auth y otra para el registro de usuarios | ✅ `core/db/mysql.js`: `bd('auth')` y `bd('datos')` |
+| 5 | El QR no se centra en las distintas vistas | ✅ Corregido en la escarapela vertical |
+| 6 | Descargar el QR en la vista de después del formulario | ✅ Botón de descarga en PNG |
+| 7 | Contingencia para los correos | ✅ Cola con reintentos, rescate de los que se quedan a medias, y pantalla para verlos |
+
+**Sobre el punto 3, una advertencia que conviene no perder:** el *formulario* sí
+abre dentro de la web del cliente, pero **el pago no puede**. Las pasarelas
+redirigen a su propio dominio y el 3-D Secure no funciona dentro de un iframe de
+otro sitio. Así que al pagar se abre una pestaña. No es una limitación de cómo
+está hecho: es cómo funcionan las pasarelas.
+
+**Lo que sigue pendiente de esa lista: pijaohub** (los puntos 10 y 11 de la hoja
+de cálculo). Está **bloqueado por falta de información de producto**, no de
+código: no existe ningún evento de pijaohub en producción, y hacen falta fechas,
+lugar y tipos de entrada para crearlo.
+
+---
+
+## 5 · Lo que sólo puede hacer alguien con accesos
+
+Por orden de urgencia:
+
+| Qué | Qué hace falta | Cuánto |
+|---|---|---|
+| **Subir los 20 commits** | Una sesión local con permiso de escritura. `SUBIR.md` lo explica paso a paso | 15 min |
+| **Correr el barrido de huérfanos** | `SUPABASE_SERVICE_KEY` en el entorno. Son 36 objetos, 28,1 MB, ya medidos y listados | 2 min |
+| **Cerrar el correo entre cuentas** | Desplegar el frontend y **después** correr `db/migraciones/postgres/002_…`. En ese orden, o el chat se rompe | 10 min |
+| **Mirar el egress** | Entrar al panel de Supabase. Es el dato que decide si hace falta plan Pro el mes del evento | 2 min |
+| **Encender la identidad propia** | cPanel: base MySQL, variables, consola de Google. `CONFIGURAR.md` | 1 h |
+| **Mover el backend de Render a cPanel** | Acceso a cPanel. Quita los 21 s de arranque en frío, que es la causa **medida** del congelamiento | 1 h |
+
+Los dos primeros son los que corren prisa. El resto puede esperar, pero el
+arranque en frío de Render es la causa medida de lo que se ve como
+«congelamiento», así que cuanto antes se mueva, mejor.
+
+---
+
+## 6 · Una nota de honestidad sobre esta sesión
+
+Para medir el largo real de las columnas de texto creé una tabla temporal en
+producción (`public._medidas_texto`) y **la borré al terminar**. No quedó nada.
+Todo lo demás que se hizo contra Supabase esta sesión fue de sólo lectura.
+
+La única escritura en producción de todo el trabajo sigue siendo la migración
+de la fase 3, del 28 de agosto, que cerró la lectura anónima de datos
+personales — y ésa estaba pedida.
