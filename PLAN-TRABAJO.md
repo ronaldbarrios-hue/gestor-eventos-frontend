@@ -174,7 +174,40 @@ mirar qué datos hay ya: `aforo_zonas_estancia` devuelve minutos promedio,
 máximo y cuántos tramos se midieron —ese último número está a propósito, para
 que el promedio se pueda leer con contexto— y no se está usando.
 
-### C4 · Separar «crear stands» de «dar puntos / canjear / motivos / historial»
+### C4 · Un solo escáner · DECIDIDO
+
+**El diagnóstico:** el problema no es que falten funciones. Es que la misma
+función está repetida en varias ventanas, y quien la usa tiene que saber en
+cuál está.
+
+Medido en el código: hay **tres escáneres**. `CheckinTab` escanea para entrar,
+y `StandsTab` mete otras cinco cosas en una sola pestaña
+(`stands | escanear | canjear | motivos | historial`), de las que dos son
+escanear otra vez.
+
+Lo revelador es que **`CheckinTab` ya es multiuso**: tiene tres modos
+—`checkin | reingreso | subevento`—, ya elige zona y ya elige sub-evento. El
+problema estaba resuelto; a los puntos los dejaron fuera.
+
+La acción física es UNA: pasar una escarapela por un móvil. Lo único que
+cambia es qué se hace con el resultado. Obligar a cambiar de pantalla según
+vayas a marcar entrada o a dar puntos —con la misma persona delante y la misma
+escarapela en la mano— es lo que hay que quitar.
+
+**Lo que se hace:**
+
+- **Escanear** (hoy «Control de ingreso») pasa a cinco modos: entrada,
+  reingreso, sub-evento, **dar puntos** y **canjear**.
+- **Stands** se queda con crear el stand, su ficha, su cuota y sus **motivos**
+  —que son catálogo, configuración previa al evento— y se va a Espacio del
+  evento.
+- **Historial** es reporte: sale de ahí.
+
+Y encaja con lo de unificar credenciales y tarjeta: la tarjeta es donde el
+asistente **ve** sus puntos; el escáner es donde el staff **los da**. La
+separación es por quién lo usa, no por qué mecánica es.
+
+### C4-bis · Nota de por qué no va a Credenciales ni a Tarjeta
 
 Son dos trabajos distintos con dos públicos distintos: montar los stands es
 configuración, previa al evento; dar puntos y canjear es operación, durante el
@@ -291,27 +324,35 @@ Lo único que los cruza es `page_json`, y ahí hay una trampa ya conocida: el
 mandar sólo tu clave no pisa la de otro. Si alguien reemplaza `page_json`
 entero, vuelve el fallo de la marca que se borraba sola.
 
-### Persona A
+El corte es **cPanel**, no la base de datos.
 
-**Frente A** entero (migración a MySQL). Es lo más largo, lo más secuencial y
-lo que no se puede partir. Si le sobra tiempo, **frente C2** —conectar zona,
-calendario, mapa y aforo—, porque es donde más se toca la base.
+### Persona A — sólo lo que necesita el servidor
 
-### Persona B — lo que te toca
+- Crear la base MySQL en cPanel.
+- Importar la base antigua al servidor nuevo.
+- Correr el esquema y la carga que le llegan escritos, y **rematar lo que no
+  cuadre**. Se le entrega un script que debería funcionar; si algo falla, lo
+  resuelve contra la base real, que es donde se ve.
+- Desplegar los servicios (`CONFIGURAR.md`, `DESPLIEGUE-CPANEL.md`).
+- Encender `AUTH_PROPIA` y `ARCHIVOS_PROPIOS` — **no antes del pitch**.
 
-**Frente E** primero: es media hora y se ve en el pitch.
+### Persona B — todo lo que es código
 
-Después **frente C1 y C4**: mover las dos secciones y separar stands de
-puntos. Son cambios de navegación, se ven enseguida y el mecanismo de
-redirección ya existe.
+Los 5 primeros pasos del frente A son **código, no servidor**: el generador se
+corre desde el editor SQL de Supabase, las 4 vistas son SQL a mano, el script
+de carga se escribe, y los 9 disparadores y las 7 funciones RPC se reescriben
+en JavaScript dentro del repo del backend. Eso es el grueso, y no toca cPanel.
 
-Y luego **frente D**, que es el que más valor tiene de lo que queda sin
-bloquear — las preguntas condicionales y el prellenado por cédula son las dos
-cosas que más trabajo le ahorran a quien organiza.
+Más los frentes **B, C, D, E** enteros, que son la plataforma.
 
-**El frente B (editor y exportación) merece su propia sesión**, no un rato.
-Empieza por escribir el contrato de bloques antes de tocar código: sin eso, lo
-del modo desarrollador y lo de Claude por MCP no se sostienen.
+Orden por lo que rinde antes:
+
+1. **E** — la barra fija. Se ve en el pitch.
+2. **C1 + C4** — la reorganización. Es la que arregla el problema de fondo:
+   funciones repetidas en ventanas distintas.
+3. **C2** — enlazar zona, calendario, mapa y aforo. Casi todo está hecho.
+4. **D** — preguntas condicionales y prellenado por cédula.
+5. **B** — editor y exportación, empezando por el contrato de bloques.
 
 ### Lo que no depende de nosotros
 

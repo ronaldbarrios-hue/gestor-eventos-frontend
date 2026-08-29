@@ -223,8 +223,20 @@ export default function EventoPublicoPage() {
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-6xl mx-auto">
 
       {/* Barra secundaria: volver + Rueda de Negocios/Torneo/Agenda (si aplican)
-          + compartir (oculta "Explorar eventos" en modo standalone) */}
-      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+          + compartir (oculta "Explorar eventos" en modo standalone).
+
+          Va FIJA. Estas son las salidas del evento —rueda de negocios, espacio,
+          ranking, mapa— y quedaban arriba del todo: quien bajaba a mirar la
+          agenda o las boletas tenía que volver hasta el principio para llegar
+          a ellas, y en un móvil eso son varias pasadas de dedo.
+
+          `top-0` con el fondo de la página detrás, y no `top-4` como la píldora
+          de páginas, porque son dos barras distintas y si las dos flotaran a la
+          misma altura se solaparían. Ésta se pega arriba y la otra queda por
+          debajo, que además es el orden en que se leen. */}
+      <div className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
+                      bg-bg/85 backdrop-blur-md border-b border-border/60
+                      flex items-center justify-between gap-4 flex-wrap">
         {(isStandalone || !nav.mostrar_explorar) ? <span /> : (
           <Link to="/explorar"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
@@ -287,8 +299,11 @@ export default function EventoPublicoPage() {
           la píldora es sticky dentro de este contenedor, así que se mantiene visible mientras
           se hace scroll por toda la página, no solo mientras se ve la imagen de portada. */}
       <div className="relative">
+        {/* La píldora va por debajo de la barra de salidas, que ahora también
+            es fija: a `top-4` quedaría tapada por ella. El desplazamiento es
+            la altura de esa barra más un respiro. */}
         {hasCover && (
-          <div className={`sticky top-4 z-20 flex ${pillAlign} mb-[-1px]`}>
+          <div className={`sticky top-[72px] z-20 flex ${pillAlign} mb-[-1px]`}>
             <div className="max-w-[calc(100%-2rem)]">
               {tabsPill}
             </div>
