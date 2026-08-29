@@ -157,14 +157,20 @@ la primera versión de este plan daba por hacer trabajo que ya estaba:
   se queda la gente. **Ninguna de las dos se está usando.**
 - `MapaSection` ya pinta las zonas sobre el plano con su ocupación.
 
-Así que esto **no es construir, es enlazar**. Lo que falta:
+**Y al ir a enlazarlo, resultó que ya estaba enlazado.** Comprobado en el
+código, no supuesto:
 
-1. Que al crear un sub-evento se **elija la zona de una lista** en vez de
-   escribir el sitio a mano — la columna está, la interfaz no.
-2. La **ficha de zona**: al tocar una zona en el mapa, qué hay ahora, qué
-   viene después y cuánta gente hay dentro. Las tres consultas ya existen.
-3. Que crear una zona ofrezca **ponerla en el mapa** ahí mismo, en vez de
-   obligar a ir a otra pantalla a buscarla.
+- `SessionForm` **ya tiene el selector de zona** (`zonasEvento`, `form.zona_id`).
+- `agendaPorZona()` en `lib/aforoZonas.js` **ya junta las tres cosas**: qué hay
+  ahora, qué viene después y el aforo. Y empareja por id **y** por nombre, así
+  que los sub-eventos viejos con la ubicación escrita a mano siguen apareciendo
+  en su zona.
+- La usan `routes/clientes.js` y `routes/eventos.publicos.js`, y `MapaAforo.jsx`
+  **ya la pinta** (`z.agenda`, con los estados `ahora` / `terminado`).
+
+Este frente está hecho. Lo único que queda es lo pequeño: que crear una zona
+ofrezca **ponerla en el mapa** ahí mismo, en vez de obligar a ir a otra
+pantalla a buscarla.
 
 ### C3 · Nutrir «Estancia y puntos»
 

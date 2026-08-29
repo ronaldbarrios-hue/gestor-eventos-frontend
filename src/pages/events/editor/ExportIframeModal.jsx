@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../../context/ToastContext.jsx';
-import { embedUrl, embedSnippet, embedFrameId, EMBED_TEMAS, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
+import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
 
 /* Exportar UNA sección de la landing como iframe: la empresa arma su web
    donde quiera y trae de GESTEK solo lo que le sirve (boletas, cómo llegar,
@@ -10,8 +10,10 @@ import { embedUrl, embedSnippet, embedFrameId, EMBED_TEMAS, EMBED_SLUG_AMIGABLE,
 export default function ExportIframeModal({ evento, bloque, label, onClose }) {
   const toast = useToast();
   const [modo,   setModo]   = useState('tipo');   // tipo | exacta
+  /* bloque = la sección con su fondo · contenido = sin fondo, para meterlo en
+     un diseño ajeno · boton = sólo el botón, sin iframe. */
+  const [alcance, setAlcance] = useState('bloque');
   const [tema,   setTema]   = useState('auto');
-  const [fondo,  setFondo]  = useState('transparente');
   const [alto,   setAlto]   = useState(600);
   const [autoAlto, setAutoAlto] = useState(true);
 
@@ -20,13 +22,24 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
     ? bloque?.id
     : (EMBED_SLUG_AMIGABLE[bloque?.type] || bloque?.type);
 
+  /* El fondo ya no es una pregunta aparte: es lo que distingue «la sección
+     completa» de «sólo el contenido». Preguntarlo dos veces dejaba elegir
+     combinaciones que no significan nada. */
+  const fondo = alcance === 'contenido' ? 'transparente' : 'solido';
+
+  /* Sólo los bloques que llevan un botón de registro pueden exportar el botón
+     suelto: en una galería o en un mapa no hay ninguno que sacar. */
+  const tieneBoton = ['tickets', 'registrar_stand', 'cta', 'hero', 'portada'].includes(bloque?.type);
+
   const url = useMemo(
     () => embedUrl({ slug, seccion, tema, fondo, fid: embedFrameId(slug, seccion) }),
     [slug, seccion, tema, fondo]
   );
   const snippet = useMemo(
-    () => embedSnippet({ slug, seccion, titulo: `${label} — ${evento?.nombre || 'Evento'}`, tema, fondo, alto, autoAlto }),
-    [slug, seccion, label, evento?.nombre, tema, fondo, alto, autoAlto]
+    () => (alcance === 'boton'
+      ? widgetSnippet({ slug })
+      : embedSnippet({ slug, seccion, titulo: `${label} — ${evento?.nombre || 'Evento'}`, tema, fondo, alto, autoAlto })),
+    [alcance, slug, seccion, label, evento?.nombre, tema, fondo, alto, autoAlto]
   );
 
   const copiar = async (texto, que) => {
@@ -85,6 +98,28 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
 
         {/* Opciones + código */}
         <div className="p-6 space-y-5">
+          {/* Cuánto se lleva. Las tres piezas ya existían por separado —el
+              iframe, el fondo transparente y el widget del botón— pero había
+              que saber que existían y llegar a ellas por sitios distintos.
+              Elegirlo aquí es lo que convierte tres funciones sueltas en una
+              decisión: ¿la sección entera, sólo su contenido, o sólo el botón? */}
+          <Campo label="Cuánto se lleva">
+            <div className="space-y-1.5">
+              <Radio checked={alcance === 'bloque'} onChange={() => setAlcance('bloque')}
+                titulo="La sección completa"
+                nota="Con su fondo y su espaciado, tal como se ve en la landing." />
+              <Radio checked={alcance === 'contenido'} onChange={() => setAlcance('contenido')}
+                titulo="Sólo el contenido, sin fondo"
+                nota="Para meterlo dentro de una sección que ya tiene su propio diseño." />
+              {tieneBoton && (
+                <Radio checked={alcance === 'boton'} onChange={() => setAlcance('boton')}
+                  titulo="Sólo el botón de registro"
+                  nota="Sin iframe: el botón se pinta con el estilo de tu web y abre la ventana encima." />
+              )}
+            </div>
+          </Campo>
+
+          {alcance !== 'boton' && (
           <Campo label="Qué se exporta">
             <div className="space-y-1.5">
               <Radio checked={modo === 'tipo'} onChange={() => setModo('tipo')}
@@ -95,17 +130,22 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
                 nota="Útil si tienes dos secciones del mismo tipo y quieres una en concreto." />
             </div>
           </Campo>
+          )}
 
+          {alcance === 'boton' ? (
+            <p className="text-xs text-text-3 leading-relaxed rounded-xl border border-border bg-surface-2/40 px-3 py-2.5">
+              El botón se pinta con el estilo que hayas configurado en <b className="text-text-1">Publicación</b>,
+              y al pulsarlo abre el registro en una ventana sobre tu web, sin sacar a nadie de ella.
+              <span className="block mt-1.5">
+                Ojo: el <b className="text-text-1">pago</b> sí abre una pestaña. Las pasarelas redirigen a su propio
+                dominio y el 3-D Secure no funciona dentro de un iframe ajeno. No es cómo está hecho: es cómo
+                funcionan las pasarelas.
+              </span>
+            </p>
+          ) : (<>
           <Campo label="Tema">
             <select value={tema} onChange={e => setTema(e.target.value)} className="input text-sm w-full">
               {EMBED_TEMAS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </Campo>
-
-          <Campo label="Fondo">
-            <select value={fondo} onChange={e => setFondo(e.target.value)} className="input text-sm w-full">
-              <option value="transparente">Transparente (hereda el de la web)</option>
-              <option value="solido">Sólido del tema</option>
             </select>
           </Campo>
 
@@ -122,17 +162,19 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
               Añade unas líneas de JavaScript para que el iframe crezca con el contenido.
             </span>
           </label>
+          </>)}
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-xs font-semibold text-text-2">Código para pegar</p>
               <button onClick={() => copiar(snippet, 'Código')} className="btn btn-sm">Copiar código</button>
             </div>
-            <textarea readOnly value={snippet} rows={10}
+            <textarea readOnly value={snippet} rows={alcance === 'boton' ? 6 : 10}
               onFocus={e => e.target.select()}
               className="input w-full font-mono text-[11px] leading-relaxed resize-y" />
           </div>
 
+          {alcance !== 'boton' && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-xs font-semibold text-text-2">Solo el enlace</p>
@@ -144,6 +186,7 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
               Sirve para Notion, Wix, WordPress o cualquier bloque de “insertar web”.
             </p>
           </div>
+          )}
 
           <div className="pt-4 border-t border-border">
             <p className="text-xs font-semibold text-text-2 mb-2">También puedes incrustar</p>
