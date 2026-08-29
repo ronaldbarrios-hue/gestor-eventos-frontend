@@ -20,6 +20,16 @@ export default function AccesosSection({ evento }) {
   const { success, error } = useToast();
   const [accesos, setAccesos] = useState(() => (evento.page_json?.accesos || []).map(a => ({ ...a, _k: a.id })));
   const [zonas, setZonas] = useState(() => (evento.page_json?.zonas || []).map(z => ({ ...z, _k: z.id })));
+
+  /* Qué zonas están ya puestas en el plano. El mapa guarda sus marcadores en
+     `page_json.mapa.marcadores` y ya usaba esto para no ofrecer dos veces la
+     misma; aquí se lee para lo contrario — avisar de las que faltan. */
+  const zonasEnMapa = useMemo(() => new Set(
+    (evento.page_json?.mapa?.marcadores || [])
+      .filter(m => m?.tipo === 'zona' && m.zona_id)
+      .map(m => m.zona_id),
+  ), [evento.page_json]);
+  const sinUbicar = zonas.filter(z => z.id && !zonasEnMapa.has(z.id)).length;
   const [aforo, setAforo] = useState([]);
   const [alertas, setAlertas] = useState([]);
   const [nuevaAlerta, setNuevaAlerta] = useState('');
@@ -274,10 +284,29 @@ export default function AccesosSection({ evento }) {
                 placeholder="Nombre de la zona" className="input flex-1" />
               <input type="number" min="0" value={z.aforo_max} onChange={e => setZona(z._k, { aforo_max: e.target.value })}
                 placeholder="Aforo máx" className="input w-28" />
+              {/* Si ya está en el plano, se dice; si no, el enlace lleva a
+                  ponerla. El mapa ya sabía cuáles estaban colocadas —lo usa
+                  para no ofrecer dos veces la misma—, pero desde aquí no había
+                  forma de enterarse, así que se creaban zonas que nunca
+                  llegaban al plano y nadie lo notaba hasta el día del evento. */}
+              {zonasEnMapa.has(z.id)
+                ? <span className="text-[10px] px-1.5 py-1 rounded bg-success/15 text-success flex-shrink-0 whitespace-nowrap">En el mapa</span>
+                : <Link to={`/eventos/${evento.id}?s=espacio&t=mapa`}
+                    className="text-[10px] px-1.5 py-1 rounded border border-border text-text-3 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0 whitespace-nowrap"
+                    title="Colocarla en el plano del evento">
+                    Ponerla en el mapa →
+                  </Link>}
               <button onClick={() => quitarZona(z._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
             </div>
           ))}
           <button onClick={agregarZona} className="btn-ghost btn-sm">+ Añadir zona</button>
+          {zonas.length > 0 && sinUbicar > 0 && (
+            <p className="text-[11px] text-text-3 pt-1">
+              {sinUbicar === zonas.length
+                ? 'Ninguna zona está en el plano todavía. Al tocarla en el mapa, el público ve qué hay ahí y cuánta gente cabe.'
+                : `${sinUbicar} de ${zonas.length} zonas siguen sin sitio en el plano.`}
+            </p>
+          )}
         </div>
       </div>
     </div>
