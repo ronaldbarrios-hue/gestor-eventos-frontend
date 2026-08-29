@@ -255,7 +255,7 @@ export default function PerfilTalentoEditor() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex gap-6 min-w-0 text-sm">
                   <div className="min-w-0">
-                    <p className="text-[11px] text-text-3">{t('Ciudad')}</p>
+                    <p className="text-[11px] text-text-3">{t('País')}</p>
                     <p className="text-text-1 truncate">{usuario?.ciudad || <span className="text-text-3">{t('Sin indicar')}</span>}</p>
                   </div>
                   <div className="min-w-0">

@@ -10,6 +10,7 @@ import { pagosApi } from '../../api/pagos.js';
 import { usePush } from '../../hooks/usePush.js';
 import { guardarBrandingLocal } from '../../hooks/useBranding.js';
 import { auth } from '../../lib/sesion.js';
+import { PAISES, bandera } from '../../lib/paises.js';
 
 /* Pagos, Notificaciones y Recompensas viven ahora como secciones
    propias en el sidebar (páginas dedicadas). */
@@ -158,10 +159,19 @@ export default function SettingsPage() {
                   <input type="tel" className="input" value={perfil.telefono}
                     onChange={e => setPerfil(p => ({ ...p, telefono: e.target.value }))} />
                 </div>
+                {/* Se llama `ciudad` en la base, pero lo que guarda —aquí y en
+                    las dos pantallas de registro— es el PAÍS, de la misma
+                    lista. Un campo de texto libre habría metido ciudades en
+                    una columna que en todas las demás filas tiene países. */}
                 <div className="field">
-                  <label className="label">Ciudad</label>
-                  <input type="text" className="input" value={perfil.ciudad}
-                    onChange={e => setPerfil(p => ({ ...p, ciudad: e.target.value }))} />
+                  <label className="label">País</label>
+                  <select className="input pr-10" value={perfil.ciudad}
+                    onChange={e => setPerfil(p => ({ ...p, ciudad: e.target.value }))}>
+                    <option value="">Seleccionar...</option>
+                    {PAISES.map(p => (
+                      <option key={p.code} value={p.nombre}>{bandera(p.code)} {p.nombre}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
