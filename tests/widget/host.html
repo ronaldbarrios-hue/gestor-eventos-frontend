@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Web de un cliente</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 40px; background: #f4f4f5; }
+    .alto { height: 1500px; }
+  </style>
+</head>
+<body>
+  <h1>La web del organizador</h1>
+  <p>Esta página hace de web ajena: lo único de GESTEK que hay aquí es el script del botón.</p>
+
+  <!-- Forma 1: el botón donde el organizador quiera, tantas veces como quiera -->
+  <div id="en-sitio"
+       data-gestek-registro="evento-de-prueba"
+       data-texto="Quiero mi entrada"
+       data-color="#7C3AED"
+       data-color-2="#EC4899"
+       data-gradiente="120deg"
+       data-color-texto="#FFFFFF"
+       data-radio="999"
+       data-borde="2"
+       data-color-borde="#FFFFFF"
+       data-sombra="lg"
+       data-tamano="lg"></div>
+
+  <!-- Un botón por tamaño: la prueba compara lo que pintan contra la tabla
+       de tamaños de src/lib/embed.js, que es la que usa el panel. Si las dos
+       copias se separan, esto se pone rojo. -->
+  <div id="t-sm" data-gestek-registro="evento-de-prueba" data-texto="sm" data-tamano="sm"></div>
+  <div id="t-md" data-gestek-registro="evento-de-prueba" data-texto="md" data-tamano="md"></div>
+  <div id="t-lg" data-gestek-registro="evento-de-prueba" data-texto="lg" data-tamano="lg"></div>
+
+  <!-- Alto de sobra, para comprobar que al abrir se bloquea el scroll -->
+  <div class="alto"></div>
+
+  <!-- Forma 2: una sola línea, el botón sale donde está el script -->
+  <script src="http://127.0.0.1:4320/widget.js"
+          data-gestek-evento="evento-de-prueba"
+          data-texto="Registrarme"
+          data-color="#E0B12B"
+          data-color-texto="#12100B"
+          data-radio="12"
+          data-sombra="md"
+          data-tamano="md"></script>
+</body>
+</html>

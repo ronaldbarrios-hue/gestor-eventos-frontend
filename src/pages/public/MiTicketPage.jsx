@@ -8,6 +8,7 @@ import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import { googleCalendarUrl } from '../../lib/calendario.js';
 import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
+import { descargarQrPng } from '../../lib/qrPng.jsx';
 import { baseEnlaces } from '../../lib/enlacesPublicos.js';
 
 /* Página pública /mi-ticket/:codigo
@@ -133,6 +134,14 @@ export default function MiTicketPage() {
           <QRCodeSVG value={qrValue} size={220} level="M" includeMargin={false} />
         </div>
         <p className="font-mono text-2xl font-bold text-text-1 tabular-nums tracking-widest mt-4">{ticket.codigo}</p>
+        {/* Guardar el QR como imagen. El PDF ya estaba arriba; esto es lo que
+            se reenvía por WhatsApp y lo que se enseña en la puerta sin abrir
+            un lector de PDF. */}
+        <button
+          onClick={() => descargarQrPng(qrValue, `qr-${ticket.codigo}`)}
+          className="mt-3 text-xs font-semibold text-text-2 hover:text-text-1 underline underline-offset-4">
+          Descargar el QR como imagen
+        </button>
       </div>
 
       {/* Pasaporte gamificado */}

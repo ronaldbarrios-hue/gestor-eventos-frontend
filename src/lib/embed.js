@@ -149,3 +149,151 @@ export function embedSnippet({ origin, slug, seccion, titulo, tema = 'auto', fon
 })();
 <\/script>`;
 }
+
+/* ── El botón de registro ───────────────────────────────────────────────────
+ *
+ * Lo de arriba incrusta una SECCIÓN de la landing dentro de la web de otro.
+ * Esto es lo otro que pide el cliente: sólo un botón en su web que, al
+ * pulsarlo, abre el registro encima de su página, sin sacar al visitante del
+ * sitio donde estaba.
+ *
+ * Quien pinta el botón y abre la ventana es `public/widget.js`, que se sirve
+ * tal cual —sin empaquetar, porque lo carga una web ajena— y dentro sólo hay
+ * un iframe a `/embed/<slug>/registro`.
+ *
+ * ── Por qué el pago sale de la ventana y el formulario no ──────────────────
+ *
+ * El formulario, la reserva gratuita y la confirmación con sus sub-eventos
+ * ocurren dentro: son peticiones a nuestra propia API y funcionan igual estén
+ * donde estén.
+ *
+ * El salto a Mercado Pago o a Wompi, no. Un checkout dentro de un iframe de
+ * otro dominio se rompe por tres sitios a la vez: las cookies de terceros que
+ * los navegadores ya bloquean por defecto, el 3-D Secure del banco —que se
+ * niega a cargarse enmarcado— y las redirecciones de vuelta de la pasarela,
+ * que aterrizan dentro del recuadro. Así que cuando toca pagar, el iframe le
+ * pide al anfitrión que abra la pasarela en una pestaña de verdad. Lo que se
+ * escribió no se pierde: la boleta ya está creada cuando eso pasa.
+ */
+
+/* Los tres tamaños del botón. Van aquí y no en el widget porque el panel los
+   enseña al organizador y el widget los aplica: una sola lista para los dos. */
+export const WIDGET_TAMANOS = {
+  sm: { padding: '8px 16px',  fuente: '14px' },
+  md: { padding: '12px 22px', fuente: '15px' },
+  lg: { padding: '16px 30px', fuente: '17px' },
+};
+
+export const WIDGET_DEFECTOS = {
+  texto     : 'Registrarme',
+  color     : '#E0B12B',
+  colorTexto: '#12100B',
+  radio     : '12',
+  tamano    : 'md',
+};
+
+/* ¿Estamos dentro del iframe de otra web? Se pregunta dentro de un try porque
+   en un iframe de otro dominio, leer `window.parent` puede lanzar. */
+export function estaIncrustado() {
+  if (typeof window === 'undefined') return false;
+  try { return window.parent && window.parent !== window; } catch { return true; }
+}
+
+/* Le dice algo al anfitrión. Los tipos que entiende `widget.js`:
+     alto   { alto }        redimensiona la ventana
+     abrir  { url }         abre una pestaña de verdad (la pasarela de pago)
+     listo  { codigo }      el registro terminó
+     cerrar {}              cerrar la ventana */
+export function avisarAlAnfitrion(tipo, datos = {}, fid = '') {
+  if (!estaIncrustado()) return false;
+  try {
+    window.parent.postMessage({ gestek: tipo, fid, ...datos }, '*');
+    return true;
+  } catch {
+    /* Cross-origin con el anfitrión bloqueado: no hay nada que hacer y no es
+       motivo para romper la pantalla de quien está registrándose. */
+    return false;
+  }
+}
+
+/* A dónde mandar a alguien que va a pagar. Devuelve true si se delegó en el
+   anfitrión, para que quien llama no navegue además por su cuenta. */
+export function irAPagar(url, fid = '') {
+  if (!url) return false;
+  if (estaIncrustado() && avisarAlAnfitrion('abrir', { url }, fid)) return true;
+  window.location.href = url;
+  return true;
+}
+
+/* El snippet que copia el organizador. Una línea, sin iframe a la vista: el
+   botón y la ventana los pone el script. */
+export function widgetSnippet({ origin, slug, ...opciones }) {
+  const o = { ...WIDGET_DEFECTOS, ...opciones };
+  const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
+  const attr = (k, v) => `\n        data-${k}="${String(v).replace(/"/g, '&quot;')}"`;
+
+  return `<script src="${base}/widget.js"${
+    attr('gestek-evento', slug)}${
+    attr('texto', o.texto)}${
+    attr('color', o.color)}${
+    attr('color-texto', o.colorTexto)}${
+    attr('radio', o.radio)}${
+    attr('tamano', o.tamano)}></script>`;
+}
+
+/* La otra forma: el botón donde el organizador quiera, y el script una sola
+   vez al final. Es lo que hace falta cuando el botón va dentro de un menú o
+   repetido en varias secciones de la misma página. */
+export function widgetSnippetEnSitio({ origin, slug, ...opciones }) {
+  const o = { ...WIDGET_DEFECTOS, ...opciones };
+  const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
+  return `<!-- donde quieras que salga el botón -->
+<div data-gestek-registro="${slug}"
+     data-texto="${o.texto}"
+     data-color="${o.color}"
+     data-color-texto="${o.colorTexto}"
+     data-radio="${o.radio}"
+     data-tamano="${o.tamano}"></div>
+
+<!-- una sola vez, al final de la página -->
+<script src="${base}/widget.js"></script>`;
+}
+
+/* El estilo del botón, calculado igual que lo calcula `public/widget.js`.
+ *
+ * Existe para la vista previa del panel: el organizador tiene que ver
+ * exactamente el botón que va a salir en su web. Las dos tablas de arriba
+ * —`WIDGET_TAMANOS` y las sombras— son la fuente; `widget.js` lleva su copia
+ * porque lo carga una web ajena y no puede importar nada de aquí.
+ *
+ * Que las dos copias no se separen no se deja a la buena fe: `tests/widget/`
+ * compara lo que pinta el widget de verdad contra estos valores. */
+export const WIDGET_SOMBRAS = {
+  no: 'none',
+  sm: '0 1px 2px rgba(0,0,0,.16)',
+  md: '0 6px 16px rgba(0,0,0,.20)',
+  lg: '0 14px 34px rgba(0,0,0,.28)',
+};
+
+export function estiloBotonWidget(opciones = {}) {
+  const o = { ...WIDGET_DEFECTOS, ...opciones };
+  const t = WIDGET_TAMANOS[o.tamano] || WIDGET_TAMANOS.md;
+  return {
+    display      : o.ancho === 'completo' ? 'block' : 'inline-block',
+    width        : o.ancho === 'completo' ? '100%' : 'auto',
+    padding      : t.padding,
+    fontSize     : t.fuente,
+    fontWeight   : 600,
+    lineHeight   : 1.2,
+    color        : o.colorTexto,
+    background   : o.color2
+      ? `linear-gradient(${o.gradiente || '135deg'}, ${o.color}, ${o.color2})`
+      : o.color,
+    border       : `${parseInt(o.borde, 10) || 0}px solid ${o.colorBorde || 'transparent'}`,
+    borderRadius : `${parseInt(o.radio, 10) || 0}px`,
+    boxShadow    : Object.prototype.hasOwnProperty.call(WIDGET_SOMBRAS, o.sombra)
+      ? WIDGET_SOMBRAS[o.sombra]
+      : o.sombra,
+    cursor       : 'pointer',
+  };
+}

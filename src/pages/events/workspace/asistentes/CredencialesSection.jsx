@@ -399,7 +399,17 @@ function Escarapela({ f, cfg, evento, campos, tam }) {
             <QRCodeSVG value={valorQr} size={vertical ? 96 : 66} level="M" />
           </div>
         )}
-        <div className="min-w-0 flex-1">
+        {/* `flex-1` sólo cuando la escarapela es horizontal.
+
+            En vertical, este bloque es el segundo de una columna, y `flex-1` le
+            daba todo el alto sobrante: el texto se estiraba y el QR quedaba
+            pegado al borde de arriba en vez de centrado. Se veía en la vista
+            previa del diseñador y también en el papel, que es peor.
+
+            Y `w-full` en vertical porque, con `items-center`, un bloque sin
+            ancho se encoge a lo que mida su texto y el `truncate` de los campos
+            deja de recortar donde debe. */}
+        <div className={vertical ? 'w-full min-w-0' : 'min-w-0 flex-1'}>
           {cfg.mostrar?.nombre && <p className="text-[13px] font-bold leading-tight break-words">{f.nombre}</p>}
           {extras.map((x, i) => (
             <p key={i} className="text-[9px] leading-tight truncate" style={{ opacity: 0.7 }}>{String(x.valor)}</p>

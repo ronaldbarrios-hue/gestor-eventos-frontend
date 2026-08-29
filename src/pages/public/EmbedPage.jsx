@@ -9,7 +9,8 @@ import TorneoPublicoPage from './TorneoPublicoPage.jsx';
 import AgendaPublicaPage from './AgendaPublicaPage.jsx';
 import { TarjetaTorneo } from './TorneosResumenPage.jsx';
 import { TablaRanking } from './RankingPublicoPage.jsx';
-import { EMBED_ALIAS, EMBED_SIN_CONFIG } from '../../lib/embed.js';
+import { EMBED_ALIAS, EMBED_SIN_CONFIG, avisarAlAnfitrion } from '../../lib/embed.js';
+import { ReservaModal, ConfirmacionModal } from './EventoPublicoPage.jsx';
 
 /* Secciones que no son bloques de la landing sino páginas propias del evento
    (llaves del torneo, agenda). También se pueden incrustar: leen el :slug de
@@ -19,6 +20,10 @@ import { EMBED_ALIAS, EMBED_SIN_CONFIG } from '../../lib/embed.js';
    de la web de otro, un "← Volver a explorar" saca al visitante del sitio que
    estaba mirando. */
 const ESPECIALES = {
+  /* `registro` no es una sección de la landing: es el destino del botón que se
+     incrusta en la web de otro. Sale por aquí para heredar de EmbedPage el
+     tema, el branding, el fondo transparente y el aviso de alto. */
+  registro:  RegistroEmbed,
   torneo:    TorneoPublicoPage,
   llaves:    TorneoPublicoPage,
   bracket:   TorneoPublicoPage,
@@ -46,6 +51,15 @@ export default function EmbedPage() {
   const [evento, setEvento] = useState(null);
   const [estado, setEstado] = useState('cargando'); // cargando | ok | error
   const rootRef = useRef(null);
+
+  /* El registro ocurre AQUÍ dentro, no en una pestaña de GESTEK. Es lo que
+     pidió el cliente y es lo correcto: quien está mirando la web del
+     organizador no tiene por qué salir de ella para reservar. */
+  const [reservaTipo, setReservaTipo] = useState(null);
+  const [reservaOk,   setReservaOk]   = useState(null);
+
+  const soloUnaBoleta = ((evento?.ticket_types || evento?.tipos_ticket || [])
+    .filter(t => t.activo).length === 1);
 
   const tema  = params.get('tema')  || 'auto';
   const fondo = params.get('fondo') || 'transparente';
@@ -91,10 +105,27 @@ export default function EmbedPage() {
 
   /* Alto automático: el anfitrión escucha este postMessage y redimensiona
      el iframe. Sin esto quedaría cortado o con un hueco enorme debajo. */
+  const hayModal = Boolean(reservaTipo || reservaOk);
+
   useEffect(() => {
     /* Nada mientras carga: si no, el anfitrión encoge el iframe a la altura
        del "Cargando…" y el contenido entra dando un salto feo. */
     if (estado === 'cargando') return;
+
+    /* Con un modal abierto NO se puede medir el contenido: `ModalShell` es
+       `position: fixed`, o sea que está fuera del flujo y el div de aquí mide
+       casi cero. Midiéndolo, el anfitrión encogería el iframe a nada y el
+       formulario quedaría recortado a una franja.
+
+       Se pide un número grande a propósito: el anfitrión lo recorta al 92% de
+       su ventana, y dentro del iframe el modal se centra sobre esa altura. Es
+       la forma de decir "todo lo alto que puedas" sin saber cuánto mide la
+       ventana de la web ajena, que desde aquí no se puede leer. */
+    if (hayModal) {
+      try { window.parent?.postMessage({ gestek: 'alto', fid, alto: 20000 }, '*'); } catch { /* cross-origin */ }
+      return;
+    }
+
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     let ultimo = 0;
@@ -108,13 +139,27 @@ export default function EmbedPage() {
     ro.observe(el);
     avisar();
     return () => ro.disconnect();
-  }, [fid, evento, estado]);
+  }, [fid, evento, estado, hayModal]);
 
-  /* Un iframe en un dominio ajeno no es lugar para un checkout: cookies de
-     terceros, 3-D Secure y redirecciones de Mercado Pago fallan ahí dentro. */
-  const abrirCompra = useCallback(() => {
+  /* Antes esto abría GESTEK en otra pestaña, y era justo lo que había que
+     evitar: quien está en la web del organizador se encontraba de golpe en
+     otra web para reservar. Ahora el formulario se abre aquí mismo.
+
+     Lo que SÍ sigue saliendo es el pago, y sólo el pago: un checkout dentro de
+     un iframe ajeno se rompe por las cookies de terceros, por el 3-D Secure
+     —que se niega a cargarse enmarcado— y por la redirección de vuelta de la
+     pasarela. De eso se encarga `irAPagar`, y para cuando ocurre la boleta ya
+     está creada: no se pierde nada de lo escrito. */
+  const abrirPaginaCompleta = useCallback(() => {
     window.open(`${window.location.origin}/explorar/${slug}?standalone=1`, '_blank', 'noopener,noreferrer');
   }, [slug]);
+
+  const abrirCompra = useCallback((tipo) => {
+    if (tipo?.id) { setReservaTipo(tipo); return; }
+    /* Sin tipo de boleta no hay nada que rellenar: es un CTA suelto o una
+       sección sin boletas, y ahí sí toca la página completa. */
+    abrirPaginaCompleta();
+  }, [abrirPaginaCompleta]);
 
   const Especial = ESPECIALES[seccion] || null;
 
@@ -168,7 +213,7 @@ export default function EmbedPage() {
     <BrandingProvider organizador={organizador}>
       <div ref={rootRef} className="p-4">
         {Especial ? (
-          <Especial />
+          <Especial evento={evento} onReservar={abrirCompra} />
         ) : bloque.type === 'lienzo' ? (
           <CanvasPublico
             canvas={bloque.data?.canvas}
@@ -180,7 +225,7 @@ export default function EmbedPage() {
             data={bloque.data || {}}
             evento={evento}
             onReservar={abrirCompra}
-            onWaitlist={abrirCompra}
+            onWaitlist={abrirPaginaCompleta}
           />
         )}
         {/* Sin "Eventos gestionados con GESTEK".
@@ -191,6 +236,38 @@ export default function EmbedPage() {
             respeta, porque ése lo puso él. */}
         {organizador?.branding?.footer && (
           <p className="text-xs text-text-3 mt-4 text-center">{organizador.branding.footer}</p>
+        )}
+
+        {reservaTipo && (
+          <ReservaModal
+            tipo={reservaTipo}
+            slug={slug}
+            currency={evento.currency}
+            evento={evento}
+            onClose={() => {
+              setReservaTipo(null);
+              /* Con una sola boleta no hay a dónde volver: detrás del
+                 formulario no queda nada que elegir, así que cerrar el
+                 formulario es cerrar la ventana. Con varias, se vuelve a la
+                 lista, que es lo que espera quien iba a comparar precios. */
+              if (soloUnaBoleta) avisarAlAnfitrion('cerrar', {}, fid);
+            }}
+            onSuccess={(t) => { setReservaTipo(null); setReservaOk(t); }}
+          />
+        )}
+        {reservaOk && (
+          <ConfirmacionModal
+            ticket={reservaOk}
+            evento={evento}
+            slug={slug}
+            checkout={evento.page_json?.checkout || {}}
+            onClose={() => {
+              setReservaOk(null);
+              /* Terminado el registro, la ventana del anfitrión se cierra sola:
+                 dejarla abierta con la confirmación vacía detrás es raro. */
+              avisarAlAnfitrion('listo', { codigo: reservaOk?.codigo }, fid);
+            }}
+          />
         )}
       </div>
     </BrandingProvider>
@@ -246,4 +323,39 @@ function BloqueBoletas({ evento, onReservar }) {
   if (!B) return null;
   const P = B.Preview;
   return <P data={{}} evento={evento} onReservar={onReservar} onWaitlist={onReservar} />;
+}
+
+/* ── El registro, que es a donde lleva el botón incrustado ─────────────────
+ *
+ * Una boleta: al formulario directo, que es lo que espera quien pulsó un botón
+ * que dice "Registrarme". Varias: primero elige, porque el precio y lo que
+ * incluye cada una es justo lo que decide.
+ *
+ * A partir de ahí no hay nada nuevo: son el mismo `ReservaModal` y el mismo
+ * `ConfirmacionModal` de la página pública —con el formulario del evento, sus
+ * términos, el captcha y los sub-eventos al final—, montados por EmbedPage.
+ * Reescribirlos aquí habría sido tener dos registros que se separan al mes.
+ */
+function RegistroEmbed({ evento, onReservar }) {
+  const tipos = (evento?.ticket_types || evento?.tipos_ticket || []).filter(t => t.activo);
+
+  /* Con una sola, se abre sola. El `useEffect` y no una llamada directa porque
+     abrir un modal mientras se está pintando el padre es un aviso de React y,
+     peor, se dispararía en cada render. */
+  const abierto = useRef(false);
+  useEffect(() => {
+    /* Una sola vez. Sin el pestillo, cerrar el modal volvería a abrirlo y la
+       ventana no se podría cerrar nunca. */
+    if (abierto.current || tipos.length !== 1) return;
+    abierto.current = true;
+    onReservar?.(tipos[0]);
+  }, [tipos, onReservar]);
+
+  if (!tipos.length) {
+    return <p className="text-sm text-text-3 py-8 text-center">Este evento todavía no tiene entradas a la venta.</p>;
+  }
+  if (tipos.length === 1) {
+    return <p className="text-sm text-text-3 py-8 text-center">Abriendo el formulario…</p>;
+  }
+  return <BloqueBoletas evento={evento} onReservar={onReservar} />;
 }
