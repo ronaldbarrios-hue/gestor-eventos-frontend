@@ -16,7 +16,7 @@ la sección 10.
 
 ---
 
-## Estado — 28 de agosto, final del día
+## Estado — 29 de agosto
 
 | Fase | Qué | Estado |
 |---|---|---|
@@ -26,16 +26,37 @@ la sección 10.
 | 1.b | Backend de Render a cPanel | Pendiente |
 | 2 | `core/` + `modules/` + migraciones numeradas | **Hecho** |
 | 3 | Sondeo que se calla, avisos agrupados | **Hecho** (SSE, pendiente de probar el proxy) |
-| 4 | **Identidad propia sobre MySQL** | **Código hecho y probado.** Falta la configuración: `CONFIGURAR.md` del backend |
+| 4 | **Identidad propia sobre MySQL** | **Código hecho y probado**, en `parches/`. Falta la configuración: `CONFIGURAR.md` |
 | 5 | Archivos propios | Pendiente |
 | 6 | Las 71 tablas a MySQL | Pendiente |
 | 7 | Permisos que sustituyan a RLS | Pendiente |
 
-Lo de la fase 4 incluye el módulo entero (usuarios, Google, sesiones con
-rotación, recuperación, freno por cuenta), el adaptador del frontend con
-interruptor para volver atrás, el script que trae las 29 cuentas conservando
-UUID y hashes, el que comprueba la base, y 18 pruebas nuevas. Las 159 de la
+La fase 4 incluye el módulo entero (usuarios, Google, sesiones con rotación,
+recuperación, freno por cuenta), el adaptador del frontend con interruptor para
+volver atrás, las dos pantallas que faltaban —confirmar y restablecer, que
+seguían hablando con Supabase—, el script que trae las 29 cuentas conservando
+UUID y hashes, el que comprueba la base, y **58 pruebas nuevas**. Las 199 de la
 suite pasan.
+
+Medido otra vez contra producción antes de escribir el script: **29 usuarios,
+10 con contraseña y los 10 con hash bcrypt, 22 identidades de Google, 9 de tipo
+`email`**. El descuadre de 10 contra 9 sigue ahí y el script lo señala por
+nombre.
+
+> ### Dónde está el código de la fase 4, y por qué no está donde debería
+>
+> **En `parches/backend-identidad-propia.patch`, dentro de este repositorio.**
+> El código es del backend, pero la app de Claude no tiene permiso de escritura
+> sobre `gestor-eventos-backend` (403 en cada `push`) y sí sobre éste.
+>
+> Esto no es una precaución teórica: **la primera versión de este módulo se
+> escribió el 28, se probó, no se pudo subir, y se perdió al reciclarse el
+> contenedor.** Lo que hay ahora es la segunda, guardada donde sí se puede
+> subir. Instrucciones para aplicarlo, en `parches/README.md`.
+>
+> Se arregla de una vez cuando un administrador instale la app sobre el
+> repositorio del backend. Hasta entonces, todo lo que toque backend termina en
+> `parches/` antes de cerrar la sesión.
 
 ---
 

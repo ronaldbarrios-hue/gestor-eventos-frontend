@@ -256,6 +256,23 @@ export const authPropia = {
     return { data, error };
   },
 
+  /* Poner contraseña nueva desde el enlace del correo.
+   *
+   * Supabase no tenía equivalente porque hacía otra cosa: el enlace abría una
+   * sesión de recuperación y luego se llamaba a `updateUser`. Eso significaba
+   * que abrir el correo te dejaba dentro de la cuenta antes de demostrar nada
+   * más — si el enlace se quedaba en un historial compartido, quien lo abriera
+   * entraba.
+   *
+   * Aquí el token sólo sirve para esto: no abre sesión. Al terminar hay que
+   * entrar con la contraseña nueva, y el servidor además cierra todas las
+   * sesiones que hubiera, que es lo que la persona cree que está haciendo
+   * cuando cambia su contraseña. */
+  async restablecerConToken(token, password) {
+    const { data, error } = await pedir('/restablecer', { cuerpo: { token, password } });
+    return { data, error };
+  },
+
   /**
    * Recoge la sesión que el callback de Google deja en el fragmento (#) de la
    * URL. Equivale a `exchangeCodeForSession` de Supabase.

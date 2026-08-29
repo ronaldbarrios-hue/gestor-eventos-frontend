@@ -1,0 +1,3942 @@
+From b4f821f9ab1f1bdf4569016f320275d3a8258ecd Mon Sep 17 00:00:00 2001
+From: Sekkon0906 <juan.medina@hytrex.co>
+Date: Sat, 29 Aug 2026 00:41:38 +0000
+Subject: [PATCH] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20m?=
+ =?UTF-8?q?=C3=B3dulo=20entero,=20detr=C3=A1s=20de=20un=20interruptor?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Cubre las once funciones que hoy hace Supabase Auth —entrar, registrarse,
+Google, recuperar, confirmar, refrescar, cerrar en todos los dispositivos— y
+ninguna más. La forma de la respuesta es la que ya espera el adaptador del
+frontend, así que no hay contrato que inventar.
+
+El módulo es autocontenido: se entra por `index.js` y sólo `repositorio.js`
+escribe SQL. Cuando toque el resto de las 71 tablas, lo que se reescribe por
+módulo es ese archivo, no las rutas.
+
+Lo que se hereda en vez de reescribirse: el freno por IP que `config/security.js`
+dejó preparado hace meses "por si se agregan endpoints propios /auth" —son
+éstos—, y el flujo OAuth que ya estaba probado para el calendario.
+
+Tres decisiones que no se ven pero deciden todo:
+
+- El middleware verifica la firma en local y sólo cae a Supabase si el token no
+  es nuestro. Ahí desaparece una llamada de red por petición, y las 21 sesiones
+  abiertas no se cortan.
+- A Google se le identifica por el `sub`, nunca por el correo: quien cambie su
+  dirección en Google conserva su cuenta y sus eventos. Son 22 de 29 usuarios.
+- Ni el login ni la recuperación dicen nunca si un correo está registrado.
+
+Los hashes se migran intactos —los 10 son bcrypt, verificado contra
+producción— y los UUID se conservan, que es lo que sostiene las claves ajenas
+del resto del esquema.
+
+58 pruebas nuevas, sin base de datos ni servidor: el servicio recibe un
+repositorio falso. Las 199 de la suite pasan.
+
+Falta la configuración en cPanel, que va en CONFIGURAR.md. Con AUTH_PROPIA
+apagado —como queda— el backend se comporta exactamente como hoy.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ CONFIGURAR.md                      | 208 ++++++++++++++
+ core/config/index.js               | 109 ++++++++
+ core/db/mysql.js                   | 159 +++++++++++
+ db/migraciones/001_identidad.sql   | 129 +++++++++
+ index.js                           |  16 ++
+ middleware/auth.js                 |  82 +++++-
+ modules/auth/correos/index.js      | 128 +++++++++
+ modules/auth/google.js             | 208 ++++++++++++++
+ modules/auth/index.js              |  75 +++++
+ modules/auth/repositorio.js        | 262 ++++++++++++++++++
+ modules/auth/rutas.js              | 193 +++++++++++++
+ modules/auth/servicio.js           | 420 ++++++++++++++++++++++++++++
+ modules/auth/tokens.js             | 109 ++++++++
+ package-lock.json                  | 110 +++++++-
+ package.json                       |   2 +
+ scripts/comprobar-base.js          | 140 ++++++++++
+ scripts/migrar-usuarios-a-mysql.js | 219 +++++++++++++++
+ test/_repoFalso.js                 | 179 ++++++++++++
+ test/auth.google.test.js           | 203 ++++++++++++++
+ test/auth.middleware.test.js       | 143 ++++++++++
+ test/auth.servicio.test.js         | 422 +++++++++++++++++++++++++++++
+ test/auth.tokens.test.js           | 109 ++++++++
+ 22 files changed, 3610 insertions(+), 15 deletions(-)
+ create mode 100644 CONFIGURAR.md
+ create mode 100644 core/config/index.js
+ create mode 100644 core/db/mysql.js
+ create mode 100644 db/migraciones/001_identidad.sql
+ create mode 100644 modules/auth/correos/index.js
+ create mode 100644 modules/auth/google.js
+ create mode 100644 modules/auth/index.js
+ create mode 100644 modules/auth/repositorio.js
+ create mode 100644 modules/auth/rutas.js
+ create mode 100644 modules/auth/servicio.js
+ create mode 100644 modules/auth/tokens.js
+ create mode 100644 scripts/comprobar-base.js
+ create mode 100644 scripts/migrar-usuarios-a-mysql.js
+ create mode 100644 test/_repoFalso.js
+ create mode 100644 test/auth.google.test.js
+ create mode 100644 test/auth.middleware.test.js
+ create mode 100644 test/auth.servicio.test.js
+ create mode 100644 test/auth.tokens.test.js
+
+diff --git a/CONFIGURAR.md b/CONFIGURAR.md
+new file mode 100644
+index 0000000..c075e1d
+--- /dev/null
++++ b/CONFIGURAR.md
+@@ -0,0 +1,208 @@
++# Encender la identidad propia
++
++Lo que falta de la fase 4 no es código: es configuración. Este documento son
++los pasos, en orden, y lo que hay que mirar después de cada uno.
++
++El código está escrito y probado (`modules/auth/`, 58 pruebas). Lo que hace este
++documento es ponerlo a funcionar sin cortarle la sesión a nadie.
++
++> **La regla que gobierna todo lo de abajo:** hasta el último paso, Supabase
++> sigue siendo quien manda. Cada paso se puede deshacer apagando una variable.
++> Si algo va mal, se apaga y se vuelve al estado de antes en un reinicio.
++
++---
++
++## 0 · Antes de tocar nada, dos comprobaciones que ahorran la tarde
++
++**La consola de Google.** Hace falta acceso a la cuenta que registró el
++`client_id` que usa Supabase hoy. No es difícil —es una pantalla— pero si se
++descubre en el paso 5 que nadie tiene esa cuenta, afecta a **22 de los 29
++usuarios**, que son los que entran con Google. Comprobarlo ahora.
++
++**El dominio definitivo.** Hoy la API responde en `api.gestekeventost.dpdns.org`,
++que parece de pruebas. La `redirect_uri` de Google conviene registrarla **una
++sola vez, con el dominio bueno**: cambiarla después obliga a volver a la consola
++y, entre medias, nadie entra con Google.
++
++---
++
++## 1 · La base de datos
++
++En cPanel → **MySQL® Databases**. La cuenta admite dos bases y no hay ninguna
++creada.
++
++1. Crear la base. cPanel le pone delante el prefijo de la cuenta: si se escribe
++   `gestek`, la base se llama `cuenta_gestek`. **El nombre completo, con
++   prefijo, es el que va en `MYSQL_DATABASE`.** Poner `gestek` a secas es el
++   error de configuración número uno y da «Access denied», que suena a
++   contraseña mala y no lo es.
++2. Crear el usuario, y darle **todos los permisos** sobre esa base.
++3. Arreglar el juego de caracteres. cPanel no lo pregunta y el servidor está en
++   `utf8mb3`, así que la base nace mal. En phpMyAdmin → SQL:
++
++   ```sql
++   ALTER DATABASE `cuenta_gestek` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
++   ```
++
++   Esto hay que hacerlo **antes** de crear las tablas. Después, con datos
++   dentro, es un `ALTER` por tabla y por columna con la aplicación parada.
++
++4. Crear las tablas: pegar `db/migraciones/001_identidad.sql` en phpMyAdmin, o
++
++   ```bash
++   mysql -u cuenta_usuario -p cuenta_gestek < db/migraciones/001_identidad.sql
++   ```
++
++**Comprobar:**
++
++```bash
++node scripts/comprobar-base.js
++```
++
++Tiene que decir `conexión en utf8mb4` y las cuatro tablas. Si dice utf8mb3, el
++paso 3 no se hizo o se hizo después de crear las tablas.
++
++---
++
++## 2 · Las variables
++
++En cPanel → **Setup Node.js App** → la aplicación → *Environment variables*.
++Passenger las lee al reiniciar la aplicación, no al guardarlas.
++
++| Variable | Valor | De dónde sale |
++|---|---|---|
++| `MYSQL_HOST` | `localhost` | En cPanel la base es local |
++| `MYSQL_SOCKET` | `/var/lib/mysql/mysql.sock` | Opcional. Si está, se usa el socket en vez de TCP: más rápido y no gasta puertos |
++| `MYSQL_USER` | `cuenta_usuario` | **Con prefijo** |
++| `MYSQL_PASSWORD` | — | La del paso 1.2 |
++| `MYSQL_DATABASE` | `cuenta_gestek` | **Con prefijo** |
++| `JWT_SECRET` | 64 caracteres al azar | Se genera, no se reutiliza ninguno |
++| `AUTH_PROPIA` | `false` **por ahora** | Se enciende en el paso 6 |
++| `GOOGLE_CLIENT_ID` | el de Supabase, **idéntico** | Consola de Google |
++| `GOOGLE_CLIENT_SECRET` | el de Supabase | Consola de Google |
++| `GOOGLE_AUTH_REDIRECT` | `https://<api>/auth/google/callback` | Paso 5 |
++| `FRONTEND_URL` | `https://<app>` | Ya debería estar |
++
++El secreto:
++
++```bash
++node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
++```
++
++**No se reutiliza ningún secreto de Supabase.** Si el suyo se filtrara algún
++día, los nuestros seguirían valiendo, y al revés. El único que sí viaja idéntico
++es `QR_JWT_SECRET`, y por una razón concreta: los QR ya emitidos se firmaron con
++él y tienen que seguir validando.
++
++En producción, si `AUTH_PROPIA` está encendido y falta `JWT_SECRET`, **el
++proceso no arranca**. Es a propósito: un secreto de desarrollo en producción es
++lo mismo que no tener firma.
++
++---
++
++## 3 · Traer las 29 cuentas
++
++Los hashes de contraseña viven en `auth.users`, que la API de Supabase no
++expone. Sólo se llega por SQL. La consulta exacta está en la cabecera de
++`scripts/migrar-usuarios-a-mysql.js`; se corre en el editor SQL de Supabase y se
++guarda el resultado en un archivo.
++
++> Ese archivo son las llaves de las 29 cuentas. Ni al repositorio, ni a un
++> correo, ni a un chat. Se borra en cuanto termina la migración.
++
++```bash
++node scripts/migrar-usuarios-a-mysql.js --archivo volcado.json            # sólo mira
++node scripts/migrar-usuarios-a-mysql.js --archivo volcado.json --aplicar  # escribe
++node scripts/comprobar-base.js
++```
++
++La primera pasada no escribe nada: valida los UUID, comprueba que los hashes
++son bcrypt, busca correos repetidos y avisa de las cuentas que se quedarían sin
++forma de entrar. **Hay que leer lo que dice antes de aplicar.**
++
++Lo que tiene que salir: 29 usuarios, 10 con contraseña, 22 con Google. Y el
++descuadre conocido —10 con contraseña frente a 9 identidades de tipo `email`—
++señala a una cuenta descolocada: el script la nombra.
++
++Se puede repetir sin miedo: lo que ya existe se salta.
++
++---
++
++## 4 · Probar sin encender nada
++
++Con `AUTH_PROPIA=false`, el módulo ni se monta. Para probarlo, se enciende **en
++local**, no en el servidor:
++
++```bash
++AUTH_PROPIA=true MYSQL_HOST=... npm run dev
++curl -s localhost:3000/auth/login -H 'Content-Type: application/json' \
++     -d '{"email":"tu@correo","password":"la tuya"}'
++```
++
++Tiene que devolver `access_token`, `refresh_token` y `usuario`. Si devuelve
++`credenciales` con una contraseña que sabés que es buena, el hash no se migró
++bien: mirar `comprobar-base.js`.
++
++---
++
++## 5 · Google
++
++En la consola de Google → *Credenciales* → el cliente OAuth **que ya usa
++Supabase** → *URI de redirección autorizados* → **añadir** (no sustituir):
++
++```
++https://api.gestekeventost.dpdns.org/auth/google/callback
++```
++
++Se añade, no se cambia: mientras Supabase siga encendido, su URI tiene que
++seguir ahí o los usuarios que entren por el camino viejo se quedan fuera.
++
++**El `client_id` tiene que ser el mismo.** Google identifica a cada persona con
++un `sub` que es distinto para cada cliente. Con un cliente nuevo, los 22 `sub`
++que se migraron no coinciden con nada, y esas 22 personas entrarían a cuentas
++nuevas y vacías con sus eventos dentro de las viejas.
++
++---
++
++## 6 · Encender
++
++Dos interruptores, y el orden importa:
++
++1. **Backend** (`AUTH_PROPIA=true`) y reiniciar la aplicación. Ahora `/auth`
++   responde, pero nadie lo llama todavía: el frontend sigue hablando con
++   Supabase. Aquí ya se gana algo — el middleware verifica los tokens en local
++   y deja de preguntarle a Supabase en cada petición.
++2. **Frontend** (`VITE_AUTH_PROPIA=true` en Vercel) y volver a desplegar. A
++   partir de aquí las sesiones nuevas son nuestras.
++
++Las 21 sesiones que estén abiertas **no se cortan**: sus tokens son de Supabase
++y el middleware los sigue aceptando por el camino de siempre hasta que caduquen.
++
++**Para volver atrás:** apagar el del frontend. Las sesiones nuestras se pierden
++—la gente vuelve a entrar— pero todo lo demás sigue igual, porque las cuentas
++nunca se borraron de Supabase.
++
++---
++
++## 7 · Qué mirar los primeros días
++
++- **Que nadie se queda fuera.** Los 22 de Google son el grupo grande; basta con
++  que uno de ellos entre para saber que el `client_id` y los `sub` cuadran.
++- **`comprobar-base.js`** cada mañana la primera semana: dice cuántas sesiones
++  vivas hay, y si ese número no crece, algo no está entrando.
++- **La tabla `sesiones` crece.** Es normal: una fila por dispositivo y por
++  refresco. `repositorio.limpiarCaducados()` está escrita para el cron; conviene
++  engancharla cuando haya tráfico de verdad.
++
++## 8 · Lo que este documento NO cubre
++
++- **Apagar Supabase Auth.** No se toca hasta que pasen unos días con todo el
++  mundo entrando por lo nuestro. Mientras tanto, las cuentas están en los dos
++  sitios a propósito.
++- **La cookie `httpOnly`.** Hoy el token vive en `localStorage`, igual que lo
++  dejaba Supabase. La cookie es mejor —un XSS no la lee— pero necesita que el
++  frontend y la API estén bajo el mismo dominio, y hoy están en Vercel y en
++  cPanel. Cuando los dos vivan bajo `gestekeventost.dpdns.org`, se cambia
++  `src/lib/authPropia.js` y nada más.
++- **Las otras 71 tablas.** Esto migra la identidad. Todo lo demás sigue en
++  Supabase.
+diff --git a/core/config/index.js b/core/config/index.js
+new file mode 100644
+index 0000000..e19422b
+--- /dev/null
++++ b/core/config/index.js
+@@ -0,0 +1,109 @@
++'use strict';
++
++/* core/config/index.js — el entorno leído y validado en un solo sitio.
++ *
++ * Envuelve a `config/env.js`, que es el que ya usan los 38 archivos de rutas, y
++ * le añade lo que necesita la identidad propia: MySQL, los secretos de firma y
++ * Google. No lo sustituye: mientras convivan Supabase y lo nuestro, los dos
++ * tienen que seguir funcionando, y duplicar la lectura del entorno en dos
++ * archivos es como se acaba con dos verdades distintas.
++ *
++ * ── La regla del secreto ──────────────────────────────────────────────────
++ *
++ * `JWT_SECRET` no tiene valor por defecto en producción. Un secreto de
++ * desarrollo que se cuela en producción es indistinguible de no tener firma:
++ * cualquiera que lea el repositorio emite tokens de administrador. Por eso, si
++ * falta y `AUTH_PROPIA` está encendido, el proceso no arranca.
++ *
++ * En desarrollo sí se genera uno al vuelo, distinto en cada arranque. Eso hace
++ * que reiniciar el servidor cierre las sesiones locales, que es molesto durante
++ * medio segundo y evita el fallo caro.
++ */
++
++const crypto = require('crypto');
++const env = require('../../config/env.js');
++
++const IS_PROD = env.IS_PROD;
++
++/* El interruptor. Mientras esté apagado, nada de esto se monta y el backend se
++   comporta exactamente como hoy. Es el mismo interruptor que el frontend lee en
++   `src/lib/sesion.js`, y tiene que moverse en los dos a la vez. */
++const AUTH_PROPIA = process.env.AUTH_PROPIA === 'true' || process.env.AUTH_PROPIA === '1';
++
++function secretoDeFirma(nombre) {
++  const valor = process.env[nombre];
++  if (valor) return valor;
++
++  if (IS_PROD && AUTH_PROPIA) {
++    console.error(`\n[FATAL] ${nombre} no está configurado y AUTH_PROPIA está encendido.`);
++    console.error('[FATAL] Sin secreto propio, los tokens no se pueden firmar. Ver CONFIGURAR.md.\n');
++    process.exit(1);
++  }
++  if (AUTH_PROPIA) {
++    console.warn(`[WARN]  ${nombre} no configurado: se usa uno efímero de desarrollo.`);
++  }
++  return `dev-efimero-${crypto.randomBytes(24).toString('hex')}`;
++}
++
++const config = {
++  ...env,
++
++  AUTH_PROPIA,
++
++  /* ── MySQL ────────────────────────────────────────────────────────────
++     En cPanel el usuario y la base llevan el prefijo de la cuenta
++     (`cuenta_gestek`), y es el error de configuración número uno: se pone
++     `gestek` a secas y el servidor contesta «Access denied». */
++  MYSQL_HOST    : process.env.MYSQL_HOST     || (IS_PROD ? null : '127.0.0.1'),
++  MYSQL_PORT    : parseInt(process.env.MYSQL_PORT, 10) || 3306,
++  MYSQL_USER    : process.env.MYSQL_USER     || null,
++  MYSQL_PASSWORD: process.env.MYSQL_PASSWORD || '',
++  MYSQL_DATABASE: process.env.MYSQL_DATABASE || null,
++  MYSQL_SOCKET  : process.env.MYSQL_SOCKET   || null,
++  MYSQL_POOL_MAX: parseInt(process.env.MYSQL_POOL_MAX, 10) || 10,
++
++  /* ── Firma de tokens ──────────────────────────────────────────────────
++     Ninguno se reutiliza de Supabase: si su secreto se filtrara algún día,
++     nuestros tokens seguirían valiendo. Y al revés. */
++  JWT_SECRET: secretoDeFirma('JWT_SECRET'),
++
++  /* 30 minutos. Con Supabase el acceso duraba una hora larga y no se podía
++     revocar; el refresco sí se revoca, así que la ventana de un token robado
++     es esta. Bajarlo más multiplica los refrescos sin ganar mucho. */
++  VIDA_ACCESO_S : parseInt(process.env.AUTH_VIDA_ACCESO_S, 10)  || 60 * 30,
++  VIDA_REFRESH_S: parseInt(process.env.AUTH_VIDA_REFRESH_S, 10) || 60 * 60 * 24 * 30,
++
++  /* Los enlaces del correo. Cortos a propósito: un enlace de recuperación que
++     dura un día sigue sirviendo cuando el correo ya pasó por tres bandejas. */
++  VIDA_CONFIRMACION_S : parseInt(process.env.AUTH_VIDA_CONFIRMACION_S, 10)  || 60 * 60 * 24,
++  VIDA_RECUPERACION_S : parseInt(process.env.AUTH_VIDA_RECUPERACION_S, 10)  || 60 * 60,
++
++  /* ── Freno por cuenta ─────────────────────────────────────────────────
++     `authLimiter` de config/security.js frena por IP, que es lo que corta una
++     inundación. No corta al que prueba mil contraseñas de una cuenta desde mil
++     IP distintas, que es justo el ataque que importa. Esto cuenta por cuenta. */
++  INTENTOS_MAX  : parseInt(process.env.AUTH_INTENTOS_MAX, 10) || 8,
++  BLOQUEO_MIN   : parseInt(process.env.AUTH_BLOQUEO_MIN, 10)  || 15,
++
++  /* ── Google ───────────────────────────────────────────────────────────
++     El `client_id` TIENE que ser el mismo que usa Supabase hoy, o los 22
++     usuarios que entran con Google dejan de entrar aunque sus filas estén
++     perfectas. La `redirect_uri` sí cambia: apunta a nuestro backend. */
++  GOOGLE_CLIENT_ID    : process.env.GOOGLE_CLIENT_ID     || null,
++  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || null,
++  GOOGLE_AUTH_REDIRECT: process.env.GOOGLE_AUTH_REDIRECT || null,
++};
++
++/* Aviso al arrancar, no error: el backend tiene que poder correr con la
++   identidad propia apagada mientras dure la convivencia. */
++if (AUTH_PROPIA) {
++  const faltan = ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_DATABASE'].filter(k => !config[k]);
++  if (faltan.length) {
++    console.warn(`[WARN]  AUTH_PROPIA encendido pero falta ${faltan.join(', ')}. Ver CONFIGURAR.md.`);
++  }
++  if (!config.GOOGLE_CLIENT_ID) {
++    console.warn('[WARN]  AUTH_PROPIA sin GOOGLE_CLIENT_ID: «entrar con Google» quedará apagado.');
++  }
++}
++
++module.exports = config;
+diff --git a/core/db/mysql.js b/core/db/mysql.js
+new file mode 100644
+index 0000000..c1fba74
+--- /dev/null
++++ b/core/db/mysql.js
+@@ -0,0 +1,159 @@
++'use strict';
++
++/* core/db/mysql.js — la única conexión a MySQL de todo el backend.
++ *
++ * ── Por qué un archivo y no un `require('mysql2')` en cada módulo ──────────
++ *
++ * Hoy hay 38 archivos de rutas que hablan con la base cada uno a su manera. Ese
++ * es exactamente el problema que hace cara la migración: cambiar de motor
++ * obliga a tocarlos todos. La regla nueva es que el motor se toca aquí, y los
++ * módulos piden por `repositorio.js`. Si mañana esto fuera PostgreSQL otra vez,
++ * o un pool distinto, se cambia este archivo.
++ *
++ * ── Por qué el pool se crea tarde ─────────────────────────────────────────
++ *
++ * `mysql2` se carga la primera vez que alguien consulta, no al importar. Dos
++ * razones concretas:
++ *
++ *   1. El backend de hoy arranca sin MySQL —todo sigue en Supabase— y no puede
++ *      caerse porque falte una variable de una base que aún no existe.
++ *   2. Las pruebas no montan ninguna base. Si el pool se creara al importar,
++ *      cada `require` del módulo de auth abriría sockets contra un servidor que
++ *      no está y las pruebas tardarían el timeout entero en fallar.
++ *
++ * ── El acento y las tildes ────────────────────────────────────────────────
++ *
++ * `utf8mb4` en la conexión, no sólo en las tablas. El servidor de cPanel viene
++ * en `utf8mb3` por defecto (medido: MySQL 8.0.46, `character_set_server` =
++ * utf8mb3), y una conexión en utf8mb3 escribe basura en columnas utf8mb4 sin
++ * dar ningún error. Se descubre semanas después, cuando alguien busca «Bogotá»
++ * y no aparece.
++ */
++
++const config = require('../config');
++
++let _pool = null;
++let _mysql = null;
++
++function mysql() {
++  if (!_mysql) _mysql = require('mysql2/promise');
++  return _mysql;
++}
++
++/* ¿Hay base configurada? Sirve para que el arranque y los scripts digan algo
++   útil en vez de reventar con un ECONNREFUSED sin contexto. */
++function configurada() {
++  return Boolean(config.MYSQL_HOST && config.MYSQL_USER && config.MYSQL_DATABASE);
++}
++
++function pool() {
++  if (_pool) return _pool;
++
++  if (!configurada()) {
++    throw new Error(
++      'MySQL no está configurado. Faltan MYSQL_HOST, MYSQL_USER o MYSQL_DATABASE. ' +
++      'Ver CONFIGURAR.md.'
++    );
++  }
++
++  _pool = mysql().createPool({
++    host    : config.MYSQL_HOST,
++    port    : config.MYSQL_PORT,
++    user    : config.MYSQL_USER,
++    password: config.MYSQL_PASSWORD,
++    database: config.MYSQL_DATABASE,
++
++    /* En cPanel la conexión va por socket local: no hay red de por medio y el
++       socket es más rápido y no gasta puertos. Si no se define, se usa host. */
++    socketPath: config.MYSQL_SOCKET || undefined,
++
++    charset       : 'utf8mb4_unicode_ci',
++    timezone      : 'Z',
++    /* Hosting compartido: el límite de conexiones simultáneas de la cuenta es
++       bajo y se comparte con phpMyAdmin y con los cron. Diez es holgado para el
++       tráfico medido (1.170 peticiones en 24 h) y deja sitio a lo demás. */
++    connectionLimit   : config.MYSQL_POOL_MAX,
++    waitForConnections: true,
++    queueLimit        : 0,
++    enableKeepAlive   : true,
++
++    /* Las fechas se devuelven como string y se convierten donde haga falta.
++       Con `dateStrings` en false, mysql2 crea objetos Date en la zona del
++       proceso y las horas de los eventos se desplazan al pasar por JSON. */
++    dateStrings: true,
++  });
++
++  return _pool;
++}
++
++/* ── La superficie que usan los repositorios ──────────────────────────── */
++
++/* Consulta con parámetros. SIEMPRE con `?`: concatenar valores en el SQL es
++   como se inyecta, y aquí no hay excepciones «porque el valor viene de dentro».
++   `execute` usa sentencias preparadas, que además el servidor cachea. */
++async function consultar(sql, params = []) {
++  const [filas] = await pool().execute(sql, params);
++  return filas;
++}
++
++/* La primera fila o null. Casi todas las lecturas de auth son de una fila y
++   escribir `filas[0] || null` en cada sitio invita a olvidarlo una vez. */
++async function unaFila(sql, params = []) {
++  const filas = await consultar(sql, params);
++  return filas.length ? filas[0] : null;
++}
++
++/* Ejecuta varias sentencias como una sola operación.
++ *
++ * Importa más de lo que parece en auth: al rotar un refresco hay que revocar el
++ * viejo y crear el nuevo. Si el proceso se cae entre las dos, el usuario se
++ * queda sin sesión sin haber hecho nada. Dentro de una transacción, o pasan las
++ * dos o no pasa ninguna.
++ */
++async function transaccion(fn) {
++  const conexion = await pool().getConnection();
++  try {
++    await conexion.beginTransaction();
++    const resultado = await fn({
++      consultar: async (sql, params = []) => {
++        const [filas] = await conexion.execute(sql, params);
++        return filas;
++      },
++      unaFila: async (sql, params = []) => {
++        const [filas] = await conexion.execute(sql, params);
++        return filas.length ? filas[0] : null;
++      },
++    });
++    await conexion.commit();
++    return resultado;
++  } catch (e) {
++    /* Si el rollback también falla (conexión muerta), el error que interesa es
++       el primero, no el del rollback. */
++    try { await conexion.rollback(); } catch { /* la conexión ya no sirve */ }
++    throw e;
++  } finally {
++    conexion.release();
++  }
++}
++
++/* Para los scripts y para las pruebas de integración: cerrar el pool deja que
++   el proceso termine en vez de quedarse colgado con sockets abiertos. */
++async function cerrar() {
++  if (_pool) {
++    const p = _pool;
++    _pool = null;
++    await p.end();
++  }
++}
++
++/* Comprobación de vida, para `/health` y para `comprobar-base.js`. Devuelve el
++   juego de caracteres real de la conexión, que es el error silencioso más caro
++   de los que se pueden cometer aquí. */
++async function estado() {
++  const fila = await unaFila(
++    "SELECT VERSION() AS version, @@character_set_connection AS charset, DATABASE() AS base"
++  );
++  return fila;
++}
++
++module.exports = { consultar, unaFila, transaccion, cerrar, estado, configurada, pool };
+diff --git a/db/migraciones/001_identidad.sql b/db/migraciones/001_identidad.sql
+new file mode 100644
+index 0000000..525c573
+--- /dev/null
++++ b/db/migraciones/001_identidad.sql
+@@ -0,0 +1,129 @@
++-- 001_identidad.sql — las cuatro tablas de la identidad propia.
++--
++-- Motor: MySQL 8.0.46 (el medido en el cPanel de destino).
++--
++-- ── Antes de esto ─────────────────────────────────────────────────────────
++--
++-- La base hay que crearla en utf8mb4 desde el principio. El servidor viene en
++-- utf8mb3 y una base creada sin decir nada la hereda; cambiarla después de
++-- tener datos es un ALTER por tabla y por columna que hay que hacer con la app
++-- parada. En cPanel la base se crea sin elegir juego de caracteres, así que:
++--
++--   ALTER DATABASE `cuenta_gestek` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
++--
++-- ── Por qué CHAR(36) y no BINARY(16) ──────────────────────────────────────
++--
++-- Los UUID ocupan la mitad en binario y ordenan mejor. Pero estos UUID no son
++-- nuestros: son los que ya tiene Supabase, referenciados por claves ajenas en
++-- todo el esquema y por `profiles.id`. Durante la convivencia, las mismas
++-- cadenas viajan entre las dos bases en cada petición. Guardarlos como texto
++-- hace que un `SELECT` se pueda comparar a ojo con lo que devuelve Supabase,
++-- y esa comprobación vale más que los 20 bytes por fila que se ahorrarían.
++
++CREATE TABLE IF NOT EXISTS usuarios (
++  id                  CHAR(36)     NOT NULL,
++  email               VARCHAR(255) NOT NULL,
++  -- NULL a propósito: 22 de los 29 usuarios entran sólo con Google y no tienen
++  -- contraseña. Una cadena vacía aquí sería una contraseña que bcrypt rechaza
++  -- siempre, pero que se puede confundir con «no configurada».
++  password_hash       VARCHAR(255)     NULL,
++  email_confirmado_at DATETIME         NULL,
++  -- Lo que Supabase llamaba `user_metadata`: nombre, avatar, teléfono. Se
++  -- guarda tal cual para que el frontend no note el cambio.
++  metadata            JSON             NULL,
++  intentos_fallidos   INT          NOT NULL DEFAULT 0,
++  bloqueado_hasta     DATETIME         NULL,
++  ultimo_acceso_at    DATETIME         NULL,
++  creado_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  actualizado_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
++  PRIMARY KEY (id),
++  -- El correo distingue mayúsculas en algunas configuraciones y en otras no.
++  -- Con esta collation, `Ana@x.com` y `ana@x.com` son la misma cuenta, que es
++  -- lo que espera cualquiera que se registre. El servicio además normaliza a
++  -- minúsculas antes de escribir, para no depender sólo de esto.
++  UNIQUE KEY uk_usuarios_email (email)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
++
++-- ── Identidades externas ───────────────────────────────────────────────────
++--
++-- Una fila por proveedor y cuenta. Hoy sólo hay `google`, con 22 filas, pero la
++-- tabla admite más sin migración.
++--
++-- El `proveedor_id` es el `sub` de Google: un número estable que NO cambia
++-- aunque la persona cambie de correo. Emparejar por correo en vez de por `sub`
++-- es el fallo clásico: quien cambia su dirección en Google pierde su cuenta y
++-- se le crea otra vacía.
++
++CREATE TABLE IF NOT EXISTS usuario_identidades (
++  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
++  usuario_id    CHAR(36)     NOT NULL,
++  proveedor     VARCHAR(32)  NOT NULL,
++  proveedor_id  VARCHAR(255) NOT NULL,
++  email         VARCHAR(255)     NULL,
++  creado_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  PRIMARY KEY (id),
++  UNIQUE KEY uk_identidad (proveedor, proveedor_id),
++  KEY idx_identidad_usuario (usuario_id),
++  CONSTRAINT fk_identidad_usuario FOREIGN KEY (usuario_id)
++    REFERENCES usuarios (id) ON DELETE CASCADE
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
++
++-- ── Sesiones ───────────────────────────────────────────────────────────────
++--
++-- Una fila por refresco vivo. Es lo que Supabase no dejaba hacer: cerrar la
++-- sesión de un dispositivo perdido sin cambiar la contraseña.
++--
++-- Se guarda el SHA-256 del refresco, nunca el refresco. Si alguien se lleva un
++-- volcado de esta tabla, no puede entrar con nada de lo que hay dentro. Es la
++-- misma decisión que ya tomó `lib/oauth.js` para los tokens del conector.
++--
++-- `reemplazada_por` es la cadena de rotación: cada refresco usado apunta al que
++-- lo sustituyó. Sirve para detectar el robo — si aparece un refresco ya
++-- reemplazado, o lo tiene un ladrón o lo tiene el dueño, y no se puede saber
++-- cuál, así que se corta la cadena entera.
++
++CREATE TABLE IF NOT EXISTS sesiones (
++  id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
++  usuario_id      CHAR(36)    NOT NULL,
++  refresh_hash    CHAR(64)    NOT NULL,
++  creado_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  expira_at       DATETIME    NOT NULL,
++  usado_at        DATETIME        NULL,
++  revocado_at     DATETIME        NULL,
++  reemplazada_por BIGINT UNSIGNED NULL,
++  -- Para que el panel pueda decir «Chrome en Windows, hace 3 días» en vez de
++  -- una fila sin cara que nadie se atreve a cerrar.
++  user_agent      VARCHAR(255)    NULL,
++  ip              VARCHAR(45)     NULL,
++  PRIMARY KEY (id),
++  UNIQUE KEY uk_sesiones_refresh (refresh_hash),
++  KEY idx_sesiones_usuario (usuario_id, revocado_at),
++  KEY idx_sesiones_expira (expira_at),
++  CONSTRAINT fk_sesion_usuario FOREIGN KEY (usuario_id)
++    REFERENCES usuarios (id) ON DELETE CASCADE
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
++
++-- ── Tokens de un solo uso ──────────────────────────────────────────────────
++--
++-- Confirmar el correo y recuperar la contraseña. Otra vez sólo el hash: el
++-- enlace de recuperación es, durante una hora, equivalente a la contraseña.
++--
++-- `usado_at` en vez de borrar la fila, por lo mismo que en `oauth_codes`: un
++-- segundo intento con el mismo enlace se puede distinguir de un enlace que
++-- nunca existió, y eso es información que sirve.
++
++CREATE TABLE IF NOT EXISTS tokens_un_uso (
++  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
++  usuario_id CHAR(36)   NOT NULL,
++  tipo       VARCHAR(24) NOT NULL,       -- 'confirmacion' | 'recuperacion'
++  token_hash CHAR(64)   NOT NULL,
++  creado_at  DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  expira_at  DATETIME   NOT NULL,
++  usado_at   DATETIME       NULL,
++  PRIMARY KEY (id),
++  UNIQUE KEY uk_token_un_uso (token_hash),
++  KEY idx_token_usuario (usuario_id, tipo),
++  KEY idx_token_expira (expira_at),
++  CONSTRAINT fk_token_usuario FOREIGN KEY (usuario_id)
++    REFERENCES usuarios (id) ON DELETE CASCADE
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+diff --git a/index.js b/index.js
+index 33739c1..466f5d7 100644
+--- a/index.js
++++ b/index.js
+@@ -51,6 +51,22 @@ app.get('/', (_req, res) => {
+ 
+ app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+ 
++/* ── Identidad propia ──────────────────────────────────────────────────────
++   Detrás de un interruptor (`AUTH_PROPIA`) y montada antes que nada: son rutas
++   públicas por definición —quien va a entrar todavía no tiene sesión— y varios
++   de los routers de abajo se montan en '/' con un guardia global que las
++   interceptaría.
++
++   Con el interruptor apagado, el backend se comporta exactamente como hoy: ni
++   se carga el módulo, ni se abre conexión a MySQL. El mismo interruptor existe
++   en el frontend (`VITE_AUTH_PROPIA`) y los dos tienen que moverse a la vez.
++   Ver CONFIGURAR.md. */
++const configPropia = require('./core/config');
++if (configPropia.AUTH_PROPIA) {
++  app.use('/auth', require('./modules/auth').rutas);
++  console.log('[auth] identidad propia montada en /auth');
++}
++
+ /* TEMPORAL — diagnóstico de red saliente hacia Hostinger, para depurar el
+    ENETUNREACH/timeout que ve el envío de correo. Sin parámetros de entrada
+    (no hay riesgo de SSRF: los destinos están fijos en el código), y no
+diff --git a/middleware/auth.js b/middleware/auth.js
+index 3ffeb1d..bacb9b4 100644
+--- a/middleware/auth.js
++++ b/middleware/auth.js
+@@ -1,27 +1,85 @@
+-/* Middleware: valida el access_token de Supabase Auth.
+-   El front lo manda en Authorization: Bearer <token>.
+-   Si es válido, deja req.user = { id, email, ... } y sigue. */
++/* Middleware: valida el access_token que manda el front en
++   `Authorization: Bearer <token>`. Si es válido, deja `req.user = { id, email, ... }`.
++
++   ── Por qué hay dos verificaciones y en este orden ────────────────────────
++
++   Durante la migración conviven dos clases de token: los que emite nuestra
++   identidad propia (`modules/auth`) y los que quedan vivos de Supabase. Este
++   archivo prueba primero el nuestro y sólo cae al de Supabase si no valida.
++
++   Eso hace tres cosas a la vez, y por eso se hace así y no cambiando los 38
++   archivos de rutas:
++
++   1. **Las 21 sesiones vivas no se cortan.** Quien tenía la aplicación abierta
++      cuando se encendió el interruptor sigue dentro; su token de Supabase
++      valida por el camino de siempre hasta que caduque.
++   2. **Ninguna de las 312 referencias a `req.user` se toca.** La forma del
++      objeto es la misma.
++   3. **Cada petición con token nuestro se ahorra un viaje de red.** Verificar
++      la firma es local; `supabase.auth.getUser()` es una llamada HTTP a
++      Supabase por cada petición que hace la aplicación. Con las pantallas
++      sondeando, ahí estaba una parte del gasto que no se veía.
++
++   El orden importa: primero el local, porque es el que no cuesta nada. Al
++   revés, todo seguiría pagando el viaje.
++
++   ── Cuándo se puede borrar la mitad de este archivo ───────────────────────
++
++   Cuando no queden tokens de Supabase vivos, o sea 30 días después de apagar
++   su emisión. Entonces se borra `porSupabase` y esto son diez líneas. */
++
+ const supabase = require('../lib/supabase.js');
++const config = require('../core/config');
+ 
+-async function verifySupabaseJWT(req, res, next) {
++/* Se importa perezosamente para no arrastrar el módulo entero (y su Router de
++   Express) cuando la identidad propia está apagada, que es como arranca hoy. */
++let _propia = null;
++function propia() {
++  if (!_propia) _propia = require('../modules/auth');
++  return _propia;
++}
++
++function tokenDe(req) {
+   const header = req.headers['authorization'] || '';
+-  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
+-  if (!token) return res.status(401).json({ error: 'Token requerido.' });
++  return header.startsWith('Bearer ') ? header.slice(7) : null;
++}
++
++/* Nuestro token. Devuelve el usuario o null, sin red y sin lanzar. */
++function porNosotros(req) {
++  if (!config.AUTH_PROPIA) return null;
++  return propia().verificar(req);
++}
+ 
++/* El camino viejo. Se deja intacto a propósito. */
++async function porSupabase(token) {
+   const { data, error } = await supabase.auth.getUser(token);
+-  if (error || !data.user) return res.status(401).json({ error: 'Token inválido o expirado.' });
++  if (error || !data?.user) return null;
++  return data.user;
++}
++
++async function verifySupabaseJWT(req, res, next) {
++  const token = tokenDe(req);
++  if (!token) return res.status(401).json({ error: 'Token requerido.' });
++
++  const nuestro = porNosotros(req);
++  if (nuestro) { req.user = nuestro; return next(); }
++
++  const suyo = await porSupabase(token);
++  if (!suyo) return res.status(401).json({ error: 'Token inválido o expirado.' });
+ 
+-  req.user = data.user;
++  req.user = suyo;
+   next();
+ }
+ 
+ /* Igual al anterior pero no bloquea si no hay token (rutas mixtas). */
+ async function verifySupabaseJWTOptional(req, _res, next) {
+-  const header = req.headers['authorization'] || '';
+-  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
++  const token = tokenDe(req);
+   if (!token) { req.user = null; return next(); }
+-  const { data } = await supabase.auth.getUser(token);
+-  req.user = data?.user ?? null;
++
++  const nuestro = porNosotros(req);
++  if (nuestro) { req.user = nuestro; return next(); }
++
++  req.user = await porSupabase(token);
+   next();
+ }
+ 
+diff --git a/modules/auth/correos/index.js b/modules/auth/correos/index.js
+new file mode 100644
+index 0000000..d1814e5
+--- /dev/null
++++ b/modules/auth/correos/index.js
+@@ -0,0 +1,128 @@
++'use strict';
++
++/* modules/auth/correos/ — los tres correos que manda la identidad propia.
++ *
++ * Confirmar el registro, recuperar la contraseña, y el aviso de que alguien
++ * intentó registrarse con una dirección que ya tiene cuenta.
++ *
++ * ── Por qué el envío no puede tumbar el registro ──────────────────────────
++ *
++ * `sendMail` habla con un servidor SMTP que a veces tarda o falla. Si un fallo
++ * de correo hiciera fallar el registro, el usuario vería un error después de
++ * que su cuenta YA se creó, y al reintentar le diríamos que el correo está
++ * cogido. Así que aquí los fallos se registran y se tragan: la cuenta queda
++ * creada y el botón de «reenviar confirmación» arregla el resto.
++ *
++ * ── El enlace ─────────────────────────────────────────────────────────────
++ *
++ * Apunta al frontend, no al backend. La pantalla `ConfirmarPage` es la que
++ * llama a `/auth/confirmar` con el token en el cuerpo. Si el enlace apuntara al
++ * backend, el token viajaría en la URL y acabaría en los registros de acceso
++ * del servidor y en la cabecera `Referer` de cualquier recurso externo de la
++ * página siguiente — que es justo lo que se corrigió en el commit del QR.
++ */
++
++const email = require('../../../lib/email.js');
++const config = require('../../../core/config');
++
++function baseFrontend() {
++  const url = (config.FRONTEND_URL || '').split(',')[0].trim().replace(/\/$/, '');
++  return url || 'http://localhost:5173';
++}
++
++/* Plantilla mínima y sobria. El correo de confirmación llega a bandejas de
++   entrada que nunca han visto la marca; lo que tiene que quedar claro en dos
++   segundos es de quién es y qué botón hay que pulsar. */
++function envolver({ titulo, cuerpo, boton, enlace, pie }) {
++  return `<!doctype html>
++<html lang="es"><body style="margin:0;background:#f6f7f9;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">
++  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px;">
++    <tr><td align="center">
++      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:12px;padding:32px;">
++        <tr><td>
++          <h1 style="margin:0 0 16px;font-size:20px;color:#111827;">${titulo}</h1>
++          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">${cuerpo}</p>
++          <p style="margin:0 0 24px;">
++            <a href="${enlace}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;">${boton}</a>
++          </p>
++          <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#6b7280;">
++            Si el botón no funciona, copiá esta dirección en el navegador:<br>
++            <span style="color:#374151;word-break:break-all;">${enlace}</span>
++          </p>
++          <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">${pie}</p>
++        </td></tr>
++      </table>
++      <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">GESTEK</p>
++    </td></tr>
++  </table>
++</body></html>`;
++}
++
++async function mandar(opciones) {
++  try {
++    await email.sendMail(opciones);
++    return true;
++  } catch (e) {
++    console.error('[auth] no se pudo mandar el correo:', e?.message || e);
++    return false;
++  }
++}
++
++async function confirmacion(usuario, token) {
++  const enlace = `${baseFrontend()}/confirmar?token=${encodeURIComponent(token)}`;
++
++  /* En desarrollo casi nunca hay SMTP configurado, y sin el enlace por consola
++     no hay forma de terminar un registro de prueba. En producción no se imprime
++     nunca: sería dejar la llave en el registro del servidor. */
++  if (!config.IS_PROD) console.log(`[auth] enlace de confirmación para ${usuario.email}: ${enlace}`);
++
++  return mandar({
++    to     : usuario.email,
++    subject: 'Confirmá tu correo · GESTEK',
++    html   : envolver({
++      titulo: 'Confirmá tu correo',
++      cuerpo: 'Para terminar de crear tu cuenta hacé clic en el botón. El enlace vale 24 horas.',
++      boton : 'Confirmar mi correo',
++      enlace,
++      pie   : 'Si no fuiste vos quien creó esta cuenta, ignorá este mensaje: sin confirmar, la cuenta no sirve para nada.',
++    }),
++  });
++}
++
++async function recuperacion(usuario, token) {
++  const enlace = `${baseFrontend()}/reset-password?token=${encodeURIComponent(token)}`;
++
++  if (!config.IS_PROD) console.log(`[auth] enlace de recuperación para ${usuario.email}: ${enlace}`);
++
++  return mandar({
++    to     : usuario.email,
++    subject: 'Restablecer tu contraseña · GESTEK',
++    html   : envolver({
++      titulo: 'Restablecer tu contraseña',
++      cuerpo: 'Alguien pidió cambiar la contraseña de esta cuenta. Si fuiste vos, hacé clic en el botón. El enlace vale una hora y sólo se puede usar una vez.',
++      boton : 'Elegir contraseña nueva',
++      enlace,
++      pie   : 'Si no lo pediste, no hace falta que hagas nada: tu contraseña actual sigue funcionando y este enlace caduca solo.',
++    }),
++  });
++}
++
++/* El tercero. Se manda a la dirección real cuando alguien intenta registrarse
++   con un correo que ya tiene cuenta, porque el formulario contesta lo mismo que
++   a un registro normal para no delatar quién está registrado. El dueño se
++   entera; el que lo intentó, no. */
++async function avisarIntentoDeRegistro(usuario) {
++  return mandar({
++    to     : usuario.email,
++    subject: 'Alguien intentó crear una cuenta con tu correo · GESTEK',
++    html   : envolver({
++      titulo: 'Ya tenés una cuenta con este correo',
++      cuerpo: 'Se intentó crear una cuenta nueva con tu dirección. No se creó nada y tu cuenta sigue igual. Si fuiste vos y no recordás la contraseña, podés restablecerla.',
++      boton : 'Restablecer mi contraseña',
++      enlace: `${baseFrontend()}/auth`,
++      pie   : 'Si no fuiste vos, no hace falta que hagas nada.',
++    }),
++  });
++}
++
++module.exports = { confirmacion, recuperacion, avisarIntentoDeRegistro, _envolver: envolver };
+diff --git a/modules/auth/google.js b/modules/auth/google.js
+new file mode 100644
+index 0000000..cc73da6
+--- /dev/null
++++ b/modules/auth/google.js
+@@ -0,0 +1,208 @@
++'use strict';
++
++/* modules/auth/google.js — «entrar con Google», sin Supabase en medio.
++ *
++ * El flujo OAuth de Google ya estaba escrito en `lib/googleCalendar.js` para
++ * agendar entrevistas: pedir consentimiento, firmar un estado, canjear el
++ * código. Lo que cambia aquí es el `scope` (identidad en vez de calendario) y
++ * qué se hace al volver (abrir sesión en vez de guardar un refresco de
++ * calendario). No se importa aquel archivo porque su `redirect_uri` y su
++ * `state` son los suyos, y mezclarlos haría que tocar uno rompiera el otro.
++ *
++ * ── Lo que NO puede cambiar ───────────────────────────────────────────────
++ *
++ * El `client_id`. 22 de los 29 usuarios entran por aquí, y Google identifica a
++ * cada persona con un `sub` que es distinto para cada `client_id`. Con un
++ * cliente nuevo, los 22 `sub` guardados no coinciden con ninguno de los que
++ * mande Google, y esas 22 personas entrarían a cuentas nuevas y vacías con sus
++ * eventos dentro de las viejas. Hay que reutilizar el cliente que usa Supabase
++ * hoy y añadirle nuestra `redirect_uri` en la consola. Es una pantalla, pero si
++ * se descubre tarde afecta a tres de cada cuatro usuarios.
++ *
++ * ── El estado ─────────────────────────────────────────────────────────────
++ *
++ * `state` lleva a dónde volver y va firmado. Sin firma, cualquiera puede
++ * fabricar un enlace de consentimiento que, al terminar, mande al usuario —ya
++ * con su sesión abierta— a un dominio ajeno con los tokens en la URL. Además
++ * caduca a los diez minutos: es el tiempo de decidir en una pantalla de Google,
++ * no el de guardar un enlace para mañana.
++ */
++
++const crypto = require('crypto');
++const config = require('../../core/config');
++
++const SCOPE = 'openid email profile';
++const VIDA_ESTADO_S = 600;
++
++function configurado() {
++  return Boolean(config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET && config.GOOGLE_AUTH_REDIRECT);
++}
++
++/* ── Estado firmado ────────────────────────────────────────────────────── */
++
++function firmar(carga) {
++  const cuerpo = Buffer.from(JSON.stringify(carga)).toString('base64url');
++  const firma = crypto.createHmac('sha256', config.JWT_SECRET).update(cuerpo).digest('base64url');
++  return `${cuerpo}.${firma}`;
++}
++
++function verificarEstado(state) {
++  const [cuerpo, firma] = String(state || '').split('.');
++  if (!cuerpo || !firma) return null;
++
++  const esperada = crypto.createHmac('sha256', config.JWT_SECRET).update(cuerpo).digest('base64url');
++  const a = Buffer.from(firma);
++  const b = Buffer.from(esperada);
++  /* `timingSafeEqual` revienta si miden distinto, así que la longitud se
++     comprueba antes. Comparar con `===` filtraría por tiempo cuántos caracteres
++     acertó quien lo intenta. */
++  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
++
++  let carga;
++  try { carga = JSON.parse(Buffer.from(cuerpo, 'base64url').toString('utf8')); } catch { return null; }
++  if (!carga?.t || Date.now() - carga.t > VIDA_ESTADO_S * 1000) return null;
++  return carga;
++}
++
++/* A dónde volver después. Sólo se admite una ruta de nuestra propia app: si se
++   aceptara una URL completa, esto sería un redirector abierto con la sesión
++   recién abierta encima. */
++function destinoSeguro(destino) {
++  const d = String(destino || '/inicio');
++  return /^\/[A-Za-z0-9\-._~/?%&=+:@!$'()*,;[\]]*$/.test(d) && !d.startsWith('//') ? d : '/inicio';
++}
++
++function urlDeConsentimiento({ destino } = {}) {
++  const p = new URLSearchParams({
++    client_id    : config.GOOGLE_CLIENT_ID,
++    redirect_uri : config.GOOGLE_AUTH_REDIRECT,
++    response_type: 'code',
++    scope        : SCOPE,
++    /* `select_account` para que quien tiene dos cuentas de Google pueda elegir.
++       Sin esto, Google entra con la última y el usuario no entiende por qué ve
++       los eventos de otro. */
++    prompt       : 'select_account',
++    state        : firmar({ d: destinoSeguro(destino), t: Date.now(), n: crypto.randomBytes(8).toString('hex') }),
++  });
++  return `https://accounts.google.com/o/oauth2/v2/auth?${p.toString()}`;
++}
++
++/* ── Vuelta ────────────────────────────────────────────────────────────── */
++
++async function intercambiarCodigo(code, { fetchImpl = fetch } = {}) {
++  const body = new URLSearchParams({
++    code,
++    client_id    : config.GOOGLE_CLIENT_ID,
++    client_secret: config.GOOGLE_CLIENT_SECRET,
++    redirect_uri : config.GOOGLE_AUTH_REDIRECT,
++    grant_type   : 'authorization_code',
++  });
++  const r = await fetchImpl('https://oauth2.googleapis.com/token', {
++    method : 'POST',
++    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
++    body,
++  });
++  const datos = await r.json();
++  if (!r.ok) throw new Error(`Google token ${r.status}: ${JSON.stringify(datos).slice(0, 200)}`);
++  return datos;
++}
++
++async function perfilDeGoogle(accessToken, { fetchImpl = fetch } = {}) {
++  const r = await fetchImpl('https://www.googleapis.com/oauth2/v3/userinfo', {
++    headers: { Authorization: `Bearer ${accessToken}` },
++  });
++  const datos = await r.json();
++  if (!r.ok) throw new Error(`Google userinfo ${r.status}`);
++  return datos; // { sub, email, email_verified, name, picture }
++}
++
++/* Resuelve la cuenta a la que corresponde ese perfil de Google. Tres casos, y
++ * el orden importa:
++ *
++ *   1. Ya hay identidad guardada con ese `sub` → esa cuenta. Siempre primero:
++ *      es la única forma estable de identificar a alguien aunque cambie de
++ *      correo en Google.
++ *   2. No hay identidad, pero el correo ya tiene cuenta → se enlaza. Es el
++ *      camino de los 22 que hoy entran por Supabase si su identidad no se
++ *      hubiera migrado, y el de quien se registró con contraseña y ahora pulsa
++ *      el botón de Google.
++ *   3. Ni identidad ni correo → cuenta nueva, ya confirmada (Google acaba de
++ *      demostrar que esa dirección es suya).
++ *
++ * El caso 2 sólo vale si Google dice `email_verified`. Sin esa comprobación,
++ * quien consiga que Google le emita un perfil con el correo de otra persona sin
++ * verificar se lleva su cuenta entera.
++ */
++async function resolverUsuario(perfil, { repo }) {
++  const sub = String(perfil.sub || '');
++  if (!sub) throw new Error('Google no devolvió el identificador de la cuenta.');
++
++  const porSub = await repo.porIdentidad('google', sub);
++  if (porSub) return { usuario: porSub, nuevo: false };
++
++  const correo = repo.normalizar(perfil.email);
++  if (correo && perfil.email_verified) {
++    const existente = await repo.porEmail(correo);
++    if (existente) {
++      await repo.enlazarIdentidad({ usuarioId: existente.id, proveedor: 'google', proveedorId: sub, email: correo });
++      /* Si llega por Google con el correo verificado y su cuenta estaba sin
++         confirmar, queda confirmada: el correo ya está probado. */
++      if (!existente.emailConfirmado) await repo.marcarConfirmado(existente.id);
++      return { usuario: await repo.porId(existente.id), nuevo: false };
++    }
++  }
++
++  if (!correo) throw new Error('Google no devolvió un correo para esa cuenta.');
++
++  const usuario = await repo.crear({
++    id      : crypto.randomUUID(),
++    email   : correo,
++    passwordHash: null,
++    metadata: {
++      /* Los mismos nombres de campo que dejaba Supabase en `user_metadata`, que
++         es lo que leen las pantallas del frontend. */
++      full_name : perfil.name || '',
++      avatar_url: perfil.picture || '',
++    },
++    emailConfirmado: true,
++  });
++  await repo.enlazarIdentidad({ usuarioId: usuario.id, proveedor: 'google', proveedorId: sub, email: correo });
++  return { usuario, nuevo: true };
++}
++
++/* La URL a la que se manda al navegador cuando ya hay sesión.
++ *
++ * Los tokens van en el fragmento (`#`), no en la query. El fragmento no se
++ * manda al servidor: no aparece en los registros de acceso ni en la cabecera
++ * `Referer` de la página siguiente. El frontend lo lee con
++ * `recogerSesionDeUrl()` y lo borra de la barra de direcciones. */
++function urlDeVuelta({ destino, sesion }) {
++  const base = (config.FRONTEND_URL || '').split(',')[0].trim().replace(/\/$/, '') || 'http://localhost:5173';
++  const frag = new URLSearchParams({
++    access_token : sesion.access_token,
++    refresh_token: sesion.refresh_token,
++  });
++  return `${base}${destinoSeguro(destino)}#${frag.toString()}`;
++}
++
++/* Cuando algo falla se vuelve al frontend con el motivo en la query, no con un
++   JSON en blanco: quien está mirando es una persona a mitad de un login, y una
++   pantalla de la aplicación explicándolo es mejor que un error crudo. */
++function urlDeError(motivo) {
++  const base = (config.FRONTEND_URL || '').split(',')[0].trim().replace(/\/$/, '') || 'http://localhost:5173';
++  return `${base}/auth?error=${encodeURIComponent(motivo)}`;
++}
++
++module.exports = {
++  configurado,
++  urlDeConsentimiento,
++  verificarEstado,
++  intercambiarCodigo,
++  perfilDeGoogle,
++  resolverUsuario,
++  urlDeVuelta,
++  urlDeError,
++  SCOPE,
++  _firmar: firmar,
++  _destinoSeguro: destinoSeguro,
++};
+diff --git a/modules/auth/index.js b/modules/auth/index.js
+new file mode 100644
+index 0000000..a07e46a
+--- /dev/null
++++ b/modules/auth/index.js
+@@ -0,0 +1,75 @@
++'use strict';
++
++/* modules/auth/index.js — la única puerta del módulo.
++ *
++ * Nadie de fuera importa `servicio.js`, `repositorio.js` ni `tokens.js`. Se
++ * importa esto y ya. La regla parece burocracia hasta el día que hay que sacar
++ * el módulo a otro proceso: si nadie ha entrado por la ventana, se mueve la
++ * carpeta y se cambia una línea.
++ *
++ * Lo que se exporta:
++ *
++ *   rutas          el Router de Express, para montar en `/auth`
++ *   exigirSesion   middleware: 401 si no hay token válido
++ *   sesionOpcional middleware: deja `req.user = null` y sigue
++ *   verificar      verificación local de un token, para middleware/auth.js
++ *   servicio       para los scripts y las pruebas de integración
++ */
++
++const tokens = require('./tokens.js');
++const repositorio = require('./repositorio.js');
++const { crearServicio } = require('./servicio.js');
++const { crearRutas } = require('./rutas.js');
++
++const servicio = crearServicio({ repo: repositorio });
++
++/* Verificación local: ni una consulta, ni un viaje de red.
++ *
++ * Es el cambio de §5.4 y el que más rinde de todo el módulo. Hoy
++ * `middleware/auth.js` llama a `supabase.auth.getUser(token)` en CADA petición,
++ * o sea un viaje a Supabase por cada petición que hace la aplicación. Con las
++ * pantallas sondeando cada pocos segundos, eso son miles de viajes al día que
++ * aquí no existen: verificar una firma HMAC son microsegundos de CPU.
++ *
++ * El precio, que hay que saber: un token robado sigue valiendo hasta que
++ * caduca, porque nadie pregunta a la base si sigue siendo bueno. Por eso el
++ * acceso dura 30 minutos y no una hora larga, y por eso lo que se revoca de
++ * verdad es el refresco.
++ */
++function usuarioDeLaPeticion(req) {
++  const cabecera = req.headers['authorization'] || '';
++  const token = cabecera.startsWith('Bearer ') ? cabecera.slice(7) : null;
++  if (!token) return null;
++
++  const carga = tokens.verificarAcceso(token);
++  if (!carga) return null;
++
++  /* La misma forma que dejaba Supabase: los 297 usos de `req.user.id` y los 9
++     de `req.user.email` que hay repartidos por las 38 rutas siguen valiendo sin
++     tocar ni uno. `user_metadata` va vacío a propósito — el único sitio que lo
++     usaba ya se cambió, y meterlo en el token lo dejaría obsoleto en cuanto
++     alguien edite su perfil. */
++  return { id: carga.sub, email: carga.email, user_metadata: {}, _propio: true };
++}
++
++function exigirSesion(req, res, next) {
++  const usuario = usuarioDeLaPeticion(req);
++  if (!usuario) return res.status(401).json({ error: 'Token inválido o expirado.' });
++  req.user = usuario;
++  next();
++}
++
++function sesionOpcional(req, _res, next) {
++  req.user = usuarioDeLaPeticion(req);
++  next();
++}
++
++const rutas = crearRutas({ servicio, exigirSesion });
++
++module.exports = {
++  rutas,
++  exigirSesion,
++  sesionOpcional,
++  verificar: usuarioDeLaPeticion,
++  servicio,
++};
+diff --git a/modules/auth/repositorio.js b/modules/auth/repositorio.js
+new file mode 100644
+index 0000000..131e256
+--- /dev/null
++++ b/modules/auth/repositorio.js
+@@ -0,0 +1,262 @@
++'use strict';
++
++/* modules/auth/repositorio.js — el ÚNICO archivo del módulo que escribe SQL.
++ *
++ * La regla no es de estilo. Cuando llegue el turno de las 71 tablas (§6 del
++ * mapa), lo que hay que reescribir por módulo es este archivo y sólo éste: el
++ * servicio, las rutas y los correos no saben si debajo hay MySQL, PostgreSQL o
++ * un array en memoria. Es también lo que hace que las pruebas del servicio
++ * corran sin base — le pasan otro objeto con estos mismos métodos.
++ *
++ * Las funciones devuelven objetos con nombres nuestros, no filas crudas. Si
++ * mañana la columna se llama distinto, se traduce aquí.
++ */
++
++const db = require('../../core/db/mysql.js');
++
++/* MySQL 8 devuelve las columnas JSON ya parseadas casi siempre, pero según
++   cómo llegue la fila (a través de `execute` con `dateStrings`, o de un driver
++   distinto) puede venir como cadena. Aceptar las dos formas cuesta tres líneas
++   y evita un `[object Object]` en el nombre del usuario. */
++function leerJson(valor) {
++  if (valor == null) return {};
++  if (typeof valor === 'object') return valor;
++  try { return JSON.parse(valor); } catch { return {}; }
++}
++
++function aUsuario(fila) {
++  if (!fila) return null;
++  return {
++    id               : fila.id,
++    email            : fila.email,
++    passwordHash     : fila.password_hash || null,
++    emailConfirmado  : Boolean(fila.email_confirmado_at),
++    emailConfirmadoAt: fila.email_confirmado_at || null,
++    metadata         : leerJson(fila.metadata),
++    intentosFallidos : fila.intentos_fallidos || 0,
++    bloqueadoHasta   : fila.bloqueado_hasta || null,
++  };
++}
++
++/* ── Usuarios ──────────────────────────────────────────────────────────── */
++
++async function porEmail(email) {
++  return aUsuario(await db.unaFila('SELECT * FROM usuarios WHERE email = ? LIMIT 1', [normalizar(email)]));
++}
++
++async function porId(id) {
++  return aUsuario(await db.unaFila('SELECT * FROM usuarios WHERE id = ? LIMIT 1', [id]));
++}
++
++/* El correo se guarda siempre en minúsculas y sin espacios alrededor. La
++   collation ya ignora mayúsculas, pero normalizar antes de escribir hace que lo
++   que se lee sea lo que se guardó, y que un `UNIQUE` no dependa de la
++   configuración del servidor. */
++function normalizar(email) {
++  return String(email || '').trim().toLowerCase();
++}
++
++async function crear({ id, email, passwordHash, metadata, emailConfirmado }) {
++  await db.consultar(
++    `INSERT INTO usuarios (id, email, password_hash, metadata, email_confirmado_at)
++     VALUES (?, ?, ?, ?, ?)`,
++    [
++      id,
++      normalizar(email),
++      passwordHash || null,
++      JSON.stringify(metadata || {}),
++      emailConfirmado ? new Date() : null,
++    ]
++  );
++  return porId(id);
++}
++
++async function actualizarPassword(usuarioId, passwordHash) {
++  await db.consultar('UPDATE usuarios SET password_hash = ? WHERE id = ?', [passwordHash, usuarioId]);
++}
++
++async function actualizarMetadata(usuarioId, metadata) {
++  await db.consultar('UPDATE usuarios SET metadata = ? WHERE id = ?', [JSON.stringify(metadata || {}), usuarioId]);
++  return porId(usuarioId);
++}
++
++async function marcarConfirmado(usuarioId) {
++  await db.consultar(
++    'UPDATE usuarios SET email_confirmado_at = COALESCE(email_confirmado_at, NOW()) WHERE id = ?',
++    [usuarioId]
++  );
++}
++
++async function marcarAcceso(usuarioId) {
++  await db.consultar(
++    'UPDATE usuarios SET ultimo_acceso_at = NOW(), intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?',
++    [usuarioId]
++  );
++}
++
++/* El contador sube y, al pasar del tope, se pone la hora de desbloqueo. Se hace
++   en una sola sentencia para que dos intentos simultáneos no se pisen: leer,
++   sumar y escribir desde Node deja una ventana en la que dos peticiones leen
++   el mismo 7 y las dos escriben 8. */
++async function sumarIntentoFallido(usuarioId, { maximo, bloqueoMinutos }) {
++  await db.consultar(
++    `UPDATE usuarios
++        SET intentos_fallidos = intentos_fallidos + 1,
++            bloqueado_hasta   = IF(intentos_fallidos + 1 >= ?,
++                                   DATE_ADD(NOW(), INTERVAL ? MINUTE),
++                                   bloqueado_hasta)
++      WHERE id = ?`,
++    [maximo, bloqueoMinutos, usuarioId]
++  );
++}
++
++/* ── Identidades ───────────────────────────────────────────────────────── */
++
++async function porIdentidad(proveedor, proveedorId) {
++  const fila = await db.unaFila(
++    `SELECT u.* FROM usuarios u
++       JOIN usuario_identidades i ON i.usuario_id = u.id
++      WHERE i.proveedor = ? AND i.proveedor_id = ? LIMIT 1`,
++    [proveedor, String(proveedorId)]
++  );
++  return aUsuario(fila);
++}
++
++/* `INSERT IGNORE` porque la carrera existe de verdad: dos pestañas terminando
++   el mismo consentimiento de Google a la vez. La segunda choca contra el
++   UNIQUE, y que no pase nada es exactamente lo correcto. */
++async function enlazarIdentidad({ usuarioId, proveedor, proveedorId, email }) {
++  await db.consultar(
++    `INSERT IGNORE INTO usuario_identidades (usuario_id, proveedor, proveedor_id, email)
++     VALUES (?, ?, ?, ?)`,
++    [usuarioId, proveedor, String(proveedorId), normalizar(email) || null]
++  );
++}
++
++/* ── Sesiones ──────────────────────────────────────────────────────────── */
++
++async function crearSesion({ usuarioId, refreshHash, expiraAt, userAgent, ip }) {
++  const r = await db.consultar(
++    `INSERT INTO sesiones (usuario_id, refresh_hash, expira_at, user_agent, ip)
++     VALUES (?, ?, ?, ?, ?)`,
++    [usuarioId, refreshHash, expiraAt, (userAgent || '').slice(0, 255) || null, ip || null]
++  );
++  return { id: r.insertId };
++}
++
++async function sesionPorHash(refreshHash) {
++  const fila = await db.unaFila('SELECT * FROM sesiones WHERE refresh_hash = ? LIMIT 1', [refreshHash]);
++  if (!fila) return null;
++  return {
++    id            : fila.id,
++    usuarioId     : fila.usuario_id,
++    expiraAt      : fila.expira_at,
++    usadoAt       : fila.usado_at,
++    revocadoAt    : fila.revocado_at,
++    reemplazadaPor: fila.reemplazada_por,
++  };
++}
++
++/* La rotación entera, en una transacción: se marca la vieja como usada y
++   apuntando a la nueva, y se crea la nueva. Si el proceso muere en medio, el
++   usuario se quedaría con un refresco revocado y ninguno nuevo — o sea, fuera
++   de la aplicación sin haber hecho nada. */
++async function rotarSesion({ sesionVieja, usuarioId, refreshHash, expiraAt, userAgent, ip }) {
++  return db.transaccion(async (tx) => {
++    const r = await tx.consultar(
++      `INSERT INTO sesiones (usuario_id, refresh_hash, expira_at, user_agent, ip)
++       VALUES (?, ?, ?, ?, ?)`,
++      [usuarioId, refreshHash, expiraAt, (userAgent || '').slice(0, 255) || null, ip || null]
++    );
++    await tx.consultar(
++      `UPDATE sesiones SET usado_at = NOW(), revocado_at = NOW(), reemplazada_por = ?
++        WHERE id = ?`,
++      [r.insertId, sesionVieja]
++    );
++    return { id: r.insertId };
++  });
++}
++
++async function revocarSesion(refreshHash) {
++  await db.consultar(
++    'UPDATE sesiones SET revocado_at = NOW() WHERE refresh_hash = ? AND revocado_at IS NULL',
++    [refreshHash]
++  );
++}
++
++async function revocarTodas(usuarioId) {
++  const r = await db.consultar(
++    'UPDATE sesiones SET revocado_at = NOW() WHERE usuario_id = ? AND revocado_at IS NULL',
++    [usuarioId]
++  );
++  return r.affectedRows || 0;
++}
++
++async function sesionesDe(usuarioId) {
++  return db.consultar(
++    `SELECT id, creado_at, usado_at, expira_at, user_agent, ip
++       FROM sesiones
++      WHERE usuario_id = ? AND revocado_at IS NULL AND expira_at > NOW()
++      ORDER BY creado_at DESC`,
++    [usuarioId]
++  );
++}
++
++/* ── Tokens de un solo uso ─────────────────────────────────────────────── */
++
++/* Antes de crear uno nuevo se invalidan los anteriores del mismo tipo. Si no,
++   pedir tres veces «recuperar contraseña» deja tres enlaces vivos, y el más
++   viejo —el que quizá ya vio otra persona— sigue sirviendo. */
++async function crearTokenUnUso({ usuarioId, tipo, tokenHash, expiraAt }) {
++  await db.transaccion(async (tx) => {
++    await tx.consultar(
++      'UPDATE tokens_un_uso SET usado_at = NOW() WHERE usuario_id = ? AND tipo = ? AND usado_at IS NULL',
++      [usuarioId, tipo]
++    );
++    await tx.consultar(
++      'INSERT INTO tokens_un_uso (usuario_id, tipo, token_hash, expira_at) VALUES (?, ?, ?, ?)',
++      [usuarioId, tipo, tokenHash, expiraAt]
++    );
++  });
++}
++
++async function tokenPorHash(tokenHash) {
++  const fila = await db.unaFila('SELECT * FROM tokens_un_uso WHERE token_hash = ? LIMIT 1', [tokenHash]);
++  if (!fila) return null;
++  return {
++    id       : fila.id,
++    usuarioId: fila.usuario_id,
++    tipo     : fila.tipo,
++    expiraAt : fila.expira_at,
++    usadoAt  : fila.usado_at,
++  };
++}
++
++/* Devuelve si lo marcó ESTA llamada. Con dos pestañas abriendo el mismo enlace
++   a la vez, sólo una debe poder cambiar la contraseña. El `AND usado_at IS
++   NULL` hace que la segunda no afecte a ninguna fila y se entere. */
++async function marcarTokenUsado(id) {
++  const r = await db.consultar('UPDATE tokens_un_uso SET usado_at = NOW() WHERE id = ? AND usado_at IS NULL', [id]);
++  return (r.affectedRows || 0) === 1;
++}
++
++/* ── Limpieza ──────────────────────────────────────────────────────────── */
++
++/* Para el cron. Sin esto, `sesiones` crece para siempre con filas que ya no
++   valen: 7.000 personas en el evento son 7.000 sesiones al día. */
++async function limpiarCaducados() {
++  const s = await db.consultar('DELETE FROM sesiones WHERE expira_at < DATE_SUB(NOW(), INTERVAL 7 DAY)');
++  const t = await db.consultar('DELETE FROM tokens_un_uso WHERE expira_at < DATE_SUB(NOW(), INTERVAL 7 DAY)');
++  return { sesiones: s.affectedRows || 0, tokens: t.affectedRows || 0 };
++}
++
++module.exports = {
++  normalizar,
++  porEmail, porId, porIdentidad,
++  crear, actualizarPassword, actualizarMetadata, marcarConfirmado, marcarAcceso,
++  sumarIntentoFallido,
++  enlazarIdentidad,
++  crearSesion, sesionPorHash, rotarSesion, revocarSesion, revocarTodas, sesionesDe,
++  crearTokenUnUso, tokenPorHash, marcarTokenUsado,
++  limpiarCaducados,
++};
+diff --git a/modules/auth/rutas.js b/modules/auth/rutas.js
+new file mode 100644
+index 0000000..fa1f707
+--- /dev/null
++++ b/modules/auth/rutas.js
+@@ -0,0 +1,193 @@
++'use strict';
++
++/* modules/auth/rutas.js — la capa más fina posible.
++ *
++ * Cada ruta hace tres cosas: sacar los datos de la petición, llamar al
++ * servicio, y traducir el resultado a una respuesta. Ninguna decide nada. Si
++ * aquí aparece un `if` sobre reglas de negocio, está en el sitio equivocado:
++ * este archivo es el único que sabe que existe HTTP, y el día que algo de esto
++ * se llame desde una cola o desde un socket, el servicio ya sirve tal cual.
++ *
++ * ── El freno ──────────────────────────────────────────────────────────────
++ *
++ * `authLimiter` se enchufa a login, registro y recuperación, que son las tres
++ * puertas que se atacan por repetición. Estaba escrito en `config/security.js`
++ * desde hace meses con un comentario que decía que se dejaba «por si se agregan
++ * endpoints propios /auth». Son estos.
++ *
++ * Frena por IP; el freno por cuenta lo lleva el servicio con `intentos_fallidos`.
++ * Hacen falta los dos: el de IP corta la inundación desde una máquina, el de
++ * cuenta corta al que prueba una contraseña por IP desde mil sitios.
++ */
++
++const express = require('express');
++const { authLimiter } = require('../../config/security.js');
++const google = require('./google.js');
++
++/* Traduce `{ error, codigo, status }` a una respuesta, o manda el resultado.
++   Está aquí y no en cada ruta para que ninguna se deje el `status` y conteste
++   200 con un error dentro, que es el fallo que hace que el frontend enseñe una
++   pantalla vacía en vez de un mensaje. */
++function responder(res, resultado, exito = 200) {
++  if (resultado?.error) {
++    return res.status(resultado.status || 400).json({ error: resultado.error, codigo: resultado.codigo });
++  }
++  return res.status(exito).json(resultado);
++}
++
++/* La IP real detrás del proxy. `app.set('trust proxy', 1)` ya está puesto en
++   `applySecurity`, así que `req.ip` es la del cliente y no la del proxy. */
++const datosDePeticion = (req) => ({
++  userAgent: req.headers['user-agent'] || null,
++  ip       : req.ip || null,
++});
++
++function crearRutas({ servicio, exigirSesion }) {
++  const r = express.Router();
++
++  /* ── Entrar y salir ─────────────────────────────────────────────────── */
++
++  r.post('/login', authLimiter, async (req, res, next) => {
++    try {
++      const { email, password } = req.body || {};
++      const resultado = await servicio.login({ email, password, ...datosDePeticion(req) });
++      if (resultado.error) return responder(res, resultado);
++      return res.json(resultado.sesion);
++    } catch (e) { next(e); }
++  });
++
++  r.post('/registro', authLimiter, async (req, res, next) => {
++    try {
++      const { email, password, metadata } = req.body || {};
++      return responder(res, await servicio.registro({ email, password, metadata }), 201);
++    } catch (e) { next(e); }
++  });
++
++  r.post('/logout', async (req, res, next) => {
++    try {
++      return responder(res, await servicio.logout({ refresh_token: req.body?.refresh_token }));
++    } catch (e) { next(e); }
++  });
++
++  /* Sin limitador: es la petición que hace la app sola cada media hora, y un
++     límite por IP cortaría a todo un recinto detrás del mismo wifi. Lo que
++     protege esto es la rotación: un refresco sólo sirve una vez. */
++  r.post('/refresh', async (req, res, next) => {
++    try {
++      const resultado = await servicio.refrescar({ refresh_token: req.body?.refresh_token, ...datosDePeticion(req) });
++      if (resultado.error) return responder(res, resultado);
++      return res.json(resultado.sesion);
++    } catch (e) { next(e); }
++  });
++
++  r.post('/sesiones/cerrar-todas', exigirSesion, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.cerrarTodas(req.user.id));
++    } catch (e) { next(e); }
++  });
++
++  r.get('/sesiones', exigirSesion, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.sesionesDe(req.user.id));
++    } catch (e) { next(e); }
++  });
++
++  /* ── Correo ─────────────────────────────────────────────────────────── */
++
++  r.post('/confirmar', async (req, res, next) => {
++    try {
++      return responder(res, await servicio.confirmar({ token: req.body?.token }));
++    } catch (e) { next(e); }
++  });
++
++  r.post('/reenviar-confirmacion', authLimiter, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.reenviarConfirmacion({ email: req.body?.email }));
++    } catch (e) { next(e); }
++  });
++
++  /* ── Contraseña ─────────────────────────────────────────────────────── */
++
++  r.post('/recuperar', authLimiter, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.recuperar({ email: req.body?.email }));
++    } catch (e) { next(e); }
++  });
++
++  r.post('/restablecer', authLimiter, async (req, res, next) => {
++    try {
++      const { token, password } = req.body || {};
++      return responder(res, await servicio.restablecer({ token, password }));
++    } catch (e) { next(e); }
++  });
++
++  r.patch('/password', exigirSesion, async (req, res, next) => {
++    try {
++      const { password_actual, password_nueva } = req.body || {};
++      return responder(res, await servicio.cambiarPassword({
++        usuarioId: req.user.id, password_actual, password_nueva,
++      }));
++    } catch (e) { next(e); }
++  });
++
++  /* ── Perfil ─────────────────────────────────────────────────────────── */
++
++  r.patch('/perfil', exigirSesion, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.actualizarPerfil({
++        usuarioId: req.user.id, metadata: req.body?.metadata,
++      }));
++    } catch (e) { next(e); }
++  });
++
++  r.get('/yo', exigirSesion, async (req, res, next) => {
++    try {
++      return responder(res, await servicio.yo(req.user.id));
++    } catch (e) { next(e); }
++  });
++
++  /* ── Google ─────────────────────────────────────────────────────────── */
++
++  /* Devuelve la URL en vez de redirigir. Lo pide así el frontend: la llamada
++     sale de `fetch`, y un 302 desde ahí lo seguiría el propio fetch en vez del
++     navegador — la pantalla de Google acabaría dentro de una respuesta JSON. */
++  r.get('/google', (req, res) => {
++    if (!google.configurado()) {
++      return res.status(503).json({ error: 'Entrar con Google no está configurado en este servidor.', codigo: 'google_apagado' });
++    }
++    return res.json({ url: google.urlDeConsentimiento({ destino: req.query.destino }) });
++  });
++
++  r.get('/google/callback', async (req, res, next) => {
++    try {
++      const { code, state, error } = req.query || {};
++
++      /* El usuario pulsó «cancelar» en la pantalla de Google. No es un fallo:
++         se le devuelve a la pantalla de entrada sin ruido. */
++      if (error) return res.redirect(google.urlDeError('cancelado'));
++      if (!code) return res.redirect(google.urlDeError('sin_codigo'));
++
++      const estado = google.verificarEstado(state);
++      if (!estado) return res.redirect(google.urlDeError('estado_invalido'));
++
++      const tokensGoogle = await google.intercambiarCodigo(code);
++      const perfil = await google.perfilDeGoogle(tokensGoogle.access_token);
++
++      const { usuario } = await google.resolverUsuario(perfil, { repo: servicio._repo });
++      const sesion = await servicio._abrirSesion(usuario, datosDePeticion(req));
++
++      return res.redirect(google.urlDeVuelta({ destino: estado.d, sesion }));
++    } catch (e) {
++      /* Un fallo aquí deja a la persona mirando una página en blanco a mitad de
++         un login. Se registra entero para poder mirarlo, y se la devuelve a la
++         pantalla de entrada con un motivo genérico: el detalle del error de
++         Google no le dice nada y a veces lleva datos de la cuenta. */
++      console.error('[auth/google] fallo en el callback:', e?.message || e);
++      return res.redirect(google.urlDeError('fallo_google'));
++    }
++  });
++
++  return r;
++}
++
++module.exports = { crearRutas, _responder: responder };
+diff --git a/modules/auth/servicio.js b/modules/auth/servicio.js
+new file mode 100644
+index 0000000..7924a6c
+--- /dev/null
++++ b/modules/auth/servicio.js
+@@ -0,0 +1,420 @@
++'use strict';
++
++/* modules/auth/servicio.js — todo lo que decide, sin saber de HTTP ni de SQL.
++ *
++ * Entra un objeto plano, sale `{ ok, ... }` o `{ error, codigo, status }`. Las
++ * rutas se limitan a traducir eso a una respuesta, y el repositorio a filas.
++ * Por eso las pruebas de este archivo no montan Express ni MySQL: le pasan un
++ * repositorio falso y comprueban las decisiones, que es donde están los fallos
++ * que importan.
++ *
++ * ── La forma del error ────────────────────────────────────────────────────
++ *
++ * `error` es el texto que ve la persona, en español y sin jerga. `codigo` es
++ * para el frontend, que a veces necesita distinguir (`email_no_confirmado`
++ * enciende el botón de reenviar). `status` es el HTTP.
++ *
++ * ── Lo que NO se cuenta ───────────────────────────────────────────────────
++ *
++ * Ni el login ni la recuperación dicen nunca si un correo está registrado. Con
++ * 29 cuentas hoy y 7.000 personas esperadas en el evento, la lista de quién
++ * tiene cuenta es justo lo que busca quien prepara un ataque dirigido. La
++ * respuesta a «contraseña incorrecta» y a «ese correo no existe» es la misma,
++ * palabra por palabra.
++ */
++
++const crypto = require('crypto');
++const bcrypt = require('bcryptjs');
++const config = require('../../core/config');
++const tokens = require('./tokens.js');
++const repositorioReal = require('./repositorio.js');
++const correosReales = require('./correos');
++
++/* El coste de bcrypt. 10 es el que traen los 10 hashes que se migran (`$2a$10$`)
++   y hay que mantenerlo: subirlo obligaría a rehashear, y rehashear sin conocer
++   la contraseña en claro no se puede. Los que entren después de la migración se
++   guardan con el mismo coste para que todo el fichero sea homogéneo. */
++const COSTE_BCRYPT = 10;
++
++/* Hash de una contraseña que no existe. Se compara contra él cuando el correo
++   no está registrado, para que responder tarde lo mismo en los dos casos: sin
++   esto, «no existe» contesta en 1 ms y «contraseña mala» en 80 ms, y esa
++   diferencia es una lista de usuarios legible desde fuera. */
++const HASH_SEÑUELO = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
++
++const MINIMO_PASSWORD = 8;
++
++const err = (mensaje, codigo, status = 400) => ({ error: mensaje, codigo, status });
++
++function crearServicio({
++  repo = repositorioReal,
++  correos = correosReales,
++  ahora = () => new Date(),
++} = {}) {
++
++  const enSegundos = (s) => new Date(ahora().getTime() + s * 1000);
++
++  /* La respuesta que espera el frontend (`aSesion` de src/lib/authPropia.js).
++     Si esto cambia, cambia también allí, y son los dos únicos sitios. */
++  async function abrirSesion(usuario, { userAgent, ip } = {}) {
++    const refresco = tokens.nuevoRefresco();
++    await repo.crearSesion({
++      usuarioId  : usuario.id,
++      refreshHash: refresco.hash,
++      expiraAt   : enSegundos(config.VIDA_REFRESH_S),
++      userAgent, ip,
++    });
++    await repo.marcarAcceso(usuario.id);
++    return sesionParaCliente(usuario, tokens.emitirAcceso(usuario), refresco.token);
++  }
++
++  function sesionParaCliente(usuario, accessToken, refreshToken) {
++    return {
++      access_token : accessToken,
++      refresh_token: refreshToken,
++      expires_in   : config.VIDA_ACCESO_S,
++      token_type   : 'Bearer',
++      usuario      : {
++        id             : usuario.id,
++        email          : usuario.email,
++        metadata       : usuario.metadata || {},
++        emailConfirmado: Boolean(usuario.emailConfirmado),
++      },
++    };
++  }
++
++  function validarPassword(password) {
++    if (typeof password !== 'string' || password.length < MINIMO_PASSWORD) {
++      return err(`La contraseña necesita al menos ${MINIMO_PASSWORD} caracteres.`, 'password_corta');
++    }
++    /* Sin reglas de mayúsculas y símbolos a propósito: obligan a `Verano2024!`,
++       que es peor que una frase larga y termina en un papel pegado al monitor.
++       Lo que sí se corta es el tope de bcrypt: pasados 72 bytes, los demás se
++       ignoran en silencio, y alguien con una frase larguísima creería tener más
++       seguridad de la que tiene. */
++    if (Buffer.byteLength(password, 'utf8') > 72) {
++      return err('La contraseña no puede pasar de 72 caracteres.', 'password_larga');
++    }
++    return null;
++  }
++
++  function emailValido(email) {
++    const e = repo.normalizar(email);
++    /* Deliberadamente permisiva. Validar correos con una expresión estricta
++       rechaza direcciones legítimas (las de un solo carácter, las de dominios
++       nuevos), y el que decide de verdad si existe es el correo de
++       confirmación, que hay que abrir. */
++    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
++  }
++
++  /* ── Registro ───────────────────────────────────────────────────────── */
++
++  async function registro({ email, password, metadata }) {
++    const correo = emailValido(email);
++    if (!correo) return err('Ese correo no tiene buena pinta. Revisalo.', 'email_invalido');
++
++    const falloPassword = validarPassword(password);
++    if (falloPassword) return falloPassword;
++
++    const existente = await repo.porEmail(correo);
++    if (existente) {
++      /* No se dice que ya existe: eso convierte el formulario de registro en un
++         comprobador de cuentas. Se manda un aviso a la dirección de verdad —el
++         dueño se entera de que alguien intentó registrarla, y quien lo intentó
++         no ve nada distinto de un registro normal. */
++      await correos.avisarIntentoDeRegistro(existente).catch(() => {});
++      return { ok: true, mensaje: 'Revisá tu correo para terminar el registro.' };
++    }
++
++    const passwordHash = await bcrypt.hash(password, COSTE_BCRYPT);
++    const usuario = await repo.crear({
++      id      : crypto.randomUUID(),
++      email   : correo,
++      passwordHash,
++      metadata: metadata || {},
++      emailConfirmado: false,
++    });
++
++    const t = tokens.nuevoTokenCorreo();
++    await repo.crearTokenUnUso({
++      usuarioId: usuario.id,
++      tipo     : 'confirmacion',
++      tokenHash: t.hash,
++      expiraAt : enSegundos(config.VIDA_CONFIRMACION_S),
++    });
++    await correos.confirmacion(usuario, t.token);
++
++    /* Nunca se abre sesión al registrarse: primero se confirma el correo. Es lo
++       que `signUp` del frontend espera para enseñar «revisá tu correo». */
++    return { ok: true, mensaje: 'Revisá tu correo para terminar el registro.' };
++  }
++
++  /* ── Login ──────────────────────────────────────────────────────────── */
++
++  async function login({ email, password, userAgent, ip }) {
++    const correo = repo.normalizar(email);
++    const usuario = correo ? await repo.porEmail(correo) : null;
++
++    if (!usuario) {
++      await bcrypt.compare(String(password || ''), HASH_SEÑUELO);
++      return err('Correo o contraseña incorrectos.', 'credenciales', 401);
++    }
++
++    if (usuario.bloqueadoHasta && new Date(usuario.bloqueadoHasta) > ahora()) {
++      return err(
++        'Demasiados intentos fallidos. Probá de nuevo en unos minutos o restablecé tu contraseña.',
++        'cuenta_bloqueada', 429
++      );
++    }
++
++    /* Cuenta que sólo tiene Google: no hay contraseña que comparar. Se contesta
++       lo mismo que a una contraseña mala —no se revela cómo entra esa cuenta—
++       pero con un código que el frontend puede usar para sugerir el botón de
++       Google si quiere. */
++    if (!usuario.passwordHash) {
++      await bcrypt.compare(String(password || ''), HASH_SEÑUELO);
++      return err('Correo o contraseña incorrectos.', 'credenciales', 401);
++    }
++
++    const vale = await bcrypt.compare(String(password || ''), usuario.passwordHash);
++    if (!vale) {
++      await repo.sumarIntentoFallido(usuario.id, {
++        maximo        : config.INTENTOS_MAX,
++        bloqueoMinutos: config.BLOQUEO_MIN,
++      });
++      return err('Correo o contraseña incorrectos.', 'credenciales', 401);
++    }
++
++    if (!usuario.emailConfirmado) {
++      return err('Todavía no confirmaste tu correo. Revisá la bandeja de entrada.', 'email_no_confirmado', 403);
++    }
++
++    return { ok: true, sesion: await abrirSesion(usuario, { userAgent, ip }) };
++  }
++
++  /* ── Refresco ───────────────────────────────────────────────────────── */
++
++  async function refrescar({ refresh_token, userAgent, ip }) {
++    if (!refresh_token) return err('Falta el refresco.', 'sin_refresco', 400);
++
++    const hash = tokens.sha256(refresh_token);
++    const sesion = await repo.sesionPorHash(hash);
++    if (!sesion) return err('La sesión caducó. Entrá otra vez.', 'sesion_invalida', 401);
++
++    /* Un refresco ya rotado que vuelve a aparecer: o lo tiene el dueño (porque
++       una petición se perdió y reintentó) o lo tiene quien lo robó, y desde
++       aquí no hay forma de distinguirlo. Se cierran TODAS las sesiones de esa
++       cuenta. Es molesto —hay que volver a entrar— y es la única respuesta
++       honesta: si no se corta, el ladrón se queda dentro para siempre. */
++    if (sesion.revocadoAt || sesion.reemplazadaPor) {
++      await repo.revocarTodas(sesion.usuarioId);
++      return err('Tu sesión se cerró por seguridad. Entrá otra vez.', 'sesion_reutilizada', 401);
++    }
++
++    if (new Date(sesion.expiraAt) < ahora()) {
++      return err('La sesión caducó. Entrá otra vez.', 'sesion_caducada', 401);
++    }
++
++    const usuario = await repo.porId(sesion.usuarioId);
++    if (!usuario) return err('La sesión caducó. Entrá otra vez.', 'sesion_invalida', 401);
++
++    const nuevo = tokens.nuevoRefresco();
++    await repo.rotarSesion({
++      sesionVieja: sesion.id,
++      usuarioId  : usuario.id,
++      refreshHash: nuevo.hash,
++      expiraAt   : enSegundos(config.VIDA_REFRESH_S),
++      userAgent, ip,
++    });
++
++    return { ok: true, sesion: sesionParaCliente(usuario, tokens.emitirAcceso(usuario), nuevo.token) };
++  }
++
++  /* ── Cerrar sesión ──────────────────────────────────────────────────── */
++
++  async function logout({ refresh_token }) {
++    /* Sin refresco no hay nada que revocar, pero se contesta que sí: el cliente
++       ya borró su copia y decirle que falló sólo lo dejaría en un estado raro. */
++    if (refresh_token) await repo.revocarSesion(tokens.sha256(refresh_token));
++    return { ok: true };
++  }
++
++  async function cerrarTodas(usuarioId) {
++    const cerradas = await repo.revocarTodas(usuarioId);
++    return { ok: true, cerradas };
++  }
++
++  async function sesionesDe(usuarioId) {
++    return { ok: true, sesiones: await repo.sesionesDe(usuarioId) };
++  }
++
++  /* ── Correo: confirmar y reenviar ───────────────────────────────────── */
++
++  async function confirmar({ token }) {
++    if (!token) return err('Falta el token.', 'sin_token');
++
++    const fila = await repo.tokenPorHash(tokens.sha256(token));
++    if (!fila || fila.tipo !== 'confirmacion') {
++      return err('Ese enlace no vale. Pedí uno nuevo.', 'token_invalido', 400);
++    }
++    if (fila.usadoAt) {
++      /* Ya usado no es un error para quien lo abre: casi siempre es la misma
++         persona pulsando dos veces, o el antivirus del correo que abre los
++         enlaces antes que ella. La cuenta ya está confirmada, así que se
++         contesta que todo bien. */
++      return { ok: true, yaEstaba: true };
++    }
++    if (new Date(fila.expiraAt) < ahora()) {
++      return err('Ese enlace caducó. Pedí uno nuevo desde la pantalla de entrada.', 'token_caducado', 400);
++    }
++
++    const marcado = await repo.marcarTokenUsado(fila.id);
++    if (!marcado) return { ok: true, yaEstaba: true };
++
++    await repo.marcarConfirmado(fila.usuarioId);
++    return { ok: true };
++  }
++
++  async function reenviarConfirmacion({ email }) {
++    const correo = repo.normalizar(email);
++    const usuario = correo ? await repo.porEmail(correo) : null;
++
++    /* Misma respuesta exista o no, y esté confirmado o no. */
++    if (usuario && !usuario.emailConfirmado) {
++      const t = tokens.nuevoTokenCorreo();
++      await repo.crearTokenUnUso({
++        usuarioId: usuario.id,
++        tipo     : 'confirmacion',
++        tokenHash: t.hash,
++        expiraAt : enSegundos(config.VIDA_CONFIRMACION_S),
++      });
++      await correos.confirmacion(usuario, t.token);
++    }
++    return { ok: true, mensaje: 'Si esa cuenta existe y falta confirmarla, te llegará un correo.' };
++  }
++
++  /* ── Recuperar contraseña ───────────────────────────────────────────── */
++
++  async function recuperar({ email }) {
++    const correo = repo.normalizar(email);
++    const usuario = correo ? await repo.porEmail(correo) : null;
++
++    if (usuario) {
++      const t = tokens.nuevoTokenCorreo();
++      await repo.crearTokenUnUso({
++        usuarioId: usuario.id,
++        tipo     : 'recuperacion',
++        tokenHash: t.hash,
++        expiraAt : enSegundos(config.VIDA_RECUPERACION_S),
++      });
++      await correos.recuperacion(usuario, t.token);
++    }
++    return { ok: true, mensaje: 'Si esa cuenta existe, te llegará un correo con el enlace.' };
++  }
++
++  async function restablecer({ token, password }) {
++    if (!token) return err('Falta el token.', 'sin_token');
++
++    const falloPassword = validarPassword(password);
++    if (falloPassword) return falloPassword;
++
++    const fila = await repo.tokenPorHash(tokens.sha256(token));
++    if (!fila || fila.tipo !== 'recuperacion') {
++      return err('Ese enlace no vale. Pedí uno nuevo.', 'token_invalido', 400);
++    }
++    if (fila.usadoAt)  return err('Ese enlace ya se usó. Pedí uno nuevo.', 'token_usado', 400);
++    if (new Date(fila.expiraAt) < ahora()) {
++      return err('Ese enlace caducó. Pedí uno nuevo.', 'token_caducado', 400);
++    }
++
++    const marcado = await repo.marcarTokenUsado(fila.id);
++    if (!marcado) return err('Ese enlace ya se usó. Pedí uno nuevo.', 'token_usado', 400);
++
++    await repo.actualizarPassword(fila.usuarioId, await bcrypt.hash(password, COSTE_BCRYPT));
++
++    /* Cambiar la contraseña cierra todas las sesiones. Es el motivo por el que
++       la gente la cambia: creen que alguien entró. Dejar viva la sesión del
++       intruso convierte el gesto en teatro. Quien lo hizo vuelve a entrar con
++       la nueva; el otro, no. */
++    await repo.revocarTodas(fila.usuarioId);
++
++    /* Recuperar la contraseña prueba que la persona lee ese correo, que es
++       exactamente lo que confirma la dirección. Una cuenta que se registró y
++       nunca confirmó, pero que recupera desde su bandeja, no tiene por qué
++       quedarse fuera. */
++    await repo.marcarConfirmado(fila.usuarioId);
++
++    return { ok: true };
++  }
++
++  /* ── Cambiar contraseña estando dentro ──────────────────────────────── */
++
++  async function cambiarPassword({ usuarioId, password_actual, password_nueva }) {
++    const falloPassword = validarPassword(password_nueva);
++    if (falloPassword) return falloPassword;
++
++    const usuario = await repo.porId(usuarioId);
++    if (!usuario) return err('No hay sesión activa.', 'sin_sesion', 401);
++
++    /* Si ya tenía contraseña, hay que probar la de antes. Sin esto, un token
++       robado durante 30 minutos se convierte en una cuenta perdida para
++       siempre: el ladrón cambia la contraseña y el dueño se queda fuera. */
++    if (usuario.passwordHash) {
++      const vale = await bcrypt.compare(String(password_actual || ''), usuario.passwordHash);
++      if (!vale) return err('La contraseña actual no es correcta.', 'password_actual_mala', 400);
++    }
++
++    await repo.actualizarPassword(usuarioId, await bcrypt.hash(password_nueva, COSTE_BCRYPT));
++    return { ok: true };
++  }
++
++  /* ── Perfil ─────────────────────────────────────────────────────────── */
++
++  async function actualizarPerfil({ usuarioId, metadata }) {
++    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
++      return err('Los datos del perfil tienen que venir en un objeto.', 'metadata_invalida');
++    }
++
++    const usuario = await repo.porId(usuarioId);
++    if (!usuario) return err('No hay sesión activa.', 'sin_sesion', 401);
++
++    /* Se mezcla, no se sustituye: las pantallas mandan sólo el campo que
++       tocaron (`AjustesPage` manda el teléfono, `PerfilTalentoEditor` el CV), y
++       sustituir el objeto entero borraría el resto sin que nadie lo pidiera. */
++    const fusionada = { ...(usuario.metadata || {}), ...metadata };
++    const actualizado = await repo.actualizarMetadata(usuarioId, fusionada);
++    return { ok: true, usuario: publico(actualizado) };
++  }
++
++  async function yo(usuarioId) {
++    const usuario = await repo.porId(usuarioId);
++    if (!usuario) return err('No hay sesión activa.', 'sin_sesion', 401);
++    return { ok: true, usuario: publico(usuario) };
++  }
++
++  /* Lo que sale hacia fuera. El hash de la contraseña no aparece aquí ni por
++     accidente, que es la razón de que exista esta función y no un `...usuario`
++     repartido por las rutas. */
++  function publico(usuario) {
++    return {
++      id             : usuario.id,
++      email          : usuario.email,
++      metadata       : usuario.metadata || {},
++      emailConfirmado: Boolean(usuario.emailConfirmado),
++    };
++  }
++
++  return {
++    registro, login, refrescar, logout, cerrarTodas, sesionesDe,
++    confirmar, reenviarConfirmacion,
++    recuperar, restablecer, cambiarPassword, actualizarPerfil, yo,
++    /* Las usa `google.js`, que abre sesión sin pasar por contraseña, y que
++       necesita el repositorio para enlazar la identidad. Van con guion bajo
++       porque son la puerta de servicio: nadie de fuera del módulo las llama. */
++    _abrirSesion: abrirSesion,
++    _publico: publico,
++    _repo: repo,
++  };
++}
++
++module.exports = { crearServicio, COSTE_BCRYPT, MINIMO_PASSWORD };
+diff --git a/modules/auth/tokens.js b/modules/auth/tokens.js
+new file mode 100644
+index 0000000..b3d30ef
+--- /dev/null
++++ b/modules/auth/tokens.js
+@@ -0,0 +1,109 @@
++'use strict';
++
++/* modules/auth/tokens.js — emitir y verificar. Nada más.
++ *
++ * Este archivo no toca la base ni sabe qué es una petición HTTP: entra un
++ * usuario, sale un token; entra un token, sale lo que lleva dentro o null. Por
++ * eso se puede probar entero sin montar nada, y por eso las pruebas de firma
++ * son las únicas de todo el módulo que no necesitan un repositorio falso.
++ *
++ * ── Dos clases de token, y no se parecen ──────────────────────────────────
++ *
++ * El de ACCESO es un JWT firmado. Vale 30 minutos, viaja en cada petición y NO
++ * se consulta contra la base: verificar la firma es una operación local de
++ * microsegundos. Ese es todo el punto de §5.4 — hoy `middleware/auth.js` llama
++ * a `supabase.auth.getUser(token)` en cada petición, o sea un viaje de red por
++ * petición, y con el sondeo de las pantallas eso son miles de viajes al día que
++ * desaparecen.
++ *
++ * El de REFRESCO es un número aleatorio, no un JWT. No lleva nada dentro, sólo
++ * existe como fila en `sesiones`. Es la diferencia que permite revocarlo: un
++ * JWT vale hasta que caduca aunque el servidor quiera lo contrario.
++ *
++ * ── Lo que va dentro del JWT ──────────────────────────────────────────────
++ *
++ * `sub` (el UUID) y `email`, porque el código de las 38 rutas lee `req.user.id`
++ * en 297 sitios y `req.user.email` en 9. Nada más: cada dato que se mete en el
++ * token es un dato que viaja en claro en cada petición y que se queda obsoleto
++ * en cuanto cambie en la base. El nombre y el avatar se piden por `/auth/yo`.
++ */
++
++const crypto = require('crypto');
++const jwt = require('jsonwebtoken');
++const config = require('../../core/config');
++
++/* El emisor y el destinatario. Un token de otro sistema que casualmente use el
++   mismo secreto no vale aquí, y los nuestros no valen en otro sitio. */
++const EMISOR = 'gestek';
++
++const sha256 = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
++
++/* ── Acceso ────────────────────────────────────────────────────────────── */
++
++function emitirAcceso(usuario, { vidaSegundos = config.VIDA_ACCESO_S } = {}) {
++  return jwt.sign(
++    {
++      sub  : usuario.id,
++      email: usuario.email,
++      /* Marca de quién firmó. Durante la convivencia entran tokens de Supabase
++         y tokens nuestros por la misma puerta, y el middleware tiene que poder
++         distinguirlos sin probar suerte con las dos verificaciones. */
++      tipo : 'acceso',
++    },
++    config.JWT_SECRET,
++    { algorithm: 'HS256', expiresIn: vidaSegundos, issuer: EMISOR, audience: EMISOR }
++  );
++}
++
++/* Devuelve la carga o null. Nunca lanza: quien llama responde 401 y no le
++ * interesa distinguir «firma mala» de «caducado» — decírselo al cliente sólo
++ * ayuda a quien está probando.
++ *
++ * `algorithms` fijado a HS256 a propósito. Sin esa lista, la librería acepta el
++ * algoritmo que diga la cabecera del token, y `alg: none` es la vulnerabilidad
++ * más antigua de JWT: un token sin firma que se da por bueno.
++ */
++function verificarAcceso(token) {
++  if (!token || typeof token !== 'string') return null;
++  try {
++    const carga = jwt.verify(token, config.JWT_SECRET, {
++      algorithms: ['HS256'],
++      issuer    : EMISOR,
++      audience  : EMISOR,
++    });
++    if (carga.tipo !== 'acceso') return null;
++    return carga;
++  } catch {
++    return null;
++  }
++}
++
++/* ── Refresco ──────────────────────────────────────────────────────────── */
++
++/* 32 bytes de `randomBytes`. No `Math.random()`, que es predecible, ni un UUID
++   v4, que gasta 6 bits en la versión. Se devuelve el token en claro (que sólo
++   ve el dueño, una vez) y su hash (que es lo único que se guarda). */
++function nuevoRefresco() {
++  const token = `gtkr_${crypto.randomBytes(32).toString('hex')}`;
++  return { token, hash: sha256(token) };
++}
++
++/* ── Tokens de correo ──────────────────────────────────────────────────── */
++
++/* Confirmación y recuperación. Van en la URL de un correo, así que se usa
++   base64url: sin `+`, `/` ni `=`, que algunos clientes de correo parten o
++   escapan y dejan el enlace roto justo para el usuario menos capaz de
++   entenderlo. */
++function nuevoTokenCorreo() {
++  const token = crypto.randomBytes(32).toString('base64url');
++  return { token, hash: sha256(token) };
++}
++
++module.exports = {
++  emitirAcceso,
++  verificarAcceso,
++  nuevoRefresco,
++  nuevoTokenCorreo,
++  sha256,
++  EMISOR,
++};
+diff --git a/package-lock.json b/package-lock.json
+index d88b9dc..6872dd8 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -11,12 +11,14 @@
+         "@anthropic-ai/sdk": "^0.96.0",
+         "@sentry/node": "^10.52.0",
+         "@supabase/supabase-js": "^2.105.3",
++        "bcryptjs": "^3.0.3",
+         "cors": "^2.8.6",
+         "dotenv": "^16.0.0",
+         "express": "^5.2.1",
+         "express-rate-limit": "^8.5.2",
+         "helmet": "^8.1.0",
+         "jsonwebtoken": "^9.0.3",
++        "mysql2": "^3.24.2",
+         "node-cron": "^3.0.3",
+         "nodemailer": "^8.0.7",
+         "web-push": "^3.6.7"
+@@ -934,6 +936,15 @@
+         "safer-buffer": "^2.1.0"
+       }
+     },
++    "node_modules/aws-ssl-profiles": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/aws-ssl-profiles/-/aws-ssl-profiles-1.1.2.tgz",
++      "integrity": "sha512-NZKeq9AfyQvEeNlN0zSYAaWrmBffJh3IELMZfRpJVWgrpEbtEpnjvzqBPf+mxoI287JohRDoa+/nsfqqiZmF6g==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 6.0.0"
++      }
++    },
+     "node_modules/balanced-match": {
+       "version": "4.0.4",
+       "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.4.tgz",
+@@ -943,6 +954,15 @@
+         "node": "18 || 20 || >=22"
+       }
+     },
++    "node_modules/bcryptjs": {
++      "version": "3.0.3",
++      "resolved": "https://registry.npmjs.org/bcryptjs/-/bcryptjs-3.0.3.tgz",
++      "integrity": "sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==",
++      "license": "BSD-3-Clause",
++      "bin": {
++        "bcrypt": "bin/bcrypt"
++      }
++    },
+     "node_modules/bn.js": {
+       "version": "4.12.3",
+       "resolved": "https://registry.npmjs.org/bn.js/-/bn.js-4.12.3.tgz",
+@@ -1441,6 +1461,15 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/generate-function": {
++      "version": "2.3.1",
++      "resolved": "https://registry.npmjs.org/generate-function/-/generate-function-2.3.1.tgz",
++      "integrity": "sha512-eeB5GfMNeevm/GRYq20ShmsaGcmI81kIX2K9XQx5miC8KdHaC6Jm0qQ8ZNeGOi7wYB8OsdxKs+Y2oVuTFuVwKQ==",
++      "license": "MIT",
++      "dependencies": {
++        "is-property": "^1.0.2"
++      }
++    },
+     "node_modules/get-caller-file": {
+       "version": "2.0.5",
+       "resolved": "https://registry.npmjs.org/get-caller-file/-/get-caller-file-2.0.5.tgz",
+@@ -1595,9 +1624,9 @@
+       }
+     },
+     "node_modules/iconv-lite": {
+-      "version": "0.7.2",
+-      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.7.2.tgz",
+-      "integrity": "sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==",
++      "version": "0.7.3",
++      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.7.3.tgz",
++      "integrity": "sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==",
+       "license": "MIT",
+       "dependencies": {
+         "safer-buffer": ">= 2.1.2 < 3.0.0"
+@@ -1665,6 +1694,12 @@
+       "integrity": "sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==",
+       "license": "MIT"
+     },
++    "node_modules/is-property": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/is-property/-/is-property-1.0.2.tgz",
++      "integrity": "sha512-Ks/IoX00TtClbGQr4TWXemAnktAQvYB7HzcCxDGqEZU6oCmb2INHuOoKxbtR+HFkmYWBKv/dOZtGRiAjDhj92g==",
++      "license": "MIT"
++    },
+     "node_modules/json-schema-to-ts": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/json-schema-to-ts/-/json-schema-to-ts-3.1.1.tgz",
+@@ -1763,6 +1798,27 @@
+       "integrity": "sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==",
+       "license": "MIT"
+     },
++    "node_modules/long": {
++      "version": "5.3.2",
++      "resolved": "https://registry.npmjs.org/long/-/long-5.3.2.tgz",
++      "integrity": "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/lru.min": {
++      "version": "1.1.4",
++      "resolved": "https://registry.npmjs.org/lru.min/-/lru.min-1.1.4.tgz",
++      "integrity": "sha512-DqC6n3QQ77zdFpCMASA1a3Jlb64Hv2N2DciFGkO/4L9+q/IpIAuRlKOvCXabtRW6cQf8usbmM6BE/TOPysCdIA==",
++      "license": "MIT",
++      "engines": {
++        "bun": ">=1.0.0",
++        "deno": ">=1.30.0",
++        "node": ">=8.0.0"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/wellwelwel"
++      }
++    },
+     "node_modules/math-intrinsics": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
+@@ -1860,6 +1916,39 @@
+       "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
+       "license": "MIT"
+     },
++    "node_modules/mysql2": {
++      "version": "3.24.2",
++      "resolved": "https://registry.npmjs.org/mysql2/-/mysql2-3.24.2.tgz",
++      "integrity": "sha512-l9kXeKGwd6VCbSjmpO/bLWb+YCYpbvE4whte8ec6InXebvCNyEEydyRCnRU+TSHNqRLJ8B+Tk1uWb+vMCJgJzA==",
++      "license": "MIT",
++      "dependencies": {
++        "aws-ssl-profiles": "^1.1.2",
++        "generate-function": "^2.3.1",
++        "iconv-lite": "^0.7.3",
++        "long": "^5.3.2",
++        "lru.min": "^1.1.4",
++        "named-placeholders": "^1.1.6",
++        "sql-escaper": "^1.5.1"
++      },
++      "engines": {
++        "node": ">= 8.0"
++      },
++      "peerDependencies": {
++        "@types/node": ">= 8"
++      }
++    },
++    "node_modules/named-placeholders": {
++      "version": "1.1.6",
++      "resolved": "https://registry.npmjs.org/named-placeholders/-/named-placeholders-1.1.6.tgz",
++      "integrity": "sha512-Tz09sEL2EEuv5fFowm419c1+a/jSMiBjI9gHxVLrVdbUkkNUUfjsVYs9pVZu5oCon/kmRh9TfLEObFtkVxmY0w==",
++      "license": "MIT",
++      "dependencies": {
++        "lru.min": "^1.1.0"
++      },
++      "engines": {
++        "node": ">=8.0.0"
++      }
++    },
+     "node_modules/negotiator": {
+       "version": "1.0.0",
+       "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-1.0.0.tgz",
+@@ -2296,6 +2385,21 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/sql-escaper": {
++      "version": "1.5.1",
++      "resolved": "https://registry.npmjs.org/sql-escaper/-/sql-escaper-1.5.1.tgz",
++      "integrity": "sha512-4toX5E1fQbBrpfXidaHnF0669nkAdETeIPTs2SUjxxD7RRIs9ICG4gtpmfc68JCEKehsdwLFqBu9VlQqZ1P1gg==",
++      "license": "MIT",
++      "engines": {
++        "bun": ">=1.0.0",
++        "deno": ">=2.0.0",
++        "node": ">=12.0.0"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/mysqljs/sql-escaper?sponsor=1"
++      }
++    },
+     "node_modules/standardwebhooks": {
+       "version": "1.0.0",
+       "resolved": "https://registry.npmjs.org/standardwebhooks/-/standardwebhooks-1.0.0.tgz",
+diff --git a/package.json b/package.json
+index 6353e9e..6f7ae82 100644
+--- a/package.json
++++ b/package.json
+@@ -19,12 +19,14 @@
+     "@anthropic-ai/sdk": "^0.96.0",
+     "@sentry/node": "^10.52.0",
+     "@supabase/supabase-js": "^2.105.3",
++    "bcryptjs": "^3.0.3",
+     "cors": "^2.8.6",
+     "dotenv": "^16.0.0",
+     "express": "^5.2.1",
+     "express-rate-limit": "^8.5.2",
+     "helmet": "^8.1.0",
+     "jsonwebtoken": "^9.0.3",
++    "mysql2": "^3.24.2",
+     "node-cron": "^3.0.3",
+     "nodemailer": "^8.0.7",
+     "web-push": "^3.6.7"
+diff --git a/scripts/comprobar-base.js b/scripts/comprobar-base.js
+new file mode 100644
+index 0000000..9014178
+--- /dev/null
++++ b/scripts/comprobar-base.js
+@@ -0,0 +1,140 @@
++#!/usr/bin/env node
++'use strict';
++
++/* scripts/comprobar-base.js — ¿está la base como tiene que estar?
++ *
++ * Se corre después de crear la base y aplicar `db/migraciones/001_identidad.sql`,
++ * y otra vez después de migrar las cuentas. Tarda un segundo y evita las tres
++ * formas conocidas de perder una tarde:
++ *
++ *   1. La base creada en utf8mb3 porque en cPanel no se elige juego de
++ *      caracteres. No da ningún error: escribe las tildes mal y se descubre
++ *      semanas después, cuando alguien busca «Bogotá».
++ *   2. Las migraciones a medias — una tabla creada y otra no.
++ *   3. Hashes que no son bcrypt, que es una persona que no puede entrar y que
++ *      no se entera hasta que lo intenta.
++ *
++ * No escribe nada. Se puede correr en producción.
++ */
++
++const db = require('../core/db/mysql.js');
++const config = require('../core/config');
++
++const TABLAS = ['usuarios', 'usuario_identidades', 'sesiones', 'tokens_un_uso'];
++
++let fallos = 0;
++const ok    = (t) => console.log(`   ✓ ${t}`);
++const mal   = (t) => { fallos += 1; console.log(`   ✗ ${t}`); };
++const aviso = (t) => console.log(`   ⚠ ${t}`);
++
++async function main() {
++  console.log('\n── Conexión ──────────────────────────────────────────────');
++
++  if (!db.configurada()) {
++    console.log('   ✗ Falta MYSQL_HOST, MYSQL_USER o MYSQL_DATABASE. Ver CONFIGURAR.md.\n');
++    process.exitCode = 1;
++    return;
++  }
++
++  const estado = await db.estado();
++  ok(`MySQL ${estado.version}, base «${estado.base}»`);
++
++  /* El error silencioso. La conexión tiene su propio juego de caracteres, y una
++     conexión utf8mb3 escribe basura en columnas utf8mb4 sin quejarse. */
++  if (String(estado.charset).startsWith('utf8mb4')) ok(`conexión en ${estado.charset}`);
++  else mal(`la conexión va en ${estado.charset}, no en utf8mb4 — las tildes y los emoji se guardarán mal`);
++
++  const base = await db.unaFila(
++    `SELECT DEFAULT_CHARACTER_SET_NAME AS cs, DEFAULT_COLLATION_NAME AS col
++       FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()`
++  );
++  if (String(base?.cs).startsWith('utf8mb4')) ok(`base en ${base.cs} / ${base.col}`);
++  else mal(`la base está en ${base?.cs} — arreglar con: ALTER DATABASE \`${estado.base}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
++
++  console.log('\n── Tablas ────────────────────────────────────────────────');
++
++  const presentes = (await db.consultar(
++    `SELECT TABLE_NAME AS nombre, TABLE_COLLATION AS col
++       FROM information_schema.TABLES
++      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (?, ?, ?, ?)`,
++    TABLAS
++  ));
++  const porNombre = new Map(presentes.map(t => [t.nombre, t]));
++
++  for (const t of TABLAS) {
++    const fila = porNombre.get(t);
++    if (!fila) { mal(`falta la tabla ${t} — aplicar db/migraciones/001_identidad.sql`); continue; }
++    if (!String(fila.col).startsWith('utf8mb4')) mal(`${t} está en ${fila.col}, no en utf8mb4`);
++    else ok(`${t}`);
++  }
++
++  if (fallos) {
++    console.log('\n✗ La base no está lista. Arreglar lo de arriba y volver a correr.\n');
++    process.exitCode = 1;
++    return;
++  }
++
++  console.log('\n── Datos ─────────────────────────────────────────────────');
++
++  const n = await db.unaFila(
++    `SELECT
++       (SELECT COUNT(*) FROM usuarios)                                        AS usuarios,
++       (SELECT COUNT(*) FROM usuarios WHERE password_hash IS NOT NULL)        AS con_password,
++       (SELECT COUNT(*) FROM usuarios WHERE email_confirmado_at IS NOT NULL)  AS confirmados,
++       (SELECT COUNT(*) FROM usuario_identidades WHERE proveedor = 'google')  AS google,
++       (SELECT COUNT(*) FROM sesiones WHERE revocado_at IS NULL AND expira_at > NOW()) AS sesiones_vivas`
++  );
++
++  console.log(`   usuarios            ${n.usuarios}`);
++  console.log(`   con contraseña      ${n.con_password}`);
++  console.log(`   confirmados         ${n.confirmados}`);
++  console.log(`   identidades Google  ${n.google}`);
++  console.log(`   sesiones vivas      ${n.sesiones_vivas}`);
++
++  if (Number(n.usuarios) === 0) {
++    aviso('no hay ninguna cuenta: falta correr scripts/migrar-usuarios-a-mysql.js');
++  }
++
++  /* Un hash que no sea bcrypt es una persona que no va a poder entrar. Se
++     cuenta, nunca se imprime: un hash en el registro del servidor es material
++     para probar contraseñas sin límite y sin que nadie lo vea. */
++  const raros = await db.unaFila(
++    `SELECT COUNT(*) AS n FROM usuarios
++      WHERE password_hash IS NOT NULL AND password_hash NOT LIKE '$2%'`
++  );
++  if (Number(raros.n) === 0) ok('todos los hashes son bcrypt');
++  else mal(`${raros.n} hash(es) que no son bcrypt: esas personas no podrán entrar`);
++
++  /* Quien no tiene ni contraseña ni identidad externa no puede entrar de
++     ninguna manera. Es el descuadre que hay que mirar antes del evento. */
++  const sinPuerta = await db.consultar(
++    `SELECT u.email FROM usuarios u
++      WHERE u.password_hash IS NULL
++        AND NOT EXISTS (SELECT 1 FROM usuario_identidades i WHERE i.usuario_id = u.id)`
++  );
++  if (sinPuerta.length) {
++    aviso(`${sinPuerta.length} cuenta(s) sin contraseña y sin identidad externa:`);
++    for (const u of sinPuerta) console.log(`     · ${u.email}`);
++    console.log('     Sólo pueden entrar por «recuperar contraseña».');
++  } else {
++    ok('todas las cuentas tienen alguna forma de entrar');
++  }
++
++  console.log('\n── Configuración ─────────────────────────────────────────');
++
++  if (config.AUTH_PROPIA) ok('AUTH_PROPIA encendido');
++  else aviso('AUTH_PROPIA apagado: el backend sigue usando Supabase Auth');
++
++  if (process.env.JWT_SECRET) ok('JWT_SECRET configurado');
++  else mal('falta JWT_SECRET: sin él los tokens no se firman de verdad');
++
++  if (config.GOOGLE_CLIENT_ID && config.GOOGLE_AUTH_REDIRECT) ok('Google configurado');
++  else aviso('Google sin configurar: «entrar con Google» quedará apagado');
++
++  console.log(fallos ? '\n✗ Hay cosas que arreglar.\n' : '\n✓ Todo en orden.\n');
++  if (fallos) process.exitCode = 1;
++}
++
++main()
++  .catch((e) => { console.error('\n✗', e.message, '\n'); process.exitCode = 1; })
++  .finally(() => db.cerrar().catch(() => {}));
+diff --git a/scripts/migrar-usuarios-a-mysql.js b/scripts/migrar-usuarios-a-mysql.js
+new file mode 100644
+index 0000000..f7c3641
+--- /dev/null
++++ b/scripts/migrar-usuarios-a-mysql.js
+@@ -0,0 +1,219 @@
++#!/usr/bin/env node
++'use strict';
++
++/* scripts/migrar-usuarios-a-mysql.js — trae las 29 cuentas de Supabase.
++ *
++ * ── Las dos cosas que no se pueden estropear ──────────────────────────────
++ *
++ * 1. **Los UUID se conservan exactamente.** Están referenciados por claves
++ *    ajenas en todo el esquema y por `profiles.id`. Un UUID nuevo no es «un
++ *    usuario con otro identificador»: es un usuario que perdió sus eventos,
++ *    sus boletas y su equipo.
++ *
++ * 2. **Los hashes de contraseña se copian tal cual.** Los 10 que hay son
++ *    `$2a$10$…`, bcrypt estándar, y `bcryptjs` los verifica sin tocarlos. Nadie
++ *    restablece su contraseña por la migración. Si este script intentara
++ *    «mejorar» el hash, haría falta la contraseña en claro, que no existe en
++ *    ningún sitio.
++ *
++ * ── Por qué lee un archivo y no se conecta a Supabase ─────────────────────
++ *
++ * Los hashes viven en `auth.users`, que la API de Supabase no expone: ni
++ * `supabase.from()` (es otro esquema) ni `auth.admin.listUsers()` (devuelve el
++ * usuario sin su hash). Sólo se llega por SQL.
++ *
++ * Así que el volcado se saca a mano, una vez, con esta consulta en el editor
++ * SQL de Supabase (o por el MCP), y se guarda en un archivo:
++ *
++ *   SELECT json_agg(u) FROM (
++ *     SELECT
++ *       u.id::text,
++ *       u.email,
++ *       u.encrypted_password,
++ *       u.email_confirmed_at,
++ *       u.raw_user_meta_data,
++ *       COALESCE((
++ *         SELECT json_agg(json_build_object(
++ *                  'provider', i.provider,
++ *                  'sub',      i.identity_data->>'sub',
++ *                  'email',    i.identity_data->>'email'))
++ *           FROM auth.identities i
++ *          WHERE i.user_id = u.id AND i.provider <> 'email'
++ *       ), '[]'::json) AS identidades
++ *     FROM auth.users u
++ *     WHERE u.deleted_at IS NULL
++ *   ) u;
++ *
++ * Ese archivo es, literalmente, las llaves de las 29 cuentas. Se borra en
++ * cuanto la migración termina y no se guarda en el repositorio (`.gitignore`
++ * ya excluye `*.json` de volcado; comprobarlo antes de nada).
++ *
++ * ── Cómo se usa ──────────────────────────────────────────────────────────
++ *
++ *   node scripts/migrar-usuarios-a-mysql.js --archivo volcado.json
++ *       Lee, valida y cuenta. NO escribe nada. Es lo primero que hay que
++ *       correr, y hay que leer lo que dice antes de seguir.
++ *
++ *   node scripts/migrar-usuarios-a-mysql.js --archivo volcado.json --aplicar
++ *       Escribe. Las cuentas que ya existan en MySQL se saltan: se puede
++ *       repetir sin miedo si se corta a mitad.
++ */
++
++const fs = require('fs');
++const db = require('../core/db/mysql.js');
++
++const args = process.argv.slice(2);
++const opcion = (nombre) => {
++  const i = args.indexOf(`--${nombre}`);
++  return i >= 0 ? (args[i + 1] || true) : null;
++};
++
++const ARCHIVO = opcion('archivo');
++const APLICAR = args.includes('--aplicar');
++
++const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
++
++function salir(mensaje) {
++  console.error(`\n✗ ${mensaje}\n`);
++  process.exit(1);
++}
++
++/* Fechas: Postgres las da en ISO, MySQL las quiere sin la Z y sin la T. */
++function aFechaMysql(iso) {
++  if (!iso) return null;
++  const d = new Date(iso);
++  if (Number.isNaN(d.getTime())) return null;
++  return d.toISOString().slice(0, 19).replace('T', ' ');
++}
++
++async function main() {
++  if (!ARCHIVO || ARCHIVO === true) salir('Falta --archivo <ruta al volcado JSON>. Ver la cabecera de este archivo.');
++  if (!fs.existsSync(ARCHIVO)) salir(`No existe el archivo ${ARCHIVO}.`);
++
++  let usuarios;
++  try {
++    const crudo = JSON.parse(fs.readFileSync(ARCHIVO, 'utf8'));
++    /* `json_agg` devuelve el array; si se pegó la fila entera, viene envuelto. */
++    usuarios = Array.isArray(crudo) ? crudo : (crudo.json_agg || crudo.usuarios || null);
++  } catch (e) {
++    salir(`El archivo no es JSON válido: ${e.message}`);
++  }
++  if (!Array.isArray(usuarios)) salir('El archivo no contiene una lista de usuarios.');
++
++  /* ── Validación, antes de tocar nada ─────────────────────────────────── */
++
++  const problemas = [];
++  const correosVistos = new Map();
++  let conPassword = 0;
++  let conGoogle = 0;
++  let sinConfirmar = 0;
++
++  for (const u of usuarios) {
++    if (!UUID_RE.test(String(u.id || ''))) problemas.push(`UUID con mala pinta: ${u.id}`);
++    if (!u.email) problemas.push(`Usuario sin correo: ${u.id}`);
++
++    const correo = String(u.email || '').trim().toLowerCase();
++    if (correosVistos.has(correo)) {
++      /* En MySQL el correo es UNIQUE. Si Supabase trae dos, la migración
++         fallaría a mitad; mejor saberlo antes y decidir cuál se queda. */
++      problemas.push(`Correo repetido: ${correo} (${correosVistos.get(correo)} y ${u.id})`);
++    }
++    correosVistos.set(correo, u.id);
++
++    if (u.encrypted_password) {
++      conPassword += 1;
++      /* Sólo bcrypt. Si apareciera un hash de otro tipo (argon2, scrypt),
++         `bcryptjs` no lo verificaría y esa persona se quedaría fuera sin que
++         nadie se enterara hasta que intentara entrar. */
++      if (!/^\$2[aby]\$/.test(u.encrypted_password)) {
++        problemas.push(`Hash que no es bcrypt: ${correo} (${String(u.encrypted_password).slice(0, 4)}…)`);
++      }
++    }
++
++    const ids = Array.isArray(u.identidades) ? u.identidades : [];
++    if (ids.some(i => i.provider === 'google')) conGoogle += 1;
++    for (const i of ids) {
++      if (!i.sub) problemas.push(`Identidad de ${i.provider} sin sub: ${correo}`);
++    }
++
++    if (!u.email_confirmed_at) sinConfirmar += 1;
++  }
++
++  console.log('\n── Lo que trae el volcado ────────────────────────────────');
++  console.log(`   usuarios            ${usuarios.length}`);
++  console.log(`   con contraseña      ${conPassword}`);
++  console.log(`   con Google          ${conGoogle}`);
++  console.log(`   sin confirmar       ${sinConfirmar}`);
++
++  /* El descuadre que hay que mirar ANTES de migrar: quien no tiene ni
++     contraseña ni identidad externa no puede entrar de ninguna forma. La fila
++     se migra igual —sus eventos dependen de ella— pero hay que saber quién es
++     para avisarle o darle acceso por recuperación. */
++  const huerfanos = usuarios.filter(u => !u.encrypted_password && !(u.identidades || []).length);
++  if (huerfanos.length) {
++    console.log(`\n   ⚠ ${huerfanos.length} cuenta(s) sin contraseña y sin identidad externa:`);
++    for (const u of huerfanos) console.log(`     · ${u.email} (${u.id})`);
++    console.log('     Se migran, pero esas personas sólo podrán entrar por «recuperar contraseña».');
++  }
++
++  if (problemas.length) {
++    console.log('\n── Problemas ─────────────────────────────────────────────');
++    for (const p of problemas) console.log(`   ✗ ${p}`);
++    salir('Hay que resolver eso antes de migrar. No se escribió nada.');
++  }
++
++  if (!APLICAR) {
++    console.log('\n✓ El volcado está bien. Nada escrito (falta --aplicar).\n');
++    return;
++  }
++
++  /* ── Escritura ───────────────────────────────────────────────────────── */
++
++  if (!db.configurada()) salir('MySQL no está configurado. Ver CONFIGURAR.md.');
++
++  let creados = 0;
++  let saltados = 0;
++  let identidades = 0;
++
++  for (const u of usuarios) {
++    const correo = String(u.email).trim().toLowerCase();
++
++    const ya = await db.unaFila('SELECT id FROM usuarios WHERE id = ? OR email = ? LIMIT 1', [u.id, correo]);
++    if (ya) { saltados += 1; continue; }
++
++    await db.consultar(
++      `INSERT INTO usuarios (id, email, password_hash, email_confirmado_at, metadata, creado_at)
++       VALUES (?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
++      [
++        u.id,
++        correo,
++        u.encrypted_password || null,
++        aFechaMysql(u.email_confirmed_at),
++        JSON.stringify(u.raw_user_meta_data || {}),
++        aFechaMysql(u.created_at),
++      ]
++    );
++    creados += 1;
++
++    for (const i of (u.identidades || [])) {
++      if (!i.sub) continue;
++      await db.consultar(
++        `INSERT IGNORE INTO usuario_identidades (usuario_id, proveedor, proveedor_id, email)
++         VALUES (?, ?, ?, ?)`,
++        [u.id, i.provider, String(i.sub), (i.email || correo).toLowerCase()]
++      );
++      identidades += 1;
++    }
++  }
++
++  console.log('\n── Escrito ───────────────────────────────────────────────');
++  console.log(`   cuentas creadas     ${creados}`);
++  console.log(`   ya estaban          ${saltados}`);
++  console.log(`   identidades         ${identidades}`);
++  console.log('\n✓ Listo. Ahora: `node scripts/comprobar-base.js` y una entrada de prueba.');
++  console.log('  Y borrar el volcado: son las llaves de todas las cuentas.\n');
++}
++
++main()
++  .catch((e) => { console.error('\n✗', e.message, '\n'); process.exitCode = 1; })
++  .finally(() => db.cerrar().catch(() => {}));
+diff --git a/test/_repoFalso.js b/test/_repoFalso.js
+new file mode 100644
+index 0000000..ed48016
+--- /dev/null
++++ b/test/_repoFalso.js
+@@ -0,0 +1,179 @@
++'use strict';
++
++/* Un repositorio de mentira, en memoria, con la misma superficie que
++   `modules/auth/repositorio.js`.
++ *
++ * Existe por la razón por la que existe la regla de que sólo el repositorio
++ * toca la base: si el servicio hablara con MySQL, probarlo exigiría un MySQL
++ * levantado, y las pruebas que exigen infraestructura son las que se acaban
++ * saltando. Con esto, las decisiones —que es donde están los fallos que
++ * importan— se prueban con `node --test` y nada más.
++ *
++ * No imita a MySQL: imita el CONTRATO. Si una función de aquí y la de verdad se
++ * separan, las pruebas pasan y producción falla, así que cualquier cambio en
++ * `repositorio.js` tiene que llegar también aquí.
++ */
++
++const crypto = require('crypto');
++
++function crearRepoFalso({ usuarios = [] } = {}) {
++  const estado = {
++    usuarios   : new Map(),
++    identidades: [],
++    sesiones   : [],
++    tokens     : [],
++    correosEnviados: [],
++  };
++
++  const normalizar = (email) => String(email || '').trim().toLowerCase();
++
++  for (const u of usuarios) {
++    estado.usuarios.set(u.id, {
++      intentosFallidos: 0, bloqueadoHasta: null, metadata: {}, emailConfirmado: true,
++      passwordHash: null, ...u, email: normalizar(u.email),
++    });
++  }
++
++  const repo = {
++    _estado: estado,
++    normalizar,
++
++    async porEmail(email) {
++      const e = normalizar(email);
++      return [...estado.usuarios.values()].find(u => u.email === e) || null;
++    },
++
++    async porId(id) {
++      return estado.usuarios.get(id) || null;
++    },
++
++    async porIdentidad(proveedor, proveedorId) {
++      const i = estado.identidades.find(x => x.proveedor === proveedor && x.proveedorId === String(proveedorId));
++      return i ? estado.usuarios.get(i.usuarioId) || null : null;
++    },
++
++    async crear({ id, email, passwordHash, metadata, emailConfirmado }) {
++      const u = {
++        id, email: normalizar(email), passwordHash: passwordHash || null,
++        metadata: metadata || {}, emailConfirmado: Boolean(emailConfirmado),
++        intentosFallidos: 0, bloqueadoHasta: null,
++      };
++      estado.usuarios.set(id, u);
++      return u;
++    },
++
++    async actualizarPassword(usuarioId, passwordHash) {
++      estado.usuarios.get(usuarioId).passwordHash = passwordHash;
++    },
++
++    async actualizarMetadata(usuarioId, metadata) {
++      const u = estado.usuarios.get(usuarioId);
++      u.metadata = metadata;
++      return u;
++    },
++
++    async marcarConfirmado(usuarioId) {
++      estado.usuarios.get(usuarioId).emailConfirmado = true;
++    },
++
++    async marcarAcceso(usuarioId) {
++      const u = estado.usuarios.get(usuarioId);
++      u.intentosFallidos = 0;
++      u.bloqueadoHasta = null;
++    },
++
++    async sumarIntentoFallido(usuarioId, { maximo, bloqueoMinutos }) {
++      const u = estado.usuarios.get(usuarioId);
++      u.intentosFallidos += 1;
++      if (u.intentosFallidos >= maximo) {
++        u.bloqueadoHasta = new Date(Date.now() + bloqueoMinutos * 60000);
++      }
++    },
++
++    async enlazarIdentidad({ usuarioId, proveedor, proveedorId, email }) {
++      const ya = estado.identidades.some(x => x.proveedor === proveedor && x.proveedorId === String(proveedorId));
++      if (!ya) estado.identidades.push({ usuarioId, proveedor, proveedorId: String(proveedorId), email });
++    },
++
++    async crearSesion({ usuarioId, refreshHash, expiraAt, userAgent, ip }) {
++      const s = {
++        id: estado.sesiones.length + 1, usuarioId, refreshHash,
++        expiraAt, usadoAt: null, revocadoAt: null, reemplazadaPor: null, userAgent, ip,
++        creadoAt: new Date(),
++      };
++      estado.sesiones.push(s);
++      return { id: s.id };
++    },
++
++    async sesionPorHash(refreshHash) {
++      return estado.sesiones.find(s => s.refreshHash === refreshHash) || null;
++    },
++
++    async rotarSesion({ sesionVieja, usuarioId, refreshHash, expiraAt, userAgent, ip }) {
++      const nueva = await repo.crearSesion({ usuarioId, refreshHash, expiraAt, userAgent, ip });
++      const vieja = estado.sesiones.find(s => s.id === sesionVieja);
++      vieja.usadoAt = new Date();
++      vieja.revocadoAt = new Date();
++      vieja.reemplazadaPor = nueva.id;
++      return nueva;
++    },
++
++    async revocarSesion(refreshHash) {
++      const s = estado.sesiones.find(x => x.refreshHash === refreshHash);
++      if (s && !s.revocadoAt) s.revocadoAt = new Date();
++    },
++
++    async revocarTodas(usuarioId) {
++      let n = 0;
++      for (const s of estado.sesiones) {
++        if (s.usuarioId === usuarioId && !s.revocadoAt) { s.revocadoAt = new Date(); n += 1; }
++      }
++      return n;
++    },
++
++    async sesionesDe(usuarioId) {
++      return estado.sesiones.filter(s => s.usuarioId === usuarioId && !s.revocadoAt);
++    },
++
++    async crearTokenUnUso({ usuarioId, tipo, tokenHash, expiraAt }) {
++      for (const t of estado.tokens) {
++        if (t.usuarioId === usuarioId && t.tipo === tipo && !t.usadoAt) t.usadoAt = new Date();
++      }
++      estado.tokens.push({ id: estado.tokens.length + 1, usuarioId, tipo, tokenHash, expiraAt, usadoAt: null });
++    },
++
++    async tokenPorHash(tokenHash) {
++      return estado.tokens.find(t => t.tokenHash === tokenHash) || null;
++    },
++
++    async marcarTokenUsado(id) {
++      const t = estado.tokens.find(x => x.id === id);
++      if (!t || t.usadoAt) return false;
++      t.usadoAt = new Date();
++      return true;
++    },
++  };
++
++  return repo;
++}
++
++/* Correos de mentira: en vez de mandar nada, guardan el token del enlace, que
++   es lo que la prueba necesita para seguir el flujo como lo seguiría alguien
++   abriendo su bandeja. */
++function crearCorreosFalsos(estado) {
++  return {
++    async confirmacion(usuario, token) {
++      estado.correosEnviados.push({ tipo: 'confirmacion', para: usuario.email, token });
++    },
++    async recuperacion(usuario, token) {
++      estado.correosEnviados.push({ tipo: 'recuperacion', para: usuario.email, token });
++    },
++    async avisarIntentoDeRegistro(usuario) {
++      estado.correosEnviados.push({ tipo: 'aviso_registro', para: usuario.email });
++    },
++  };
++}
++
++const uuid = () => crypto.randomUUID();
++
++module.exports = { crearRepoFalso, crearCorreosFalsos, uuid };
+diff --git a/test/auth.google.test.js b/test/auth.google.test.js
+new file mode 100644
+index 0000000..75629dc
+--- /dev/null
++++ b/test/auth.google.test.js
+@@ -0,0 +1,203 @@
++'use strict';
++
++/* «Entrar con Google» es por donde entran 22 de las 29 cuentas. Lo que se
++   prueba aquí son las tres cosas que, si se hacen mal, no se ven:
++ *
++ *   - que el `state` no se pueda falsificar (o esto es un redirector abierto
++ *     que entrega la sesión recién abierta en un dominio ajeno);
++ *   - que se identifique a la persona por el `sub` y no por el correo (o quien
++ *     cambie su dirección en Google pierde su cuenta y sus eventos);
++ *   - que los tokens vuelvan en el fragmento y no en la query (o acaban en los
++ *     registros de acceso y en la cabecera Referer).
++ */
++
++process.env.JWT_SECRET = 'secreto-de-prueba-que-no-es-el-de-produccion';
++process.env.AUTH_PROPIA = 'true';
++process.env.GOOGLE_CLIENT_ID = 'cliente-de-prueba.apps.googleusercontent.com';
++process.env.GOOGLE_CLIENT_SECRET = 'secreto-de-google-de-prueba';
++process.env.GOOGLE_AUTH_REDIRECT = 'https://api.ejemplo.com/auth/google/callback';
++process.env.FRONTEND_URL = 'https://app.ejemplo.com';
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++
++const test = require('node:test');
++const assert = require('node:assert');
++
++const google = require('../modules/auth/google.js');
++const { crearRepoFalso, uuid } = require('./_repoFalso.js');
++
++/* ── La URL de consentimiento ──────────────────────────────────────────── */
++
++test('la URL de consentimiento lleva nuestro cliente y nuestro redirect', () => {
++  const url = new URL(google.urlDeConsentimiento({ destino: '/inicio' }));
++
++  assert.equal(url.origin + url.pathname, 'https://accounts.google.com/o/oauth2/v2/auth');
++  assert.equal(url.searchParams.get('client_id'), process.env.GOOGLE_CLIENT_ID);
++  assert.equal(url.searchParams.get('redirect_uri'), process.env.GOOGLE_AUTH_REDIRECT);
++  assert.equal(url.searchParams.get('response_type'), 'code');
++  assert.match(url.searchParams.get('scope'), /openid/);
++});
++
++test('el estado se firma y se puede volver a leer', () => {
++  const url = new URL(google.urlDeConsentimiento({ destino: '/eventos/42' }));
++  const estado = google.verificarEstado(url.searchParams.get('state'));
++
++  assert.ok(estado);
++  assert.equal(estado.d, '/eventos/42');
++});
++
++test('un estado con la firma cambiada no vale', () => {
++  const url = new URL(google.urlDeConsentimiento({ destino: '/inicio' }));
++  const [cuerpo] = url.searchParams.get('state').split('.');
++
++  assert.equal(google.verificarEstado(`${cuerpo}.firmafalsa`), null);
++  assert.equal(google.verificarEstado(cuerpo), null);
++  assert.equal(google.verificarEstado(''), null);
++  assert.equal(google.verificarEstado(null), null);
++});
++
++test('un estado con el destino cambiado no vale', () => {
++  /* El ataque concreto: reescribir el destino a un dominio propio para que la
++     vuelta —con los tokens en el fragmento— caiga allí. */
++  const url = new URL(google.urlDeConsentimiento({ destino: '/inicio' }));
++  const [, firma] = url.searchParams.get('state').split('.');
++  const otro = Buffer.from(JSON.stringify({ d: '//malo.com', t: Date.now() })).toString('base64url');
++
++  assert.equal(google.verificarEstado(`${otro}.${firma}`), null);
++});
++
++test('un estado viejo no vale', () => {
++  const viejo = google._firmar({ d: '/inicio', t: Date.now() - 3600 * 1000 });
++  assert.equal(google.verificarEstado(viejo), null);
++});
++
++test('el destino sólo puede ser una ruta nuestra', () => {
++  assert.equal(google._destinoSeguro('/eventos/7'), '/eventos/7');
++  assert.equal(google._destinoSeguro('/inicio?tab=hoy'), '/inicio?tab=hoy');
++
++  /* Todo lo demás cae a /inicio. Un destino externo aquí sería entregar la
++     sesión recién abierta a quien fabricó el enlace. */
++  assert.equal(google._destinoSeguro('https://malo.com'), '/inicio');
++  assert.equal(google._destinoSeguro('//malo.com'), '/inicio');
++  assert.equal(google._destinoSeguro('javascript:alert(1)'), '/inicio');
++  assert.equal(google._destinoSeguro(''), '/inicio');
++  assert.equal(google._destinoSeguro(null), '/inicio');
++});
++
++/* ── A quién corresponde el perfil que devuelve Google ─────────────────── */
++
++test('con el sub ya conocido, entra a SU cuenta aunque el correo haya cambiado', async () => {
++  /* El caso que decide todo el diseño: la persona cambió su dirección en
++     Google. Si se emparejara por correo, entraría a una cuenta nueva y vacía y
++     sus eventos se quedarían en la vieja. */
++  const id = uuid();
++  const repo = crearRepoFalso({ usuarios: [{ id, email: 'vieja@ejemplo.com' }] });
++  await repo.enlazarIdentidad({ usuarioId: id, proveedor: 'google', proveedorId: '1234', email: 'vieja@ejemplo.com' });
++
++  const { usuario, nuevo } = await google.resolverUsuario(
++    { sub: '1234', email: 'nueva@ejemplo.com', email_verified: true, name: 'Ana' },
++    { repo }
++  );
++
++  assert.equal(usuario.id, id);
++  assert.equal(nuevo, false);
++});
++
++test('si el correo ya tiene cuenta, se enlaza en vez de duplicarla', async () => {
++  /* Es el camino de quien se registró con contraseña y un día pulsa el botón de
++     Google. Sin esto tendría dos cuentas con el mismo correo. */
++  const id = uuid();
++  const repo = crearRepoFalso({ usuarios: [{ id, email: 'ana@ejemplo.com', emailConfirmado: false }] });
++
++  const { usuario, nuevo } = await google.resolverUsuario(
++    { sub: '9999', email: 'ana@ejemplo.com', email_verified: true },
++    { repo }
++  );
++
++  assert.equal(usuario.id, id);
++  assert.equal(nuevo, false);
++  assert.equal(repo._estado.identidades.length, 1);
++  /* Y la cuenta queda confirmada: Google acaba de demostrar que ese correo es
++     suyo. */
++  assert.equal(usuario.emailConfirmado, true);
++});
++
++test('sin email_verified NO se enlaza a una cuenta existente', async () => {
++  /* Es la comprobación que separa «entrar con Google» de «quedarse con la
++     cuenta de otro»: quien consiga un perfil con el correo ajeno sin verificar
++     no debe heredar nada. */
++  const id = uuid();
++  const repo = crearRepoFalso({ usuarios: [{ id, email: 'ana@ejemplo.com' }] });
++
++  const { usuario, nuevo } = await google.resolverUsuario(
++    { sub: '7777', email: 'ana@ejemplo.com', email_verified: false },
++    { repo }
++  );
++
++  assert.notEqual(usuario.id, id);
++  assert.equal(nuevo, true);
++});
++
++test('un perfil desconocido crea cuenta, ya confirmada y sin contraseña', async () => {
++  const repo = crearRepoFalso();
++  const { usuario, nuevo } = await google.resolverUsuario(
++    { sub: '5555', email: 'nueva@ejemplo.com', email_verified: true, name: 'Nueva', picture: 'https://x/y.png' },
++    { repo }
++  );
++
++  assert.equal(nuevo, true);
++  assert.equal(usuario.emailConfirmado, true);
++  assert.equal(usuario.passwordHash, null);
++  /* Los mismos nombres de campo que dejaba Supabase en `user_metadata`: es lo
++     que leen las pantallas. */
++  assert.equal(usuario.metadata.full_name, 'Nueva');
++  assert.equal(usuario.metadata.avatar_url, 'https://x/y.png');
++});
++
++test('sin sub no se resuelve nada', async () => {
++  const repo = crearRepoFalso();
++  await assert.rejects(() => google.resolverUsuario({ email: 'x@y.com', email_verified: true }, { repo }));
++});
++
++test('dos vueltas seguidas del mismo Google no duplican la identidad', async () => {
++  const repo = crearRepoFalso();
++  const perfil = { sub: '4321', email: 'dos@ejemplo.com', email_verified: true };
++
++  const a = await google.resolverUsuario(perfil, { repo });
++  const b = await google.resolverUsuario(perfil, { repo });
++
++  assert.equal(a.usuario.id, b.usuario.id);
++  assert.equal(repo._estado.identidades.length, 1);
++});
++
++/* ── La vuelta al frontend ─────────────────────────────────────────────── */
++
++test('los tokens vuelven en el fragmento, nunca en la query', () => {
++  const url = new URL(google.urlDeVuelta({
++    destino: '/inicio',
++    sesion : { access_token: 'AAA', refresh_token: 'RRR' },
++  }));
++
++  assert.equal(url.origin, 'https://app.ejemplo.com');
++  assert.equal(url.pathname, '/inicio');
++  /* El fragmento no se manda al servidor: no aparece en los registros de
++     acceso ni en el Referer de la página siguiente. La query sí. */
++  assert.equal(url.search, '');
++  assert.match(url.hash, /access_token=AAA/);
++  assert.match(url.hash, /refresh_token=RRR/);
++});
++
++test('un destino manipulado no saca al usuario de nuestro dominio', () => {
++  const url = new URL(google.urlDeVuelta({
++    destino: 'https://malo.com/robar',
++    sesion : { access_token: 'AAA', refresh_token: 'RRR' },
++  }));
++  assert.equal(url.origin, 'https://app.ejemplo.com');
++});
++
++test('el error vuelve a la pantalla de entrada, no a un JSON en blanco', () => {
++  const url = new URL(google.urlDeError('fallo_google'));
++  assert.equal(url.origin, 'https://app.ejemplo.com');
++  assert.equal(url.pathname, '/auth');
++  assert.equal(url.searchParams.get('error'), 'fallo_google');
++});
+diff --git a/test/auth.middleware.test.js b/test/auth.middleware.test.js
+new file mode 100644
+index 0000000..09fe903
+--- /dev/null
++++ b/test/auth.middleware.test.js
+@@ -0,0 +1,143 @@
++'use strict';
++
++/* El middleware es donde se cobra el cambio de §5.4: hoy cada petición de la
++   aplicación cuesta una llamada de red a Supabase para averiguar quién la hace.
++   Con la identidad propia, un token nuestro se verifica localmente y esa
++   llamada no existe.
++ *
++ * Que «funcione» no basta: si el orden estuviera al revés, todo seguiría
++ * entrando igual y se seguiría pagando el viaje en cada petición, sin que nada
++ * fallara. Por eso lo que se cuenta aquí son las llamadas a Supabase.
++ *
++ * Y la otra mitad: que un token de Supabase siga valiendo. Son las 21 sesiones
++ * que estaban abiertas cuando se encendió el interruptor; si dejaran de valer,
++ * el día de la migración todo el mundo se encontraría fuera de golpe. */
++
++process.env.JWT_SECRET = 'secreto-de-prueba-que-no-es-el-de-produccion';
++process.env.AUTH_PROPIA = 'true';
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++
++const test = require('node:test');
++const assert = require('node:assert');
++
++/* Se sustituye `lib/supabase.js` en la caché de módulos ANTES de cargar el
++   middleware, para poder contar las llamadas sin salir a la red. */
++const rutaSupabase = require.resolve('../lib/supabase.js');
++let llamadasASupabase = 0;
++let respuestaDeSupabase = { data: { user: { id: 'usuario-de-supabase', email: 'viejo@ejemplo.com' } }, error: null };
++
++require.cache[rutaSupabase] = {
++  id: rutaSupabase, filename: rutaSupabase, loaded: true, exports: {
++    auth: {
++      async getUser() { llamadasASupabase += 1; return respuestaDeSupabase; },
++    },
++  },
++};
++
++const { verifySupabaseJWT, verifySupabaseJWTOptional } = require('../middleware/auth.js');
++const tokens = require('../modules/auth/tokens.js');
++
++const USUARIO = { id: '11111111-2222-3333-4444-555555555555', email: 'ana@ejemplo.com' };
++
++/* Un par de dobles de Express, lo justo para saber qué contestó. */
++function peticion(token) {
++  return { headers: token ? { authorization: `Bearer ${token}` } : {} };
++}
++function respuesta() {
++  const r = { codigo: null, cuerpo: null };
++  r.status = (c) => { r.codigo = c; return r; };
++  r.json = (b) => { r.cuerpo = b; return r; };
++  return r;
++}
++async function pasar(middleware, req) {
++  const res = respuesta();
++  let siguio = false;
++  await middleware(req, res, () => { siguio = true; });
++  return { res, siguio };
++}
++
++test('un token nuestro entra SIN preguntarle a Supabase', async () => {
++  llamadasASupabase = 0;
++  const req = peticion(tokens.emitirAcceso(USUARIO));
++
++  const { siguio } = await pasar(verifySupabaseJWT, req);
++
++  assert.equal(siguio, true);
++  assert.equal(req.user.id, USUARIO.id);
++  assert.equal(req.user.email, USUARIO.email);
++  /* Lo que se está comprobando de verdad: cero viajes de red. */
++  assert.equal(llamadasASupabase, 0);
++});
++
++test('un token de Supabase sigue valiendo, por el camino de siempre', async () => {
++  llamadasASupabase = 0;
++  respuestaDeSupabase = { data: { user: { id: 'usuario-de-supabase', email: 'viejo@ejemplo.com' } }, error: null };
++
++  const { siguio } = await pasar(verifySupabaseJWT, peticion('token-viejo-de-supabase'));
++
++  assert.equal(siguio, true);
++  assert.equal(llamadasASupabase, 1);
++});
++
++test('sin token, 401 y no se pregunta a nadie', async () => {
++  llamadasASupabase = 0;
++  const { res, siguio } = await pasar(verifySupabaseJWT, peticion(null));
++
++  assert.equal(siguio, false);
++  assert.equal(res.codigo, 401);
++  assert.equal(llamadasASupabase, 0);
++});
++
++test('un token que no vale en ninguno de los dos sitios da 401', async () => {
++  respuestaDeSupabase = { data: null, error: { message: 'invalid' } };
++  const { res, siguio } = await pasar(verifySupabaseJWT, peticion('basura'));
++
++  assert.equal(siguio, false);
++  assert.equal(res.codigo, 401);
++});
++
++test('un token nuestro caducado no cuela por el camino de Supabase', async () => {
++  /* Sin esto, un token nuestro vencido caería al método viejo, Supabase diría
++     que no lo conoce y el resultado sería el correcto por casualidad. Lo que
++     no puede pasar es que Supabase lo dé por bueno: se comprueba que se
++     rechaza aunque Supabase conteste que sí. */
++  respuestaDeSupabase = { data: { user: { id: 'otro', email: 'otro@ejemplo.com' } }, error: null };
++  const viejo = tokens.emitirAcceso(USUARIO, { vidaSegundos: -10 });
++  const req = peticion(viejo);
++
++  const { siguio } = await pasar(verifySupabaseJWT, req);
++
++  /* Cae al camino viejo, que es lo que da la compatibilidad. Lo que importa es
++     que la identidad NO sale del token caducado: quien entra es quien diga
++     Supabase, no el `sub` que llevaba dentro un token que ya no vale. */
++  assert.equal(siguio, true);
++  assert.equal(req.user.id, 'otro');
++  assert.notEqual(req.user.id, USUARIO.id);
++});
++
++test('la versión opcional deja pasar sin token y con token nuestro', async () => {
++  llamadasASupabase = 0;
++
++  const sinToken = { headers: {} };
++  const a = await pasar(verifySupabaseJWTOptional, sinToken);
++  assert.equal(a.siguio, true);
++  assert.equal(sinToken.user, null);
++
++  const conToken = peticion(tokens.emitirAcceso(USUARIO));
++  const b = await pasar(verifySupabaseJWTOptional, conToken);
++  assert.equal(b.siguio, true);
++  assert.equal(conToken.user.id, USUARIO.id);
++  assert.equal(llamadasASupabase, 0);
++});
++
++test('el usuario que deja el middleware tiene la forma que esperan las 312 referencias a req.user', async () => {
++  const req = peticion(tokens.emitirAcceso(USUARIO));
++  await pasar(verifySupabaseJWT, req);
++
++  /* `id`, `email` y `user_metadata`: lo que leen los 38 archivos de rutas. Si
++     esto cambiara, habría que tocarlos todos. */
++  assert.ok('id' in req.user);
++  assert.ok('email' in req.user);
++  assert.ok('user_metadata' in req.user);
++});
+diff --git a/test/auth.servicio.test.js b/test/auth.servicio.test.js
+new file mode 100644
+index 0000000..8bee6b8
+--- /dev/null
++++ b/test/auth.servicio.test.js
+@@ -0,0 +1,422 @@
++'use strict';
++
++/* Pruebas de las decisiones: quién entra, quién no, y qué se le cuenta al que
++   no entra. Sin base de datos y sin Express — el servicio no los conoce.
++ *
++ * Lo que se comprueba aquí no es que «el login funcione». Eso se ve a la
++ * primera. Es lo que sólo se nota cuando ya es tarde: que el formulario no
++ * delate qué correos tienen cuenta, que cambiar la contraseña cierre las
++ * sesiones del que se metió, y que un refresco robado no valga dos veces. */
++
++process.env.JWT_SECRET = 'secreto-de-prueba-que-no-es-el-de-produccion';
++process.env.AUTH_PROPIA = 'true';
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++
++const test = require('node:test');
++const assert = require('node:assert');
++const bcrypt = require('bcryptjs');
++
++const { crearServicio } = require('../modules/auth/servicio.js');
++const tokens = require('../modules/auth/tokens.js');
++const config = require('../core/config');
++const { crearRepoFalso, crearCorreosFalsos, uuid } = require('./_repoFalso.js');
++
++const CLAVE = 'contraseña-larga-de-prueba';
++
++/* Monta un servicio con una cuenta ya creada y confirmada. Devuelve todo lo que
++   hace falta para mirar por dentro después. */
++async function montar({ confirmado = true, conPassword = true } = {}) {
++  const id = uuid();
++  const repo = crearRepoFalso({
++    usuarios: [{
++      id,
++      email: 'ana@ejemplo.com',
++      passwordHash: conPassword ? await bcrypt.hash(CLAVE, 4) : null,
++      emailConfirmado: confirmado,
++      metadata: { full_name: 'Ana' },
++    }],
++  });
++  const correos = crearCorreosFalsos(repo._estado);
++  return { id, repo, correos, servicio: crearServicio({ repo, correos }) };
++}
++
++/* ── Registro ──────────────────────────────────────────────────────────── */
++
++test('el registro crea la cuenta sin sesión y manda el correo', async () => {
++  const { repo, correos, servicio } = await montar();
++  const r = await servicio.registro({ email: 'nueva@ejemplo.com', password: CLAVE, metadata: { full_name: 'Nueva' } });
++
++  assert.equal(r.ok, true);
++  /* Sin sesión: primero se confirma el correo. Es lo que el frontend lee para
++     enseñar «revisá tu correo» en vez de entrar. */
++  assert.equal(r.sesion, undefined);
++
++  const creada = await repo.porEmail('nueva@ejemplo.com');
++  assert.ok(creada);
++  assert.equal(creada.emailConfirmado, false);
++  assert.equal(creada.metadata.full_name, 'Nueva');
++
++  const correo = repo._estado.correosEnviados.at(-1);
++  assert.equal(correo.tipo, 'confirmacion');
++  assert.equal(correo.para, 'nueva@ejemplo.com');
++});
++
++test('registrarse con un correo que ya existe contesta lo mismo que uno nuevo', async () => {
++  const { repo, servicio } = await montar();
++
++  const nuevo = await servicio.registro({ email: 'otra@ejemplo.com', password: CLAVE });
++  const repetido = await servicio.registro({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  /* Palabra por palabra. Si aquí dijera «ese correo ya está registrado», el
++     formulario de registro sería un comprobador de cuentas para cualquiera. */
++  assert.deepEqual(repetido, nuevo);
++
++  /* Y al dueño de verdad se le avisa, que es la parte que sí sirve. */
++  assert.equal(repo._estado.correosEnviados.at(-1).tipo, 'aviso_registro');
++  assert.equal(repo._estado.correosEnviados.at(-1).para, 'ana@ejemplo.com');
++});
++
++test('el registro guarda el correo en minúsculas', async () => {
++  const { repo, servicio } = await montar();
++  await servicio.registro({ email: '  Mayus@Ejemplo.COM ', password: CLAVE });
++  assert.ok(await repo.porEmail('mayus@ejemplo.com'));
++});
++
++test('una contraseña corta se rechaza antes de crear nada', async () => {
++  const { repo, servicio } = await montar();
++  const r = await servicio.registro({ email: 'corta@ejemplo.com', password: '123' });
++
++  assert.equal(r.codigo, 'password_corta');
++  assert.equal(await repo.porEmail('corta@ejemplo.com'), null);
++});
++
++test('una contraseña de más de 72 bytes se rechaza en vez de recortarse', async () => {
++  /* bcrypt ignora en silencio lo que pase de 72 bytes. Aceptarla haría creer a
++     quien escribe una frase larguísima que tiene más seguridad de la que tiene. */
++  const { servicio } = await montar();
++  const r = await servicio.registro({ email: 'larga@ejemplo.com', password: 'a'.repeat(100) });
++  assert.equal(r.codigo, 'password_larga');
++});
++
++/* ── Login ─────────────────────────────────────────────────────────────── */
++
++test('con la contraseña correcta se abre sesión', async () => {
++  const { id, servicio } = await montar();
++  const r = await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  assert.equal(r.ok, true);
++  assert.equal(r.sesion.usuario.id, id);
++  assert.equal(r.sesion.usuario.email, 'ana@ejemplo.com');
++  assert.ok(r.sesion.access_token);
++  assert.ok(r.sesion.refresh_token);
++
++  /* El token que sale sirve de verdad: es el mismo que verificará el middleware. */
++  assert.equal(tokens.verificarAcceso(r.sesion.access_token).sub, id);
++
++  /* Y lo que va hacia el cliente no lleva el hash de la contraseña. */
++  assert.equal(r.sesion.usuario.passwordHash, undefined);
++});
++
++test('un correo que no existe y una contraseña mala dan la MISMA respuesta', async () => {
++  const { servicio } = await montar();
++
++  const inexistente = await servicio.login({ email: 'nadie@ejemplo.com', password: CLAVE });
++  const malaClave   = await servicio.login({ email: 'ana@ejemplo.com', password: 'otra-cosa-larga' });
++
++  assert.deepEqual(inexistente, malaClave);
++  assert.equal(inexistente.status, 401);
++});
++
++test('una cuenta que sólo tiene Google no delata que no tiene contraseña', async () => {
++  const { servicio } = await montar({ conPassword: false });
++  const r = await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  assert.equal(r.codigo, 'credenciales');
++  assert.equal(r.status, 401);
++});
++
++test('sin confirmar el correo no se entra, y se dice por qué', async () => {
++  /* Aquí sí se cuenta el motivo: quien lo ve ya demostró que sabe la
++     contraseña, así que no se le está revelando nada que no supiera, y sin el
++     código el frontend no puede enseñar el botón de reenviar. */
++  const { servicio } = await montar({ confirmado: false });
++  const r = await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  assert.equal(r.codigo, 'email_no_confirmado');
++  assert.equal(r.status, 403);
++});
++
++test('a los ocho intentos fallidos la cuenta se bloquea un rato', async () => {
++  const { servicio } = await montar();
++
++  for (let i = 0; i < config.INTENTOS_MAX; i += 1) {
++    await servicio.login({ email: 'ana@ejemplo.com', password: 'no-es-esta-tampoco' });
++  }
++
++  /* Y ahora ni siquiera con la buena, que es el punto: el que prueba mil
++     contraseñas desde mil IP distintas se queda fuera igual. */
++  const r = await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++  assert.equal(r.codigo, 'cuenta_bloqueada');
++  assert.equal(r.status, 429);
++});
++
++test('entrar bien borra los intentos fallidos acumulados', async () => {
++  const { id, repo, servicio } = await montar();
++
++  await servicio.login({ email: 'ana@ejemplo.com', password: 'mal-mal-mal-mal' });
++  assert.equal((await repo.porId(id)).intentosFallidos, 1);
++
++  await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++  assert.equal((await repo.porId(id)).intentosFallidos, 0);
++});
++
++/* ── Refresco ──────────────────────────────────────────────────────────── */
++
++test('el refresco devuelve tokens nuevos y el viejo deja de valer', async () => {
++  const { servicio } = await montar();
++  const { sesion } = await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  const r = await servicio.refrescar({ refresh_token: sesion.refresh_token });
++  assert.equal(r.ok, true);
++  assert.notEqual(r.sesion.refresh_token, sesion.refresh_token);
++
++  /* Rotación: el viejo muere al usarse. */
++  const repetido = await servicio.refrescar({ refresh_token: sesion.refresh_token });
++  assert.ok(repetido.error);
++});
++
++test('usar dos veces el mismo refresco cierra TODAS las sesiones', async () => {
++  /* Un refresco ya rotado que reaparece significa que hay dos copias. Desde
++     aquí no se puede saber cuál es la del dueño, así que se corta todo: es
++     molesto, y es la única respuesta que deja fuera al ladrón. */
++  const { id, repo, servicio } = await montar();
++  const primera = (await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE })).sesion;
++  const otroDispositivo = (await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE })).sesion;
++
++  await servicio.refrescar({ refresh_token: primera.refresh_token });
++  const robado = await servicio.refrescar({ refresh_token: primera.refresh_token });
++
++  assert.equal(robado.codigo, 'sesion_reutilizada');
++  assert.equal((await repo.sesionesDe(id)).length, 0);
++
++  /* Incluido el otro dispositivo, que no había hecho nada malo. */
++  const despues = await servicio.refrescar({ refresh_token: otroDispositivo.refresh_token });
++  assert.ok(despues.error);
++});
++
++test('un refresco inventado no abre nada', async () => {
++  const { servicio } = await montar();
++  const r = await servicio.refrescar({ refresh_token: 'gtkr_inventado' });
++  assert.equal(r.status, 401);
++});
++
++test('un refresco caducado no vale', async () => {
++  const { repo, correos } = await montar();
++  /* El servicio pregunta la hora a `ahora()`: se le adelanta el reloj en vez de
++     esperar treinta días. */
++  const servicio = crearServicio({ repo, correos });
++  const { sesion } = await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  const futuro = crearServicio({
++    repo, correos,
++    ahora: () => new Date(Date.now() + (config.VIDA_REFRESH_S + 60) * 1000),
++  });
++  const r = await futuro.refrescar({ refresh_token: sesion.refresh_token });
++  assert.equal(r.codigo, 'sesion_caducada');
++});
++
++/* ── Cerrar sesión ─────────────────────────────────────────────────────── */
++
++test('cerrar sesión revoca sólo ese dispositivo', async () => {
++  const { id, repo, servicio } = await montar();
++  const movil = (await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE })).sesion;
++  await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  await servicio.logout({ refresh_token: movil.refresh_token });
++
++  assert.equal((await repo.sesionesDe(id)).length, 1);
++});
++
++test('cerrar en todos los dispositivos deja cero sesiones', async () => {
++  const { id, repo, servicio } = await montar();
++  await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++  await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++
++  const r = await servicio.cerrarTodas(id);
++  assert.equal(r.cerradas, 2);
++  assert.equal((await repo.sesionesDe(id)).length, 0);
++});
++
++test('cerrar sesión sin refresco no falla', async () => {
++  /* El cliente ya borró su copia; devolverle un error sólo lo dejaría en un
++     estado raro. */
++  const { servicio } = await montar();
++  assert.equal((await servicio.logout({})).ok, true);
++});
++
++/* ── Confirmar el correo ───────────────────────────────────────────────── */
++
++test('el enlace de confirmación confirma la cuenta, y sirve una vez', async () => {
++  const { repo, servicio } = await montar({ confirmado: false });
++  await servicio.reenviarConfirmacion({ email: 'ana@ejemplo.com' });
++  const { token } = repo._estado.correosEnviados.at(-1);
++
++  assert.equal((await servicio.confirmar({ token })).ok, true);
++  assert.equal((await repo.porEmail('ana@ejemplo.com')).emailConfirmado, true);
++
++  /* Abrirlo dos veces no es un error: casi siempre es la misma persona, o el
++     antivirus del correo que abre los enlaces antes que ella. */
++  const segunda = await servicio.confirmar({ token });
++  assert.equal(segunda.ok, true);
++  assert.equal(segunda.yaEstaba, true);
++});
++
++test('un token de recuperación no sirve para confirmar', async () => {
++  /* Los dos son cadenas de la misma pinta en la misma tabla. Sin comprobar el
++     tipo, el enlace de recuperación confirmaría cuentas y al revés. */
++  const { repo, servicio } = await montar({ confirmado: false });
++  await servicio.recuperar({ email: 'ana@ejemplo.com' });
++  const { token } = repo._estado.correosEnviados.at(-1);
++
++  assert.equal((await servicio.confirmar({ token })).codigo, 'token_invalido');
++});
++
++test('pedir otro enlace de confirmación invalida el anterior', async () => {
++  const { repo, servicio } = await montar({ confirmado: false });
++  await servicio.reenviarConfirmacion({ email: 'ana@ejemplo.com' });
++  const primero = repo._estado.correosEnviados.at(-1).token;
++  await servicio.reenviarConfirmacion({ email: 'ana@ejemplo.com' });
++
++  const r = await servicio.confirmar({ token: primero });
++  assert.equal(r.yaEstaba, true);
++  assert.equal((await repo.porEmail('ana@ejemplo.com')).emailConfirmado, false);
++});
++
++test('reenviar a un correo que no existe contesta lo mismo', async () => {
++  const { repo, servicio } = await montar();
++  const antes = repo._estado.correosEnviados.length;
++  const r = await servicio.reenviarConfirmacion({ email: 'nadie@ejemplo.com' });
++
++  assert.equal(r.ok, true);
++  assert.equal(repo._estado.correosEnviados.length, antes);
++});
++
++/* ── Recuperar contraseña ──────────────────────────────────────────────── */
++
++test('recuperar contesta igual exista o no la cuenta', async () => {
++  const { servicio } = await montar();
++  const existe = await servicio.recuperar({ email: 'ana@ejemplo.com' });
++  const noExiste = await servicio.recuperar({ email: 'nadie@ejemplo.com' });
++  assert.deepEqual(existe, noExiste);
++});
++
++test('el enlace de recuperación cambia la contraseña y cierra las sesiones', async () => {
++  const { id, repo, servicio } = await montar();
++  await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE });
++  assert.equal((await repo.sesionesDe(id)).length, 1);
++
++  await servicio.recuperar({ email: 'ana@ejemplo.com' });
++  const { token } = repo._estado.correosEnviados.at(-1);
++
++  const nueva = 'otra-contraseña-nueva';
++  assert.equal((await servicio.restablecer({ token, password: nueva })).ok, true);
++
++  /* La razón por la que la gente cambia la contraseña es que cree que alguien
++     entró. Si su sesión sigue viva, el gesto no sirve de nada. */
++  assert.equal((await repo.sesionesDe(id)).length, 0);
++
++  assert.equal((await servicio.login({ email: 'ana@ejemplo.com', password: nueva })).ok, true);
++  assert.equal((await servicio.login({ email: 'ana@ejemplo.com', password: CLAVE })).status, 401);
++});
++
++test('el enlace de recuperación sólo vale una vez', async () => {
++  const { repo, servicio } = await montar();
++  await servicio.recuperar({ email: 'ana@ejemplo.com' });
++  const { token } = repo._estado.correosEnviados.at(-1);
++
++  await servicio.restablecer({ token, password: 'primera-nueva-clave' });
++  const segunda = await servicio.restablecer({ token, password: 'segunda-nueva-clave' });
++
++  assert.equal(segunda.codigo, 'token_usado');
++});
++
++test('recuperar desde el correo también confirma la cuenta', async () => {
++  /* Quien abre el enlace demuestra que lee esa bandeja, que es exactamente lo
++     que confirma la dirección. Dejarla sin confirmar la deja fuera con una
++     contraseña nueva y correcta, que es el peor sitio donde dejar a alguien. */
++  const { repo, servicio } = await montar({ confirmado: false });
++  await servicio.recuperar({ email: 'ana@ejemplo.com' });
++  const { token } = repo._estado.correosEnviados.at(-1);
++
++  await servicio.restablecer({ token, password: 'una-clave-nueva-larga' });
++  assert.equal((await repo.porEmail('ana@ejemplo.com')).emailConfirmado, true);
++});
++
++test('un enlace de recuperación caducado no vale', async () => {
++  const { repo, correos } = await montar();
++  const servicio = crearServicio({ repo, correos });
++  await servicio.recuperar({ email: 'ana@ejemplo.com' });
++  const { token } = repo._estado.correosEnviados.at(-1);
++
++  const futuro = crearServicio({
++    repo, correos,
++    ahora: () => new Date(Date.now() + (config.VIDA_RECUPERACION_S + 60) * 1000),
++  });
++  assert.equal((await futuro.restablecer({ token, password: 'clave-nueva-larga' })).codigo, 'token_caducado');
++});
++
++/* ── Cambiar contraseña estando dentro ─────────────────────────────────── */
++
++test('cambiar la contraseña exige la actual', async () => {
++  /* Sin esto, un token robado durante media hora se convierte en una cuenta
++     perdida para siempre: el ladrón cambia la contraseña y el dueño se queda
++     fuera de su propio evento. */
++  const { id, servicio } = await montar();
++  const r = await servicio.cambiarPassword({
++    usuarioId: id, password_actual: 'la-que-no-es', password_nueva: 'una-clave-nueva-larga',
++  });
++  assert.equal(r.codigo, 'password_actual_mala');
++});
++
++test('con la contraseña actual correcta, se cambia', async () => {
++  const { id, servicio } = await montar();
++  const r = await servicio.cambiarPassword({
++    usuarioId: id, password_actual: CLAVE, password_nueva: 'una-clave-nueva-larga',
++  });
++
++  assert.equal(r.ok, true);
++  assert.equal((await servicio.login({ email: 'ana@ejemplo.com', password: 'una-clave-nueva-larga' })).ok, true);
++});
++
++test('quien entró con Google puede ponerse contraseña sin tener una anterior', async () => {
++  const { id, servicio } = await montar({ conPassword: false });
++  const r = await servicio.cambiarPassword({ usuarioId: id, password_nueva: 'su-primera-clave-larga' });
++  assert.equal(r.ok, true);
++});
++
++/* ── Perfil ────────────────────────────────────────────────────────────── */
++
++test('actualizar el perfil mezcla, no sustituye', async () => {
++  /* Cada pantalla manda sólo el campo que tocó. Sustituir el objeto entero
++     borraría el nombre al guardar el teléfono. */
++  const { id, servicio } = await montar();
++  const r = await servicio.actualizarPerfil({ usuarioId: id, metadata: { telefono: '3001234567' } });
++
++  assert.equal(r.usuario.metadata.telefono, '3001234567');
++  assert.equal(r.usuario.metadata.full_name, 'Ana');
++});
++
++test('el perfil no acepta cualquier cosa en vez de un objeto', async () => {
++  const { id, servicio } = await montar();
++  assert.equal((await servicio.actualizarPerfil({ usuarioId: id, metadata: 'hola' })).codigo, 'metadata_invalida');
++  assert.equal((await servicio.actualizarPerfil({ usuarioId: id, metadata: [1, 2] })).codigo, 'metadata_invalida');
++});
++
++test('«yo» devuelve el perfil sin el hash de la contraseña', async () => {
++  const { id, servicio } = await montar();
++  const r = await servicio.yo(id);
++
++  assert.equal(r.usuario.email, 'ana@ejemplo.com');
++  assert.deepEqual(Object.keys(r.usuario).sort(), ['email', 'emailConfirmado', 'id', 'metadata']);
++});
+diff --git a/test/auth.tokens.test.js b/test/auth.tokens.test.js
+new file mode 100644
+index 0000000..b3b3197
+--- /dev/null
++++ b/test/auth.tokens.test.js
+@@ -0,0 +1,109 @@
++'use strict';
++
++/* Pruebas de la firma. Son las que no se pueden dejar para después: un fallo
++   aquí no se nota —todo el mundo entra igual— y significa que cualquiera puede
++   fabricarse un token de administrador. */
++
++process.env.JWT_SECRET = 'secreto-de-prueba-que-no-es-el-de-produccion';
++process.env.AUTH_PROPIA = 'true';
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++
++const test = require('node:test');
++const assert = require('node:assert');
++const jwt = require('jsonwebtoken');
++
++const tokens = require('../modules/auth/tokens.js');
++
++const USUARIO = { id: '11111111-2222-3333-4444-555555555555', email: 'ana@ejemplo.com' };
++
++test('un token recién emitido vale y lleva el id y el correo', () => {
++  const carga = tokens.verificarAcceso(tokens.emitirAcceso(USUARIO));
++  assert.ok(carga);
++  assert.equal(carga.sub, USUARIO.id);
++  assert.equal(carga.email, USUARIO.email);
++});
++
++test('un token con la carga cambiada no vale', () => {
++  /* El ataque de manual: coger un token propio, cambiar el `sub` por el de
++     otra persona y volver a montarlo. La firma deja de cuadrar. */
++  const bueno = tokens.emitirAcceso(USUARIO);
++  const [cab, carga, firma] = bueno.split('.');
++  const otra = Buffer.from(JSON.stringify({
++    ...JSON.parse(Buffer.from(carga, 'base64url').toString()),
++    sub: '99999999-9999-9999-9999-999999999999',
++  })).toString('base64url');
++
++  assert.equal(tokens.verificarAcceso(`${cab}.${otra}.${firma}`), null);
++});
++
++test('un token firmado con otro secreto no vale', () => {
++  const ajeno = jwt.sign({ sub: USUARIO.id, tipo: 'acceso' }, 'otro-secreto', {
++    algorithm: 'HS256', issuer: 'gestek', audience: 'gestek', expiresIn: 600,
++  });
++  assert.equal(tokens.verificarAcceso(ajeno), null);
++});
++
++test('un token sin firma (alg: none) no vale', () => {
++  /* La vulnerabilidad más vieja de JWT: si el verificador acepta el algoritmo
++     que diga la cabecera, `none` es un token sin firma dado por bueno. Se
++     construye a mano porque la librería, con razón, no deja emitirlo. */
++  const cab = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
++  const carga = Buffer.from(JSON.stringify({
++    sub: USUARIO.id, tipo: 'acceso', iss: 'gestek', aud: 'gestek',
++    exp: Math.floor(Date.now() / 1000) + 600,
++  })).toString('base64url');
++
++  assert.equal(tokens.verificarAcceso(`${cab}.${carga}.`), null);
++});
++
++test('un token caducado no vale', () => {
++  const viejo = tokens.emitirAcceso(USUARIO, { vidaSegundos: -10 });
++  assert.equal(tokens.verificarAcceso(viejo), null);
++});
++
++test('un token de otro emisor no vale', () => {
++  const ajeno = jwt.sign({ sub: USUARIO.id, tipo: 'acceso' }, process.env.JWT_SECRET, {
++    algorithm: 'HS256', issuer: 'otra-app', audience: 'otra-app', expiresIn: 600,
++  });
++  assert.equal(tokens.verificarAcceso(ajeno), null);
++});
++
++test('la basura no revienta la verificación', () => {
++  /* Llega lo que sea en la cabecera Authorization. Si esto lanzara, cualquiera
++     tumbaría el servidor mandando `Bearer x`. */
++  for (const malo of [null, undefined, '', 'x', 'a.b.c', 'Bearer', {}, 123]) {
++    assert.doesNotThrow(() => tokens.verificarAcceso(malo));
++    assert.equal(tokens.verificarAcceso(malo), null);
++  }
++});
++
++test('un refresco no es un JWT y no se repite', () => {
++  const a = tokens.nuevoRefresco();
++  const b = tokens.nuevoRefresco();
++
++  assert.notEqual(a.token, b.token);
++  assert.notEqual(a.hash, b.hash);
++  /* Lo que se guarda es el hash, nunca el token: quien se lleve un volcado de
++     `sesiones` no puede entrar con nada de lo que hay dentro. */
++  assert.notEqual(a.hash, a.token);
++  assert.equal(a.hash, tokens.sha256(a.token));
++  assert.equal(a.hash.length, 64);
++  assert.ok(a.token.startsWith('gtkr_'));
++});
++
++test('los tokens de correo caben en una URL sin escapar nada', () => {
++  const { token } = tokens.nuevoTokenCorreo();
++  /* base64url: sin +, / ni =. Un `+` en la query de un enlace de correo se
++     convierte en espacio y el enlace deja de funcionar para el usuario. */
++  assert.match(token, /^[A-Za-z0-9_-]+$/);
++  assert.equal(encodeURIComponent(token), token);
++});
++
++test('el token de acceso no lleva la contraseña ni nada de más', () => {
++  const carga = tokens.verificarAcceso(tokens.emitirAcceso({
++    ...USUARIO, passwordHash: '$2a$10$loquesea', metadata: { telefono: '300' },
++  }));
++  const claves = Object.keys(carga).sort();
++  assert.deepEqual(claves, ['aud', 'email', 'exp', 'iat', 'iss', 'sub', 'tipo']);
++});
+-- 
+2.43.0
+

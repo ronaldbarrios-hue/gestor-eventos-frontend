@@ -1,17 +1,39 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase.js';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import logoG from '../assets/logo-g.svg';
-import { auth } from '../lib/sesion.js';
+import { auth, AUTH_PROPIA } from '../lib/sesion.js';
 
 export default function ConfirmarPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const token = params.get('token');
   const [status, setStatus] = useState('checking'); // checking | success | error
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    /* Supabase detectSessionInUrl procesa el hash automaticamente.
-       Solo verificamos si la sesion fue creada satisfactoriamente. */
+    /* Con la identidad propia el enlace trae `?token=` y confirmar no abre
+       sesión: se confirma la cuenta y la persona entra como entraría siempre.
+       Con Supabase, el enlace ya venía con una sesión dentro del fragmento y
+       `getSession()` la recogía sola. */
+    if (AUTH_PROPIA) {
+      if (!token) {
+        setStatus('error');
+        setMessage('El enlace de confirmación es inválido o expiró.');
+        return;
+      }
+      auth.confirmarEmail(token).then(({ error }) => {
+        if (error) {
+          setStatus('error');
+          setMessage(error.message);
+          return;
+        }
+        setStatus('success');
+        setMessage('Ya podés entrar con tu correo y tu contraseña.');
+        setTimeout(() => navigate('/login'), 2200);
+      });
+      return;
+    }
+
     auth.getSession().then(({ data, error }) => {
       if (error) {
         setStatus('error');
@@ -29,7 +51,7 @@ export default function ConfirmarPage() {
         setMessage('El enlace de confirmación es inválido o expiró.');
       }
     });
-  }, [navigate]);
+  }, [navigate, token]);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 py-12 bg-bg text-text-1 overflow-hidden">
