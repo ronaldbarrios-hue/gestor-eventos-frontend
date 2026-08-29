@@ -100,6 +100,11 @@ export const PUNTOS_DEFECTO = {
   activo: true,
   alcance: 'evento',      // evento | organizador — ver ALCANCES
   asistencia: 100,        // al asistente, cuando le hacen check-in
+  /* Al asistente, cuando le marcan la entrada a UN sub-evento. Vale menos que
+     la asistencia general a propósito: se gana una vez por cada taller, y si
+     valiera lo mismo, tres talleres pesarían más que todo el evento.
+     Espeja PUNTOS en lib/gamificacion.js del backend. */
+  participacion_sesion: 30,
   registro_operado: 10,   // al staff, por cada asistente que registra
   checkin_operado: 5,     // al staff, por cada boleta que valida
   tarea_completada: 25,   // al staff, por cada tarea que cierra
@@ -118,6 +123,7 @@ export const ALCANCES = [
 
 export const REGLAS_PUNTOS = [
   { key: 'asistencia',       label: 'Asistencia confirmada', quien: 'Al asistente',  nota: 'Cuando le hacen check-in en la puerta.' },
+  { key: 'participacion_sesion', label: 'Participación en un sub-evento', quien: 'Al asistente', nota: 'Por cada taller o charla al que le marcan la entrada. Se gana una vez por sub-evento.' },
   { key: 'registro_operado', label: 'Asistente registrado',  quien: 'Al staff',      nota: 'Por cada persona que inscribe o importa.' },
   { key: 'checkin_operado',  label: 'Check-in validado',     quien: 'Al staff',      nota: 'Por cada boleta que escanea en la entrada.' },
   { key: 'tarea_completada', label: 'Tarea completada',      quien: 'Al staff',      nota: 'Por cada tarea del evento que cierra.' },

@@ -161,37 +161,11 @@ export default function MiTicketPage() {
       {/* Pasaporte gamificado */}
       {ticket.pasaporte?.activo && <PasaporteCard p={ticket.pasaporte} />}
 
-      {/* Movimientos de puntos — lo que le fueron marcando en los stands */}
-      {Array.isArray(ticket.interacciones) && ticket.interacciones.length > 0 && (
-        <div className="mt-8">
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-sm font-semibold text-text-1">Tus puntos</h2>
-            <span className="text-lg font-bold font-display tabular-nums text-text-1">{ticket.puntos ?? 0} pts</span>
-          </div>
-          <ul className="rounded-2xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
-            {ticket.interacciones.map(it => {
-              const neg = it.tipo === 'negativo';
-              return (
-                <li key={it.id} className="flex items-center gap-3 px-4 py-3">
-                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${neg ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
-                    {neg ? <Icono nombre="aviso" className="w-3.5 h-3.5" /> : <Icono nombre="estrella" className="w-3.5 h-3.5" />}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-text-1 truncate">
-                      {it.motivo_texto || 'Registro'}
-                      {it.lugar && <span className="text-text-3"> · {it.lugar}</span>}
-                    </p>
-                    <p className="text-[11px] text-text-3">{new Date(it.created_at).toLocaleString('es-CO')}</p>
-                  </div>
-                  <span className={`text-sm font-bold tabular-nums flex-shrink-0 ${neg ? 'text-danger' : 'text-success'}`}>
-                    {it.puntos > 0 ? `+${it.puntos}` : it.puntos}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+      {/* Movimientos de puntos — los stands Y todo lo demás, en una sola
+          lista. Antes aquí sólo salían los escaneos de stand, así que quien
+          entraba al evento o iba a un taller veía subir el número sin ninguna
+          línea que lo explicara. */}
+      <MovimientosPuntos ticket={ticket} />
 
       {/* Detalles */}
       <div className="mt-8 space-y-2.5">
@@ -249,6 +223,85 @@ export default function MiTicketPage() {
         }
       `}</style>
     </section>
+  );
+}
+
+/* Cómo se llama cada cosa que da puntos. La clave es `accion` de points_log;
+   el texto es lo que se lee cuando no hay un detalle guardado —las filas
+   anteriores a la migración 0082 no lo tienen—. */
+const NOMBRE_ACCION = {
+  asistencia          : 'Entrada al evento',
+  participacion_sesion: 'Participación en un sub-evento',
+  registro_operado    : 'Registraste a un asistente',
+  checkin_operado     : 'Validaste una boleta',
+  tarea_completada    : 'Tarea completada',
+};
+
+/* De qué es cada origen, para el icono. Los nombres son los de Iconos.jsx:
+   `hecho` para una tarea cerrada y `entrada` para la boleta con la que entró. */
+const ICONO_ORIGEN = { sesion: 'calendario', tarea: 'hecho', ticket: 'entrada' };
+
+/* El historial de puntos, con las dos fuentes juntas.
+
+   Los escaneos de stand viven en `ticket_interacciones` (cuelgan de la
+   boleta) y el resto en `points_log` (cuelga de la cuenta). Son dos tablas
+   por una razón real, pero para quien mira su saldo es una sola historia, y
+   tenerla partida era justo lo que impedía responder de dónde salió cada
+   punto. Se mezclan aquí y se ordenan por fecha. */
+function MovimientosPuntos({ ticket }) {
+  const stands = (Array.isArray(ticket.interacciones) ? ticket.interacciones : []).map(it => ({
+    id: `i_${it.id}`,
+    puntos: it.puntos || 0,
+    negativo: it.tipo === 'negativo',
+    titulo: it.motivo_texto || 'Registro en un stand',
+    donde: it.lugar || null,
+    icono: 'estrella',
+    fecha: it.created_at,
+  }));
+
+  const actividad = (Array.isArray(ticket.actividad) ? ticket.actividad : []).map(a => ({
+    id: `a_${a.id}`,
+    puntos: a.puntos || 0,
+    negativo: (a.puntos || 0) < 0,
+    /* El detalle guardado manda sobre el nombre genérico: dice "Taller de
+       robótica" en vez de "Participación en un sub-evento". */
+    titulo: a.detalle || NOMBRE_ACCION[a.accion] || 'Actividad',
+    donde: a.detalle && NOMBRE_ACCION[a.accion] ? NOMBRE_ACCION[a.accion] : null,
+    icono: ICONO_ORIGEN[a.origen_tipo] || 'estrella',
+    fecha: a.created_at,
+  }));
+
+  const todo = [...stands, ...actividad]
+    .sort((x, y) => new Date(y.fecha) - new Date(x.fecha));
+
+  if (!todo.length) return null;
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-sm font-semibold text-text-1">Tus puntos</h2>
+        <span className="text-lg font-bold font-display tabular-nums text-text-1">{ticket.puntos ?? 0} pts</span>
+      </div>
+      <ul className="rounded-2xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
+        {todo.map(m => (
+          <li key={m.id} className="flex items-center gap-3 px-4 py-3">
+            <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0 ${m.negativo ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
+              <Icono nombre={m.negativo ? 'aviso' : m.icono} className="w-3.5 h-3.5" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-text-1 truncate">
+                {m.titulo}
+                {m.donde && <span className="text-text-3"> · {m.donde}</span>}
+              </p>
+              <p className="text-[11px] text-text-3">{new Date(m.fecha).toLocaleString('es-CO')}</p>
+            </div>
+            <span className={`text-sm font-bold tabular-nums flex-shrink-0 ${m.negativo ? 'text-danger' : 'text-success'}`}>
+              {m.puntos > 0 ? `+${m.puntos}` : m.puntos}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
