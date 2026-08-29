@@ -21,7 +21,8 @@ la sección 10.
 | Fase | Qué | Estado |
 |---|---|---|
 | 0 | `qr_token` y correo fuera de la URL, limitador del oráculo | **Código hecho** |
-| 0 | Cerrar `profiles` y las tablas con contacto en Supabase | Pendiente — toca producción |
+| 0 | Cerrar `profiles` y las tablas con contacto en Supabase | **Aplicado en producción el 29** |
+| 0 | Barrer los huérfanos del Storage | Lista y script hechos. Falta ejecutarlo: pide la service key |
 | 1 | Verificación local del token | **Hecho** |
 | 1.b | Backend de Render a cPanel | Pendiente |
 | 2 | `core/` + `modules/` + migraciones numeradas | **Hecho** |
@@ -29,7 +30,7 @@ la sección 10.
 | 4 | **Identidad propia sobre MySQL** | **Código hecho y probado**, en `parches/`. Falta la configuración: `CONFIGURAR.md` |
 | 5 | **Archivos propios** | **Código hecho y probado**, en `parches/`. Falta copiar y reescribir |
 | 6 | Las 71 tablas a MySQL | Pendiente |
-| 7 | Permisos que sustituyan a RLS | Pendiente |
+| 7 | Permisos que sustituyan a RLS | **Andamiaje hecho**: `puede()`, `exige()` y la prueba que pasa lista a las 279 rutas. 32 declaradas, 247 por declarar |
 
 La fase 4 incluye el módulo entero (usuarios, Google, sesiones con rotación,
 recuperación, freno por cuenta), el adaptador del frontend con interruptor para
@@ -52,6 +53,37 @@ descuadre de 10 contra 9 sigue ahí, y el script lo señala por nombre— y las
 **57 filas con URL dentro repartidas en las 13 columnas**, exactamente los
 mismos conteos del 28.
 
+> ### La lectura anónima, cerrada el 29 — y era peor de lo escrito
+>
+> La política de `profiles` decía `((auth.uid() = id) OR true)`. Alguien
+> escribió la correcta y luego le pegó un `OR true`, que la anula entera.
+>
+> Lo que este documento decía que se leía —29 correos, 24 teléfonos, 2 tokens
+> de MercadoPago— era la mitad. La tabla también guarda `wompi_private_key`,
+> `wompi_events_secret`, `wompi_integrity_secret` y `google_refresh_token`. Hoy
+> están vacías, pero el agujero ya estaba abierto para el día que alguien
+> conecte Wompi.
+>
+> Aplicado en producción (migración `cerrar_lectura_anonima_de_datos_personales`):
+>
+> - La política pasa a ser sólo para autenticados. **Anónimo no lee ni una
+>   columna de `profiles`.**
+> - Los cinco secretos salen del alcance de anon Y de authenticated, con
+>   permisos por columna. Ninguna pantalla los pedía —las tres que leen
+>   `profiles` piden `mp_user_id`, `mp_public_key` y `mp_connected_at`— y el
+>   backend entra con la service key, que no pasa por esto.
+> - Los correos de contacto de `torneo_equipos` y `networking_expositores`
+>   salen de lo anónimo sin quitar la fila: el cuadro del torneo y la ficha del
+>   expositor siguen siendo públicos.
+>
+> Comprobado después contra las cuatro consultas que el frontend hace a
+> `profiles`: las cuatro piden columnas que siguen concedidas.
+>
+> **Lo que queda:** entre cuentas autenticadas todavía se ven correo y teléfono,
+> porque el chat lee nombre, avatar y correo de otros usuarios. El arreglo es
+> una vista con sólo `(id, nombre, avatar_url)` y cambiar `ChatTab`; va con el
+> próximo despliegue del frontend, no antes, o el chat se queda sin nombres.
+>
 > ### Dónde está el código de la fase 4, y por qué no está donde debería
 >
 > **En `parches/backend-identidad-propia.patch`, dentro de este repositorio.**

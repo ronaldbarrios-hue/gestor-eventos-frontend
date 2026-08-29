@@ -1,7 +1,7 @@
 From 55d0f3272c408540e65a7574c63c68e2d6862c66 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:19:23 +0000
-Subject: [PATCH 1/2] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
+Subject: [PATCH 1/4] =?UTF-8?q?Identidad=20propia=20sobre=20MySQL:=20el=20?=
  =?UTF-8?q?m=C3=B3dulo=20entero,=20detr=C3=A1s=20de=20un=20interruptor?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -3944,7 +3944,7 @@ index 0000000..b3b3197
 From 7a5fa2cd188356c168a92d2770689a56900f50a6 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 29 Aug 2026 01:20:01 +0000
-Subject: [PATCH 2/2] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
+Subject: [PATCH 2/4] =?UTF-8?q?Almac=C3=A9n=20propio:=20el=20navegador=20s?=
  =?UTF-8?q?ube=20al=20backend,=20y=20ah=C3=AD=20s=C3=AD=20se=20puede=20com?=
  =?UTF-8?q?probar?=
 MIME-Version: 1.0
@@ -5777,6 +5777,2440 @@ index 0000000..49474c9
 +    assert.equal(firmas.comprobar(malo), false);
 +  }
 +});
+-- 
+2.43.0
+
+
+From 0a985a5df87cc251adcbcac8939008c61fb0cd9c Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 29 Aug 2026 01:37:30 +0000
+Subject: [PATCH 3/4] =?UTF-8?q?Permisos:=20la=20decisi=C3=B3n=20en=20una?=
+ =?UTF-8?q?=20funci=C3=B3n,=20y=20una=20prueba=20que=20pasa=20lista=20a=20?=
+ =?UTF-8?q?las=20279=20rutas?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hoy los datos los guardan dos guardias: las 76 políticas de Supabase y lo que
+cada ruta comprueba a mano. Al pasar a MySQL desaparece el primero. Con 279
+rutas registradas y 312 usos de req.user, revisar «con cuidado» no es un plan.
+
+`puede(usuario, accion, recurso)` es función pura: sin base, sin red, sin
+sesión. Se puede comprobar entera, y es lo que hace que las reglas de acceso
+dejen de estar repartidas en 38 archivos. `exige()` la enchufa a una ruta y,
+sobre todo, la MARCA; `publica(motivo)` marca la que no lleva sesión a
+propósito, y el motivo es obligatorio porque es lo que se lee dentro de un año.
+
+La marca es la mitad que importa. La prueba recorre lo que Express tiene
+registrado de verdad y falla si aparece una ruta que no declara nada. Del
+montón viejo quedan 247 sin declarar y eso no se arregla hoy, así que el número
+queda anotado como tope y sólo puede bajar: no obliga a declarar 247 rutas,
+impide que sean 248.
+
+Declaradas ya las 32 públicas de verdad —categorías, la página del evento, los
+términos, la inscripción a sub-eventos y el panel del expositor, que se
+autentica con el código de su boleta y no con una cuenta.
+
+Dos cosas que costaron y quedan resueltas: index.js sólo abre el puerto si se
+le llama directamente, para poder preguntarle a Express qué rutas tiene desde
+una prueba; y en Express 5 el prefijo de montaje ya no se puede leer de la
+capa, así que se deduce probando el comparador de Express contra los montajes
+que hay en el código. Elegir el más largo que encajaba le robaba el prefijo al
+vecino —dos rutas con el mismo identificador, una desaparecía del censo—: es el
+más corto.
+
+20 pruebas nuevas, 252 en la suite.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ core/permisos/censo.js        |  72 +++
+ core/permisos/index.js        | 165 +++++++
+ core/permisos/inventario.json | 876 ++++++++++++++++++++++++++++++++++
+ core/rutas.js                 | 147 ++++++
+ index.js                      |  49 +-
+ routes/categorias.js          |   5 +
+ routes/eventos.publicos.js    |   6 +
+ routes/expositor.js           |   5 +
+ routes/legal.js               |   4 +
+ routes/sesiones.js            |   4 +
+ scripts/censar-rutas.js       |  66 +++
+ test/permisos.test.js         | 217 +++++++++
+ 12 files changed, 1587 insertions(+), 29 deletions(-)
+ create mode 100644 core/permisos/censo.js
+ create mode 100644 core/permisos/index.js
+ create mode 100644 core/permisos/inventario.json
+ create mode 100644 core/rutas.js
+ create mode 100644 scripts/censar-rutas.js
+ create mode 100644 test/permisos.test.js
+
+diff --git a/core/permisos/censo.js b/core/permisos/censo.js
+new file mode 100644
+index 0000000..ad5b1e1
+--- /dev/null
++++ b/core/permisos/censo.js
+@@ -0,0 +1,72 @@
++'use strict';
++
++/* core/permisos/censo.js — qué declara cada ruta, y cuáles no declaran nada.
++ *
++ * Recorre las rutas que Express tiene REGISTRADAS —no las que alguien apuntó en
++ * un documento— y mira si cada una lleva la marca de `exige()` o la de
++ * `publica()`. Lo que no lleva ninguna es lo que hay que ir arreglando.
++ *
++ * Se compara contra `inventario.json`, que es la foto de la última vez. De ahí
++ * salen las dos cosas que la prueba necesita saber:
++ *
++ *   · **Rutas nuevas sin declarar.** Falla siempre. Arreglarlo el día que se
++ *     escribe la ruta es barato; el día del evento, no.
++ *   · **Cuántas quedan del montón viejo.** Ese número sólo puede bajar. No
++ *     obliga a declarar 249 rutas hoy, pero impide que sean 250 mañana.
++ */
++
++const fs = require('fs');
++const path = require('path');
++const { listarRutas } = require('../rutas.js');
++
++const RUTA_INVENTARIO = path.join(__dirname, 'inventario.json');
++
++/* El estado real, leído de la aplicación viva. */
++function censar(app) {
++  return listarRutas(app).map(r => {
++    const exige = r.marcas.find(m => m.tipo === 'exige');
++    const publica = r.marcas.find(m => m.tipo === 'publica');
++    return {
++      metodo  : r.metodo,
++      ruta    : r.ruta,
++      id      : r.id,
++      /* `exige` gana a `publica`: si una ruta concreta pide un permiso dentro
++         de un router declarado público, manda la de la ruta. */
++      estado  : exige ? 'exige' : (publica ? 'publica' : 'pendiente'),
++      acciones: exige?.acciones || null,
++      motivo  : publica?.motivo || null,
++    };
++  });
++}
++
++function leerInventario() {
++  if (!fs.existsSync(RUTA_INVENTARIO)) return null;
++  return JSON.parse(fs.readFileSync(RUTA_INVENTARIO, 'utf8'));
++}
++
++function guardarInventario(inventario) {
++  fs.writeFileSync(RUTA_INVENTARIO, `${JSON.stringify(inventario, null, 2)}\n`);
++}
++
++/* Compara lo que hay con lo anotado, ya masticado para el mensaje de error. */
++function comparar(app, inventario = leerInventario()) {
++  const actuales = censar(app);
++  const conocidas = new Set(Object.keys(inventario?.rutas || {}));
++
++  const nuevas = actuales.filter(r => !conocidas.has(r.id));
++  const desaparecidas = [...conocidas].filter(id => !actuales.some(r => r.id === id));
++  const pendientes = actuales.filter(r => r.estado === 'pendiente');
++
++  return {
++    actuales,
++    nuevas,
++    desaparecidas,
++    pendientes,
++    /* Una ruta nueva ya declarada no molesta a nadie; la que se cuela sin
++       declarar es la que hay que cazar. */
++    nuevasSinDeclarar: nuevas.filter(r => r.estado === 'pendiente'),
++    tope: inventario?.pendientes_maximo ?? Infinity,
++  };
++}
++
++module.exports = { censar, comparar, leerInventario, guardarInventario, RUTA_INVENTARIO };
+diff --git a/core/permisos/index.js b/core/permisos/index.js
+new file mode 100644
+index 0000000..1c6cb8d
+--- /dev/null
++++ b/core/permisos/index.js
+@@ -0,0 +1,165 @@
++'use strict';
++
++/* core/permisos/ — lo que sustituye a RLS.
++ *
++ * ── Por qué esto tiene que existir ANTES de apagar RLS ────────────────────
++ *
++ * Hoy hay dos guardias sobre los mismos datos: las 76 políticas de Supabase, y
++ * las comprobaciones que cada ruta hace a mano. Cuando la base sea MySQL, el
++ * primero desaparece y sólo queda el segundo. Con 38 archivos de rutas, 279
++ * rutas registradas y 312 usos de `req.user`, la probabilidad de que alguna se
++ * quede sin comprobar no es teórica: es aritmética.
++ *
++ * Contra eso no sirve revisar con cuidado. Sirve que la aplicación no se pueda
++ * arrancar con una ruta sin declarar, y eso es lo que hacen estas tres piezas:
++ *
++ *   `puede(usuario, accion, recurso)`  decide. Función pura: sin base, sin red.
++ *   `exige('accion')`                  guardia de una ruta, y la MARCA.
++ *   `publica('motivo')`                marca la que es pública a propósito.
++ *
++ * La marca es la mitad importante. `test/permisos.test.js` recorre las rutas
++ * que Express tiene registradas de verdad y falla si aparece una que no lleva
++ * ninguna de las dos. Una ruta nueva sin declarar rompe el suite el mismo día,
++ * no el día del evento.
++ *
++ * ── Qué NO hace ──────────────────────────────────────────────────────────
++ *
++ * No sustituye a `lib/acceso.js`, que es quien sabe leer el evento y su
++ * equipo: lo envuelve. Cuando esa lectura pase a MySQL, se cambia el cargador
++ * de abajo y nada más.
++ */
++
++/* Marcas. Se cuelgan de la función del middleware para que el censo las vea
++   recorriendo la pila de Express, sin tener que leer el código fuente. */
++const MARCA = Symbol.for('gestek.permisos');
++
++/* ── La decisión, en una función pura ──────────────────────────────────────
++ *
++ * `usuario`: { id }
++ * `accion` : 'evento:editar', 'boletas:emitir', … o una lista
++ * `recurso`: { ownerId, permisos } — `permisos` es lo que el equipo concede
++ *
++ * Tres reglas, en orden:
++ *   1. Sin usuario, no. (Lo público no llega hasta aquí: lleva `publica()`.)
++ *   2. El dueño del recurso puede todo sobre él.
++ *   3. Un miembro puede si su rol o sus permisos sueltos incluyen AL MENOS UNA
++ *      de las acciones pedidas.
++ *
++ * Que sea pura es lo que la hace comprobable: las pruebas de esto no montan
++ * base, ni servidor, ni sesión.
++ */
++function puede(usuario, accion, recurso) {
++  if (!usuario?.id) return false;
++  if (!recurso) return false;
++
++  if (recurso.ownerId && String(recurso.ownerId) === String(usuario.id)) return true;
++
++  const pedidas = Array.isArray(accion) ? accion : [accion];
++  if (pedidas.length === 0) return false;
++
++  const tiene = recurso.permisos instanceof Set
++    ? recurso.permisos
++    : new Set(recurso.permisos || []);
++
++  /* `*` es el comodín del rol de administración del evento. Se comprueba
++     aparte para que nadie tenga que enumerar 40 acciones en una fila. */
++  if (tiene.has('*')) return true;
++
++  return pedidas.some(p => tiene.has(p));
++}
++
++/* ── El guardia de una ruta ────────────────────────────────────────────────
++ *
++ * Uso:
++ *   router.patch('/eventos/:id', auth, exige('evento:editar'), handler)
++ *
++ * De dónde sale el evento: de `req.params.id`, `:eventoId` o `:evento_id`, que
++ * son los tres nombres que usan las rutas de hoy. Si hiciera falta otro, se
++ * pasa `{ eventoDe: req => … }`.
++ */
++function exige(acciones, { eventoDe, cargador } = {}) {
++  const pedidas = Array.isArray(acciones) ? acciones : [acciones];
++
++  const guardia = async function guardiaDePermisos(req, res, next) {
++    try {
++      if (!req.user?.id) return res.status(401).json({ error: 'Token requerido.' });
++
++      const eventoId = eventoDe
++        ? eventoDe(req)
++        : (req.params.eventoId || req.params.evento_id || req.params.id);
++
++      if (!eventoId) {
++        /* Una acción que no cuelga de un evento (por ejemplo el perfil propio)
++           no debería usar `exige`: su comprobación es «es suyo», y eso lo hace
++           la ruta. Mejor un error claro aquí que un permiso que no se evalúa. */
++        return res.status(500).json({ error: 'La ruta exige un permiso de evento pero no dice de qué evento.' });
++      }
++
++      const recurso = await (cargador || cargarEvento)(eventoId, req.user.id);
++      if (!recurso) return res.status(404).json({ error: 'Evento no encontrado.' });
++
++      if (!puede(req.user, pedidas, recurso)) {
++        return res.status(403).json({ error: 'No autorizado.' });
++      }
++
++      /* Se deja a mano para que el handler no vuelva a leerlo. */
++      req.evento = recurso.evento || null;
++      next();
++    } catch (e) { next(e); }
++  };
++
++  guardia[MARCA] = { tipo: 'exige', acciones: pedidas };
++  return guardia;
++}
++
++/* ── La declaración de que algo es público ─────────────────────────────────
++ *
++ * No hace nada en tiempo de ejecución, y ése es el punto: existe para que el
++ * censo pueda distinguir «pública a propósito» de «se olvidaron». El motivo es
++ * obligatorio porque es lo que se lee dentro de un año, cuando nadie se acuerde
++ * de por qué la página de compra no pide sesión.
++ */
++function publica(motivo) {
++  if (!motivo) throw new Error('publica() necesita un motivo: se lee dentro de un año.');
++  const paso = function rutaPublica(_req, _res, next) { next(); };
++  paso[MARCA] = { tipo: 'publica', motivo };
++  return paso;
++}
++
++/* ── El cargador, que es lo único que sabe dónde viven los datos ───────────
++ *
++ * Hoy lee de Supabase reutilizando `lib/acceso.js`. El día que los eventos y
++ * el equipo estén en MySQL, se reescribe esta función y ni las rutas ni
++ * `puede()` se enteran.
++ */
++async function cargarEvento(eventoId, usuarioId) {
++  const supabase = require('../../lib/supabase.js');
++
++  const { data: ev } = await supabase
++    .from('eventos').select('id, owner_id').eq('id', eventoId).maybeSingle();
++  if (!ev) return null;
++
++  if (String(ev.owner_id) === String(usuarioId)) {
++    return { ownerId: ev.owner_id, permisos: new Set(['*']), evento: ev };
++  }
++
++  const { data: m } = await supabase
++    .from('event_members')
++    .select('custom_permissions, rol_detail:event_roles!rol_id(permissions)')
++    .eq('evento_id', eventoId).eq('user_id', usuarioId).eq('status', 'active')
++    .maybeSingle();
++
++  return {
++    ownerId : ev.owner_id,
++    permisos: new Set([
++      ...(m?.rol_detail?.permissions || []),
++      ...(m?.custom_permissions || []),
++    ]),
++    evento: ev,
++  };
++}
++
++/* Lee la marca de un middleware. La usa el censo. */
++const marcaDe = (fn) => (typeof fn === 'function' ? fn[MARCA] || null : null);
++
++module.exports = { puede, exige, publica, cargarEvento, marcaDe, MARCA };
+diff --git a/core/permisos/inventario.json b/core/permisos/inventario.json
+new file mode 100644
+index 0000000..5f93176
+--- /dev/null
++++ b/core/permisos/inventario.json
+@@ -0,0 +1,876 @@
++{
++  "pendientes_maximo": 247,
++  "censado_el": "2026-08-29",
++  "total": 279,
++  "rutas": {
++    "GET /": {
++      "estado": "pendiente"
++    },
++    "GET /health": {
++      "estado": "pendiente"
++    },
++    "GET /debug-red": {
++      "estado": "pendiente"
++    },
++    "GET /api/v1/eventos": {
++      "estado": "pendiente"
++    },
++    "GET /api/v1/eventos/:id": {
++      "estado": "pendiente"
++    },
++    "GET /api/v1/eventos/:id/asistentes": {
++      "estado": "pendiente"
++    },
++    "GET /api/v1/eventos/:id/resumen": {
++      "estado": "pendiente"
++    },
++    "GET /.well-known/oauth-protected-resource": {
++      "estado": "pendiente"
++    },
++    "GET /.well-known/oauth-protected-resource/mcp": {
++      "estado": "pendiente"
++    },
++    "GET /.well-known/oauth-authorization-server": {
++      "estado": "pendiente"
++    },
++    "GET /.well-known/openid-configuration": {
++      "estado": "pendiente"
++    },
++    "POST /oauth/register": {
++      "estado": "pendiente"
++    },
++    "GET /oauth/authorize": {
++      "estado": "pendiente"
++    },
++    "POST /oauth/aprobar": {
++      "estado": "pendiente"
++    },
++    "POST /oauth/token": {
++      "estado": "pendiente"
++    },
++    "POST /oauth/revoke": {
++      "estado": "pendiente"
++    },
++    "GET /me/conexiones/mcp": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/conexiones/mcp/:id": {
++      "estado": "pendiente"
++    },
++    "POST /mcp": {
++      "estado": "pendiente"
++    },
++    "GET /mcp": {
++      "estado": "pendiente"
++    },
++    "GET /mcp/estado": {
++      "estado": "pendiente"
++    },
++    "GET /me/conexiones/ia": {
++      "estado": "pendiente"
++    },
++    "PUT /me/conexiones/ia": {
++      "estado": "pendiente"
++    },
++    "POST /me/conexiones/ia/probar": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/conexiones/ia": {
++      "estado": "pendiente"
++    },
++    "GET /categorias/": {
++      "estado": "publica",
++      "motivo": "Catálogo de categorías: lo lee la página pública del evento sin sesión."
++    },
++    "GET /eventos/publicos/expositor/:codigo/panel": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "PUT /eventos/publicos/expositor/:codigo/motivos": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "POST /eventos/publicos/expositor/:codigo/interacciones": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "GET /eventos/publicos/expositor/:codigo/interacciones": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "GET /eventos/publicos/expositor/:codigo/recompensas": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "PUT /eventos/publicos/expositor/:codigo/recompensas": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "GET /eventos/publicos/expositor/:codigo/canje/saldo": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "POST /eventos/publicos/expositor/:codigo/canje": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "GET /eventos/publicos/expositor/:codigo/franjas": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "POST /eventos/publicos/expositor/:codigo/franjas": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "PATCH /eventos/publicos/expositor/:codigo/franjas/:id": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "DELETE /eventos/publicos/expositor/:codigo/franjas/:id": {
++      "estado": "publica",
++      "motivo": "El expositor se identifica con el código de su boleta-Stand, no con una cuenta."
++    },
++    "GET /eventos/publicos/slug/:slug/sesiones": {
++      "estado": "publica",
++      "motivo": "Inscripción a sub-eventos desde la página pública, identificada por el código de la boleta."
++    },
++    "POST /eventos/publicos/slug/:slug/sesiones/:sesionId/inscribir": {
++      "estado": "publica",
++      "motivo": "Inscripción a sub-eventos desde la página pública, identificada por el código de la boleta."
++    },
++    "GET /eventos/publicos/slug/:slug/legal": {
++      "estado": "publica",
++      "motivo": "Términos y privacidad: legalmente tienen que poder leerse sin cuenta."
++    },
++    "GET /eventos/publicos/": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/ticket/:codigo": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "POST /eventos/publicos/ticket/:codigo/formulario": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/expositor/:codigo": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "PUT /eventos/publicos/expositor/:codigo": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/slug/:slug": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/slug/:slug/torneos": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/slug/:slug/torneos/:torneoId": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/slug/:slug/torneo": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/slug/:slug/torneos-resumen": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/slug/:slug/ranking": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/cupo/:token": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/slug/:slug/agenda": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /eventos/publicos/invitacion-pendiente": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "POST /eventos/publicos/slug/:slug/reservar": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "POST /eventos/publicos/slug/:slug/waitlist": {
++      "estado": "publica",
++      "motivo": "Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta."
++    },
++    "GET /me/": {
++      "estado": "pendiente"
++    },
++    "PATCH /me/": {
++      "estado": "pendiente"
++    },
++    "GET /me/boletas": {
++      "estado": "pendiente"
++    },
++    "POST /me/boletas/:id/transferir": {
++      "estado": "pendiente"
++    },
++    "GET /me/expositor": {
++      "estado": "pendiente"
++    },
++    "GET /me/integraciones/tokens": {
++      "estado": "pendiente"
++    },
++    "POST /me/integraciones/tokens": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/integraciones/tokens/:id": {
++      "estado": "pendiente"
++    },
++    "GET /me/integraciones/webhooks": {
++      "estado": "pendiente"
++    },
++    "POST /me/integraciones/webhooks": {
++      "estado": "pendiente"
++    },
++    "PATCH /me/integraciones/webhooks/:id": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/integraciones/webhooks/:id": {
++      "estado": "pendiente"
++    },
++    "GET /me/integraciones/webhooks/:id/deliveries": {
++      "estado": "pendiente"
++    },
++    "POST /me/sugerencias/dinamica": {
++      "estado": "pendiente"
++    },
++    "GET /me/sugerencias/dinamica": {
++      "estado": "pendiente"
++    },
++    "GET /me/mercadopago/test": {
++      "estado": "pendiente"
++    },
++    "POST /me/mercadopago/conectar": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/mercadopago": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/publicos/slug/:slug/comprar": {
++      "estado": "pendiente"
++    },
++    "POST /webhooks/mercadopago": {
++      "estado": "pendiente"
++    },
++    "POST /me/wompi/conectar": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/wompi": {
++      "estado": "pendiente"
++    },
++    "GET /me/wompi": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/publicos/slug/:slug/comprar-wompi": {
++      "estado": "pendiente"
++    },
++    "POST /webhooks/wompi": {
++      "estado": "pendiente"
++    },
++    "GET /me/google/conectar": {
++      "estado": "pendiente"
++    },
++    "GET /me/google": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/google": {
++      "estado": "pendiente"
++    },
++    "GET /integraciones/google/callback": {
++      "estado": "pendiente"
++    },
++    "POST /webhooks/truora": {
++      "estado": "pendiente"
++    },
++    "GET /push/vapid-key": {
++      "estado": "pendiente"
++    },
++    "POST /me/push/subscribe": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/push/unsubscribe": {
++      "estado": "pendiente"
++    },
++    "POST /me/push/test": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/push/broadcast": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/anuncios": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:id/promociones": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:id/promociones": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:id/promociones/:pid": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:id/promociones/:pid": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/publicos/slug/:slug/promocion/validar": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:id/emails": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:id/emails/:tipo": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:id/emails/:tipo": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:id/emails/previsualizar": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:id/emails/diagnostico": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:id/emails/smtp": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:id/emails/smtp": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:id/emails/smtp/probar": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:id/emails/smtp": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:id/emails/envios": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:id/emails/prueba": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:id/emails/enviar": {
++      "estado": "pendiente"
++    },
++    "GET /me/agente/estado": {
++      "estado": "pendiente"
++    },
++    "POST /me/agente/chat": {
++      "estado": "pendiente"
++    },
++    "POST /me/agente/generar-evento": {
++      "estado": "pendiente"
++    },
++    "GET /me/notificaciones": {
++      "estado": "pendiente"
++    },
++    "PATCH /me/notificaciones/:id/leer": {
++      "estado": "pendiente"
++    },
++    "POST /me/notificaciones/leer-todas": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/notificaciones/:id": {
++      "estado": "pendiente"
++    },
++    "POST /me/notificaciones/generar-recordatorios": {
++      "estado": "pendiente"
++    },
++    "GET /me/equipo/eventos": {
++      "estado": "pendiente"
++    },
++    "GET /me/solicitudes": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/solicitudes": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/solicitudes": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/solicitudes/:id": {
++      "estado": "pendiente"
++    },
++    "GET /me/recompensas": {
++      "estado": "pendiente"
++    },
++    "POST /me/recompensas": {
++      "estado": "pendiente"
++    },
++    "PATCH /me/recompensas/:id": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/recompensas/:id": {
++      "estado": "pendiente"
++    },
++    "GET /me/canjes": {
++      "estado": "pendiente"
++    },
++    "PATCH /me/canjes/:id": {
++      "estado": "pendiente"
++    },
++    "GET /me/loyalty/cliente": {
++      "estado": "pendiente"
++    },
++    "GET /me/loyalty/empleado": {
++      "estado": "pendiente"
++    },
++    "POST /me/loyalty/canjear": {
++      "estado": "pendiente"
++    },
++    "GET /me/loyalty/badges": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/ranking-equipo": {
++      "estado": "pendiente"
++    },
++    "GET /vacantes/roles": {
++      "estado": "pendiente"
++    },
++    "GET /vacantes": {
++      "estado": "pendiente"
++    },
++    "GET /vacantes/:id": {
++      "estado": "pendiente"
++    },
++    "GET /me/talento": {
++      "estado": "pendiente"
++    },
++    "PUT /me/talento": {
++      "estado": "pendiente"
++    },
++    "POST /me/talento/publicar": {
++      "estado": "pendiente"
++    },
++    "POST /me/talento/verificacion": {
++      "estado": "pendiente"
++    },
++    "POST /vacantes/roles": {
++      "estado": "pendiente"
++    },
++    "POST /vacantes/:id/postular": {
++      "estado": "pendiente"
++    },
++    "GET /me/postulaciones": {
++      "estado": "pendiente"
++    },
++    "DELETE /me/postulaciones/:id": {
++      "estado": "pendiente"
++    },
++    "POST /me/postulaciones/:id/resena": {
++      "estado": "pendiente"
++    },
++    "GET /perfil-talento/:userId": {
++      "estado": "pendiente"
++    },
++    "GET /me/organizador/reputacion": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/vacantes": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/vacantes": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/vacantes/:id": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/vacantes/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/vacantes/:vid/postulaciones": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/vacantes/:vid/postulaciones/:pid": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/vacantes/:vid/postulaciones/:pid/entrevista": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/vacantes/:vid/postulaciones/:pid/resena": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/talento": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/vacantes/:id/destacar": {
++      "estado": "pendiente"
++    },
++    "POST /sugerencias/dinamica": {
++      "estado": "pendiente"
++    },
++    "GET /sugerencias/dinamica": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/equipo": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/equipo": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/equipo/:miembroId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/equipo/:miembroId": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/vincular-invitaciones": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/roles": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/roles": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/roles/:rolId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/roles/:rolId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/tickets": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/tickets": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/tickets/:ticketId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/tickets/:ticketId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/clientes": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/clientes/:ticketId": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/clientes/importar": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/checkin": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/reingreso": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/zonas/aforo": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/zonas/movimiento": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/zonas/limpiar": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/mapa/vivo": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/zonas/reporte": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/alertas": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/alertas": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/alertas/:id/resolver": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/clientes/exportar": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/chat/channels": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/chat/channels": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/chat/channels/:channelId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/chat/channels/:channelId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/chat/channels/:channelId/messages": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/chat/channels/:channelId/messages": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/chat/channels/:channelId/messages/:messageId": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/chat/dm": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/chat/channels/:channelId/prefs": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/speakers": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/speakers": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/speakers/:speakerId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/speakers/:speakerId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/sessions": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/sessions": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/sessions/:sessionId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/sessions/:sessionId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/agenda/mis-favoritos": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/agenda/favoritos/:sessionId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/agenda/favoritos/:sessionId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/sesiones/participacion": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/sesiones/:sesionId/formulario": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:eventoId/sesiones/:sesionId/formulario": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/sesiones/:sesionId/inscripciones": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/sesiones/:sesionId/asistencia": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/sesiones/:sesionId/inscripciones/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/legal": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:eventoId/legal": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/tareas": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/tareas": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/tareas/:tareaId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/tareas/:tareaId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/tareas/:tareaId/log": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/tareas/:tareaId/comentar": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/waitlist": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/waitlist/:waitlistId": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/waitlist/:waitlistId/notify": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/waitlist/:waitlistId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/auditoria": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/analytics": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/networking/expositores": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/networking/mis-citas": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/networking/horarios/:horarioId/reservar": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/networking/citas/:citaId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/expositores": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/expositores/bolsa": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:eventoId/expositores/bolsa": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:eventoId/expositores/cuotas": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/expositores": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/expositores/:id": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/expositores/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/networking/admin": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/networking/expositores": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/networking/expositores/:id": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/networking/expositores/:id/horarios": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/networking/horarios/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/torneos": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/torneos/:torneoId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/torneo-categorias": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/torneo-categorias": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/torneo-categorias/:id": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/torneo-categorias/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/torneo": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/torneo": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/torneo/:torneoId": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/torneo/:torneoId": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/torneo/:torneoId/campos-disponibles": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/torneo/:torneoId/importar-equipos": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/torneo/:torneoId/equipos": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/torneo/:torneoId/equipos/:id": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/torneo/:torneoId/generar": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/torneo/:torneoId/cerrar-grupos": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:eventoId/torneo/:torneoId/partidos/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/torneo/:torneoId/posiciones": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/motivos": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:eventoId/motivos": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/interacciones": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/interacciones": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/expositores/ranking": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:eventoId/interacciones/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:eventoId/canje/saldo": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:eventoId/canje": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:id": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:id/duplicar": {
++      "estado": "pendiente"
++    },
++    "PATCH /eventos/:id": {
++      "estado": "pendiente"
++    },
++    "GET /eventos/:id/formulario": {
++      "estado": "pendiente"
++    },
++    "PUT /eventos/:id/formulario": {
++      "estado": "pendiente"
++    },
++    "DELETE /eventos/:id": {
++      "estado": "pendiente"
++    },
++    "POST /eventos/:id/estado": {
++      "estado": "pendiente"
++    },
++    "GET /debug-sentry": {
++      "estado": "pendiente"
++    }
++  }
++}
+diff --git a/core/rutas.js b/core/rutas.js
+new file mode 100644
+index 0000000..33bdfbb
+--- /dev/null
++++ b/core/rutas.js
+@@ -0,0 +1,147 @@
++'use strict';
++
++/* core/rutas.js — el censo de lo que la aplicación atiende de verdad.
++ *
++ * Express sabe exactamente qué rutas tiene registradas; lo que no hay es forma
++ * de preguntárselo. Esta función recorre su árbol interno y devuelve la lista.
++ *
++ * Estaba dentro de `index.js` para imprimirla al arrancar. Sale aquí porque la
++ * fase 7 la necesita: la prueba que comprueba que ninguna ruta se queda sin
++ * declarar qué permiso exige tiene que mirar la lista real, no una copiada a
++ * mano que se queda vieja a la semana.
++ *
++ * ── El prefijo de montaje, que en Express 5 hay que adivinar ──────────────
++ *
++ * Hasta Express 4 la capa de un router guardaba la expresión regular de su
++ * montaje y el prefijo se sacaba de ahí. En Express 5 ya no: la capa sólo
++ * lleva un `matcher`, que es una función cerrada sobre una regexp que no se
++ * puede leer. Sin prefijo, `GET /` de `routes/categorias.js` y `GET /` de la
++ * raíz son la misma cadena, y el censo pierde rutas por el camino — pasó: de
++ * 279 rutas salían 273 identificadores.
++ *
++ * Así que el `matcher` se usa como oráculo. Los sitios donde esta aplicación
++ * monta algo son literales en el código (`app.use('/categorias', …)`), se
++ * sacan de ahí, y a cada router se le prueba cuál de ellos acepta. Gana el más
++ * largo que encaje. No es elegante; es lo que hay, y falla del lado seguro: si
++ * un prefijo no se reconoce, la ruta queda con el suyo propio y como mucho se
++ * declara de más.
++ */
++
++const fs = require('fs');
++const path = require('path');
++const { marcaDe } = require('./permisos');
++
++const RAIZ = path.join(__dirname, '..');
++
++/* Los prefijos que aparecen literalmente en el código: `app.use('/x', …)` y
++   `router.use('/x', …)`. Se leen una vez. */
++let _candidatos = null;
++
++function candidatos() {
++  if (_candidatos) return _candidatos;
++
++  const archivos = [path.join(RAIZ, 'index.js')];
++  const dirRutas = path.join(RAIZ, 'routes');
++  if (fs.existsSync(dirRutas)) {
++    for (const f of fs.readdirSync(dirRutas)) {
++      if (f.endsWith('.js')) archivos.push(path.join(dirRutas, f));
++    }
++  }
++
++  const vistos = new Set();
++  for (const archivo of archivos) {
++    const texto = fs.readFileSync(archivo, 'utf8');
++    for (const m of texto.matchAll(/\.use\(\s*'(\/[^']*)'/g)) {
++      if (m[1] && m[1] !== '/') vistos.add(m[1]);
++    }
++  }
++
++  /* Del más CORTO al más largo, y gana el primero que encaje.
++   *
++   * Parece al revés y no lo es: un router de Express casa por prefijo, así que
++   * el montado en `/eventos/publicos` acepta también `/eventos/publicos/expositor`.
++   * Quedarse con el más largo le robaba el prefijo al vecino —dos rutas
++   * distintas acababan con el mismo identificador y una desaparecía del censo—.
++   * El montaje real es siempre el más corto de los que aceptan. */
++  _candidatos = [...vistos].sort((a, b) => a.length - b.length);
++  return _candidatos;
++}
++
++function prefijoDe(capa) {
++  const matcher = capa.matchers?.[0];
++
++  /* Express 4 y anteriores: el prefijo estaba a la vista. */
++  if (!matcher && capa.regexp?.source) {
++    const m = capa.regexp.source.match(/^\^\\\/([^\\]+(?:\\\/[^\\]+)*)/);
++    return m ? '/' + m[1].replace(/\\\//g, '/') : '';
++  }
++  if (typeof matcher !== 'function') return '';
++
++  for (const p of candidatos()) {
++    try { if (matcher(p)) return p; } catch { /* un candidato que no encaja */ }
++  }
++  return '';
++}
++
++/* Recorre la aplicación y llama a `visitar` con cada ruta.
++ *
++ * `heredadas` son las marcas de permisos puestas con `router.use(publica(…))`,
++ * que valen para todas las rutas de ese router. Se arrastran hacia dentro.
++ */
++function recorrer(app, visitar) {
++  function bajar(stack, prefijo, heredadas) {
++    /* Las marcas del propio router se recogen antes de mirar sus rutas: una
++       marca declarada al final del archivo vale igual que al principio. */
++    const propias = [];
++    for (const capa of stack || []) {
++      if (!capa.route && capa.name !== 'router') {
++        const m = marcaDe(capa.handle);
++        if (m) propias.push(m);
++      }
++    }
++    const enVigor = heredadas.concat(propias);
++
++    for (const capa of stack || []) {
++      if (capa.route) {
++        const marcasRuta = (capa.route.stack || [])
++          .map(c => marcaDe(c.handle))
++          .filter(Boolean);
++
++        for (const metodo of Object.keys(capa.route.methods)) {
++          visitar({
++            metodo: metodo.toUpperCase(),
++            ruta  : `${prefijo}${capa.route.path}`,
++            marcas: marcasRuta.concat(enVigor),
++          });
++        }
++        continue;
++      }
++
++      if (capa.name === 'router' && capa.handle?.stack) {
++        bajar(capa.handle.stack, prefijo + prefijoDe(capa), enVigor);
++      }
++    }
++  }
++
++  bajar(app._router?.stack || app.router?.stack || [], '', []);
++}
++
++/* [{ metodo, ruta, id, marcas }]. `id` es «MÉTODO /ruta», la clave con la que
++   cada ruta se declara en el inventario de permisos. */
++function listarRutas(app) {
++  const rutas = [];
++  recorrer(app, (r) => rutas.push({ ...r, id: `${r.metodo} ${r.ruta}` }));
++  return rutas;
++}
++
++/* La forma vieja, para el mensaje del arranque: una línea por ruta. */
++function comoTexto(app) {
++  const porRuta = new Map();
++  for (const r of listarRutas(app)) {
++    if (!porRuta.has(r.ruta)) porRuta.set(r.ruta, []);
++    porRuta.get(r.ruta).push(r.metodo);
++  }
++  return [...porRuta.entries()].map(([ruta, metodos]) => `${metodos.join('|').padEnd(7)} ${ruta}`);
++}
++
++module.exports = { listarRutas, comoTexto, recorrer, prefijoDe, _candidatos: candidatos };
+diff --git a/index.js b/index.js
+index 572ff4f..2c98e3e 100644
+--- a/index.js
++++ b/index.js
+@@ -195,30 +195,18 @@ app.use((req, res) => {
+   res.status(404).json({ error: `Ruta no encontrada: ${req.method} ${req.path}` });
+ });
+ 
+-/* Introspección real de las rutas registradas en Express */
+-function listarRutas() {
+-  const rutas = [];
+-  function walk(stack, prefix = '') {
+-    stack.forEach(layer => {
+-      if (layer.route) {
+-        const methods = Object.keys(layer.route.methods).map(m => m.toUpperCase()).join('|');
+-        rutas.push(`${methods.padEnd(7)} ${prefix}${layer.route.path}`);
+-      } else if (layer.name === 'router' && layer.handle?.stack) {
+-        const src = layer.regexp?.source || '';
+-        const match = src.match(/^\^\\\/([^\\]+(?:\\\/[^\\]+)*)/);
+-        const mountPrefix = match ? '/' + match[1].replace(/\\\//g, '/') : '';
+-        walk(layer.handle.stack, prefix + mountPrefix);
+-      }
+-    });
+-  }
+-  walk(app._router?.stack || app.router?.stack || []);
+-  return rutas;
+-}
+-
+-iniciarCronRecordatorios();
+-
+-const PORT = process.env.PORT || 3000;
+-app.listen(PORT, () => {
++/* El censo de rutas vive en core/rutas.js: lo necesita también la prueba de
++   permisos, y una copia a mano se queda vieja a la semana. */
++const { comoTexto } = require('./core/rutas.js');
++
++/* Arrancar sólo si a este archivo se le llama directamente. Al requerirlo
++   desde una prueba —que es lo que hace la de permisos, para poder preguntarle
++   a Express qué rutas tiene— no debe abrir un puerto ni encender el cron. */
++if (require.main === module) {
++  iniciarCronRecordatorios();
++
++  const PORT = process.env.PORT || 3000;
++  app.listen(PORT, () => {
+   console.log(`\n┌──────────────────────────────────────────────────────────┐`);
+   console.log(`│  GESTEK API  v0.10.0-mp                                  │`);
+   console.log(`│  http://localhost:${PORT}                                    │`);
+@@ -237,8 +225,11 @@ app.listen(PORT, () => {
+   console.log(`│    CHAT   /eventos/:id/chat/channels(/messages)          │`);
+   console.log(`└──────────────────────────────────────────────────────────┘\n`);
+ 
+-  console.log('[DEBUG] Rutas REALES registradas en Express:');
+-  const rutas = listarRutas();
+-  rutas.forEach(r => console.log('  ' + r));
+-  console.log(`  Total: ${rutas.length}\n`);
+-});
++    console.log('[DEBUG] Rutas REALES registradas en Express:');
++    const rutas = comoTexto(app);
++    rutas.forEach(r => console.log('  ' + r));
++    console.log(`  Total: ${rutas.length}\n`);
++  });
++}
++
++module.exports = app;
+diff --git a/routes/categorias.js b/routes/categorias.js
+index b08eaee..5d4b84f 100644
+--- a/routes/categorias.js
++++ b/routes/categorias.js
+@@ -3,6 +3,11 @@ const supabase = require('../lib/supabase.js');
+ 
+ const router = express.Router();
+ 
++/* El catálogo de categorías es público a propósito: lo lee la página de un
++   evento antes de que nadie entre. Declarado para que el censo de permisos no
++   lo cuente como olvidado. */
++router.use(require('../core/permisos').publica('Catálogo de categorías: lo lee la página pública del evento sin sesión.'));
++
+ /* GET /categorias — catálogo público */
+ router.get('/', async (_req, res) => {
+   const { data, error } = await supabase
+diff --git a/routes/eventos.publicos.js b/routes/eventos.publicos.js
+index 2336072..543eea6 100644
+--- a/routes/eventos.publicos.js
++++ b/routes/eventos.publicos.js
+@@ -40,6 +40,12 @@ function classifySource(referrer) {
+ }
+ 
+ const router = express.Router();
++
++/* La página pública del evento: se abre sin cuenta, que es el punto de un
++   evento. Las rutas de aquí que sí tocan datos de una persona se autentican
++   por el código de su boleta, no por sesión. Declarado en bloque porque el
++   motivo es el mismo para todas. */
++router.use(require('../core/permisos').publica('Página pública del evento: se abre sin cuenta; lo que toca datos de una persona va por el código de su boleta.'));
+ router.use(verifySupabaseJWTOptional);
+ 
+ /* GET /eventos/publicos — listado de eventos publicados vigentes (para /explorar) */
+diff --git a/routes/expositor.js b/routes/expositor.js
+index 5e4a2f5..40f4f8d 100644
+--- a/routes/expositor.js
++++ b/routes/expositor.js
+@@ -15,6 +15,11 @@ const { saldoDeTicket, recompensasDeExpositor } = require('../lib/saldoTicket.js
+ 
+ const router = express.Router();
+ 
++/* Público en el sentido de que no hay sesión de usuario: la empresa se
++   identifica con el CÓDIGO de su boleta-Stand, y todo va forzado a SU ficha.
++   Es autenticación, sólo que no con un token de cuenta. */
++router.use(require('../core/permisos').publica('El expositor se identifica con el código de su boleta-Stand, no con una cuenta.'));
++
+ /* Middleware: resuelve :codigo → ficha del expositor. */
+ async function cargarExpositor(req, res, next) {
+   const cod = String(req.params.codigo || '').toUpperCase().trim();
+diff --git a/routes/legal.js b/routes/legal.js
+index 1afbd41..bbb8070 100644
+--- a/routes/legal.js
++++ b/routes/legal.js
+@@ -30,6 +30,10 @@ const { verifySupabaseJWT } = require('../middleware/auth.js');
+ const { assertPermiso } = require('../lib/acceso.js');
+ 
+ const publico = express.Router();
++
++/* Los términos y la política de privacidad tienen que poder leerse antes de
++   comprar y sin cuenta: es lo que exige la ley que los pide. */
++publico.use(require('../core/permisos').publica('Términos y privacidad: legalmente tienen que poder leerse sin cuenta.'));
+ const panel = express.Router();
+ panel.use(verifySupabaseJWT);
+ 
+diff --git a/routes/sesiones.js b/routes/sesiones.js
+index 0177891..071e0e5 100644
+--- a/routes/sesiones.js
++++ b/routes/sesiones.js
+@@ -38,6 +38,10 @@ const { enviarEmailEvento } = require('../lib/emailPlantillas.js');
+ const { resolverTicket } = require('../lib/ticketLookup.js');
+ 
+ const publico = express.Router();
++
++/* Inscripción a sub-eventos desde la página pública, con el código de la
++   boleta. El router `panel`, que es el del organizador, NO lleva esta marca. */
++publico.use(require('../core/permisos').publica('Inscripción a sub-eventos desde la página pública, identificada por el código de la boleta.'));
+ const panel = express.Router();
+ 
+ publico.use(verifySupabaseJWTOptional);
+diff --git a/scripts/censar-rutas.js b/scripts/censar-rutas.js
+new file mode 100644
+index 0000000..0ff8b13
+--- /dev/null
++++ b/scripts/censar-rutas.js
+@@ -0,0 +1,66 @@
++#!/usr/bin/env node
++'use strict';
++
++/* scripts/censar-rutas.js — pasa lista a las rutas y actualiza el inventario.
++ *
++ *   node scripts/censar-rutas.js              # enseña el estado, no escribe
++ *   node scripts/censar-rutas.js --guardar    # anota las nuevas y baja el tope
++ *
++ * El tope de pendientes sólo baja. Es lo que convierte «habría que declarar los
++ * permisos algún día» en algo que se puede medir cada semana: si el número no
++ * baja, no se avanzó, y si sube, la prueba se pone roja.
++ */
++
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++
++const app = require('../index.js');
++const { comparar, leerInventario, guardarInventario } = require('../core/permisos/censo.js');
++
++const GUARDAR = process.argv.includes('--guardar');
++
++const inventario = leerInventario() || { pendientes_maximo: Infinity, rutas: {} };
++const r = comparar(app, inventario);
++
++const declaradas = r.actuales.length - r.pendientes.length;
++
++console.log('\n── Rutas registradas ─────────────────────────────────────');
++console.log(`   total               ${r.actuales.length}`);
++console.log(`   declaradas          ${declaradas}`);
++console.log(`   pendientes          ${r.pendientes.length}   (tope anotado: ${inventario.pendientes_maximo})`);
++
++if (r.nuevas.length) {
++  console.log(`\n   nuevas desde el último censo: ${r.nuevas.length}`);
++  for (const x of r.nuevas) console.log(`     ${x.estado === 'pendiente' ? '✗' : '·'} ${x.id}`);
++}
++if (r.desaparecidas.length) {
++  console.log(`\n   ya no existen: ${r.desaparecidas.length}`);
++  for (const id of r.desaparecidas) console.log(`     · ${id}`);
++}
++
++if (!GUARDAR) {
++  console.log('\n(Sin --guardar no se escribe nada.)\n');
++  process.exit(0);
++}
++
++const rutas = {};
++for (const x of r.actuales) {
++  rutas[x.id] = x.estado === 'exige'
++    ? { estado: 'exige', acciones: x.acciones }
++    : x.estado === 'publica'
++      ? { estado: 'publica', motivo: x.motivo }
++      : { estado: 'pendiente' };
++}
++
++guardarInventario({
++  /* El tope nunca sube: si hoy hay más pendientes que el tope anotado, es que
++     alguien añadió rutas sin declarar, y eso lo tiene que arreglar quien las
++     añadió, no este script. */
++  pendientes_maximo: Math.min(inventario.pendientes_maximo ?? Infinity, r.pendientes.length),
++  censado_el       : new Date().toISOString().slice(0, 10),
++  total            : r.actuales.length,
++  rutas,
++});
++
++console.log('\n✓ Inventario actualizado.\n');
++process.exit(0);
+diff --git a/test/permisos.test.js b/test/permisos.test.js
+new file mode 100644
+index 0000000..b4b02c5
+--- /dev/null
++++ b/test/permisos.test.js
+@@ -0,0 +1,217 @@
++'use strict';
++
++/* La pieza que sustituye a RLS, y la prueba que impide que se quede a medias.
++ *
++ * Hoy los datos los guardan dos guardias: las 76 políticas de Supabase y las
++ * comprobaciones que cada ruta hace a mano. Al pasar a MySQL desaparece el
++ * primero. Con 279 rutas registradas, revisar «con cuidado» no es un plan.
++ *
++ * Estas pruebas son el plan: `puede()` decide y se puede comprobar sin montar
++ * nada, y el censo obliga a que cada ruta diga qué exige — o que es pública y
++ * por qué. Una ruta nueva sin declarar pone el suite en rojo el mismo día en
++ * que se escribe. */
++
++process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://ficticio.supabase.co';
++process.env.SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'falsa';
++process.env.JWT_SECRET = 'secreto-de-prueba-que-no-es-el-de-produccion';
++
++const test = require('node:test');
++const assert = require('node:assert');
++
++const { puede, exige, publica, marcaDe } = require('../core/permisos');
++const { comparar, leerInventario } = require('../core/permisos/censo.js');
++
++const ANA  = { id: 'ana' };
++const BETO = { id: 'beto' };
++
++const evento = (extra = {}) => ({ ownerId: 'ana', permisos: new Set(), ...extra });
++
++/* ── puede(): la decisión, sin base ni servidor ────────────────────────── */
++
++test('el dueño del evento puede todo sobre él', () => {
++  assert.equal(puede(ANA, 'evento:editar', evento()), true);
++  assert.equal(puede(ANA, 'boletas:emitir', evento()), true);
++});
++
++test('quien no es dueño ni miembro no puede nada', () => {
++  assert.equal(puede(BETO, 'evento:editar', evento()), false);
++});
++
++test('un miembro puede lo que su rol le concede, y sólo eso', () => {
++  const conPermisos = evento({ permisos: new Set(['asistentes:ver', 'accesos:escanear']) });
++
++  assert.equal(puede(BETO, 'asistentes:ver', conPermisos), true);
++  assert.equal(puede(BETO, 'evento:borrar', conPermisos), false);
++});
++
++test('basta con UNA de las acciones pedidas', () => {
++  /* Las rutas piden listas: «para esto vale editar el evento o gestionar
++     boletas». Exigir todas convertiría cada rol en el rol del dueño. */
++  const conPermisos = evento({ permisos: new Set(['boletas:gestionar']) });
++  assert.equal(puede(BETO, ['evento:editar', 'boletas:gestionar'], conPermisos), true);
++});
++
++test('el comodín vale para todo, y es lo que tiene el dueño', () => {
++  assert.equal(puede(BETO, 'lo:que:sea', evento({ permisos: new Set(['*']) })), true);
++});
++
++test('sin usuario no se puede nada, aunque el recurso sea de nadie', () => {
++  /* Lo público no llega hasta aquí: lleva su propia marca. Si algo público
++     acabara pasando por `puede()`, tiene que salir «no». */
++  assert.equal(puede(null, 'evento:ver', evento()), false);
++  assert.equal(puede({}, 'evento:ver', evento()), false);
++  assert.equal(puede(ANA, 'evento:ver', null), false);
++});
++
++test('una lista de acciones vacía no concede nada', () => {
++  /* `exige()` sin argumentos sería una puerta abierta con aspecto de puerta
++     cerrada, que es peor que no tener puerta. */
++  assert.equal(puede(BETO, [], evento({ permisos: new Set(['todo']) })), false);
++});
++
++test('los permisos valen como Set o como lista', () => {
++  assert.equal(puede(BETO, 'x', evento({ permisos: ['x'] })), true);
++  assert.equal(puede(BETO, 'x', evento({ permisos: new Set(['x']) })), true);
++});
++
++test('el id se compara como texto', () => {
++  /* Los UUID llegan como cadena de un sitio y a veces como otra cosa de otro.
++     Un `===` entre tipos distintos convierte al dueño en un extraño. */
++  assert.equal(puede({ id: 7 }, 'x', { ownerId: '7', permisos: new Set() }), true);
++});
++
++/* ── exige(): el guardia de una ruta ───────────────────────────────────── */
++
++function pedir(user) { return { user, params: { id: 'evt-1' } }; }
++function responder() {
++  const r = { codigo: null, cuerpo: null };
++  r.status = (c) => { r.codigo = c; return r; };
++  r.json = (b) => { r.cuerpo = b; return r; };
++  return r;
++}
++async function pasar(middleware, req) {
++  const res = responder();
++  let siguio = false;
++  await middleware(req, res, (e) => { if (e) throw e; siguio = true; });
++  return { res, siguio };
++}
++
++const cargadorFalso = (recurso) => async () => recurso;
++
++test('sin sesión, el guardia contesta 401', async () => {
++  const guardia = exige('evento:editar', { cargador: cargadorFalso(evento()) });
++  const { res, siguio } = await pasar(guardia, pedir(null));
++
++  assert.equal(siguio, false);
++  assert.equal(res.codigo, 401);
++});
++
++test('con sesión pero sin permiso, 403', async () => {
++  const guardia = exige('evento:editar', { cargador: cargadorFalso(evento()) });
++  const { res, siguio } = await pasar(guardia, pedir(BETO));
++
++  assert.equal(siguio, false);
++  assert.equal(res.codigo, 403);
++});
++
++test('el dueño pasa, y el evento queda a mano para el handler', async () => {
++  const guardia = exige('evento:editar', {
++    cargador: cargadorFalso({ ...evento(), evento: { id: 'evt-1', owner_id: 'ana' } }),
++  });
++  const req = pedir(ANA);
++  const { siguio } = await pasar(guardia, req);
++
++  assert.equal(siguio, true);
++  assert.equal(req.evento.id, 'evt-1');
++});
++
++test('un evento que no existe da 404, no 403', async () => {
++  /* Distinguirlos importa: 403 sobre algo inexistente le dice a quien prueba
++     que ese id existe pero no es suyo. */
++  const guardia = exige('evento:editar', { cargador: cargadorFalso(null) });
++  const { res } = await pasar(guardia, pedir(ANA));
++
++  assert.equal(res.codigo, 404);
++});
++
++test('una ruta que exige permiso de evento pero no dice de cuál, falla ruidosamente', async () => {
++  /* El fallo silencioso sería no evaluar el permiso y dejar pasar. Mejor un
++     500 en la primera petición, que se ve, que una puerta abierta que no. */
++  const guardia = exige('evento:editar', { cargador: cargadorFalso(evento()) });
++  const { res, siguio } = await pasar(guardia, { user: ANA, params: {} });
++
++  assert.equal(siguio, false);
++  assert.equal(res.codigo, 500);
++});
++
++test('el guardia acepta los tres nombres de parámetro que usan las rutas de hoy', async () => {
++  const vistos = [];
++  const guardia = exige('x', { cargador: async (id) => { vistos.push(id); return evento({ permisos: new Set(['x']) }); } });
++
++  for (const params of [{ id: 'a' }, { eventoId: 'b' }, { evento_id: 'c' }]) {
++    await pasar(guardia, { user: BETO, params });
++  }
++  assert.deepEqual(vistos, ['a', 'b', 'c']);
++});
++
++/* ── Las marcas ────────────────────────────────────────────────────────── */
++
++test('exige() y publica() dejan marca legible para el censo', () => {
++  assert.deepEqual(marcaDe(exige(['a', 'b'])), { tipo: 'exige', acciones: ['a', 'b'] });
++  assert.equal(marcaDe(publica('porque sí')).tipo, 'publica');
++  assert.equal(marcaDe(() => {}), null);
++});
++
++test('publica() sin motivo no se puede escribir', () => {
++  /* El motivo es lo que se lee dentro de un año, cuando nadie recuerde por qué
++     la página de compra no pide sesión. */
++  assert.throws(() => publica());
++  assert.throws(() => publica(''));
++});
++
++/* ── El censo: la prueba que impide que esto se quede a medias ─────────── */
++
++test('ninguna ruta nueva se queda sin declarar', () => {
++  const app = require('../index.js');
++  const inventario = leerInventario();
++  assert.ok(inventario, 'falta core/permisos/inventario.json: correr scripts/censar-rutas.js --guardar');
++
++  const r = comparar(app, inventario);
++
++  assert.deepEqual(
++    r.nuevasSinDeclarar.map(x => x.id), [],
++    'Hay rutas nuevas que no declaran qué permiso exigen. Ponéles exige(...) o ' +
++    'publica("motivo"), y después corré: node scripts/censar-rutas.js --guardar'
++  );
++});
++
++test('el número de rutas sin declarar no crece', () => {
++  /* El trinquete. No obliga a declarar las 249 que vienen de antes, pero
++     impide que sean 250. Y como el tope sólo baja al guardar, cada semana se
++     puede mirar si el número se movió. */
++  const app = require('../index.js');
++  const inventario = leerInventario();
++  const r = comparar(app, inventario);
++
++  assert.ok(
++    r.pendientes.length <= r.tope,
++    `Hay ${r.pendientes.length} rutas sin declarar y el tope anotado es ${r.tope}. ` +
++    'Declaralas antes de subir esto.'
++  );
++});
++
++test('el censo ve de verdad las rutas públicas ya declaradas', () => {
++  /* Si el censo dejara de reconocer las marcas —por un cambio en Express, o
++     por una marca puesta donde no toca— las dos pruebas de arriba pasarían
++     siempre y no comprobarían nada. Esto las protege. */
++  const app = require('../index.js');
++  const r = comparar(app, leerInventario());
++  const publicas = r.actuales.filter(x => x.estado === 'publica');
++
++  assert.ok(publicas.length >= 20, `el censo sólo reconoce ${publicas.length} rutas públicas`);
++  assert.ok(publicas.every(x => x.motivo), 'hay rutas públicas sin motivo escrito');
++  assert.ok(
++    r.actuales.some(x => x.ruta.startsWith('/categorias')),
++    'el censo ya no encuentra /categorias: revisá cómo lee los prefijos de montaje'
++  );
++});
+-- 
+2.43.0
+
+
+From efc13bfa87c3dffe2af0d9355e1eedcb29086edb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 29 Aug 2026 01:41:16 +0000
+Subject: [PATCH 4/4] =?UTF-8?q?Barrido=20de=20hu=C3=A9rfanos:=20la=20lista?=
+ =?UTF-8?q?=20medida=20y=20el=20script=20que=20la=20ejecuta?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+36 objetos y 28,1 MB de los 80 que ocupa el almacenamiento no los referencia
+ninguna de las 13 columnas que guardan URLs. Es más de un tercio, y es lo que
+explica el salto de 24 a 80 MB: no es que se suba más, es que cuatro de los
+cinco uploaders dejan el archivo anterior donde estaba.
+
+La lista va commiteada con ruta, tamaño y fecha. Se midió cruzando
+storage.objects contra las 13 columnas, no por corazonada, y ninguno se subió
+en los últimos dos días: no hay formularios a medio llenar en riesgo.
+
+El script no adivina y no toca lo reciente —dos días de gracia, ajustables— y
+escribe el manifiesto ANTES de borrar, para que si se cae a mitad quede la
+lista entera y no media.
+
+Listar el origen y saber qué usa alguien pasa a estar en un solo archivo, que
+comparten el barrido y la copia al almacén propio: si las dos copias se
+separaran, una copiaría basura o la otra borraría algo que sí se usa.
+
+Lo que falta es sólo pulsar el botón: borrar del Storage necesita la service
+key, que no está en este contenedor. Y NO vale borrar las filas de
+storage.objects por SQL — eso quita la ficha y deja el archivo ocupando sitio,
+que es peor que no hacer nada.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ db/inventarios/huerfanos-2026-08-29.json | 232 +++++++++++++++++++++++
+ scripts/_origen-supabase.js              | 117 ++++++++++++
+ scripts/barrer-huerfanos.js              | 116 ++++++++++++
+ scripts/copiar-storage.js                |  94 +--------
+ 4 files changed, 475 insertions(+), 84 deletions(-)
+ create mode 100644 db/inventarios/huerfanos-2026-08-29.json
+ create mode 100644 scripts/_origen-supabase.js
+ create mode 100644 scripts/barrer-huerfanos.js
+
+diff --git a/db/inventarios/huerfanos-2026-08-29.json b/db/inventarios/huerfanos-2026-08-29.json
+new file mode 100644
+index 0000000..34a0fd8
+--- /dev/null
++++ b/db/inventarios/huerfanos-2026-08-29.json
+@@ -0,0 +1,232 @@
++{
++  "medido": "2026-08-29",
++  "metodo": "storage.objects cruzado contra las 13 columnas de 9 tablas que guardan la URL dentro de la fila (SUPABASE.md 3.3)",
++  "total": 36,
++  "bytes": 29463317,
++  "mb": 28.1,
++  "sin_referencia_recientes": 0,
++  "nota": "Ninguno se subio en los ultimos 2 dias, asi que no hay formularios a medio llenar en riesgo.",
++  "por_bucket": {
++    "avatars": 2,
++    "event-media": 32,
++    "form-uploads": 2
++  },
++  "archivos": [
++    {
++      "bucket": "avatars",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/avatar-1782945143543.webp",
++      "bytes": 7866,
++      "creado": "2026-07-01"
++    },
++    {
++      "bucket": "avatars",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/avatar-1783379376662.png",
++      "bytes": 70040,
++      "creado": "2026-07-06"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/block-1783120154833-sr9nng.webp",
++      "bytes": 20054,
++      "creado": "2026-07-03"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/block-1783120197787-iyj2l4.jpg",
++      "bytes": 8813,
++      "creado": "2026-07-03"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/cover-1781728290773-5ldp0n.png",
++      "bytes": 2228212,
++      "creado": "2026-06-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/cover-1781728500405-dstnbq.png",
++      "bytes": 2523293,
++      "creado": "2026-06-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/gallery-1781728263614-7s6tu6.webp",
++      "bytes": 20054,
++      "creado": "2026-06-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "01ceeeed-da60-46fd-a680-822a3ec5ee23/gallery-1781728305320-28kmi1.png",
++      "bytes": 2228212,
++      "creado": "2026-06-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "0bc0259a-867c-4026-8b04-19864b0d0a6d/cover-1786484243552-b847mg.jpg",
++      "bytes": 142107,
++      "creado": "2026-08-11"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "0bc0259a-867c-4026-8b04-19864b0d0a6d/cover-1787697450547-4jkq13.png",
++      "bytes": 1651053,
++      "creado": "2026-08-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "0bc0259a-867c-4026-8b04-19864b0d0a6d/cover-1787697480388-6eif8e.png",
++      "bytes": 1651053,
++      "creado": "2026-08-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "0bc0259a-867c-4026-8b04-19864b0d0a6d/cover-1787698923968-xpkeqa.jpg",
++      "bytes": 1083187,
++      "creado": "2026-08-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "0bc0259a-867c-4026-8b04-19864b0d0a6d/cover-1787698939102-737suq.jpg",
++      "bytes": 1083187,
++      "creado": "2026-08-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "0bc0259a-867c-4026-8b04-19864b0d0a6d/cover-1787699024740-4vsq9i.jpg",
++      "bytes": 1089737,
++      "creado": "2026-08-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "0bc0259a-867c-4026-8b04-19864b0d0a6d/gallery-1787783054134-eeapbw.jpg",
++      "bytes": 4442038,
++      "creado": "2026-08-26"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/block-1784993426193-pqniwa.jpeg",
++      "bytes": 227299,
++      "creado": "2026-07-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/block-1784993503411-va167h.avif",
++      "bytes": 36998,
++      "creado": "2026-07-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/block-1786469877597-wc4c10.jpeg",
++      "bytes": 41936,
++      "creado": "2026-08-11"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/block-1786469945436-vndfj3.jpeg",
++      "bytes": 41936,
++      "creado": "2026-08-11"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/block-1786832397430-ywng59.png",
++      "bytes": 1356388,
++      "creado": "2026-08-15"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/cover-1778814281410-6564eh.png",
++      "bytes": 898650,
++      "creado": "2026-05-15"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/gallery-1778814290137-9rae2v.jpeg",
++      "bytes": 382515,
++      "creado": "2026-05-15"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/gallery-1778814297160-0itt3r.jpeg",
++      "bytes": 237393,
++      "creado": "2026-05-15"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/gallery-1778814301631-77xp1l.jpeg",
++      "bytes": 277659,
++      "creado": "2026-05-15"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "34b3e353-e9e4-4f63-996a-00e674ccec59/gallery-1778814306662-k9a216.jpeg",
++      "bytes": 213733,
++      "creado": "2026-05-15"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "67924e68-50b7-413b-98e0-1b952872c075/cover-1779712531422-o8ibel.webp",
++      "bytes": 41992,
++      "creado": "2026-05-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "67924e68-50b7-413b-98e0-1b952872c075/gallery-1779712555517-5psq8o.webp",
++      "bytes": 46162,
++      "creado": "2026-05-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "67924e68-50b7-413b-98e0-1b952872c075/gallery-1779712559973-57sgtx.webp",
++      "bytes": 26736,
++      "creado": "2026-05-25"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "d1a004bd-cd78-498d-80d0-7847a417b00f/cover-1779635037904-cyrz9a.png",
++      "bytes": 517143,
++      "creado": "2026-05-24"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "f9cbea00-8539-40d7-860a-39dd015d62df/block-1786929288815-5a67bo.png",
++      "bytes": 2222313,
++      "creado": "2026-08-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "f9cbea00-8539-40d7-860a-39dd015d62df/block-1786943450440-v5hlvm.png",
++      "bytes": 1592520,
++      "creado": "2026-08-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "f9cbea00-8539-40d7-860a-39dd015d62df/block-1786943527623-v061zs.png",
++      "bytes": 795234,
++      "creado": "2026-08-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "f9cbea00-8539-40d7-860a-39dd015d62df/block-1786943556340-tyka5i.png",
++      "bytes": 1592520,
++      "creado": "2026-08-17"
++    },
++    {
++      "bucket": "event-media",
++      "ruta": "f9cbea00-8539-40d7-860a-39dd015d62df/cover-1779923662975-hh02b3.webp",
++      "bytes": 9190,
++      "creado": "2026-05-27"
++    },
++    {
++      "bucket": "form-uploads",
++      "ruta": "b99aac3f-66e3-456f-a0a6-eaec6bffec9b/6b100e0e-4493-4612-b4de-c30d330d8a48-1784317940188.png",
++      "bytes": 656025,
++      "creado": "2026-07-17"
++    },
++    {
++      "bucket": "form-uploads",
++      "ruta": "expositor/zztest/logo.png",
++      "bytes": 69,
++      "creado": "2026-07-25"
++    }
++  ]
++}
+\ No newline at end of file
+diff --git a/scripts/_origen-supabase.js b/scripts/_origen-supabase.js
+new file mode 100644
+index 0000000..2c5900b
+--- /dev/null
++++ b/scripts/_origen-supabase.js
+@@ -0,0 +1,117 @@
++'use strict';
++
++/* scripts/_origen-supabase.js — leer qué hay en el Storage de Supabase y qué
++ * de eso lo usa alguien.
++ *
++ * Lo usan los dos scripts que tocan archivos: el que copia al almacén propio y
++ * el que barre los huérfanos. Está aquí, y no repetido en los dos, porque son
++ * exactamente la misma pregunta hecha al revés: «qué se referencia» y «qué no».
++ * Si las dos copias se separaran, una de ellas copiaría basura o —peor— la otra
++ * borraría algo que sí se usa.
++ *
++ * El guion bajo del nombre es para que el `node --test` de la suite no lo tome
++ * por una prueba.
++ */
++
++const supabase = require('../lib/supabase.js');
++
++const BUCKETS = ['avatars', 'event-media', 'form-uploads'];
++
++/* Las 13 columnas de 9 tablas donde la URL vive dentro de la fila. Medidas
++   contra las 71 tablas (SUPABASE.md §3.3), no supuestas. Cinco son JSON, y por
++   eso se busca sobre el texto de la columna y no por clave: en `page_json` la
++   imagen puede estar en cualquier bloque, a cualquier profundidad. */
++const COLUMNAS_CON_URL = [
++  ['eventos', 'cover_url'], ['eventos', 'gallery'], ['eventos', 'page_json'],
++  ['eventos', 'paginas'], ['eventos', 'branding'], ['eventos', 'pago_qr_url'],
++  ['torneo_equipos', 'foto_url'], ['tickets', 'respuestas'],
++  ['profiles', 'empresa_logo_url'], ['profiles', 'avatar_url'],
++  ['chat_messages', 'file_url'], ['speakers', 'foto_url'],
++  ['networking_expositores', 'logo_url'],
++];
++
++/* Recorre un bucket entero. `list` pagina de 100 en 100 y no baja solo a las
++   subcarpetas: hay que recorrerlas. */
++async function listarBucket(bucket, prefijo = '') {
++  const encontrados = [];
++  let desde = 0;
++
++  for (;;) {
++    const { data, error } = await supabase.storage.from(bucket)
++      .list(prefijo, { limit: 100, offset: desde });
++    if (error) throw new Error(`No se pudo listar ${bucket}/${prefijo}: ${error.message}`);
++    if (!data || data.length === 0) break;
++
++    for (const objeto of data) {
++      if (!objeto.id) {                        // sin id es una carpeta
++        encontrados.push(...await listarBucket(bucket, prefijo ? `${prefijo}/${objeto.name}` : objeto.name));
++        continue;
++      }
++      encontrados.push({
++        bucket,
++        ruta  : prefijo ? `${prefijo}/${objeto.name}` : objeto.name,
++        bytes : objeto.metadata?.size || 0,
++        mime  : objeto.metadata?.mimetype || null,
++        creado: objeto.created_at || null,
++      });
++    }
++
++    if (data.length < 100) break;
++    desde += data.length;
++  }
++  return encontrados;
++}
++
++async function listarTodo() {
++  const objetos = [];
++  for (const b of BUCKETS) objetos.push(...await listarBucket(b));
++  return objetos;
++}
++
++/* Qué rutas menciona alguna fila, en formato `bucket/ruta`. Se busca el patrón
++   de URL dentro del TEXTO de cada columna, que es lo único que alcanza a las
++   cinco columnas JSON. */
++async function rutasReferenciadas({ avisar = console.warn } = {}) {
++  const usadas = new Set();
++
++  for (const [tabla, columna] of COLUMNAS_CON_URL) {
++    const { data, error } = await supabase.from(tabla).select(columna).not(columna, 'is', null);
++    if (error) { avisar(`   ⚠ no se pudo leer ${tabla}.${columna}: ${error.message}`); continue; }
++
++    for (const fila of data || []) {
++      const valor = fila[columna];
++      const texto = typeof valor === 'string' ? valor : JSON.stringify(valor);
++      for (const m of String(texto).matchAll(/\/storage\/v1\/object\/(?:public|sign)\/([^"'\\)\s?]+)/g)) {
++        usadas.add(decodeURIComponent(m[1]));
++      }
++    }
++  }
++  return usadas;
++}
++
++/* Separa lo que usa alguien de lo que no. `dias` protege lo recién subido: una
++   foto que se subió hace un minuto puede estar todavía en el formulario que
++   aún no se ha guardado, y borrarla sería quitarle el suelo a alguien que está
++   trabajando. */
++async function clasificar({ dias = 2 } = {}) {
++  const objetos = await listarTodo();
++  const usadas = await rutasReferenciadas();
++  const corte = Date.now() - dias * 24 * 60 * 60 * 1000;
++
++  const referenciados = [];
++  const huerfanos = [];
++  const recientes = [];
++
++  for (const o of objetos) {
++    if (usadas.has(`${o.bucket}/${o.ruta}`)) { referenciados.push(o); continue; }
++    if (o.creado && new Date(o.creado).getTime() > corte) { recientes.push(o); continue; }
++    huerfanos.push(o);
++  }
++
++  return { objetos, referenciados, huerfanos, recientes, usadas };
++}
++
++const mb = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
++const suma = (lista) => lista.reduce((n, o) => n + o.bytes, 0);
++
++module.exports = { BUCKETS, COLUMNAS_CON_URL, listarBucket, listarTodo, rutasReferenciadas, clasificar, mb, suma };
+diff --git a/scripts/barrer-huerfanos.js b/scripts/barrer-huerfanos.js
+new file mode 100644
+index 0000000..86dd952
+--- /dev/null
++++ b/scripts/barrer-huerfanos.js
+@@ -0,0 +1,116 @@
++#!/usr/bin/env node
++'use strict';
++
++/* scripts/barrer-huerfanos.js — borra del Storage lo que ya no apunta nadie.
++ *
++ * ── Qué son los huérfanos y de dónde salen ───────────────────────────────
++ *
++ * Cuatro de los cinco uploaders del frontend suben el archivo nuevo y dejan el
++ * viejo donde estaba. Nadie lo borra porque nadie sabe que existe. Medido el 29
++ * de agosto: **36 objetos, 28,1 MB de los 80 que ocupa el almacenamiento** —
++ * más de un tercio— que ninguna de las 13 columnas menciona.
++ *
++ * Eso es lo que explica el salto de 24 a 80 MB: no es que se suba más, es que
++ * no se borra nunca. El arreglo de raíz es `modules/archivos/`, que borra el
++ * anterior al subir uno nuevo. Este script limpia lo que se acumuló antes.
++ *
++ * ── Las tres cosas que lo hacen seguro ───────────────────────────────────
++ *
++ * 1. **No adivina.** Un objeto sólo se borra si NINGUNA de las 13 columnas lo
++ *    menciona, y esas 13 son las medidas contra las 71 tablas.
++ * 2. **No toca lo reciente.** Lo subido en los últimos dos días se queda,
++ *    aunque no lo referencie nadie: puede estar en un formulario a medio
++ *    llenar. Se ajusta con `--dias N`.
++ * 3. **Deja constancia.** Antes de borrar escribe un manifiesto con la ruta,
++ *    el tamaño y la fecha de cada archivo. Los bytes no vuelven, pero al menos
++ *    se sabe exactamente qué había.
++ *
++ * ── Cómo se usa ──────────────────────────────────────────────────────────
++ *
++ *   node scripts/barrer-huerfanos.js                # lista y cuenta, no borra
++ *   node scripts/barrer-huerfanos.js --aplicar      # borra
++ *
++ * Necesita `SUPABASE_URL` y `SUPABASE_SERVICE_KEY` en el entorno: borrar del
++ * Storage no se puede con la llave anónima, y tampoco vale borrar las filas de
++ * `storage.objects` por SQL — eso quita la ficha y deja el archivo ocupando
++ * sitio, que es peor que no hacer nada.
++ */
++
++const fs = require('fs');
++const path = require('path');
++const supabase = require('../lib/supabase.js');
++const origen = require('./_origen-supabase.js');
++
++const args = process.argv.slice(2);
++const APLICAR = args.includes('--aplicar');
++const DIAS = (() => {
++  const i = args.indexOf('--dias');
++  return i >= 0 ? parseInt(args[i + 1], 10) || 2 : 2;
++})();
++
++async function main() {
++  console.log('\n── Mirando qué usa alguien ───────────────────────────────');
++
++  const { objetos, referenciados, huerfanos, recientes } = await origen.clasificar({ dias: DIAS });
++
++  console.log(`   objetos             ${objetos.length}  (${origen.mb(origen.suma(objetos))} MB)`);
++  console.log(`   referenciados       ${referenciados.length}  (${origen.mb(origen.suma(referenciados))} MB)`);
++  console.log(`   huérfanos           ${huerfanos.length}  (${origen.mb(origen.suma(huerfanos))} MB)`);
++  if (recientes.length) {
++    console.log(`   recientes           ${recientes.length}  — sin referencia pero de hace menos de ${DIAS} días: NO se tocan`);
++  }
++
++  if (huerfanos.length === 0) {
++    console.log('\n✓ No hay nada que barrer.\n');
++    return;
++  }
++
++  console.log('\n── Lo que se borraría ────────────────────────────────────');
++  for (const o of huerfanos) {
++    console.log(`   ${String(Math.round(o.bytes / 1024)).padStart(6)} KB  ${o.bucket}/${o.ruta}`);
++  }
++
++  if (!APLICAR) {
++    console.log(`\n✓ ${huerfanos.length} huérfanos, ${origen.mb(origen.suma(huerfanos))} MB. Nada borrado (falta --aplicar).\n`);
++    return;
++  }
++
++  /* El manifiesto va ANTES del borrado: si el proceso se cae a mitad, lo que
++     queda escrito es la lista entera, no media. */
++  const manifiesto = path.join(process.cwd(), `huerfanos-${new Date().toISOString().slice(0, 10)}.json`);
++  fs.writeFileSync(manifiesto, `${JSON.stringify({
++    fecha: new Date().toISOString(),
++    dias_de_gracia: DIAS,
++    total: huerfanos.length,
++    bytes: origen.suma(huerfanos),
++    archivos: huerfanos,
++  }, null, 2)}\n`);
++  console.log(`\n   manifiesto → ${manifiesto}`);
++
++  console.log('\n── Borrando ──────────────────────────────────────────────');
++
++  let borrados = 0;
++  const fallos = [];
++
++  /* Por bucket y de 50 en 50: `remove` acepta una lista, y mandar 36 rutas de
++     tres buckets distintos en una sola llamada no se puede. */
++  for (const bucket of origen.BUCKETS) {
++    const rutas = huerfanos.filter(o => o.bucket === bucket).map(o => o.ruta);
++    for (let i = 0; i < rutas.length; i += 50) {
++      const lote = rutas.slice(i, i + 50);
++      const { data, error } = await supabase.storage.from(bucket).remove(lote);
++      if (error) { fallos.push(`${bucket}: ${error.message}`); continue; }
++      borrados += (data || lote).length;
++    }
++  }
++
++  console.log(`   borrados            ${borrados}`);
++  if (fallos.length) {
++    console.log(`   con problemas       ${fallos.length}`);
++    for (const f of fallos) console.log(`     · ${f}`);
++  }
++
++  console.log('\n✓ Listo. Comprobar en el panel que el almacenamiento bajó, y guardar el manifiesto.\n');
++}
++
++main().catch((e) => { console.error('\n✗', e.message, '\n'); process.exitCode = 1; });
+diff --git a/scripts/copiar-storage.js b/scripts/copiar-storage.js
+index 62fd849..6fd2d58 100644
+--- a/scripts/copiar-storage.js
++++ b/scripts/copiar-storage.js
+@@ -5,10 +5,10 @@
+  *
+  * ── El orden, que es lo que tiene filo ───────────────────────────────────
+  *
+- * 1. **Barrer antes de copiar.** De los 107 objetos, 40 no los referencia
+- *    ninguna fila: 28 MB, más de un tercio. Copiarlos es pagar el trabajo dos
+- *    veces. Con `--solo-referenciados` (que es como viene por defecto) sólo se
+- *    traen los que alguien usa.
++ * 1. **Barrer antes de copiar.** De los 107 objetos, 36 no los referencia
++ *    ninguna fila: 28,1 MB, más de un tercio (medido el 29 de agosto). Copiarlos
++ *    es pagar el trabajo dos veces. Por defecto sólo se traen los que alguien
++ *    usa; `scripts/barrer-huerfanos.js` se lleva el resto.
+  * 2. **Copiar conservando la ruta**, `carpeta/archivo` tal cual. Es lo que
+  *    convierte la reescritura de las 13 columnas en un cambio de prefijo.
+  * 3. **Servir las dos copias en paralelo** mientras dure la ventana. Las URLs
+@@ -40,90 +40,16 @@ const args = process.argv.slice(2);
+ const APLICAR = args.includes('--aplicar');
+ const TODOS   = args.includes('--todos');
+ 
+-const BUCKETS = ['avatars', 'event-media', 'form-uploads'];
+-
+-/* Las 13 columnas de 9 tablas donde la URL vive dentro de la fila. Salen de
+-   SUPABASE.md §3.3, medidas contra las 71 tablas, no supuestas. Las cinco
+-   marcadas son JSON, y ahí la URL está a profundidad variable: por eso se
+-   busca sobre el texto de la columna y no por clave. */
+-const COLUMNAS_CON_URL = [
+-  ['eventos', 'cover_url'], ['eventos', 'gallery'], ['eventos', 'page_json'],
+-  ['eventos', 'paginas'], ['eventos', 'branding'], ['eventos', 'pago_qr_url'],
+-  ['torneo_equipos', 'foto_url'], ['tickets', 'respuestas'],
+-  ['profiles', 'empresa_logo_url'], ['profiles', 'avatar_url'],
+-  ['chat_messages', 'file_url'], ['speakers', 'foto_url'],
+-  ['networking_expositores', 'logo_url'],
+-];
+-
+-/* Recorre un bucket entero. `list` pagina de 100 en 100 y no baja a las
+-   subcarpetas solo, así que hay que recorrerlas. */
+-async function listarBucket(bucket, prefijo = '') {
+-  const encontrados = [];
+-  let desde = 0;
+-
+-  for (;;) {
+-    const { data, error } = await supabase.storage.from(bucket)
+-      .list(prefijo, { limit: 100, offset: desde });
+-    if (error) throw new Error(`No se pudo listar ${bucket}/${prefijo}: ${error.message}`);
+-    if (!data || data.length === 0) break;
+-
+-    for (const objeto of data) {
+-      /* Sin `id` es una carpeta, no un archivo. */
+-      if (!objeto.id) {
+-        encontrados.push(...await listarBucket(bucket, prefijo ? `${prefijo}/${objeto.name}` : objeto.name));
+-        continue;
+-      }
+-      encontrados.push({
+-        bucket,
+-        ruta : prefijo ? `${prefijo}/${objeto.name}` : objeto.name,
+-        bytes: objeto.metadata?.size || 0,
+-        mime : objeto.metadata?.mimetype || null,
+-      });
+-    }
+-
+-    if (data.length < 100) break;
+-    desde += data.length;
+-  }
+-  return encontrados;
+-}
+-
+-/* Qué rutas menciona alguna fila. Se busca el nombre del archivo dentro del
+-   texto de cada columna, que es lo único que funciona con las cinco JSON. */
+-async function rutasReferenciadas() {
+-  const usadas = new Set();
+-
+-  for (const [tabla, columna] of COLUMNAS_CON_URL) {
+-    const { data, error } = await supabase
+-      .from(tabla).select(columna)
+-      .not(columna, 'is', null);
+-    if (error) {
+-      console.warn(`   ⚠ no se pudo leer ${tabla}.${columna}: ${error.message}`);
+-      continue;
+-    }
+-    for (const fila of data || []) {
+-      const texto = typeof fila[columna] === 'string' ? fila[columna] : JSON.stringify(fila[columna]);
+-      /* `/object/public/<bucket>/<ruta>` hasta la comilla, el paréntesis o el
+-         final. Sirve igual dentro de un JSON serializado. */
+-      for (const m of String(texto).matchAll(/\/storage\/v1\/object\/(?:public|sign)\/([^"'\\)\s?]+)/g)) {
+-        usadas.add(decodeURIComponent(m[1]));
+-      }
+-    }
+-  }
+-  return usadas;
+-}
++/* Listar el origen y saber qué usa alguien es la misma pregunta que se hace
++   el barrido de huérfanos, así que vive en un solo sitio: si las dos copias se
++   separaran, una copiaría basura o la otra borraría algo que sí se usa. */
++const origen = require('./_origen-supabase.js');
+ 
+ async function main() {
+   console.log('\n── Inventario ────────────────────────────────────────────');
+ 
+-  const objetos = [];
+-  for (const b of BUCKETS) objetos.push(...await listarBucket(b));
+-
+-  const usadas = await rutasReferenciadas();
+-  const conDueño = objetos.filter(o => usadas.has(`${o.bucket}/${o.ruta}`));
+-  const huerfanos = objetos.filter(o => !usadas.has(`${o.bucket}/${o.ruta}`));
+-
+-  const mb = (n) => (n / (1024 * 1024)).toFixed(1);
+-  const suma = (lista) => lista.reduce((n, o) => n + o.bytes, 0);
++  const { objetos, referenciados: conDueño, huerfanos } = await origen.clasificar({ dias: 0 });
++  const { mb, suma } = origen;
+ 
+   console.log(`   objetos             ${objetos.length}  (${mb(suma(objetos))} MB)`);
+   console.log(`   referenciados       ${conDueño.length}  (${mb(suma(conDueño))} MB)`);
 -- 
 2.43.0
 
