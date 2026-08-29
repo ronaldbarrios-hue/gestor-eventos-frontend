@@ -9,6 +9,7 @@ import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulari
 import { googleCalendarUrl } from '../../lib/calendario.js';
 import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
 import { descargarQrPng } from '../../lib/qrPng.jsx';
+import { descargarTarjetaPng } from '../../lib/tarjetaPng.jsx';
 import { baseEnlaces } from '../../lib/enlacesPublicos.js';
 
 /* Página pública /mi-ticket/:codigo
@@ -112,6 +113,19 @@ export default function MiTicketPage() {
           <button onClick={() => window.print()}
             className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
             <Icono nombre="imprimir" className="w-4 h-4" />Imprimir mi escarapela
+          </button>
+          {/* La misma descarga que se ofrece al terminar el registro. Si sólo
+              estuviera allí, quien vuelve por el enlace —que es el caso normal
+              el día del evento— no podría guardar su tarjeta. */}
+          <button onClick={async () => {
+            const ok = await descargarTarjetaPng({
+              design: walletConfig(ticket.evento?.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre }),
+              evento: ticket.evento || {}, ticket,
+            }, `tarjeta-${ticket.codigo}`);
+            if (!ok) alert('No se pudo generar la imagen de la tarjeta. Descargá la boleta en PDF, que lleva el QR dentro.');
+          }}
+            className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
+            <Icono nombre="descargar" className="w-4 h-4" />Descargar mi tarjeta
           </button>
           {/* La escarapela es para colgarse; el PDF es la boleta con sus datos,
               que es lo que se guarda y se reenvía cuando en la puerta no hay

@@ -20,6 +20,8 @@ import AceptarTerminos, { useLegalEvento } from '../../components/public/Aceptar
 import { dividirEnModulos, convienePaginar } from '../../lib/modulosFormulario.js';
 import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
 import { descargarQrPng } from '../../lib/qrPng.jsx';
+import { descargarTarjetaPng } from '../../lib/tarjetaPng.jsx';
+import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import { useT } from '../../lib/i18n.js';
@@ -1006,6 +1008,23 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
       alert('No se pudo generar la imagen del QR. Descargá la boleta en PDF, que lo lleva dentro.');
     }
   };
+  /* La tarjeta entera como imagen, que es lo que se guarda en el móvil y se
+     enseña en la puerta. Va aparte del QR suelto a propósito: el QR pelado es
+     para reenviar por WhatsApp, la tarjeta es la boleta. */
+  const [bajandoTarjeta, setBajandoTarjeta] = useState(false);
+  const descargarTarjeta = async () => {
+    setBajandoTarjeta(true);
+    try {
+      const ok = await descargarTarjetaPng(
+        {
+          design: walletConfig(evento.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre }),
+          evento, ticket,
+        },
+        `tarjeta-${ticket.codigo}`,
+      );
+      if (!ok) alert('No se pudo generar la imagen de la tarjeta. Descargá la boleta en PDF, que lleva el QR dentro.');
+    } finally { setBajandoTarjeta(false); }
+  };
 
   const redirectUrl = checkout.redirect_url;
   useEffect(() => {
@@ -1028,8 +1047,14 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
         <p className="text-sm text-text-2 mb-5 leading-relaxed max-w-sm mx-auto">
           {checkout.confirmacion_texto?.trim() || 'Muestra este QR en la entrada del evento. También puedes mostrar el código.'}
         </p>
-        <div className="bg-white rounded-2xl p-4 inline-block mb-4">
-          <QRCodeSVG value={qrValue} size={180} level="M" includeMargin={false} />
+        {/* La tarjeta entera, no un QR suelto. Es la misma que verá en
+            /mi-ticket y la misma que se imprime, con el diseño del
+            organizador: lo que se guarda en este momento —que es cuando la
+            gente guarda— se parece a la boleta de verdad. */}
+        <div className="max-w-sm mx-auto mb-4">
+          <WalletCard
+            design={walletConfig(evento.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre })}
+            evento={evento} ticket={ticket} puntos={null} />
         </div>
         <div className="rounded-2xl border border-border-2 bg-surface px-4 py-3 mb-4">
           <p className="text-[10px] uppercase tracking-widest text-text-3 font-semibold mb-1">Código alternativo</p>
@@ -1090,6 +1115,10 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           <button onClick={descargarQr}
             className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all">
             Descargar QR
+          </button>
+          <button onClick={descargarTarjeta} disabled={bajandoTarjeta}
+            className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
+            {bajandoTarjeta ? 'Generando…' : 'Descargar tarjeta'}
           </button>
           <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
             Listo
