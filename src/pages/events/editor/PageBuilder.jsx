@@ -39,6 +39,8 @@ export default function PageBuilder({ evento, onClose }) {
   const [dirty,    setDirty]    = useState(false);
   const [adding,   setAdding]   = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  /* Modo desarrollador: la misma página, vista como datos. */
+  const [codigo,   setCodigo]   = useState(false);
   const { success, error: toastErr } = useToast();
 
   useEffect(() => {
@@ -146,6 +148,11 @@ export default function PageBuilder({ evento, onClose }) {
           <button onClick={() => setTemplatesOpen(true)} className="btn-secondary btn-sm" title="Empezar con una plantilla pre-armada">
             <TemplateIcon /> Plantillas
           </button>
+          <button onClick={() => setCodigo(v => !v)}
+            className={`btn-sm ${codigo ? 'btn-primary' : 'btn-secondary'}`}
+            title="Ver y editar la página como datos">
+            {'{ }'} Código
+          </button>
           {onClose && <button onClick={onClose} className="btn-ghost btn-sm">Volver al preview</button>}
           <button onClick={onGuardar} disabled={saving || !dirty} className="btn-gradient btn-sm">
             {saving ? <><Spinner size="sm" /> Guardando...</> : 'Guardar'}
@@ -153,6 +160,11 @@ export default function PageBuilder({ evento, onClose }) {
         </div>
       </div>
 
+      {codigo && (
+        <EditorCodigo pages={pages} onAplicar={(nuevas) => { setPages(nuevas); setCodigo(false); }} />
+      )}
+
+      {!codigo && (<>
       {/* Tabs de páginas */}
       <div className="rounded-2xl border border-border bg-surface/40 p-2 flex items-center gap-1 flex-wrap">
         {pages.map(p => (
@@ -217,10 +229,86 @@ export default function PageBuilder({ evento, onClose }) {
           <PaletteRow label="Contenido custom"   types={BLOCK_TYPES_CUSTOM}  blocks={activePage?.blocks || []} onAdd={addBlock} />
         </div>
       </div>
+      </>)}
 
       {templatesOpen && (
         <TemplatesPicker onPick={aplicarTemplate} onCancel={() => setTemplatesOpen(false)} />
       )}
+    </div>
+  );
+}
+
+/* ─────────── Modo desarrollador: la misma página, vista como datos ───────────
+
+   Lo pedido era «que la persona pueda escribir el código de su página».
+
+   No es HTML: es el JSON de los bloques, que es lo que la página ES por
+   dentro. La diferencia importa. HTML libre en una landing pública es XSS con
+   el origen del evento —el bloque lo escribe el organizador pero lo ve todo el
+   público, y un `<script>` ahí corre donde está la sesión de quien mira—, y
+   además no se puede validar: no habría forma de saber si lo que se pegó está
+   bien hasta que alguien abre la página.
+
+   Con JSON sí: cada bloque es { type, data } y el servidor lo valida contra su
+   catálogo. Es lo mismo que hace posible pedirle a Claude «ármame esta página»
+   por MCP, porque un modelo genera JSON contra un esquema de forma fiable.
+
+   Se aplica al lienzo, no se guarda directo: así lo que se escribió se ve
+   antes de publicarlo, y el botón de guardar sigue siendo el mismo de siempre.
+
+   Quien quiera control total del aspecto tiene la otra salida, que ya existe:
+   exportar el bloque como iframe o el botón como widget, y montar el resto en
+   su propia web. */
+function EditorCodigo({ pages, onAplicar }) {
+  const [texto, setTexto] = useState(() => JSON.stringify(pages, null, 2));
+  const [error, setError] = useState('');
+
+  const aplicar = () => {
+    let parsed;
+    try { parsed = JSON.parse(texto); }
+    catch (e) { setError(`No es JSON válido: ${e.message}`); return; }
+    if (!Array.isArray(parsed)) { setError('Tiene que ser una lista de páginas.'); return; }
+    for (const p of parsed) {
+      if (!p || typeof p !== 'object') { setError('Cada página tiene que ser un objeto.'); return; }
+      if (p.blocks !== undefined && !Array.isArray(p.blocks)) { setError('Los `blocks` de cada página tienen que ser una lista.'); return; }
+    }
+    /* Los ids que falten se inventan aquí: el lienzo los necesita para
+       reordenar, y un embed exportado «de esta sección exacta» apunta a uno.
+       Se respeta el que venga para no romper embeds ya pegados en otra web. */
+    const conIds = parsed.map(p => ({
+      ...p,
+      id: p.id || uid('p'),
+      blocks: (p.blocks || []).map(b => ({ ...b, id: b.id || uid('b') })),
+    }));
+    setError('');
+    onAplicar(conIds);
+  };
+
+  return (
+    <div className="rounded-2xl border border-primary/40 bg-surface/40 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-1">La página como datos</p>
+          <p className="text-xs text-text-3 mt-0.5 leading-relaxed max-w-2xl">
+            Cada bloque es <code className="text-text-2">{'{ type, data }'}</code>. Al aplicar se ve en el lienzo;
+            para publicarlo, Guardar. El servidor valida los tipos y los campos: si algo no encaja, lo dice
+            y no guarda nada.
+          </p>
+        </div>
+        <button onClick={aplicar} className="btn-primary btn-sm flex-shrink-0">Aplicar al lienzo</button>
+      </div>
+
+      {error && (
+        <p className="text-xs text-danger-light rounded-xl bg-danger/10 border border-danger/20 px-3 py-2">{error}</p>
+      )}
+
+      <textarea value={texto} onChange={e => { setTexto(e.target.value); setError(''); }}
+        spellCheck={false} rows={22}
+        className="input w-full font-mono text-[11px] leading-relaxed resize-y" />
+
+      <p className="text-[11px] text-text-3 leading-relaxed">
+        Los tipos disponibles son los mismos de la paleta: {BLOCK_TYPES_SISTEMA.concat(BLOCK_TYPES_CUSTOM).join(', ')}.
+      </p>
     </div>
   );
 }
