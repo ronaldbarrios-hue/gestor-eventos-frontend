@@ -35,8 +35,8 @@ export const SECCIONES_EVENTO = [
   { q: '?s=organizacion&t=tareas',       label: 'Tareas',             cat: 'Organización', kw: 'pendientes' },
   { q: '?s=configuracion&t=general',     label: 'Configuración',      cat: 'Organización' },
 
-  { q: '?s=asistentes&t=checkin',        label: 'Control de ingreso', cat: 'Ingreso', kw: 'escanear qr entrada checkin puerta' },
-  { q: '?s=asistentes&t=stands',         label: 'Stands y puntos',    cat: 'Ingreso', kw: 'escanear qr motivos gamificacion canje premios' },
+  { q: '?s=asistentes&t=checkin',        label: 'Escanear',           cat: 'Ingreso', kw: 'escanear qr entrada checkin puerta reingreso subevento puntos canjear premios' },
+  { q: '?s=espacio&t=stands',            label: 'Stands',             cat: 'Espacio', kw: 'motivos pasaporte cuota gamificacion premios' },
   { q: '?s=asistentes&t=credenciales',   label: 'Credenciales',       cat: 'Ingreso', kw: 'escarapela imprimir tarjeton' },
   { q: '?s=asistentes&t=tarjeta',        label: 'Tarjeta',            cat: 'Ingreso', kw: 'wallet puntos gamificacion alcance' },
 

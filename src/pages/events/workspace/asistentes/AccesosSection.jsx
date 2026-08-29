@@ -241,7 +241,7 @@ export default function AccesosSection({ evento }) {
           <div className="rounded-2xl border border-border bg-surface/40 p-4">
             <div className="flex items-center justify-between gap-2 mb-3">
               <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ocupación ahora</p>
-              <Link to={`/eventos/${evento.id}?s=asistentes&t=aforo`} className="text-[11px] text-primary-light hover:underline">Abrir el tablero →</Link>
+              <Link to={`/eventos/${evento.id}?s=espacio&t=aforo`} className="text-[11px] text-primary-light hover:underline">Abrir el tablero →</Link>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               {aforo.map(z => {
