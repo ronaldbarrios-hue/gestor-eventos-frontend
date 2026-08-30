@@ -217,36 +217,10 @@ function StandsEditor({ evento, soyOwner }) {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {stands.map(s => {
-            const manual = !s.ticket_id;
-            const borrador = s.estado_ficha === 'borrador';
-            return (
-              <div key={s.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3 group">
-                {s.logo_url
-                  ? <img src={s.logo_url} alt="" className="w-11 h-11 rounded-xl object-cover border border-border flex-shrink-0" />
-                  : <div className="w-11 h-11 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-base font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-1 truncate">{s.nombre}</p>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    {s.stand && <span className="text-[10px] font-mono bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">{s.stand}</span>}
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${manual ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-light'}`}>{manual ? 'Manual' : 'Boleta'}</span>
-                    {borrador && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">Borrador</span>}
-                  </div>
-                  {s.descripcion && <p className="text-xs text-text-3 mt-1.5 line-clamp-2">{s.descripcion}</p>}
-                </div>
-                <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => abrirEdicion(s)} title="Editar"
-                    className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                  </button>
-                  <button onClick={() => borrar(s)} title="Eliminar"
-                    className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {stands.map(s => (
+            <TarjetaStand key={s.id} s={s} evento={evento}
+              onEditar={() => abrirEdicion(s)} onBorrar={() => borrar(s)} />
+          ))}
         </div>
       )}
     </div>
@@ -515,6 +489,99 @@ function Historial({ evento, items, soyOwner, onCambio }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/* ─────────── La tarjeta de un stand ───────────
+
+   Antes era un logo de 44px, el nombre y poco más. El problema no era que
+   faltara sitio: era que los datos que hacen útil esta pantalla ya venían del
+   servidor —`puntos: { otorgados, veces, asistentes_distintos, disponibles }`
+   y `cuota_puntos`, que salen de la vista `v_consumo_puntos_stand`— y no se
+   pintaban. La consulta ya se pagaba; sólo se tiraba el resultado.
+
+   Lo que se enseña, y por qué esos cuatro números y no otros:
+
+   · **Cuánto lleva repartido de su cuota.** Es lo que decide si el stand puede
+     seguir dando puntos, y quien lo mira suele estar decidiendo si ampliársela.
+   · **A cuánta gente distinta.** Cien escaneos a diez personas no es lo mismo
+     que a cien, y el total de puntos no distingue las dos cosas.
+   · **Su sitio en el mapa**, si lo tiene. Estos stands se pintan en el plano y
+     no había forma de saber cuáles estaban puestos y cuáles no.
+
+   La barra de cuota se pinta sólo cuando hay tope: sin cuota no hay nada que
+   llenar, y una barra vacía se lee como «no ha dado nada». */
+function TarjetaStand({ s, evento, onEditar, onBorrar }) {
+  const manual = !s.ticket_id;
+  const borrador = s.estado_ficha === 'borrador';
+  const p = s.puntos || {};
+  const tope = s.cuota_puntos;
+  const dados = p.otorgados || 0;
+  const pct = tope > 0 ? Math.min(100, Math.round((dados / tope) * 100)) : null;
+  const agotado = tope != null && dados >= tope;
+
+  /* ¿Está puesto en el plano? Los marcadores del mapa viven en page_json. */
+  const marcadores = Array.isArray(evento?.page_json?.mapa?.marcadores) ? evento.page_json.mapa.marcadores : [];
+  const enMapa = marcadores.some(m => m?.expositor_id === s.id);
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3 group">
+      <div className="flex items-start gap-3">
+        {s.logo_url
+          ? <img src={s.logo_url} alt="" className="w-14 h-14 rounded-xl object-cover border border-border flex-shrink-0" />
+          : <div className="w-14 h-14 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-lg font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-text-1 truncate">{s.nombre}</p>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {s.stand && <span className="text-[10px] font-mono bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">{s.stand}</span>}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${manual ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-light'}`}>{manual ? 'Manual' : 'Boleta'}</span>
+            {borrador && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning">Borrador</span>}
+            {enMapa
+              ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success">En el mapa</span>
+              : marcadores.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-2 text-text-3">Sin ubicar</span>}
+          </div>
+          {s.descripcion && <p className="text-xs text-text-3 mt-1.5 line-clamp-2">{s.descripcion}</p>}
+        </div>
+        <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={onEditar} title="Editar"
+            className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+          </button>
+          <button onClick={onBorrar} title="Eliminar"
+            className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Lo que reparte. Sale del servidor desde siempre y no se estaba usando. */}
+      <div className="rounded-xl bg-surface-2/50 px-3 py-2.5 space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-widest text-text-3 font-semibold">Puntos</span>
+          <span className="text-xs tabular-nums text-text-1">
+            <b>{dados}</b>
+            {tope != null && <span className="text-text-3"> / {tope}</span>}
+            {tope == null && <span className="text-text-3"> · sin tope</span>}
+          </span>
+        </div>
+
+        {pct != null && (
+          <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${agotado ? 'bg-danger' : pct > 80 ? 'bg-warning' : 'bg-success'}`}
+                 style={{ width: `${pct}%` }} />
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 text-[10px] text-text-3">
+          {/* Cien escaneos a diez personas no es lo mismo que a cien, y el
+              total de puntos no distingue las dos cosas. */}
+          <span><b className="text-text-2 tabular-nums">{p.asistentes_distintos || 0}</b> persona{(p.asistentes_distintos || 0) === 1 ? '' : 's'}</span>
+          <span><b className="text-text-2 tabular-nums">{p.veces || 0}</b> escaneo{(p.veces || 0) === 1 ? '' : 's'}</span>
+          {agotado && <span className="text-danger font-medium ml-auto">Cuota agotada</span>}
+          {!agotado && p.disponibles != null && <span className="ml-auto">le quedan <b className="text-text-2 tabular-nums">{p.disponibles}</b></span>}
+        </div>
+      </div>
     </div>
   );
 }

@@ -47,14 +47,51 @@ export function coverLayout(portadaData) {
 /* Config editable del navbar (page_json.navbar) — alineación de la píldora,
    mostrar/ocultar "Explorar eventos" y "Compartir", y enlaces personalizados.
    La leen igual el editor (EditorTopChrome) y el público (EventoPublicoPage). */
+/* Las secciones del evento que pueden salir en la barra. Cada una tiene un
+   dato que dice si «existe» —hay torneo, hay mapa…— y hasta ahora eso decidía
+   solo: creabas un mapa y el botón aparecía arriba sin pedirte permiso y sin
+   forma de quitarlo. Tres estados, y el de por defecto es el de siempre:
+
+     'auto' → aparece si la sección existe. Lo que hacía antes.
+     'si'   → aparece siempre, exista o no.
+     'no'   → no aparece nunca, aunque exista.
+
+   `auto` sigue siendo el defecto a propósito: quien no toque nada ve
+   exactamente lo de hoy, y lo que se gana es poder decir que no. */
+export const SECCIONES_NAVBAR = [
+  { id: 'networking', label: 'Rueda de negocios' },
+  { id: 'torneo',     label: 'Torneo' },
+  { id: 'espacio',    label: 'Espacio del evento' },
+  { id: 'ranking',    label: 'Ranking' },
+  { id: 'mapa',       label: 'Mapa del evento' },
+];
+
+const MODOS_SECCION = ['auto', 'si', 'no'];
+
 export function navbarConfig(pageJson) {
   const n = pageJson?.navbar || {};
+  const s = n.secciones && typeof n.secciones === 'object' ? n.secciones : {};
+  const secciones = {};
+  for (const { id } of SECCIONES_NAVBAR) {
+    secciones[id] = MODOS_SECCION.includes(s[id]) ? s[id] : 'auto';
+  }
   return {
     alineacion       : ['left', 'center', 'right'].includes(n.alineacion) ? n.alineacion : 'center',
     mostrar_explorar : n.mostrar_explorar !== false,
     mostrar_compartir: n.mostrar_compartir !== false,
     enlaces          : Array.isArray(n.enlaces) ? n.enlaces.filter(e => e && e.label) : [],
+    secciones,
   };
+}
+
+/* ¿Sale este botón? Una sola función para las cinco, en vez de repetir la
+   condición en cada sitio — que es como estaban, y por eso no se podían
+   configurar sin tocar cinco condiciones sueltas. */
+export function muestraSeccion(nav, id, existe) {
+  const modo = nav?.secciones?.[id] || 'auto';
+  if (modo === 'no') return false;
+  if (modo === 'si') return true;
+  return Boolean(existe);
 }
 export const NAVBAR_ALINEACION = { left: 'justify-start', center: 'justify-center', right: 'justify-end' };
 
