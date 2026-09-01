@@ -5,7 +5,6 @@ import { useTheme } from '../../context/ThemeContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 import SelectorIdioma from '../ui/SelectorIdioma.jsx';
 import { notificacionesApi } from '../../api/notificaciones.js';
-import { supabase } from '../../lib/supabase.js';
 
 /* ──────────────────────────────────────────────────────────────────
    TopBar — Rework 2026
@@ -85,24 +84,6 @@ export default function TopBar({ onMenu }) {
     loadedRef.current = true;
     cargar();
   }, [usuario?.id, cargar]);
-
-  /* Realtime: nuevas notificaciones para este usuario */
-  useEffect(() => {
-    if (!usuario?.id) return;
-    const channel = supabase
-      .channel(`notif:${usuario.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notificaciones',
-        filter: `user_id=eq.${usuario.id}`,
-      }, (payload) => {
-        setNotifs(prev => [payload.new, ...prev].slice(0, 30));
-        setUnread(u => u + 1);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [usuario?.id]);
 
   const markAllRead = async () => {
     setNotifs(n => n.map(x => ({ ...x, leida: true })));
