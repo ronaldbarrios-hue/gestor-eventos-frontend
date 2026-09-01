@@ -1,14 +1,64 @@
 # Trabajar GESTEK desde la nube
 
 Cómo retomar este proyecto en una ventana **sin la máquina local**. Escrito el
-15 de agosto de 2026, al final de una sesión larga.
+15 de agosto de 2026; **actualizado el 1 de septiembre** (bloque de abajo).
 
-Lee también `CONTEXTO.md` (dónde estamos), `SONDEO.md` (cómo buscar fallos) y
-`../gestor-eventos-backend/DESPLIEGUE.md` (credenciales).
+Lee también `CONTEXTO.md` (dónde estamos), `CONTINUAR.md` (estado por fases),
+`SONDEO.md` (cómo buscar fallos) y `../gestor-eventos-backend/DESPLIEGUE.md`
+(credenciales).
 
 Este archivo existe porque el traspaso a la nube no es «clonar y ya»: la mitad
 de lo que hacía funcionar la sesión local eran conectores y un navegador, no
 archivos. Aquí está qué se pierde, qué hay que reconectar y qué cambia.
+
+---
+
+## Actualización — 1 de septiembre de 2026
+
+Sesión larga con FESTECH IBAGUÉ (`festech2026`) registrando en vivo. **Todo
+mergeado a `main`** (frontend PR #11, #14–#19; backend PR #13–#17).
+
+**Lo que se hizo** (detalle en `PENDIENTE.md §4/§5/§6` y `CONTINUAR.md §0.b`):
+- **§4.1–§4.6 · registro embebido.** Enlace de boleta configurable, la página
+  reconoce a quien ya tiene boleta (localStorage), sub-eventos como paso final
+  del registro, ancho/alto del modal editables, y el iframe **hereda la
+  tipografía** de la web anfitriona (`widget.js` + `EmbedPage.jsx`). Falta el
+  SDK sin iframe y el color de acento — sesión aparte.
+- **§5 · mapa por zonas.** Casi todo ya estaba; lo nuevo es «zona llena se
+  prende en fuego» (`lib/aforoZonas.js` → `nivel`; `LlamaZona.jsx`).
+- **§6 · Realtime a cero en segundo plano.** Asistencia por sondeo, latido
+  25→50 s, `ChatTab` sólo con pestaña visible, `TopBar` sin canal.
+- **Fase 6.** El esquema **y los datos** de Supabase ya están en archivo para
+  MySQL 8 (`gestor-eventos-backend/db/esquema/`). `03_datos.sql` está gitignored
+  (datos personales reales) — se regenera con `db/esquema/generar-datos.mjs`.
+- **Migraciones aplicadas:** `0084`, `0082`, `0085` (aditivas). Sin aplicar a
+  propósito con registro en vivo: `0081`, `0083`, `0086`.
+
+**Bug de producción arreglado:** la `0084` (`visible_si`) nunca se aplicó y el
+backend hace `const { data } = await supabase...` sin mirar `error` → las
+consultas de formulario fallaban en silencio (3 campos en vez de 10, sin exigir
+obligatorios al comprar). **Pendiente:** auditar todos los `.select()` que
+ignoran `error`.
+
+**Nada verificado de punta a punta.** Evento de banco de pruebas: **TechNova
+Summit 2026** (`technova-summit-2026`, id `f0259473-af92-42ed-bc77-52e7200112f2`),
+NO Festech. Mapa de pruebas con 90 casos:
+`claude.ai/code/artifact/94881685-f739-4ad7-97d3-316f7138d54c`.
+- §4.5 necesita prueba **cross-site real**: una web en otro origen, servida por
+  HTTP, con `font-family` propia, y pegar los snippets del widget y de sección.
+- §5 necesita **crear una zona** en TechNova (no tiene ninguna): marcador tipo
+  `zona` + `aforo_max` + una `agenda_session` enlazada por `zona_id`.
+- Las 2 sesiones de TechNova tienen fecha de agosto — moverlas al futuro.
+
+**Deuda:** rotar la contraseña de Postgres (se pegó en un chat; el backend usa
+`SUPABASE_SERVICE_KEY`); arreglar `torneo_categorias_unica_hija` en el
+`db/migraciones/003` original (columna TEXT, sólo corregido en `db/esquema/02`).
+
+**Las skills** (`db-guardian`, `legal-radar`, `obsidian-log`) **no se cargan en
+la nube** salvo que el repo lleve `Sekkon0906/SkillsDesarrollo` como submódulo
+en `.claude/skills/skillsdesarrollo` — hoy no lo lleva. `obsidian-log` no
+funciona en la nube ni con submódulo (necesita la bóveda en disco): al cerrar,
+devolver un resumen en texto para pegarlo a mano.
 
 ---
 
@@ -39,9 +89,10 @@ cd gestor-eventos-frontend && npm install && npm run lint && npm run build
 cd gestor-eventos-backend && npm install && npm test
 ```
 
-Referencia del 15 de agosto: **126 pruebas del backend en verde**, `lint`
-limpio y `build` sin errores. Si algo de eso falla nada más clonar, el problema
-es del entorno, no del código — resuélvelo antes de tocar nada.
+Referencia (1 de septiembre): **~336 pruebas del backend en verde** y **7 del
+widget** en Chromium (`npm run test:widget`), `lint` limpio y `build` sin
+errores. Si algo de eso falla nada más clonar, el problema es del entorno, no
+del código — resuélvelo antes de tocar nada.
 
 ---
 
@@ -145,8 +196,17 @@ lleva días en producción** antes de concluir que algo no desplegó.
 
 ## 5 · El evento de prueba, que es el único modo de sondear lo público
 
-El conector no ve los eventos ajenos y no se puede comprar en uno real. El
-recorrido que funciona, autorizado por `SONDEO.md` §5:
+El conector no ve los eventos ajenos y no se puede comprar en uno real. Hay dos
+caminos:
+
+**a) `TechNova Summit 2026`** (`technova-summit-2026`) — el evento de banco de
+pruebas que dejó la sesión del 1-sep. Ya publicado, con 4 tipos de boleta, 21
+campos de formulario y 2 sesiones. Sirve para recorrer §4.1–§4.6 y §6. Para §5
+hay que crearle una zona primero. **No borrarlo**: es de la cuenta y se
+reutiliza. El mapa de pruebas completo está en el artefacto
+`claude.ai/code/artifact/94881685-f739-4ad7-97d3-316f7138d54c`.
+
+**b) Un evento nuevo de usar y tirar**, autorizado por `SONDEO.md` §5:
 
 1. `crear_evento` con un título que grite que es de prueba: `ZZ … (borrar)`.
 2. `crear_tipo_ticket`, `crear_bloque_agenda`, y lo que haga falta.
@@ -156,12 +216,12 @@ recorrido que funciona, autorizado por `SONDEO.md` §5:
    Todo lo relevante cae en cascada (boletas, agenda, legal, envíos de correo).
 6. Comprobar que la base quedó como estaba.
 
-Cifras de referencia tras limpiar, el 15 de agosto:
+Cifras de referencia tras limpiar (comprobar las de hoy, se mueven):
 
 ```sql
-select (select count(*) from eventos) eventos,          -- 31
-       (select count(*) from tickets) boletas,          -- 34
-       (select count(*) from event_form_fields) campos; -- 20
+select (select count(*) from eventos) eventos,          -- 15-ago: 31
+       (select count(*) from tickets) boletas,          -- 15-ago: 34
+       (select count(*) from event_form_fields) campos; -- 15-ago: 20
 ```
 
 ---
@@ -212,6 +272,13 @@ archivos. Un commit por hallazgo.
 ---
 
 ## 8 · Dónde está el proyecto ahora
+
+> **Esta sección es del 15 de agosto y ha quedado atrás en varios puntos.**
+> Para el estado real: el bloque «Actualización — 1 de septiembre» de arriba,
+> `CONTINUAR.md` y `PENDIENTE.md`. En corto: el registro por tipo de boleta, el
+> formulario condicional, la agenda con inscripción y el registro embebido
+> (§4.1–§4.6) **ya están hechos**; FESTECH IBAGUÉ (`festech2026`) está
+> registrando en vivo. Lo de abajo se deja como contexto histórico.
 
 **Festech es el único evento real** de los 31 de la base: 17–19 de septiembre en
 Ibagué, Develovers Group SAS, ~7.000 asistentes esperados, **la boletería abre

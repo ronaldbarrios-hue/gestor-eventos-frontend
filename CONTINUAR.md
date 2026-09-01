@@ -1,4 +1,4 @@
-# GESTEK · Cómo seguir — 29 de agosto de 2026
+# GESTEK · Cómo seguir — 29 de agosto de 2026 · actualizado 1 de septiembre
 
 Para retomar en otra sesión sin releer la conversación. Sustituye a la versión
 del 28 de agosto, que ya no describe el estado.
@@ -9,6 +9,8 @@ Complementa, sin repetirlos:
 - `INDEPENDENCIA.md` — el plan de las 9 fases y en cuál va cada una
 - `db/migraciones/NOTAS-ESQUEMA.md` (repo del **backend**) — el detalle técnico
   de la fase 6
+- `PENDIENTE.md` §4/§5/§6 — el pedido del 1 de septiembre y qué se hizo
+- `NUBE.md` — retomar sin la máquina local
 
 ---
 
@@ -21,6 +23,47 @@ desde una sesión con permisos, y desde entonces el trabajo va directo a la rama
 **Los dos repos se despliegan JUNTOS.** Pasó una vez y costó: el frontend salió
 con llamadas por POST y el backend se quedó en GET, y los dos escáneres de
 canje devolvieron 401 en producción hasta que se desplegó el otro lado.
+
+---
+
+## 0.b · Sesión del 1 de septiembre — registro embebido, mapa, tiempo real
+
+Con FESTECH IBAGUÉ (`festech2026`) **registrando en vivo**, se pidió: que el
+registro embebido funcione fino, el mapa por zonas, y bajar el ruido del
+WebSocket de Supabase. **Todo mergeado a `main`** (frontend PR #11, #14–#19;
+backend PR #13–#17). Detalle en `PENDIENTE.md §4/§5/§6`.
+
+| # | Qué | PR | Dónde |
+|---|---|---|---|
+| §4.1 | Enlace de «volver a ver la boleta» configurable (`checkout.enlace_boleta`, `{codigo}`; vacío → `/mi-ticket`) | FE #15 | `EventoPublicoPage.jsx`, `CheckoutSection.jsx` |
+| §4.2 | La página pública reconoce a quien ya tiene boleta (localStorage `gestek-boleta:<slug>` + entrada manual) | FE #17 | `components/public/BoletaConocida.jsx` |
+| §4.3 | Sub-eventos como paso final del registro: «Ver sub-eventos», lista uno-por-uno, «seguir / terminar» | FE #15 | `ConfirmacionModal`, `InscripcionSesionModal.jsx` |
+| §4.4 | Ancho/alto del modal editables (`checkout.modal_ancho`/`modal_alto`) | FE #15 | `EventoPublicoPage.jsx`, `CheckoutSection.jsx` |
+| §4.5 | El embed **hereda la tipografía** de la web anfitriona (postMessage `estilo`; `.font-mono` se respeta; `?fuente=` para Notion/Wix). Opt-out `data-heredar-fuente="0"` | FE #19 | `public/widget.js`, `lib/embed.js`, `EmbedPage.jsx`, `ExportIframeModal.jsx` |
+| §4.6 | Sub-evento `formulario_modo='propio'` con **0 preguntas** → se trata como sin datos, no abre modal vacío | BE #15 | `routes/sesiones.js` (`pide_datos`) |
+| §5 | Mapa por zonas — **casi todo ya estaba**; lo nuevo es el efecto «zona llena se prende en fuego» (`nivel` normal/`caliente` ≥85%/`en_fuego` ≥100%) | FE #16, BE #17 | `components/aforo/LlamaZona.jsx`, `index.css`, `blocks.jsx`, `MapaSection.jsx` · `lib/aforoZonas.js`, `routes/eventos.publicos.js` |
+| §6 | Realtime a **cero en segundo plano**: asistencia por sondeo (12 s), latido 25→50 s, `TopBar` sin canal, `ChatTab` sólo con pestaña visible | FE #11–#14, #18 | `useAsistenciaEnVivo.js`, `lib/supabase.js`, `ChatTab.jsx` |
+
+**Base de datos (Supabase producción):** aplicadas `0084` (`event_form_fields.visible_si`),
+`0082` (`points_log.origen_*`), `0085` (`padron_previo`) — las tres aditivas.
+**Sin aplicar a propósito** con registro en vivo: `0081` (DROP COLUMN ×3),
+`0083` (muta page_json de 1 evento), `0086` (función muerta). §5 no añadió
+migraciones.
+
+**Bug de producción arreglado:** la `0084` nunca se había aplicado y el backend
+hace `const { data } = await supabase...` sin mirar `error` → todas las
+consultas de formulario fallaban en silencio y la página pública mostraba 3
+campos en vez de 10, sin exigir los obligatorios al comprar. Queda **auditar
+todos los `.select()` que ignoran `error`**.
+
+**Sin verificar de punta a punta.** Evento de banco de pruebas: **TechNova
+Summit 2026** (`technova-summit-2026`), NO Festech. Mapa de pruebas con 90
+casos: artefacto `claude.ai/code/artifact/94881685-f739-4ad7-97d3-316f7138d54c`.
+§4.5 necesita prueba **cross-site real** (web en otro origen con fuente propia);
+§5 necesita **crear una zona** en TechNova primero (no tiene ninguna).
+
+**Falta de §4.5 (sesión aparte, grande):** color de acento heredado y el SDK
+sin iframe que monte el formulario inline en un `<div>` del cliente.
 
 ---
 
@@ -37,7 +80,7 @@ Las fases son las de `INDEPENDENCIA.md`.
 | 3 | Cerrar la lectura anónima de datos personales | ✅ **aplicado en producción** |
 | 4 | Barrido de huérfanos del Storage | ⏸ script y lista listos, falta correrlo |
 | 5 | Contingencia del correo (cola, rescate, reintento) | ✅ |
-| 6 | **Las 71 tablas a MySQL** | 🚧 4 de 5 pasos escritos; falta el script de carga |
+| 6 | **Las 71 tablas a MySQL** | 🚧 esquema **y datos** ya en `db/esquema/` (backend PR #14/#15); falta aplicarlo en un MySQL 8 real + `comparar-bases` |
 | 7 | Permisos en el código (lo que sustituye a RLS) | 🚧 de 230 a **49** sin declarar |
 | 8 | Botón de registro incrustable (widget) | ✅ |
 | 9 | La escarapela y la tarjeta, una sola | ✅ un diseño, dos salidas |
@@ -54,17 +97,29 @@ Chromium, en verde.
 
 ## 2 · Dónde me quedé exactamente: la fase 6
 
-Es el bloque grande que queda. Esta sesión hizo la **medición y el traductor**;
-falta generar el archivo y mover los datos.
+Es el bloque grande que queda. La sesión del 29-ago hizo la **medición y el
+traductor**; la del **1-sep sacó el esquema y los datos a archivo** (backend
+PR #14/#15). Falta aplicarlo en un MySQL 8 real y comparar.
 
 ### Lo que ya está en el repo del backend
 
 ```
+db/esquema/                          ← NUEVO (1-sep). El archivo de verdad, para MySQL 8
+  01_tablas.sql  02_indices_unicos_parciales.sql  04_indices.sql
+  05_claves_foraneas.sql  06_vistas.sql
+  03_datos.sql                       ← GITIGNORED — datos personales reales (611 KB, 2139 filas)
+  generar-datos.mjs                  ← lo regenera: npm i pg, PG_URL=<session pooler>, node ...
+  README.md                          ← orden de aplicación
 db/migraciones/
   generar-esquema-mysql.sql          ← el traductor. Se corre CONTRA POSTGRES
-  003_esquema_indices_parciales.sql  ← los 8 índices que van a mano
+  003_esquema_indices_parciales.sql  ← los 8 índices que van a mano (BUG abierto, ver abajo)
   NOTAS-ESQUEMA.md                   ← cada decisión, con su porqué
 ```
+
+**Bug abierto:** `torneo_categorias_unica_hija` en `003_esquema_indices_parciales.sql`
+va sobre columna TEXT y MySQL lo rechaza sin prefijo. Arreglado **sólo** en la
+copia `db/esquema/02_indices_unicos_parciales.sql` (columna generada). Arreglar
+el original o dejar claro que `db/esquema/` manda.
 
 `generar-esquema-mysql.sql` es de **sólo lectura** y se puede pegar tal cual en
 el editor SQL de Supabase. Devuelve el DDL de MySQL en tres tandas: las tablas,
@@ -121,16 +176,16 @@ hoy conviven.
 
 ### Lo que sigue en la fase 6
 
-De los cinco pasos quedan **uno y medio**. El detalle de cada decisión, con su
-porqué, está en `db/migraciones/NOTAS-ESQUEMA.md` del backend.
+De los cinco pasos queda **medio**. El detalle de cada decisión, con su porqué,
+está en `db/migraciones/NOTAS-ESQUEMA.md` y `db/esquema/README.md` del backend.
 
 | Paso | Estado |
 |---|---|
-| 1 · Correr el generador → `003_esquema.sql` | ⏸ se hace lo más tarde posible: su salida cambia con el esquema |
-| 2 · Las 4 vistas | ✅ `004_vistas.sql`, comprobadas contra Postgres |
-| 3 · El script de carga de datos | ⏸ **lo único que falta de verdad**; se escribe contra un esquema ya creado |
+| 1 · Generar el esquema → `db/esquema/*.sql` | ✅ 1-sep (backend PR #14). Re-generar antes del corte: el esquema aún se mueve |
+| 2 · Las 4 vistas | ✅ `db/esquema/06_vistas.sql`, comprobadas contra Postgres |
+| 3 · El volcado de datos → `03_datos.sql` | ✅ 1-sep, con `generar-datos.mjs`. Gitignored. **Falta**: aplicar todo en un MySQL 8 real |
 | 4 · Los 9 disparadores y las 7 funciones RPC | ✅ `modules/contadores/`, `modules/eventos/semillas.js`, `modules/aforo/consultas.js` |
-| 5 · Comparar las dos bases antes del corte | ✅ `scripts/comparar-bases.js` |
+| 5 · Comparar las dos bases antes del corte | ✅ `scripts/comparar-bases.js` (falta correrlo contra el MySQL real) |
 
 Tres cosas de esos módulos que conviene no deshacer:
 
@@ -240,8 +295,9 @@ Qué significa en la práctica, para no tener que preguntarlo cada vez:
   lee de `profiles`, que también está en Supabase. Ése es el patrón a seguir —
   primero que el código deje de depender de algo, y sólo al final se quita.
 - **La fase 6 (las 71 tablas a MySQL) se prepara en paralelo, no se corta.** El
-  generador, el esquema y el script de carga se pueden tener listos y probados
-  contra una base de pruebas sin tocar la de producción. El corte es lo último.
+  generador, el esquema **y el volcado de datos ya están en `db/esquema/`**
+  (1-sep). Falta aplicarlo contra un MySQL de pruebas y `comparar-bases`, sin
+  tocar producción. El corte es lo último.
 - Y sigue en pie lo de siempre: en septiembre no se migra nada, que el evento
   es a mediados de mes.
 
@@ -261,7 +317,8 @@ esperar a después del pitch.**
 | **`MP_WEBHOOK_SECRET`** | Del panel de Mercado Pago. Sin ella los webhooks se aceptan **sin verificar firma**: cualquiera que sepa la URL puede marcar una boleta como pagada | 5 min |
 | **Decir si la pasarela de producción es real o de pruebas** | Antes de recorrer el flujo de compra de punta a punta. Si el token de Render es de producción, «comprar una boleta» mueve dinero de verdad | — |
 | **Mirar el egress** | Entrar al panel de Supabase. Es el dato que decide si hace falta plan Pro el mes del evento | 2 min |
-| **Aplicar las migraciones `0081`, `0082` y `0083`** | Cuando se monte la base. Ninguna corre prisa: el código funciona sin las tres, y lo comprueba en caliente. La 0082 reintenta el insert sin las columnas nuevas si Postgres responde 42703; la 0083 sólo deja escrito lo que el frontend ya deduce al vuelo | 2 min |
+| **Aplicar las migraciones `0081`, `0083`, `0086`** | El 1-sep ya se aplicaron `0084`, `0082` y `0085` (aditivas). Quedan a propósito sin aplicar: `0081` (DROP COLUMN ×3, destructiva — post-evento), `0083` (muta el page_json de 1 evento en vivo; el frontend ya lo deduce), `0086` (función muerta). Ninguna corre prisa | 2 min |
+| **Rotar la contraseña de Postgres** | Se pegó en un chat para generar `03_datos.sql`. El backend usa `SUPABASE_SERVICE_KEY`, no esa — rotarla no rompe nada | 2 min |
 | **Encender la identidad propia** | cPanel: base MySQL, variables, consola de Google. `CONFIGURAR.md`. **No antes del pitch** | 1 h |
 | **Mover el backend de Render a cPanel** | Acceso a cPanel. Quita los 21 s de arranque en frío, que es la causa **medida** del congelamiento | 1 h |
 
