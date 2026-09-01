@@ -32,7 +32,26 @@ const DEFECTO = {
   requiere_email     : true,
   edad_minima        : '',
   limite_por_compra  : '',
+  /* Tamaño del recuadro de compra/confirmación. '' = el de siempre (ancho para
+     el formulario, angosto para la confirmación). Lo pidió Festech: incrustado
+     por iframe en su web se veía estrecho y con mucho scroll. Catálogo cerrado
+     —ver ANCHO_MODAL / ALTO_MODAL en EventoPublicoPage.jsx—. */
+  modal_ancho        : '',
+  modal_alto         : '',
 };
+
+const ANCHOS = [
+  ['',    'Automático'],
+  ['md',  'Estrecho'],
+  ['lg',  'Medio'],
+  ['xl',  'Ancho'],
+  ['xxl', 'Muy ancho'],
+];
+const ALTOS = [
+  ['',         'Normal (90%)'],
+  ['alto',     'Alto (95%)'],
+  ['completo', 'Casi pantalla completa'],
+];
 
 export default function CheckoutSection({ evento }) {
   const { success, error } = useToast();
@@ -190,6 +209,32 @@ export default function CheckoutSection({ evento }) {
               </div>
             </div>
             <p className="text-xs text-text-3">La edad mínima pide una confirmación al comprador. El máximo por compra se aplicará cuando el checkout permita elegir cantidad.</p>
+          </div>
+        </div>
+
+        {/* Tamaño del recuadro. Lo pidió Festech: incrustado en su web se veía
+            estrecho y con mucho scroll. Vale para el recuadro de compra y el de
+            confirmación, en la página pública y en el botón incrustado. */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-base font-semibold text-text-1">Tamaño del recuadro</h3>
+          </div>
+          <div className="card-body space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3 max-w-md">
+              <div>
+                <label className="label">Ancho</label>
+                <select className="input" value={f.modal_ancho} onChange={e => set({ modal_ancho: e.target.value })}>
+                  {ANCHOS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Alto</label>
+                <select className="input" value={f.modal_alto} onChange={e => set({ modal_alto: e.target.value })}>
+                  {ALTOS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-text-3">«Automático» usa el ancho de siempre: amplio para el formulario, ajustado para la confirmación. Súbelo si lo vas a incrustar en tu web y se ve apretado.</p>
           </div>
         </div>
 

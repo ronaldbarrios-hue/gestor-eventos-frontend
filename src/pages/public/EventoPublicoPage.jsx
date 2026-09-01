@@ -28,6 +28,28 @@ import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
 
+/* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
+   Event Experience → Proceso de compra (`page_json.checkout.modal_ancho` /
+   `modal_alto`). Lo pidió Festech: incrustado por iframe en su web se veía
+   estrecho y con mucho scroll. Catálogo cerrado —no un número libre— para que
+   las clases de Tailwind sean literales y no se purguen en el build. */
+export const ANCHO_MODAL = {
+  sm:  'sm:max-w-md',
+  md:  'sm:max-w-lg',
+  lg:  'sm:max-w-2xl',
+  xl:  'sm:max-w-3xl',
+  xxl: 'sm:max-w-5xl',
+};
+export const ALTO_MODAL = {
+  normal:   'max-h-[90vh]',
+  alto:     'max-h-[95vh]',
+  completo: 'max-h-[100dvh] sm:max-h-[97vh]',
+};
+/* `porDefecto` es la clase que ese modal usaba antes: sin configurar nada, nada
+   cambia. */
+export const anchoModal = (v, porDefecto) => ANCHO_MODAL[v] || porDefecto;
+export const altoModal  = (v) => ALTO_MODAL[v] || ALTO_MODAL.normal;
+
 /* Los mismos bloques que siembra el editor, y en su orden: así lo que ve el
    público sin que nadie haya tocado nada es lo que el organizador se
    encontrará el día que abra el editor, no otra página distinta. */
@@ -810,8 +832,11 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
     /* Ancho de verdad: con `max-w-md` (400px) menos el padding quedaban 352px,
        y dos columnas de 166px son peores que una. Con `3xl` quedan ~700px
        utiles, o sea dos columnas de ~340px, que es donde un correo o una
-       direccion se leen enteros. */
-    <ModalShell onClose={onClose} ancho="sm:max-w-3xl">
+       direccion se leen enteros. El organizador puede subirlo o bajarlo desde
+       Proceso de compra (`checkout.modal_ancho` / `modal_alto`). */
+    <ModalShell onClose={onClose}
+      ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-3xl')}
+      alto={altoModal(checkout.modal_alto)}>
       <form onSubmit={submit} className="grid-form">
         {/* La cabecera manda sobre todo lo demas: es el que y el cuanto. Ocupa
             la fila entera y el precio sube de tamano, que es el dato por el que
@@ -1095,7 +1120,9 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
     }
   }, [redirectUrl, checkout.redirect_auto]);
   return (
-    <ModalShell onClose={onClose}>
+    <ModalShell onClose={onClose}
+      ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-md')}
+      alto={altoModal(checkout.modal_alto)}>
       <div className="text-center py-3">
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-success/15 border border-success/30 mb-5">
           <svg className="w-7 h-7 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1231,7 +1258,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
    · `ancho` es un parametro porque el mismo cascaron sirve para un formulario
      de dos campos y para uno de veinte. Fijarlo en `max-w-md` obligaba a que
      todo cupiera en 400px, que es de donde viene la columna larguisima. */
-function ModalShell({ children, onClose, ancho = 'sm:max-w-md' }) {
+function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[90vh]' }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -1241,7 +1268,7 @@ function ModalShell({ children, onClose, ancho = 'sm:max-w-md' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
       <div
-        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[90vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
+        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl ${alto} overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
         onClick={e => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-center justify-end px-4 sm:px-6 py-2.5 bg-surface/95 backdrop-blur border-b border-border">
