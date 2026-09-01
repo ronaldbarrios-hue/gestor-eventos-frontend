@@ -131,11 +131,16 @@ export default function EmbedPage() {
   useEffect(() => {
     let vivo = true;
     setEstado('cargando');
-    eventosApi.publicoBySlug(slug)
+    /* Se pide la sección: el servidor recorta la landing y manda sólo este
+       bloque. Antes llegaba entera y el filtro de abajo la reducía aquí — o
+       sea que el resto de la página viajaba igual, dentro de la web de otro.
+       El `useMemo` de abajo se queda: sigue haciendo falta para resolver el
+       alias y para las secciones que se pintan con sus valores por defecto. */
+    eventosApi.publicoBySlug(slug, seccion)
       .then(d => { if (vivo) { setEvento(d.evento); setEstado('ok'); } })
       .catch(() => { if (vivo) setEstado('error'); });
     return () => { vivo = false; };
-  }, [slug]);
+  }, [slug, seccion]);
 
   /* Alto automático: el anfitrión escucha este postMessage y redimensiona
      el iframe. Sin esto quedaría cortado o con un hueco enorme debajo. */
