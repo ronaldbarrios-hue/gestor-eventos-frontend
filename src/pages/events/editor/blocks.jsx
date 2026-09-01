@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import { COVER_ASPECTOS, coverLayout } from '../../../components/public/EventChrome.jsx';
 import { tipoEspacio } from '../../../lib/espacio.js';
+import LlamaZona from '../../../components/aforo/LlamaZona.jsx';
 
 /* ─────────── reordenar sub-elementos EN la vista previa (Rework #2) ───────────
    Cuando un bloque con lista está seleccionado en el editor, sus items se pueden
@@ -1341,22 +1342,21 @@ function MapaEventoPreview({ data, evento }) {
               const zv = zonaVivaPorId.get(z.id);
               const viva = aforoPorId.get(z.id);
               const enCurso = zv?.ahora || [];
-              /* Arde si se llenó con algo pasando dentro. Sólo puede saberse
-                 cuando el organizador publicó el aforo; si no, el círculo es
-                 el sitio y ya. */
-              const arde = Boolean(viva?.lleno && enCurso.length > 0);
-              onClick = () => setSel({ kind: 'zona', data: { ...z, ...(zv || {}), dentro: viva?.dentro ?? null, lleno: viva?.lleno ?? null, arde, descripcion: m.descripcion || '' } });
+              /* El nivel lo calcula el backend (lib/aforoZonas.js): 'caliente'
+                 desde el 85%, 'en_fuego' al 100%. Sólo hay dato si el
+                 organizador publicó el aforo; si no, el círculo es el sitio. */
+              const nivel = zv?.nivel || null;
+              onClick = () => setSel({ kind: 'zona', data: { ...z, ...(zv || {}), dentro: viva?.dentro ?? zv?.dentro ?? null, lleno: viva?.lleno ?? zv?.lleno ?? null, nivel, ocupacion_pct: zv?.ocupacion_pct ?? null, descripcion: m.descripcion || '' } });
               circulo = (
-                <span className="relative min-w-[44px] h-11 px-1.5 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center tabular-nums"
-                  style={{
-                    background: viva?.lleno ? '#EF4444' : (m.color || '#0EA5E9'),
-                    boxShadow: arde ? '0 0 0 3px rgba(249,115,22,.55), 0 0 22px 6px rgba(249,115,22,.45)' : undefined,
-                  }}>
-                  {viva ? viva.dentro : (z.nombre || 'Z')[0].toUpperCase()}
-                  {enCurso.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse" />
-                  )}
-                </span>
+                <LlamaZona nivel={nivel} size={44}>
+                  <span className="relative min-w-[44px] h-11 px-1.5 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center tabular-nums"
+                    style={{ background: nivel === 'en_fuego' ? '#EF4444' : nivel === 'caliente' ? '#F97316' : (m.color || '#0EA5E9') }}>
+                    {viva ? viva.dentro : (zv?.dentro ?? (z.nombre || 'Z')[0].toUpperCase())}
+                    {enCurso.length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse" />
+                    )}
+                  </span>
+                </LlamaZona>
               );
             } else if (tipo === 'acceso') {
               const a = accesoPorId.get(m.acceso_id);
@@ -1413,15 +1413,23 @@ function MapaEventoPreview({ data, evento }) {
               {sel.data.sitio_web && <a href={sel.data.sitio_web} target="_blank" rel="noreferrer noopener" className="text-xs text-primary-light hover:underline mt-3 inline-block">Ver sitio →</a>}
             </>) : sel.kind === 'zona' ? (<>
               <div className="flex items-start gap-3">
-                <span className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                  style={{ background: sel.data.lleno ? '#EF4444' : '#0EA5E9' }}>
-                  {sel.data.dentro != null ? sel.data.dentro : (sel.data.nombre || 'Z')[0].toUpperCase()}
-                </span>
+                <LlamaZona nivel={sel.data.nivel} size={44}>
+                  <span className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+                    style={{ background: sel.data.nivel === 'en_fuego' ? '#EF4444' : sel.data.nivel === 'caliente' ? '#F97316' : '#0EA5E9' }}>
+                    {sel.data.dentro != null ? sel.data.dentro : (sel.data.nombre || 'Z')[0].toUpperCase()}
+                  </span>
+                </LlamaZona>
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold text-text-1">{sel.data.nombre}</p>
+                  <p className="text-base font-semibold text-text-1">
+                    {sel.data.nombre}
+                    {sel.data.nivel === 'en_fuego' && <span className="ml-1.5 text-sm">🔥</span>}
+                  </p>
                   <p className="text-xs text-text-3">
                     {sel.data.dentro != null
-                      ? `${sel.data.dentro}${sel.data.aforo_max ? ` de ${sel.data.aforo_max}` : ''} personas dentro${sel.data.lleno ? ' · llena' : ''}`
+                      ? `${sel.data.dentro}${sel.data.aforo_max ? ` de ${sel.data.aforo_max}` : ''} personas dentro`
+                        + (sel.data.nivel === 'en_fuego' ? ' · llena, esto está que arde'
+                          : sel.data.nivel === 'caliente' ? ' · casi llena'
+                          : sel.data.ocupacion_pct != null ? ` · ${sel.data.ocupacion_pct}%` : '')
                       : 'Zona del recinto'}
                   </p>
                 </div>
