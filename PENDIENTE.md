@@ -430,3 +430,55 @@ si apunta a GESTEK por CNAME. Lo que se pide es un paso más:
 
 **Prioridad sugerida:** 4.1 y 4.4 son rápidas y desbloquean la demo de Festech.
 4.3 es media. 4.2 y 4.5 son las grandes.
+
+### 4.6 · PijaoTech: sub-evento con `formulario_modo = 'propio'` y CERO preguntas
+
+Medido en producción el 1 de septiembre: la sesión **PijaoTech** de `festech2026`
+(`c9d4f527-bbb1-4755-967d-d75fc7df3377`) tiene `requiere_inscripcion = true`,
+`formulario_modo = 'propio'`, cupo 20, **1 inscrito ya** — y **0 filas** en
+`event_form_fields` con ese `session_id`.
+
+Probable causa: el organizador intentó guardar las preguntas propias de PijaoTech
+mientras el bug de `visible_si` (§ arreglado el 1-sep) hacía fallar
+`PUT /eventos/:id/sesiones/:sesionId/formulario` — el `formulario_modo` quedó en
+`'propio'` pero las preguntas no se guardaron.
+
+`POR-HACER.md §3.6` dice que un `propio` sin preguntas **debería volver solo a
+`ninguno`** («un formulario vacío en la agenda pública es peor que un botón»).
+Comprobar que esa regla existe y funciona; si no, implementarla. Y avisar al
+organizador de que puede volver a añadir las preguntas ahora que guardar
+funciona.
+
+---
+
+## 5 · Mapa del evento — versión completa (pedido 1 sep)
+
+Hoy el mapa es una imagen con zonas marcadas y control de aforo por zona
+(`ticket_movimientos.zona_id`, `zona_cortes`, migraciones 0079/0080 «aforo por
+zonas» / «sesiones en zona»). Lo que se pide:
+
+- **Guardar y editar horarios por zona.** Cada zona tiene su propia agenda de
+  actividades y sus franjas.
+- **Al hacer clic en una zona en el mapa**, abrir un panel con TODO lo de esa
+  zona: actividades vinculadas (`agenda_sessions.zona_id`), sus horarios, y el
+  **aforo en vivo** de la zona (dentro / capacidad).
+- En el panel: aprovechar que `agenda_sessions` ya tiene `zona_id` (migración
+  0080) y que el aforo por zona ya existe (`aforo_zonas`, `aforo_zonas_resumen`
+  en el backend).
+
+Backend probablemente ya cubre gran parte (0079/0080 + `modules/aforo/`). El
+grueso es frontend: el editor de zonas del mapa y el panel de detalle por zona.
+Ver `db/migrations/0079_aforo_por_zonas.sql` y `0080_sesiones_en_zona.sql`.
+
+---
+
+## 6 · Peticiones de Supabase Realtime — reducido (1 sep)
+
+**Hecho** (rama de esta sesión): `useAsistenciaEnVivo` pasó de WebSocket
+permanente de Supabase a sondeo (`useSondeo`, se para con la pestaña oculta), y
+el latido de Realtime subió de 25 s a 50 s en `src/lib/supabase.js`. Con eso una
+pestaña de fondo pasa a coste cero y el resto ~se reduce a la mitad.
+
+**Falta:** `ChatTab` sigue con Realtime — sólo suscribir cuando la pestaña está
+visible, o pasarlo a SSE contra el backend (MIGRACION-SUPABASE.md §6 etapa 5).
+El chat es el único caso donde el tiempo real de verdad aporta.

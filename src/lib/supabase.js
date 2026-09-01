@@ -19,6 +19,16 @@ export const supabase = createClient(URL || 'http://localhost', ANON || 'invalid
     detectSessionInUrl: true,
     flowType: 'pkce',
   },
+  /* Realtime: latido cada 50 s (por defecto son 25). Supabase corta la conexión
+     a los 60 s sin latido, así que 50 es el máximo seguro. Con esto una pestaña
+     con un canal abierto y nadie mirando pasa de ~2,4 peticiones/min a ~1,2.
+     Lo que de verdad ahorra —no abrir el socket salvo cuando hace falta— va en
+     cada hook (useAsistenciaEnVivo usa sondeo; ChatTab sólo con la pestaña
+     visible). El plan es quitar Realtime del todo: ver MIGRACION-SUPABASE.md §6. */
+  realtime: {
+    heartbeatIntervalMs: 50000,
+    params: { eventsPerSecond: 3 },
+  },
 });
 
 export const supabaseConfigured = Boolean(URL && ANON);

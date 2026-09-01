@@ -1,21 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { clientesApi } from '../api/clientes.js';
-import { supabase } from '../lib/supabase.js';
-import { useAgrupado } from './useSondeo.js';
+import { useSondeo } from './useSondeo.js';
 
 /**
  * Cuenta en vivo de asistentes que ya ingresaron (check-in hecho) para un
- * evento, actualizada en tiempo real vía Supabase Realtime — cualquier
- * escaneo hecho desde cualquier dispositivo (el propio u otro punto de
- * entrada del staff) actualiza el número sin recargar la pantalla.
+ * evento.
  *
- * Requiere que la tabla `tickets` tenga Realtime habilitado en Supabase
- * (Database → Replication). Si no está habilitado, el contador igual
- * funciona correctamente, solo que se actualiza al recargar la pantalla
- * o tras el "bump" optimista de un escaneo propio, en vez de al instante
- * cuando el escaneo lo hace otro dispositivo.
+ * ── Antes iba por Supabase Realtime ──────────────────────────────────────
+ *
+ * Abría un WebSocket permanente a Supabase (`supabase.channel('asistencia:…')`)
+ * que manda un latido cada pocos segundos aunque nadie mire la pantalla: con
+ * cinco portátiles de la organización abiertos, ~100 peticiones cada 10 minutos
+ * sin que pase nada. Y para un contador de aforo el tiempo real no aporta —que
+ * el número llegue con 10 segundos de retraso no lo nota nadie.
+ *
+ * Ahora es sondeo (`useSondeo`), que ya trae lo que hacía falta: se PARA cuando
+ * la pestaña no se ve y se refresca al volver, y no encadena peticiones si el
+ * servidor va lento. Una pestaña de fondo pasa a coste cero.
+ *
+ * Es el paso que MIGRACION-SUPABASE.md §6 (etapa 5) daba por bueno: asistencia y
+ * notificaciones se hacen con sondeo; el único que se queda en tiempo real es el
+ * chat.
+ *
+ * `bumpOptimista` sigue existiendo: lo usa CheckinTab para que el operador vea su
+ * propio escaneo al instante, sin esperar al siguiente pulso.
  */
-export function useAsistenciaEnVivo(eventoId) {
+export function useAsistenciaEnVivo(eventoId, { cadaMs = 12000 } = {}) {
   const [ingresados, setIngresados] = useState(null); // null = cargando
   const [total, setTotal] = useState(null);
 
@@ -28,33 +38,12 @@ export function useAsistenciaEnVivo(eventoId) {
     } catch { /* silencioso: no rompemos la pantalla si falla */ }
   }, [eventoId]);
 
+  /* Primer tiro inmediato + sondeo mientras la pestaña esté visible. */
   useEffect(() => { refrescar(); }, [refrescar]);
+  useSondeo(refrescar, cadaMs, Boolean(eventoId));
 
-  /* Los avisos de tiempo real se agrupan antes de pedir nada.
-
-     Suscribirse no era el problema; volver a preguntar por CADA aviso, sí. En
-     una jornada de ingreso, cada boleta escaneada notifica a todas las
-     pantallas abiertas, y si cada aviso dispara una petición salen N pantallas
-     × M escaneos. Agrupado, una ráfaga de cien escaneos son una o dos
-     peticiones por pantalla, y el contador va como mucho un segundo por detrás
-     — que en un aforo no lo nota nadie. */
-  const refrescarAgrupado = useAgrupado(refrescar, 1200);
-
-  useEffect(() => {
-    if (!eventoId) return;
-    const channel = supabase
-      .channel(`asistencia:${eventoId}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'tickets',
-        filter: `evento_id=eq.${eventoId}`,
-      }, () => { refrescarAgrupado(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [eventoId, refrescarAgrupado]);
-
-  /* Bump optimista: lo usa CheckinTab para reflejar el propio escaneo al
-     instante, sin esperar el round-trip de Realtime (que puede tardar
-     uno o dos segundos). Realtime luego confirma/corrige el número real. */
+  /* Bump optimista: refleja el propio escaneo al instante. El sondeo luego
+     confirma/corrige el número real. */
   const bumpOptimista = useCallback(() => {
     setIngresados(prev => (prev == null ? prev : prev + 1));
   }, []);
