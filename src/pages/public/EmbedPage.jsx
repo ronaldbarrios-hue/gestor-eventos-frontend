@@ -19,6 +19,17 @@ import { ReservaModal, ConfirmacionModal } from './EventoPublicoPage.jsx';
    Las dos últimas usan una versión sin cabecera ni enlace de vuelta: dentro
    de la web de otro, un "← Volver a explorar" saca al visitante del sitio que
    estaba mirando. */
+/* La tipografía que manda la web anfitriona para que la sección incrustada no
+   cante como "software de fuera". Sólo se acepta una lista de font-family de
+   verdad: letras, dígitos, espacios, comas, comillas, guiones y puntos.
+   Cualquier otro carácter podría cerrar la regla CSS e inyectar estilos, así
+   que se descarta la cadena entera. */
+function fuenteSegura(v) {
+  if (!v || typeof v !== 'string') return '';
+  const limpia = v.trim().slice(0, 240);
+  return /^[\w\s,."'-]+$/.test(limpia) ? limpia : '';
+}
+
 const ESPECIALES = {
   /* `registro` no es una sección de la landing: es el destino del botón que se
      incrusta en la web de otro. Sale por aquí para heredar de EmbedPage el
@@ -65,6 +76,13 @@ export default function EmbedPage() {
   const fondo = params.get('fondo') || 'transparente';
   const fid   = params.get('fid')   || '';
 
+  /* La fuente de la web anfitriona. Puede venir en la URL (para Notion, Wix y
+     demás bloques de "insertar web" que no ejecutan el script) o por
+     postMessage (widget.js y el snippet de sección la mandan solos). */
+  const fuenteParam = fuenteSegura(params.get('fuente') || '');
+  const [fuenteHost, setFuenteHost] = useState('');
+  const fuente = fuenteParam || fuenteHost;
+
   /* Tema: se decide una vez, cooperando con ThemeProvider (no tocamos
      la clase del <html> a mano, que la sobreescribiría al montar). */
   useEffect(() => {
@@ -83,6 +101,22 @@ export default function EmbedPage() {
     body.style.background = 'transparent';
     return () => { html.style.background = prev[0]; body.style.background = prev[1]; };
   }, [fondo]);
+
+  /* La web anfitriona puede pasar su tipografía: widget.js lo hace siempre, y
+     el snippet de sección si se deja marcada la casilla. Se pide al montar por
+     si el anfitrión ya estaba escuchando, y se escucha por si llega después. */
+  useEffect(() => {
+    const alMensaje = (e) => {
+      const d = e.data;
+      if (!d || typeof d !== 'object' || d.gestek !== 'estilo') return;
+      if (d.fid && fid && d.fid !== fid) return;
+      const f = fuenteSegura(d.fuente);
+      if (f) setFuenteHost(f);
+    };
+    window.addEventListener('message', alMensaje);
+    try { window.parent?.postMessage({ gestek: 'pide-estilo', fid }, '*'); } catch { /* cross-origin */ }
+    return () => window.removeEventListener('message', alMensaje);
+  }, [fid]);
 
   /* Cualquier enlace de la sección (CTA, redes, "GESTEK" del footer) debe
      salir a una pestaña nueva: si navega dentro del iframe, el visitante
@@ -211,7 +245,18 @@ export default function EmbedPage() {
 
   return (
     <BrandingProvider organizador={organizador}>
-      <div ref={rootRef} className="p-4">
+      <div ref={rootRef} data-gestek-embed className="p-4">
+        {fuente && (
+          /* Se pisan sólo el contenedor y las dos utilidades de fuente de
+             Tailwind (`font-sans` en el cuerpo, `font-display` en los títulos).
+             `font-mono` se deja intacta: el código de la boleta tiene que
+             seguir siendo monoespaciado. */
+          <style>{`
+            [data-gestek-embed] { font-family: ${fuente} !important; }
+            [data-gestek-embed] .font-sans,
+            [data-gestek-embed] .font-display { font-family: ${fuente} !important; }
+          `}</style>
+        )}
         {Especial ? (
           <Especial evento={evento} onReservar={abrirCompra} />
         ) : bloque.type === 'lienzo' ? (

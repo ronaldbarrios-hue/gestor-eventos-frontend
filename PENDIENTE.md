@@ -422,15 +422,26 @@ solo botón.
   empresa los ajuste. Al exportar/incrustar se ve estrecho, con mucho scroll y
   poco margen.
 
-### 4.5 · Otra forma de incrustar, que no parezca software externo
+### 4.5 · Otra forma de incrustar, que no parezca software externo · HECHO (parcial)
 
 - Hoy el registro se incrusta por **iframe** (`public/widget.js` + iframe sobre
   la web del cliente). Se ve rígido y «de fuera».
-- Pedido: que se integre y **parezca propio** de la página que lo usa. Opciones a
-  evaluar: Web Component / custom element que herede tipografía y colores del
-  sitio anfitrión; SDK JS que monte el formulario inline en un `<div>` del
-  cliente; o, como mínimo, iframe con auto-resize (sin scroll interno) y tema
-  heredado por parámetros.
+- Pedido: que se integre y **parezca propio** de la página que lo usa.
+- **Hecho** — el iframe ahora **hereda la tipografía** de la web anfitriona,
+  que era lo que más lo delataba como «de fuera»:
+  - `widget.js` (el botón) manda al iframe la fuente calculada de la web
+    (`getComputedStyle(document.body).fontFamily`) al cargar y cuando el iframe
+    la pide. Automático; se apaga con `data-heredar-fuente="0"`.
+  - El snippet de sección hace lo mismo si se deja marcada la casilla nueva
+    «Heredar la tipografía de mi web» en Exportar (por defecto sí).
+  - `EmbedPage` escucha el `postMessage {gestek:'estilo', fuente}` y pisa
+    `font-family` del contenedor y de `.font-sans`/`.font-display`; `.font-mono`
+    (código de la boleta) se respeta. También lee `?fuente=` de la URL para
+    Notion/Wix, que no ejecutan el script. La cadena se sanea (sólo
+    letras/dígitos/espacios/comas/comillas/guiones) antes de meterla en CSS.
+  - Ya estaba: auto-resize sin scroll interno, `?tema=`, `?fondo=transparente`.
+- **Pendiente (sesión aparte, es grande):** color de acento heredado, y el SDK
+  sin iframe que monte el formulario inline en un `<div>` del cliente.
 - Aviso que no se pierde: **el pago no puede ir dentro del iframe** (las
   pasarelas redirigen a su dominio y 3-D Secure no corre embebido). El
   *formulario* sí; el pago abre pestaña.
