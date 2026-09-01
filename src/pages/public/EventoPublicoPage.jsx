@@ -626,6 +626,12 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   const camposDelTipo = (evento?.campos_formulario || []).filter(c => !c.ticket_type_id || c.ticket_type_id === tipo.id);
   const camposForm = camposVisibles(camposDelTipo, respuestas);
   const checkout = evento?.page_json?.checkout || {};
+  /* Nombre y correo siguen siendo obligatorios por defecto (`undefined` cuenta
+     como «sí exigido») — así ningún evento existente cambia de comportamiento
+     sin que el organizador lo apague a propósito, igual que ya pasa con
+     `requiere_telefono` pero en la dirección contraria. */
+  const requiereNombre = checkout.requiere_nombre !== false;
+  const requiereEmail  = checkout.requiere_email  !== false;
 
   /* Módulos. El reparto lo decide la columna «Grupo» de la plantilla, no este
      archivo: ver lib/modulosFormulario.js para por qué por grupo y no cada N.
@@ -687,7 +693,8 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
       setErrForm(mal);
       /* El `required` del HTML no sirve con módulos: al cambiar de paso el
          campo sale del DOM y el navegador deja de mirarlo. */
-      if (!form.nombre.trim()) { setErr('Necesitamos tu nombre.'); return 1; }
+      if (requiereNombre && !form.nombre.trim()) { setErr('Necesitamos tu nombre.'); return 1; }
+      if (requiereEmail && !form.email.trim()) { setErr('Necesitamos tu correo.'); return 1; }
       if (checkout.requiere_telefono && !form.telefono.trim()) { setErr('El teléfono es obligatorio.'); return 1; }
       const cuantos = Object.values(mal).filter(Boolean).length;
       setErr(cuantos ? 'Revisa el dato marcado abajo.' : '');
@@ -713,6 +720,8 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
        todavía no es el último paso, esto es un «Continuar» y no un envío. */
     if (!enUltimo) { avanzar(); return; }
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
+    if (requiereNombre && !form.nombre.trim()) { setErr('Necesitamos tu nombre.'); return; }
+    if (requiereEmail && !form.email.trim()) { setErr('Necesitamos tu correo.'); return; }
     if (checkout.requiere_telefono && !form.telefono.trim()) { setErr('El teléfono es obligatorio.'); return; }
     if (checkout.edad_minima && !confirmaEdad) { setErr(`Debes confirmar que tienes al menos ${checkout.edad_minima} años.`); return; }
     if ((legal.exige || checkout.terminos_activo) && !acepta) { setErr('Debes aceptar los términos para continuar.'); return; }
@@ -869,13 +878,17 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
             setPrellenado(r);
           }} />
         <div className={`field ancho ${claseEntrada}`}>
-          <label className="label" htmlFor="res-nombre">Nombre completo *</label>
-          <input id="res-nombre" required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+          <label className="label" htmlFor="res-nombre">Nombre completo {requiereNombre
+            ? <span className="text-danger-light">*</span>
+            : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
+          <input id="res-nombre" required={requiereNombre} value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
             className="input-form" placeholder="Tu nombre" autoFocus />
         </div>
         <div className={`field ancho ${claseEntrada}`}>
-          <label className="label" htmlFor="res-email">Email *</label>
-          <input id="res-email" required type="email" inputMode="email" autoComplete="email"
+          <label className="label" htmlFor="res-email">Email {requiereEmail
+            ? <span className="text-danger-light">*</span>
+            : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
+          <input id="res-email" required={requiereEmail} type="email" inputMode="email" autoComplete="email"
             value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
             onBlur={() => setErrForm(v => ({ ...v, email: verificar('email', form.email) }))}
             aria-invalid={Boolean(errForm.email)}

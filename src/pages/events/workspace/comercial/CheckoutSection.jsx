@@ -24,6 +24,12 @@ const DEFECTO = {
   terminos_texto     : 'He leído y acepto los términos y condiciones.',
   terminos_url       : '',
   requiere_telefono  : false,
+  /* `true` y no `false`: nombre y correo llevan años siendo obligatorios sin
+     que nadie lo haya podido apagar. Si el valor por defecto fuera `false`,
+     abrir esta pantalla y guardar sin tocar nada volvería opcionales los dos
+     campos que la boleta necesita para existir. */
+  requiere_nombre    : true,
+  requiere_email     : true,
   edad_minima        : '',
   limite_por_compra  : '',
 };
@@ -148,6 +154,10 @@ export default function CheckoutSection({ evento }) {
               )}
 
               <FormularioTab evento={evento} ticketTypeId={tipoSel}
+                requiereNombre={f.requiere_nombre}
+                onRequiereNombre={v => set({ requiere_nombre: v })}
+                requiereEmail={f.requiere_email}
+                onRequiereEmail={v => set({ requiere_email: v })}
                 requiereTelefono={f.requiere_telefono}
                 onRequiereTelefono={v => set({ requiere_telefono: v })} />
             </div>
@@ -353,8 +363,8 @@ function PreviewCompra({ evento, f, vista, tienePago, campos = [], tipos = [], t
       )}
 
       {(!paginado || paso === 0) && <>
-        <CampoFake label="Nombre completo *" />
-        <CampoFake label="Email *" />
+        <CampoFake label={`Nombre completo ${f.requiere_nombre !== false ? '*' : '(opcional)'}`} />
+        <CampoFake label={`Email ${f.requiere_email !== false ? '*' : '(opcional)'}`} />
         <CampoFake label={`Teléfono ${f.requiere_telefono ? '*' : '(opcional)'}`} />
       </>}
       {delPaso.map(c => <CampoFake key={c.id} label={`${c.etiqueta}${c.requerido ? ' *' : ''}`} />)}
