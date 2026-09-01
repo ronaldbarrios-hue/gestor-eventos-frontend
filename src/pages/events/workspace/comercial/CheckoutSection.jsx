@@ -32,7 +32,31 @@ const DEFECTO = {
   requiere_email     : true,
   edad_minima        : '',
   limite_por_compra  : '',
+  /* Tamaño del recuadro de compra/confirmación. '' = el de siempre (ancho para
+     el formulario, angosto para la confirmación). Lo pidió Festech: incrustado
+     por iframe en su web se veía estrecho y con mucho scroll. Catálogo cerrado
+     —ver ANCHO_MODAL / ALTO_MODAL en EventoPublicoPage.jsx—. */
+  modal_ancho        : '',
+  modal_alto         : '',
+  /* A dónde vuelve la persona para ver su boleta. '' = la página /mi-ticket de
+     GESTEK. Si el organizador pone una URL propia se usa esa; `{codigo}` dentro
+     de la URL se reemplaza por el código de la boleta. Lo pidió Festech: quieren
+     que lleve a su web. */
+  enlace_boleta      : '',
 };
+
+const ANCHOS = [
+  ['',    'Automático'],
+  ['md',  'Estrecho'],
+  ['lg',  'Medio'],
+  ['xl',  'Ancho'],
+  ['xxl', 'Muy ancho'],
+];
+const ALTOS = [
+  ['',         'Normal (90%)'],
+  ['alto',     'Alto (95%)'],
+  ['completo', 'Casi pantalla completa'],
+];
 
 export default function CheckoutSection({ evento }) {
   const { success, error } = useToast();
@@ -193,6 +217,32 @@ export default function CheckoutSection({ evento }) {
           </div>
         </div>
 
+        {/* Tamaño del recuadro. Lo pidió Festech: incrustado en su web se veía
+            estrecho y con mucho scroll. Vale para el recuadro de compra y el de
+            confirmación, en la página pública y en el botón incrustado. */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-base font-semibold text-text-1">Tamaño del recuadro</h3>
+          </div>
+          <div className="card-body space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3 max-w-md">
+              <div>
+                <label className="label">Ancho</label>
+                <select className="input" value={f.modal_ancho} onChange={e => set({ modal_ancho: e.target.value })}>
+                  {ANCHOS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Alto</label>
+                <select className="input" value={f.modal_alto} onChange={e => set({ modal_alto: e.target.value })}>
+                  {ALTOS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-text-3">«Automático» usa el ancho de siempre: amplio para el formulario, ajustado para la confirmación. Súbelo si lo vas a incrustar en tu web y se ve apretado.</p>
+          </div>
+        </div>
+
         {/* Términos del evento.
 
             Va aquí, entre los datos que se piden y la confirmación, porque es
@@ -228,6 +278,14 @@ export default function CheckoutSection({ evento }) {
               <label className="label">Mensaje de confirmación</label>
               <textarea rows={2} className="input !h-auto resize-none" value={f.confirmacion_texto} onChange={e => set({ confirmacion_texto: e.target.value })}
                 placeholder="Muestra este QR en la entrada del evento. También puedes mostrar el código." />
+            </div>
+            <div>
+              <label className="label">Enlace para volver a ver la boleta <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <input className="input" value={f.enlace_boleta} onChange={e => set({ enlace_boleta: e.target.value })}
+                placeholder="https://tu-sitio.com/mi-entrada/{codigo}" />
+              <p className="text-xs text-text-3 mt-1">
+                Vacío: se usa la página de GESTEK. Con un enlace propio, la confirmación lleva ahí; escribe <code className="font-mono">{'{codigo}'}</code> donde quieras que vaya el código de la boleta.
+              </p>
             </div>
             {f.redirect_url && (
               <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">

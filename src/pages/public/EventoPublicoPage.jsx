@@ -28,6 +28,28 @@ import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
 
+/* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
+   Event Experience → Proceso de compra (`page_json.checkout.modal_ancho` /
+   `modal_alto`). Lo pidió Festech: incrustado por iframe en su web se veía
+   estrecho y con mucho scroll. Catálogo cerrado —no un número libre— para que
+   las clases de Tailwind sean literales y no se purguen en el build. */
+export const ANCHO_MODAL = {
+  sm:  'sm:max-w-md',
+  md:  'sm:max-w-lg',
+  lg:  'sm:max-w-2xl',
+  xl:  'sm:max-w-3xl',
+  xxl: 'sm:max-w-5xl',
+};
+export const ALTO_MODAL = {
+  normal:   'max-h-[90vh]',
+  alto:     'max-h-[95vh]',
+  completo: 'max-h-[100dvh] sm:max-h-[97vh]',
+};
+/* `porDefecto` es la clase que ese modal usaba antes: sin configurar nada, nada
+   cambia. */
+export const anchoModal = (v, porDefecto) => ANCHO_MODAL[v] || porDefecto;
+export const altoModal  = (v) => ALTO_MODAL[v] || ALTO_MODAL.normal;
+
 /* Los mismos bloques que siembra el editor, y en su orden: así lo que ve el
    público sin que nadie haya tocado nada es lo que el organizador se
    encontrará el día que abra el editor, no otra página distinta. */
@@ -810,8 +832,11 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
     /* Ancho de verdad: con `max-w-md` (400px) menos el padding quedaban 352px,
        y dos columnas de 166px son peores que una. Con `3xl` quedan ~700px
        utiles, o sea dos columnas de ~340px, que es donde un correo o una
-       direccion se leen enteros. */
-    <ModalShell onClose={onClose} ancho="sm:max-w-3xl">
+       direccion se leen enteros. El organizador puede subirlo o bajarlo desde
+       Proceso de compra (`checkout.modal_ancho` / `modal_alto`). */
+    <ModalShell onClose={onClose}
+      ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-3xl')}
+      alto={altoModal(checkout.modal_alto)}>
       <form onSubmit={submit} className="grid-form">
         {/* La cabecera manda sobre todo lo demas: es el que y el cuanto. Ocupa
             la fila entera y el precio sube de tamano, que es el dato por el que
@@ -1034,6 +1059,11 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
   const [preguntas, setPreguntas] = useState({});
   const [inscribiendo, setInscribiendo] = useState(null);
   const [inscritas, setInscritas] = useState(new Set());
+  /* Dos vistas dentro de la misma confirmación: la boleta, y la lista de
+     sub-eventos. Se pidió que «Listo» pasara a «Ver sub-eventos» y que apuntarse
+     a varios fuera el paso siguiente, no una tarjeta al margen. */
+  const [vista, setVista] = useState('boleta');   // 'boleta' | 'subeventos'
+  const [apuntando, setApuntando] = useState(null); // id del sub-evento en curso
 
   useEffect(() => {
     if (!slug) return;
@@ -1087,15 +1117,97 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
     } finally { setBajandoTarjeta(false); }
   };
 
+  const pendientes = subeventos.filter(s => !inscritas.has(s.id));
+
+  /* Apuntar sin abrir formulario: para los sub-eventos que no piden datos, la
+     boleta ya identifica a la persona y basta un toque. Los que sí piden datos
+     (modo 'propio' con preguntas) abren InscripcionSesionModal. */
+  const apuntarDirecto = async (s) => {
+    setApuntando(s.id);
+    try {
+      await eventosApi.inscribirSesion(slug, s.id, { codigo: ticket.codigo });
+      setInscritas(prev => new Set(prev).add(s.id));
+      setSubeventos(prev => prev.map(x => x.id === s.id
+        ? { ...x, libres: x.libres == null ? null : Math.max(0, x.libres - 1) }
+        : x));
+    } catch (e) {
+      alert(e.response?.data?.error || e.message || 'No se pudo apuntar. Puedes intentarlo desde la agenda del evento.');
+    } finally { setApuntando(null); }
+  };
+
   const redirectUrl = checkout.redirect_url;
+  /* A dónde vuelve la persona para ver su boleta. Vacío → la página /mi-ticket de
+     GESTEK. Con enlace propio (Festech quiere el suyo) → ese, con `{codigo}`
+     reemplazado y abriéndose en pestaña nueva por ser externo. */
+  const enlacePropio = checkout.enlace_boleta?.trim();
+  const urlBoleta = enlacePropio
+    ? enlacePropio.replace('{codigo}', encodeURIComponent(ticket.codigo))
+    : `/mi-ticket/${ticket.codigo}`;
+  const textoBoleta = enlacePropio ? urlBoleta : enlaceBoleta(evento, ticket.codigo);
   useEffect(() => {
-    if (redirectUrl && checkout.redirect_auto) {
+    /* Sin redirección automática mientras la persona está mirando los
+       sub-eventos: sacarla de la pantalla a media inscripción sería peor que no
+       redirigir. */
+    if (redirectUrl && checkout.redirect_auto && vista === 'boleta') {
       const t = setTimeout(() => { window.location.href = redirectUrl; }, 5000);
       return () => clearTimeout(t);
     }
-  }, [redirectUrl, checkout.redirect_auto]);
+  }, [redirectUrl, checkout.redirect_auto, vista]);
   return (
-    <ModalShell onClose={onClose}>
+    <ModalShell onClose={onClose}
+      ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-md')}
+      alto={altoModal(checkout.modal_alto)}>
+      {vista === 'subeventos' ? (
+        <div className="py-2">
+          <button type="button" onClick={() => setVista('boleta')}
+            className="text-xs text-text-3 hover:text-text-1 mb-3 inline-flex items-center gap-1 transition-colors">
+            ← Volver a mi boleta
+          </button>
+          <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Actividades con inscripción</h2>
+          <p className="text-sm text-text-2 mb-4 leading-relaxed">
+            Tu entrada no las incluye: cada una se apunta aparte y tiene cupo. Con la boleta que acabas de
+            sacar no tienes que volver a escribir tus datos.
+          </p>
+          <ul className="space-y-2">
+            {subeventos.map(s => {
+              const ya = inscritas.has(s.id);
+              const cargando = apuntando === s.id;
+              return (
+                <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface/60 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-text-1">{s.titulo}</p>
+                    <p className="text-[11px] text-text-3 mt-0.5">
+                      {s.inicio ? new Date(s.inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                      {s.libres != null ? ` · ${s.libres} cupo${s.libres === 1 ? '' : 's'}` : ''}
+                      {s.ubicacion ? ` · ${s.ubicacion}` : ''}
+                    </p>
+                  </div>
+                  {ya ? (
+                    <span className="text-xs font-semibold text-success flex-shrink-0">Apuntado ✓</span>
+                  ) : s.lleno ? (
+                    <span className="text-xs text-text-3 flex-shrink-0">Sin cupo</span>
+                  ) : s.pide_datos ? (
+                    <button type="button" onClick={() => setInscribiendo(s)}
+                      className="text-xs font-semibold px-4 py-2 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0">
+                      Apuntarme
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => apuntarDirecto(s)} disabled={cargando}
+                      className="text-xs font-semibold px-4 py-2 rounded-full bg-text-1 text-bg hover:bg-white transition-colors flex-shrink-0 disabled:opacity-60">
+                      {cargando ? '…' : 'Apuntarme'}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex items-center justify-end gap-2 mt-6">
+            <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+              Listo
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="text-center py-3">
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-success/15 border border-success/30 mb-5">
           <svg className="w-7 h-7 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1122,47 +1234,26 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           <p className="font-mono text-xl font-bold text-text-1 tabular-nums tracking-widest">{ticket.codigo}</p>
         </div>
         <p className="text-xs text-text-3 mb-5">
-          Guarda este link para volver a verlo: <br/>
-          {/* El texto del enlace es el dominio de la empresa cuando está
-              configurado; el `href` se queda relativo para que, si el dominio
-              propio todavía no apunta a ningún sitio, el botón siga abriendo
-              la boleta desde donde la persona ya está navegando. */}
-          <a href={`/mi-ticket/${ticket.codigo}`} className="text-primary-light hover:underline break-all">
-            {enlaceBoleta(evento, ticket.codigo)}
+          {enlacePropio ? 'Vuelve a tu registro en:' : 'Guarda este link para volver a verlo:'} <br/>
+          <a href={urlBoleta} {...(enlacePropio ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
+            className="text-primary-light hover:underline break-all">
+            {textoBoleta}
           </a>
         </p>
-        {subeventos.length > 0 && (
-          <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 mb-5 text-left">
-            <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-1">Falta un paso</p>
-            <p className="text-sm text-text-2 mb-3">
-              Tu entrada no incluye estas actividades: hay que apuntarse aparte y tienen cupo. Puedes hacerlo ahora, con la boleta que acabas de sacar.
-            </p>
-            <ul className="space-y-1.5">
-              {subeventos.map(s => {
-                const ya = inscritas.has(s.id);
-                return (
-                  <li key={s.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface/60 px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text-1 truncate">{s.titulo}</p>
-                      <p className="text-[11px] text-text-3">
-                        {s.inicio ? new Date(s.inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
-                        {s.libres != null ? ` · ${s.libres} cupo${s.libres === 1 ? '' : 's'}` : ''}
-                        {s.ubicacion ? ` · ${s.ubicacion}` : ''}
-                      </p>
-                    </div>
-                    {ya ? (
-                      <span className="text-xs font-semibold text-success flex-shrink-0">Apuntado ✓</span>
-                    ) : (
-                      <button onClick={() => setInscribiendo(s)}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0">
-                        Apuntarme
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+        {pendientes.length > 0 && (
+          <button type="button" onClick={() => setVista('subeventos')}
+            className="w-full flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/5 hover:bg-accent/10 p-4 mb-5 text-left transition-colors">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-0.5">Falta un paso</p>
+              <p className="text-sm text-text-2">
+                {pendientes.length === 1
+                  ? 'Hay 1 actividad que se apunta aparte y tiene cupo.'
+                  : `Hay ${pendientes.length} actividades que se apuntan aparte y tienen cupo.`}
+                {' '}Con esta boleta no vuelves a escribir tus datos.
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-accent-light flex-shrink-0">Ver →</span>
+          </button>
         )}
 
         <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -1181,7 +1272,16 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
             className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
             {bajandoTarjeta ? 'Generando…' : 'Descargar tarjeta'}
           </button>
-          <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+          {pendientes.length > 0 && (
+            <button onClick={() => setVista('subeventos')}
+              className="px-6 py-3 rounded-full bg-accent text-white hover:brightness-110 text-sm font-semibold transition-all">
+              Ver sub-eventos
+            </button>
+          )}
+          <button onClick={onClose}
+            className={`px-6 py-3 rounded-full text-sm font-semibold transition-all ${pendientes.length > 0
+              ? 'border border-border-2 text-text-1 hover:bg-surface-2'
+              : 'bg-text-1 text-bg hover:bg-white'}`}>
             Listo
           </button>
           {redirectUrl && (
@@ -1194,6 +1294,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           <p className="text-[11px] text-text-3 mt-3">Te redirigiremos automáticamente en unos segundos…</p>
         )}
       </div>
+      )}
 
       {/* Se monta por encima de esta confirmación (portal, z mayor): la boleta
           recién emitida entra como identificación, así que no vuelve a pedir
@@ -1205,6 +1306,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           preguntas={preguntas[inscribiendo.id] || []}
           boleta={{ codigo: ticket.codigo, nombre: ticket.asistente?.nombre }}
           onClose={() => setInscribiendo(null)}
+          onTerminar={() => { setInscribiendo(null); onClose(); }}
           onInscrito={(id) => {
             setInscritas(prev => new Set(prev).add(id));
             setSubeventos(prev => prev.map(x => x.id === id
@@ -1231,7 +1333,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
    · `ancho` es un parametro porque el mismo cascaron sirve para un formulario
      de dos campos y para uno de veinte. Fijarlo en `max-w-md` obligaba a que
      todo cupiera en 400px, que es de donde viene la columna larguisima. */
-function ModalShell({ children, onClose, ancho = 'sm:max-w-md' }) {
+function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[90vh]' }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -1241,7 +1343,7 @@ function ModalShell({ children, onClose, ancho = 'sm:max-w-md' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
       <div
-        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[90vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
+        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl ${alto} overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
         onClick={e => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-center justify-end px-4 sm:px-6 py-2.5 bg-surface/95 backdrop-blur border-b border-border">
