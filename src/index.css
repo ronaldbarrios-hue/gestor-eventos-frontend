@@ -402,3 +402,54 @@ img { -webkit-user-drag: none; user-drag: none; }
 .gk-anim-flip   { animation: gkFlip   0.9s cubic-bezier(0.16,1,0.3,1) both; }
 .gk-anim-blur   { animation: gkBlur   0.9s ease both; }
 .gk-anim-swing  { animation: gkSwing  3s ease-in-out infinite; }
+
+/* ── Zona del mapa que se prende en fuego (aforo al tope) ──────────────────
+   La usa <LlamaZona> (components/aforo/LlamaZona.jsx) en el mapa público y en
+   el tablero del editor. `--zona-size` = diámetro del círculo. */
+.zona-marca { position: relative; display: inline-flex; }
+.zona-marca > :not(.zona-llamas) { position: relative; z-index: 1; }
+
+.zona-marca--caliente > :not(.zona-llamas) {
+  box-shadow: 0 0 0 3px rgba(249,115,22,.35), 0 0 14px 3px rgba(249,115,22,.28);
+}
+.zona-marca--fuego > :not(.zona-llamas) {
+  box-shadow: 0 0 0 3px rgba(249,115,22,.6), 0 0 22px 7px rgba(239,68,68,.5);
+}
+
+.zona-llamas {
+  position: absolute; left: 50%; bottom: 58%;
+  width: calc(var(--zona-size, 44px) * 1.45);
+  height: calc(var(--zona-size, 44px) * 1.7);
+  transform: translateX(-50%);
+  pointer-events: none; z-index: 0;
+}
+.zona-llamas > span {
+  position: absolute; left: 50%; bottom: 0;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 42% 42% / 68% 68% 40% 40%;
+  filter: blur(2px);
+  mix-blend-mode: screen;
+}
+.zona-llamas > span:nth-child(1) {
+  width: 92%; height: 100%;
+  background: radial-gradient(ellipse at 50% 100%, #ffe58a 0%, #ff9f40 40%, rgba(239,68,68,.4) 70%, transparent 82%);
+  animation: zonaFlamea .62s ease-in-out infinite alternate;
+}
+.zona-llamas > span:nth-child(2) {
+  width: 60%; height: 78%;
+  background: radial-gradient(ellipse at 50% 100%, #fff3c4 0%, #ffb347 45%, transparent 78%);
+  animation: zonaFlamea .46s ease-in-out infinite alternate-reverse;
+}
+.zona-llamas > span:nth-child(3) {
+  width: 32%; height: 50%;
+  background: radial-gradient(ellipse at 50% 100%, #fff 0%, #ffd27a 55%, transparent 85%);
+  animation: zonaFlamea .36s ease-in-out infinite alternate;
+}
+@keyframes zonaFlamea {
+  0%   { transform: translateX(-50%) scaleY(.9)  scaleX(1.05); opacity: .8; }
+  50%  { transform: translateX(-53%) scaleY(1.14) scaleX(.9);  opacity: 1; }
+  100% { transform: translateX(-47%) scaleY(.98) scaleX(1.02); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zona-llamas > span { animation: none; opacity: .85; }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { agendaApi } from '../../../api/agenda.js';
@@ -6,6 +6,8 @@ import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import LlamaZona from '../../../components/aforo/LlamaZona.jsx';
+import { useSondeo } from '../../../hooks/useSondeo.js';
 
 /* Mapa del evento — plano del recinto con las UBICACIONES de todo.
    Marcadores en círculo (SIN emojis, look de mapa profesional):
@@ -79,8 +81,17 @@ export default function MapaSection({ evento }) {
       networkingApi.expositoresAdmin(evento.id).catch(() => ({ expositores: [] })),
       agendaApi.sessions(evento.id).catch(() => ({ sessions: [] })),
     ]).then(([ex, ag]) => { setExpositores(ex.expositores || []); setSesiones(ag.sessions || []); });
-    clientesApi.aforoZonas(evento.id).then(d => setAforo(d.zonas || [])).catch(() => {});
   }, [evento.id]);
+
+  /* El aforo se refresca en vivo (sondeo que se para con la pestaña oculta): es
+     lo que hace que el «en fuego» de una zona signifique algo mientras se opera
+     el evento, no sólo al abrir la pantalla. */
+  const refrescarAforo = useCallback(
+    () => clientesApi.aforoZonas(evento.id).then(d => setAforo(d.zonas || [])).catch(() => {}),
+    [evento.id],
+  );
+  useEffect(() => { refrescarAforo(); }, [refrescarAforo]);
+  useSondeo(refrescarAforo, 15000);
 
   const expoPorId = useMemo(() => new Map((expositores || []).map(e => [e.id, e])), [expositores]);
   const sesPorId  = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
@@ -270,14 +281,18 @@ export function CirculoMarcador({ m, expo, ses, zona, aforo, acceso, ring = 'rin
     );
   }
   /* La zona enseña gente, no un código: es el único marcador con un número vivo
-     dentro. Sin datos todavía (o zona sin estrenar) cae a la inicial. */
+     dentro. Sin datos todavía (o zona sin estrenar) cae a la inicial. Cuando el
+     aforo llega al tope, se prende en fuego (nivel lo da el backend). */
   if (m.tipo === 'zona') {
     const dentro = aforo?.dentro;
+    const nivel = aforo?.nivel || null;
     return (
-      <span className={`rounded-full border-2 border-white shadow-lg text-white font-bold font-display tabular-nums flex items-center justify-center ${ring}`}
-        style={{ ...st, background: m.color || '#0EA5E9' }}>
-        {dentro == null ? (zona?.nombre || 'Z')[0].toUpperCase() : dentro}
-      </span>
+      <LlamaZona nivel={nivel} size={size}>
+        <span className={`rounded-full border-2 border-white shadow-lg text-white font-bold font-display tabular-nums flex items-center justify-center ${ring}`}
+          style={{ ...st, background: nivel === 'en_fuego' ? '#EF4444' : nivel === 'caliente' ? '#F97316' : (m.color || '#0EA5E9') }}>
+          {dentro == null ? (zona?.nombre || 'Z')[0].toUpperCase() : dentro}
+        </span>
+      </LlamaZona>
     );
   }
   if (m.tipo === 'expositor') {
@@ -402,7 +417,13 @@ function EditorMarcador({ sel, expo, ses, zona, aforo, acceso, onChange, onZona,
               <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ahora dentro</p>
               <p className="text-xl font-bold font-display tabular-nums text-text-1">
                 {aforo ? aforo.dentro : '—'}{zona.aforo_max ? <span className="text-text-3 text-sm font-normal"> / {zona.aforo_max}</span> : ''}
+                {aforo?.nivel === 'en_fuego' && <span className="ml-1.5 text-base align-middle">🔥</span>}
               </p>
+              {aforo?.ocupacion_pct != null && (
+                <p className={`text-[11px] font-semibold ${aforo.nivel === 'en_fuego' ? 'text-danger' : aforo.nivel === 'caliente' ? 'text-orange-500' : 'text-text-3'}`}>
+                  {aforo.ocupacion_pct}%{aforo.nivel === 'en_fuego' ? ' · en fuego en el mapa' : aforo.nivel === 'caliente' ? ' · casi llena' : ''}
+                </p>
+              )}
               <p className="text-[11px] text-text-3">Se opera en Asistentes → Aforo por zonas.</p>
             </div>
           </>)}
