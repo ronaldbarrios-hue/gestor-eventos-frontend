@@ -1059,6 +1059,11 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
   const [preguntas, setPreguntas] = useState({});
   const [inscribiendo, setInscribiendo] = useState(null);
   const [inscritas, setInscritas] = useState(new Set());
+  /* Dos vistas dentro de la misma confirmación: la boleta, y la lista de
+     sub-eventos. Se pidió que «Listo» pasara a «Ver sub-eventos» y que apuntarse
+     a varios fuera el paso siguiente, no una tarjeta al margen. */
+  const [vista, setVista] = useState('boleta');   // 'boleta' | 'subeventos'
+  const [apuntando, setApuntando] = useState(null); // id del sub-evento en curso
 
   useEffect(() => {
     if (!slug) return;
@@ -1112,17 +1117,89 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
     } finally { setBajandoTarjeta(false); }
   };
 
+  const pendientes = subeventos.filter(s => !inscritas.has(s.id));
+
+  /* Apuntar sin abrir formulario: para los sub-eventos que no piden datos, la
+     boleta ya identifica a la persona y basta un toque. Los que sí piden datos
+     (modo 'propio' con preguntas) abren InscripcionSesionModal. */
+  const apuntarDirecto = async (s) => {
+    setApuntando(s.id);
+    try {
+      await eventosApi.inscribirSesion(slug, s.id, { codigo: ticket.codigo });
+      setInscritas(prev => new Set(prev).add(s.id));
+      setSubeventos(prev => prev.map(x => x.id === s.id
+        ? { ...x, libres: x.libres == null ? null : Math.max(0, x.libres - 1) }
+        : x));
+    } catch (e) {
+      alert(e.response?.data?.error || e.message || 'No se pudo apuntar. Puedes intentarlo desde la agenda del evento.');
+    } finally { setApuntando(null); }
+  };
+
   const redirectUrl = checkout.redirect_url;
   useEffect(() => {
-    if (redirectUrl && checkout.redirect_auto) {
+    /* Sin redirección automática mientras la persona está mirando los
+       sub-eventos: sacarla de la pantalla a media inscripción sería peor que no
+       redirigir. */
+    if (redirectUrl && checkout.redirect_auto && vista === 'boleta') {
       const t = setTimeout(() => { window.location.href = redirectUrl; }, 5000);
       return () => clearTimeout(t);
     }
-  }, [redirectUrl, checkout.redirect_auto]);
+  }, [redirectUrl, checkout.redirect_auto, vista]);
   return (
     <ModalShell onClose={onClose}
       ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-md')}
       alto={altoModal(checkout.modal_alto)}>
+      {vista === 'subeventos' ? (
+        <div className="py-2">
+          <button type="button" onClick={() => setVista('boleta')}
+            className="text-xs text-text-3 hover:text-text-1 mb-3 inline-flex items-center gap-1 transition-colors">
+            ← Volver a mi boleta
+          </button>
+          <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Actividades con inscripción</h2>
+          <p className="text-sm text-text-2 mb-4 leading-relaxed">
+            Tu entrada no las incluye: cada una se apunta aparte y tiene cupo. Con la boleta que acabas de
+            sacar no tienes que volver a escribir tus datos.
+          </p>
+          <ul className="space-y-2">
+            {subeventos.map(s => {
+              const ya = inscritas.has(s.id);
+              const cargando = apuntando === s.id;
+              return (
+                <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface/60 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-text-1">{s.titulo}</p>
+                    <p className="text-[11px] text-text-3 mt-0.5">
+                      {s.inicio ? new Date(s.inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                      {s.libres != null ? ` · ${s.libres} cupo${s.libres === 1 ? '' : 's'}` : ''}
+                      {s.ubicacion ? ` · ${s.ubicacion}` : ''}
+                    </p>
+                  </div>
+                  {ya ? (
+                    <span className="text-xs font-semibold text-success flex-shrink-0">Apuntado ✓</span>
+                  ) : s.lleno ? (
+                    <span className="text-xs text-text-3 flex-shrink-0">Sin cupo</span>
+                  ) : s.pide_datos ? (
+                    <button type="button" onClick={() => setInscribiendo(s)}
+                      className="text-xs font-semibold px-4 py-2 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0">
+                      Apuntarme
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => apuntarDirecto(s)} disabled={cargando}
+                      className="text-xs font-semibold px-4 py-2 rounded-full bg-text-1 text-bg hover:bg-white transition-colors flex-shrink-0 disabled:opacity-60">
+                      {cargando ? '…' : 'Apuntarme'}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex items-center justify-end gap-2 mt-6">
+            <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+              Listo
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="text-center py-3">
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-success/15 border border-success/30 mb-5">
           <svg className="w-7 h-7 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1158,38 +1235,20 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
             {enlaceBoleta(evento, ticket.codigo)}
           </a>
         </p>
-        {subeventos.length > 0 && (
-          <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 mb-5 text-left">
-            <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-1">Falta un paso</p>
-            <p className="text-sm text-text-2 mb-3">
-              Tu entrada no incluye estas actividades: hay que apuntarse aparte y tienen cupo. Puedes hacerlo ahora, con la boleta que acabas de sacar.
-            </p>
-            <ul className="space-y-1.5">
-              {subeventos.map(s => {
-                const ya = inscritas.has(s.id);
-                return (
-                  <li key={s.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface/60 px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text-1 truncate">{s.titulo}</p>
-                      <p className="text-[11px] text-text-3">
-                        {s.inicio ? new Date(s.inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
-                        {s.libres != null ? ` · ${s.libres} cupo${s.libres === 1 ? '' : 's'}` : ''}
-                        {s.ubicacion ? ` · ${s.ubicacion}` : ''}
-                      </p>
-                    </div>
-                    {ya ? (
-                      <span className="text-xs font-semibold text-success flex-shrink-0">Apuntado ✓</span>
-                    ) : (
-                      <button onClick={() => setInscribiendo(s)}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0">
-                        Apuntarme
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+        {pendientes.length > 0 && (
+          <button type="button" onClick={() => setVista('subeventos')}
+            className="w-full flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/5 hover:bg-accent/10 p-4 mb-5 text-left transition-colors">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-0.5">Falta un paso</p>
+              <p className="text-sm text-text-2">
+                {pendientes.length === 1
+                  ? 'Hay 1 actividad que se apunta aparte y tiene cupo.'
+                  : `Hay ${pendientes.length} actividades que se apuntan aparte y tienen cupo.`}
+                {' '}Con esta boleta no vuelves a escribir tus datos.
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-accent-light flex-shrink-0">Ver →</span>
+          </button>
         )}
 
         <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -1208,7 +1267,16 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
             className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
             {bajandoTarjeta ? 'Generando…' : 'Descargar tarjeta'}
           </button>
-          <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+          {pendientes.length > 0 && (
+            <button onClick={() => setVista('subeventos')}
+              className="px-6 py-3 rounded-full bg-accent text-white hover:brightness-110 text-sm font-semibold transition-all">
+              Ver sub-eventos
+            </button>
+          )}
+          <button onClick={onClose}
+            className={`px-6 py-3 rounded-full text-sm font-semibold transition-all ${pendientes.length > 0
+              ? 'border border-border-2 text-text-1 hover:bg-surface-2'
+              : 'bg-text-1 text-bg hover:bg-white'}`}>
             Listo
           </button>
           {redirectUrl && (
@@ -1221,6 +1289,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           <p className="text-[11px] text-text-3 mt-3">Te redirigiremos automáticamente en unos segundos…</p>
         )}
       </div>
+      )}
 
       {/* Se monta por encima de esta confirmación (portal, z mayor): la boleta
           recién emitida entra como identificación, así que no vuelve a pedir

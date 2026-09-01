@@ -398,14 +398,18 @@ si apunta a GESTEK por CNAME. Lo que se pide es un paso más:
 - Hoy esto sólo pasa dentro del modal de confirmación, justo después de comprar;
   quien vuelve al día siguiente no tiene camino.
 
-### 4.3 · Sub-eventos como paso final del registro, no como tarjeta lateral
+### 4.3 · Sub-eventos como paso final del registro — HECHO
 
-- Hoy: al confirmar, aparece la tarjeta «FALTA UN PASO» con botones «Apuntarme»
-  (`EventoPublicoPage.jsx:1134`, abre `InscripcionSesionModal`).
-- Pedido: cuando el evento tiene sub-eventos con inscripción, el botón **«Listo»
-  pasa a decir «Ver sub-eventos»** y lleva a una pantalla donde la persona se
-  apunta a varios **de una vez**, con la boleta recién sacada como identidad
-  (ya no pide nombre/correo otra vez — eso ya lo hace `InscripcionSesionModal`).
+`ConfirmacionModal` ahora tiene dos vistas (`vista` = `'boleta' | 'subeventos'`).
+En la de boleta, si hay sub-eventos sin apuntar: una tarjeta-botón «Falta un
+paso · Ver →» y un botón primario **«Ver sub-eventos»** (el «Listo» pasa a
+secundario). La vista de sub-eventos es la lista completa: los que no piden
+datos (`!s.pide_datos`) se apuntan con un toque (`apuntarDirecto`, usa el código
+de la boleta); los que sí abren `InscripcionSesionModal`. La redirección
+automática (`redirect_auto`) se pausa mientras se está en esa vista.
+
+Decisión de diseño: «lista destacada, uno por uno» (no un formulario gigante con
+todo apilado — inviable si varios sub-eventos tienen preguntas propias).
 
 ### 4.4 · Ancho y alto del modal, editables
 
