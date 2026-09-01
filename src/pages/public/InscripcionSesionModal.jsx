@@ -25,7 +25,12 @@ import AceptarTerminos, { useLegalEvento } from '../../components/public/Aceptar
    se repite aquí.
    ────────────────────────────────────────────────────────────────── */
 
-export default function InscripcionSesionModal({ slug, sesion, preguntas = [], boleta = null, onClose, onInscrito }) {
+/* `onTerminar` (opcional): cuando esto se abre desde la confirmación de la
+   reserva —donde el siguiente paso natural es apuntarse a más actividades—, la
+   pantalla de «quedaste inscrito» ofrece dos salidas: volver a la lista o dar el
+   registro por terminado. Sin `onTerminar` (uso desde la agenda pública) hay un
+   solo botón, como siempre. */
+export default function InscripcionSesionModal({ slug, sesion, preguntas = [], boleta = null, onClose, onInscrito, onTerminar }) {
   const [conBoleta, setConBoleta] = useState(true);
   const [codigo, setCodigo] = useState(boleta?.codigo || '');
   /* Cuando ya sabemos la boleta —porque se llegó desde ella o porque hay
@@ -85,7 +90,14 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
           <p className="text-sm text-text-2 mb-6">
             Te apuntamos a «{sesion.titulo}». Si nos diste un correo, te llega la confirmación.
           </p>
-          <button onClick={onClose} className="btn-primary">Listo</button>
+          {onTerminar ? (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+              <button onClick={onClose} className="btn-ghost">Ver más actividades</button>
+              <button onClick={onTerminar} className="btn-primary">Terminar registro</button>
+            </div>
+          ) : (
+            <button onClick={onClose} className="btn-primary">Listo</button>
+          )}
         </div>
       </Fondo>,
       document.body,

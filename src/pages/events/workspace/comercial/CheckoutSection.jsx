@@ -38,6 +38,11 @@ const DEFECTO = {
      —ver ANCHO_MODAL / ALTO_MODAL en EventoPublicoPage.jsx—. */
   modal_ancho        : '',
   modal_alto         : '',
+  /* A dónde vuelve la persona para ver su boleta. '' = la página /mi-ticket de
+     GESTEK. Si el organizador pone una URL propia se usa esa; `{codigo}` dentro
+     de la URL se reemplaza por el código de la boleta. Lo pidió Festech: quieren
+     que lleve a su web. */
+  enlace_boleta      : '',
 };
 
 const ANCHOS = [
@@ -273,6 +278,14 @@ export default function CheckoutSection({ evento }) {
               <label className="label">Mensaje de confirmación</label>
               <textarea rows={2} className="input !h-auto resize-none" value={f.confirmacion_texto} onChange={e => set({ confirmacion_texto: e.target.value })}
                 placeholder="Muestra este QR en la entrada del evento. También puedes mostrar el código." />
+            </div>
+            <div>
+              <label className="label">Enlace para volver a ver la boleta <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <input className="input" value={f.enlace_boleta} onChange={e => set({ enlace_boleta: e.target.value })}
+                placeholder="https://tu-sitio.com/mi-entrada/{codigo}" />
+              <p className="text-xs text-text-3 mt-1">
+                Vacío: se usa la página de GESTEK. Con un enlace propio, la confirmación lleva ahí; escribe <code className="font-mono">{'{codigo}'}</code> donde quieras que vaya el código de la boleta.
+              </p>
             </div>
             {f.redirect_url && (
               <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">

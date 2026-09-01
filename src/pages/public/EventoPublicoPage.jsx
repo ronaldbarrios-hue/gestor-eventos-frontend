@@ -1136,6 +1136,14 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
   };
 
   const redirectUrl = checkout.redirect_url;
+  /* A dónde vuelve la persona para ver su boleta. Vacío → la página /mi-ticket de
+     GESTEK. Con enlace propio (Festech quiere el suyo) → ese, con `{codigo}`
+     reemplazado y abriéndose en pestaña nueva por ser externo. */
+  const enlacePropio = checkout.enlace_boleta?.trim();
+  const urlBoleta = enlacePropio
+    ? enlacePropio.replace('{codigo}', encodeURIComponent(ticket.codigo))
+    : `/mi-ticket/${ticket.codigo}`;
+  const textoBoleta = enlacePropio ? urlBoleta : enlaceBoleta(evento, ticket.codigo);
   useEffect(() => {
     /* Sin redirección automática mientras la persona está mirando los
        sub-eventos: sacarla de la pantalla a media inscripción sería peor que no
@@ -1226,13 +1234,10 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           <p className="font-mono text-xl font-bold text-text-1 tabular-nums tracking-widest">{ticket.codigo}</p>
         </div>
         <p className="text-xs text-text-3 mb-5">
-          Guarda este link para volver a verlo: <br/>
-          {/* El texto del enlace es el dominio de la empresa cuando está
-              configurado; el `href` se queda relativo para que, si el dominio
-              propio todavía no apunta a ningún sitio, el botón siga abriendo
-              la boleta desde donde la persona ya está navegando. */}
-          <a href={`/mi-ticket/${ticket.codigo}`} className="text-primary-light hover:underline break-all">
-            {enlaceBoleta(evento, ticket.codigo)}
+          {enlacePropio ? 'Vuelve a tu registro en:' : 'Guarda este link para volver a verlo:'} <br/>
+          <a href={urlBoleta} {...(enlacePropio ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
+            className="text-primary-light hover:underline break-all">
+            {textoBoleta}
           </a>
         </p>
         {pendientes.length > 0 && (
@@ -1301,6 +1306,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           preguntas={preguntas[inscribiendo.id] || []}
           boleta={{ codigo: ticket.codigo, nombre: ticket.asistente?.nombre }}
           onClose={() => setInscribiendo(null)}
+          onTerminar={() => { setInscribiendo(null); onClose(); }}
           onInscrito={(id) => {
             setInscritas(prev => new Set(prev).add(id));
             setSubeventos(prev => prev.map(x => x.id === id

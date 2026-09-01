@@ -374,20 +374,17 @@ mismos archivos: `public/widget.js`, `src/pages/public/EventoPublicoPage.jsx`
 (el checkout y `ModalShell`), `src/pages/events/workspace/PublicacionSection.jsx`
 (la config), `src/lib/enlacesPublicos.js`.
 
-### 4.1 · El enlace de «volver a verlo» tiene que ser configurable por la empresa
+### 4.1 · Enlace de «volver a verlo» configurable por la empresa — HECHO
 
-Hoy: `enlaceBoleta()` ya usa `branding.dominio` como **texto** del enlace, pero
-el `href` es relativo (`/mi-ticket/<codigo>`) y el dominio propio sólo funciona
-si apunta a GESTEK por CNAME. Lo que se pide es un paso más:
+Campo **«Enlace para volver a ver la boleta»** en *Proceso de compra →
+Confirmación post-compra* (`checkout.enlace_boleta`, sin migración). Vacío → la
+página `/mi-ticket` de GESTEK, como antes. Con URL propia → la confirmación lleva
+ahí (pestaña nueva); `{codigo}` en la URL se reemplaza por el código de la
+boleta. Festech quería que llevara a su web.
 
-- Un campo editable en la config del evento: **«enlace de la boleta»** / «a dónde
-  vuelve la persona». La empresa pone la URL que quiera —en el caso de Festech,
-  su propia página—.
-- Si lo deja vacío → se usa el `/mi-ticket/<codigo>` de GESTEK (comportamiento de
-  hoy). **Nunca redirigir a `gestekeventost.dpdns.org` cuando hay dominio/enlace
-  propio.**
-- Vale tanto para el texto «Guarda este link para volver a verlo» de la
-  confirmación como para el botón «Continuar →» (`redirectUrl`).
+El botón «Continuar →» sigue siendo `checkout.redirect_url` (ya existía) — son
+dos cosas distintas: uno es «vuelve a ver tu boleta», el otro es «sigue en
+nuestra web ahora».
 
 ### 4.2 · La página pública detecta si la persona ya está registrada
 
@@ -410,6 +407,12 @@ automática (`redirect_auto`) se pausa mientras se está en esa vista.
 
 Decisión de diseño: «lista destacada, uno por uno» (no un formulario gigante con
 todo apilado — inviable si varios sub-eventos tienen preguntas propias).
+
+Y tras enviar el formulario de un sub-evento (`InscripcionSesionModal`), la
+pantalla de «quedaste inscrito» ofrece **«Ver más actividades»** (vuelve a la
+lista) o **«Terminar registro»** (cierra todo). Sólo cuando se abre desde la
+confirmación — prop opcional `onTerminar`; desde la agenda pública sigue con un
+solo botón.
 
 ### 4.4 · Ancho y alto del modal, editables
 
@@ -469,10 +472,20 @@ zonas» / «sesiones en zona»). Lo que se pide:
 - En el panel: aprovechar que `agenda_sessions` ya tiene `zona_id` (migración
   0080) y que el aforo por zona ya existe (`aforo_zonas`, `aforo_zonas_resumen`
   en el backend).
+- **La zona llena "se prende en fuego":** cuando el aforo de una zona está al
+  100% (o casi), el círculo/marca de esa zona en el mapa muestra un efecto de
+  llamas — la señal visual de "aquí está la tendencia, esto está petado". Grados:
+  normal → caliente (>80%) → en fuego (100%). Se alimenta del mismo
+  `aforo_zonas_resumen` en vivo.
 
-Backend probablemente ya cubre gran parte (0079/0080 + `modules/aforo/`). El
-grueso es frontend: el editor de zonas del mapa y el panel de detalle por zona.
+Infra que ya existe (mapear antes de empezar):
+`src/pages/events/workspace/MapaSection.jsx` (editor del mapa),
+`src/components/aforo/MapaAforo.jsx`, `AccesosSection.jsx` (define las zonas),
+`agenda_sessions.zona_id`, `modules/aforo/` + `aforo_zonas_resumen`.
 Ver `db/migrations/0079_aforo_por_zonas.sql` y `0080_sesiones_en_zona.sql`.
+El grueso es frontend: el editor de horarios por zona y el panel de detalle.
+
+**Es su propia sesión** — demasiado para hacerlo bien al final de otra.
 
 ---
 
