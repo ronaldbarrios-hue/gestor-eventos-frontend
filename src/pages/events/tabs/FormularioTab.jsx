@@ -5,7 +5,7 @@ import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
-import { leerHoja, columnaAOpciones, FORMATOS_ACEPTADOS } from '../../../lib/hojaCalculo.js';
+import { leerHoja, columnaAOpciones, emparejarColumna, FORMATOS_ACEPTADOS } from '../../../lib/hojaCalculo.js';
 import { esBuscable } from '../../../components/ui/CampoFormulario.jsx';
 import { descargarPlantilla, leerPlantilla, HOJA_DATOS } from '../../../lib/plantillaFormulario.js';
 import { posiblesAntecedentes, valoresDe, OPERADORES_CONDICION } from '../../../lib/camposCondicionales.js';
@@ -957,6 +957,24 @@ function CondicionEditor({ campo, campos, onChange }) {
    · Se avisa de las columnas que ninguna pregunta recoge. Es la mitad útil de
      todo esto: subir un archivo con «Empresa» cuando el formulario no pregunta
      la empresa no sirve de nada, y sin el aviso no hay forma de enterarse. */
+/* Mismos alias que reconoce el backend (lib/padronPrevio.js del backend),
+   para poder avisar del problema ANTES de subir el archivo. */
+const SINONIMOS_DOCUMENTO = ['documento', 'cedula', 'identificacion', 'nit', 'dni', 'numero documento', 'no documento', 'id number'];
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* Si la columna del documento trae sobre todo UUIDs (exportaciones de otro
+   sistema que anonimizan al asistente), el padrón nunca va a encontrar a
+   nadie por cédula: mejor decirlo aquí que dejar que cada asistente real
+   "no aparezca" uno por uno sin explicación. */
+function columnaDocumentoConUUIDs(columnas, filas) {
+  const col = emparejarColumna(columnas, SINONIMOS_DOCUMENTO);
+  if (!col) return null;
+  const valores = filas.map(f => f[col]).filter(v => v !== '' && v != null);
+  if (!valores.length) return null;
+  const conUUID = valores.filter(v => RE_UUID.test(String(v).trim())).length;
+  return conUUID / valores.length > 0.5 ? col : null;
+}
+
 function PadronPrevio({ evento, campos }) {
   const { success, error: toastErr } = useToast();
   const [estado, setEstado]   = useState(null);
@@ -976,6 +994,12 @@ function PadronPrevio({ evento, campos }) {
       /* `__fila` es del lector, no del padrón: se quita para no guardar un
          número de fila de un archivo que nadie va a volver a abrir. */
       const filas = hoja.filas.map(({ __fila, ...resto }) => resto);
+
+      const colUUID = columnaDocumentoConUUIDs(hoja.columnas, filas);
+      if (colUUID) {
+        throw new Error(`La columna «${colUUID}» trae códigos (UUID), no números de documento. Este archivo no va a poder identificar a nadie por cédula — expórtalo de nuevo con el documento real.`);
+      }
+
       const r = await eventosApi.subirPadron(evento.id, filas, file.name);
       setInforme(r);
       setEstado(e => ({ ...(e || {}), filas: r.guardadas, disponible: true }));
