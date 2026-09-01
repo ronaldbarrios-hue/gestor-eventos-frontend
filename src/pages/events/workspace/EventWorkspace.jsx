@@ -94,13 +94,15 @@ const SECCIONES = [
     { id: 'torneos',    label: 'Torneos',           perm: ['gestionar_torneo'] },
     { id: 'networking', label: 'Rueda de negocios', perm: null },
     { id: 'mapa',       label: 'Mapa del evento',   perm: 'editar_evento' },
-    /* El aforo y los stands son del ESPACIO: una zona con su cupo y un stand
-       con su sitio son DÓNDE pasan las cosas, no quién asiste. Estaban en
-       Asistentes —que es de personas— y por eso había que salir del mapa para
-       tocar la zona que se estaba mirando.
-       El aforo lo opera quien está en la puerta, no sólo el dueño: por eso va
-       con el permiso de check-in. Limpiar el contador sí queda reservado al
-       owner, y eso lo decide el backend. */
+    /* Las puertas, el aforo y los stands son del ESPACIO: por dónde se entra,
+       una zona con su cupo y un stand con su sitio son DÓNDE pasan las cosas,
+       no quién asiste. Estaban en Asistentes —que es de personas— y por eso
+       había que salir del mapa para tocar la zona que se estaba mirando.
+       «Accesos e ingresos» define las puertas y las zonas; el aforo se OPERA
+       aparte. El aforo lo opera quien está en la puerta, no sólo el dueño: por
+       eso va con el permiso de check-in. Limpiar el contador sí queda
+       reservado al owner, y eso lo decide el backend. */
+    { id: 'accesos',    label: 'Accesos e ingresos', perm: '__solo_owner__' },
     { id: 'aforo',      label: 'Aforo por zonas',   perm: 'checkin' },
     { id: 'stands',     label: 'Stands',            perm: 'checkin' },
     { id: 'ranking',    label: 'Ranking',           perm: null },
@@ -127,7 +129,8 @@ const SECCIONES = [
        reingreso, sub-evento, puntos y canje—, y llamarlo por la primera de
        las cinco cosas mandaba a buscar las otras cuatro a otra pantalla. */
     { id: 'checkin',      label: 'Escanear',        perm: 'checkin' },
-    { id: 'accesos',      label: 'Accesos e ingresos', perm: '__solo_owner__' },
+    /* «Accesos e ingresos» se fue a Espacio del evento: define puertas y zonas
+       del recinto, que es DÓNDE se entra, no quién. Ver REUBICADAS. */
     { id: 'waitlist',     label: 'Lista de espera', perm: '__solo_owner__' },
     { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes' },
     { id: 'credenciales', label: 'Credenciales',    perm: 'checkin' },
@@ -180,10 +183,11 @@ export default function EventWorkspace() {
     'dinamicas/mapa'       : ['espacio', 'mapa'],
     'organizacion/agenda'  : ['espacio', 'calendario'],
     'organizacion/ranking' : ['espacio', 'ranking'],
-    /* El aforo y los stands se fueron a Espacio del evento. Un enlace guardado
-       o un correo antiguo seguirían apuntando aquí. */
+    /* El aforo, los stands y los accesos se fueron a Espacio del evento. Un
+       enlace guardado o un correo antiguo seguirían apuntando aquí. */
     'asistentes/aforo'     : ['espacio', 'aforo'],
     'asistentes/stands'    : ['espacio', 'stands'],
+    'asistentes/accesos'   : ['espacio', 'accesos'],
   };
   const sBruto = searchParams.get('s') || 'resumen';
   const tBruto = searchParams.get('t') || '';
@@ -419,6 +423,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'espacio/torneos'          : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
     case 'espacio/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
     case 'espacio/mapa'             : return <MapaSection evento={evento} />;
+    case 'espacio/accesos'          : return <AccesosSection evento={evento} />;
     case 'espacio/ranking'          : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
@@ -427,7 +432,6 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
-    case 'asistentes/accesos'       : return <AccesosSection evento={evento} />;
     case 'espacio/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
     case 'espacio/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
