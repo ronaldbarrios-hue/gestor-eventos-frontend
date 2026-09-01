@@ -386,14 +386,16 @@ El botón «Continuar →» sigue siendo `checkout.redirect_url` (ya existía) �
 dos cosas distintas: uno es «vuelve a ver tu boleta», el otro es «sigue en
 nuestra web ahora».
 
-### 4.2 · La página pública detecta si la persona ya está registrada
+### 4.2 · La página pública detecta si la persona ya está registrada — HECHO
 
-- Que la landing pública del evento reconozca a quien **ya tiene boleta** (por
-  código guardado en `localStorage`, o pidiendo el código/correo) y le ofrezca,
-  en vez de un registro nuevo: **ver su boleta otra vez** y **apuntarse a
-  sub-eventos**.
-- Hoy esto sólo pasa dentro del modal de confirmación, justo después de comprar;
-  quien vuelve al día siguiente no tiene camino.
+`src/components/public/BoletaConocida.jsx`, arriba del contenido en
+`EventoPublicoPage`. Al confirmar la reserva se guarda el código en
+`localStorage` (`gestek-boleta:<slug>`, por navegador y evento). Al volver, la
+página lo verifica contra `ticketByCode` y muestra una tarjeta: **«Ya tienes tu
+boleta»** con **Ver mi boleta** (`/mi-ticket/<codigo>`) y **Ver actividades**
+(`/explorar/<slug>/agenda?boleta=<codigo>` — `AgendaPublicaPage` ya acepta ese
+parámetro). Sin código guardado, una línea discreta «¿Ya te registraste?» que se
+abre a un campo para escribirlo. Un código que ya no vale se olvida en silencio.
 
 ### 4.3 · Sub-eventos como paso final del registro — HECHO
 
