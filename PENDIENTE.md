@@ -364,3 +364,69 @@ se rompe. En este orden, porque cada paso depende del anterior:
 10. Invitar a un colaborador. Aceptar desde su cuenta. Ver si tiene tareas.
 
 El paso 3 va a fallar hoy. Es el que arreglamos primero.
+
+---
+
+## 4 · Pedido del 1 de septiembre — registro embebido y modal
+
+Cuatro cosas, tras probar el embed en `festech.co`. Van juntas porque tocan los
+mismos archivos: `public/widget.js`, `src/pages/public/EventoPublicoPage.jsx`
+(el checkout y `ModalShell`), `src/pages/events/workspace/PublicacionSection.jsx`
+(la config), `src/lib/enlacesPublicos.js`.
+
+### 4.1 · El enlace de «volver a verlo» tiene que ser configurable por la empresa
+
+Hoy: `enlaceBoleta()` ya usa `branding.dominio` como **texto** del enlace, pero
+el `href` es relativo (`/mi-ticket/<codigo>`) y el dominio propio sólo funciona
+si apunta a GESTEK por CNAME. Lo que se pide es un paso más:
+
+- Un campo editable en la config del evento: **«enlace de la boleta»** / «a dónde
+  vuelve la persona». La empresa pone la URL que quiera —en el caso de Festech,
+  su propia página—.
+- Si lo deja vacío → se usa el `/mi-ticket/<codigo>` de GESTEK (comportamiento de
+  hoy). **Nunca redirigir a `gestekeventost.dpdns.org` cuando hay dominio/enlace
+  propio.**
+- Vale tanto para el texto «Guarda este link para volver a verlo» de la
+  confirmación como para el botón «Continuar →» (`redirectUrl`).
+
+### 4.2 · La página pública detecta si la persona ya está registrada
+
+- Que la landing pública del evento reconozca a quien **ya tiene boleta** (por
+  código guardado en `localStorage`, o pidiendo el código/correo) y le ofrezca,
+  en vez de un registro nuevo: **ver su boleta otra vez** y **apuntarse a
+  sub-eventos**.
+- Hoy esto sólo pasa dentro del modal de confirmación, justo después de comprar;
+  quien vuelve al día siguiente no tiene camino.
+
+### 4.3 · Sub-eventos como paso final del registro, no como tarjeta lateral
+
+- Hoy: al confirmar, aparece la tarjeta «FALTA UN PASO» con botones «Apuntarme»
+  (`EventoPublicoPage.jsx:1134`, abre `InscripcionSesionModal`).
+- Pedido: cuando el evento tiene sub-eventos con inscripción, el botón **«Listo»
+  pasa a decir «Ver sub-eventos»** y lleva a una pantalla donde la persona se
+  apunta a varios **de una vez**, con la boleta recién sacada como identidad
+  (ya no pide nombre/correo otra vez — eso ya lo hace `InscripcionSesionModal`).
+
+### 4.4 · Ancho y alto del modal, editables
+
+- `ModalShell` (`EventoPublicoPage.jsx:1234`) ya acepta un parámetro `ancho`
+  (`sm:max-w-md` por defecto) y tiene `max-h-[90vh] overflow-y-auto`.
+- Pedido: exponer **ancho y alto** en `PublicacionSection.jsx` para que la
+  empresa los ajuste. Al exportar/incrustar se ve estrecho, con mucho scroll y
+  poco margen.
+
+### 4.5 · Otra forma de incrustar, que no parezca software externo
+
+- Hoy el registro se incrusta por **iframe** (`public/widget.js` + iframe sobre
+  la web del cliente). Se ve rígido y «de fuera».
+- Pedido: que se integre y **parezca propio** de la página que lo usa. Opciones a
+  evaluar: Web Component / custom element que herede tipografía y colores del
+  sitio anfitrión; SDK JS que monte el formulario inline en un `<div>` del
+  cliente; o, como mínimo, iframe con auto-resize (sin scroll interno) y tema
+  heredado por parámetros.
+- Aviso que no se pierde: **el pago no puede ir dentro del iframe** (las
+  pasarelas redirigen a su dominio y 3-D Secure no corre embebido). El
+  *formulario* sí; el pago abre pestaña.
+
+**Prioridad sugerida:** 4.1 y 4.4 son rápidas y desbloquean la demo de Festech.
+4.3 es media. 4.2 y 4.5 son las grandes.
