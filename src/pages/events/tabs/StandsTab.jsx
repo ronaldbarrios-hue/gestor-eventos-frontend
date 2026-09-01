@@ -109,7 +109,7 @@ function StandsEditor({ evento, soyOwner }) {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  /* Las zonas del plano, para poder ubicar el stand (0087). Mismo filtro que
+  /* Las zonas del plano, para poder ubicar el stand (0088). Mismo filtro que
      el formulario de sub-eventos: una zona a medio crear no se ofrece. */
   const zonasEvento = useMemo(
     () => (evento?.page_json?.zonas || []).filter(z => z?.id && String(z.nombre || '').trim()),
