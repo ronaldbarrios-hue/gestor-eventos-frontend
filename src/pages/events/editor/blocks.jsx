@@ -1402,6 +1402,13 @@ function MapaEventoPreview({ data, evento }) {
                 <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
               </div>
               {sel.data.descripcion && <p className="text-sm text-text-2 mt-3 leading-relaxed">{sel.data.descripcion}</p>}
+              {Array.isArray(sel.data.galeria) && sel.data.galeria.length > 0 && (
+                <div className="flex gap-2 mt-3">
+                  {sel.data.galeria.slice(0, 3).map((url, i) => (
+                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-lg object-cover" />
+                  ))}
+                </div>
+              )}
               {Array.isArray(sel.data.franjas) && sel.data.franjas.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border space-y-1">
                   <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">En el cronograma</p>
@@ -1534,8 +1541,8 @@ function ExpositoresPreview({ data, evento }) {
             <div key={x.id} className="rounded-2xl border border-border bg-surface/40 p-4">
               <div className="flex items-start gap-3">
                 {x.logo_url
-                  ? <img src={x.logo_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
-                  : <div className="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-lg font-bold text-text-3 flex-shrink-0">{(x.nombre || '?')[0]}</div>}
+                  ? <img src={x.logo_url} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                  : <div className="w-16 h-16 rounded-xl bg-surface-2 flex items-center justify-center text-xl font-bold text-text-3 flex-shrink-0">{(x.nombre || '?')[0]}</div>}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text-1 truncate">{x.nombre}</p>
                   {x.categoria_negocio && <p className="text-[11px] text-text-3">{x.categoria_negocio}</p>}
@@ -1543,6 +1550,13 @@ function ExpositoresPreview({ data, evento }) {
                 </div>
               </div>
               {x.descripcion && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{x.descripcion}</p>}
+              {Array.isArray(x.galeria) && x.galeria.length > 0 && (
+                <div className="flex gap-1.5 mt-2">
+                  {x.galeria.slice(0, 3).map((url, i) => (
+                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-md object-cover" />
+                  ))}
+                </div>
+              )}
               {Array.isArray(x.franjas) && x.franjas.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border space-y-1">
                   {x.franjas.slice(0, 4).map(fr => (

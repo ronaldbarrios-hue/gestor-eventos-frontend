@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Icono from '../../../components/ui/Iconos.jsx';
 import { leerQr } from '../../../lib/qrEscaneado.js';
 import { interaccionesApi } from '../../../api/interacciones.js';
@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
+import GalleryUploader from '../../../components/ui/GalleryUploader.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 
@@ -109,6 +110,14 @@ function StandsEditor({ evento, soyOwner }) {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  /* Las zonas del plano, para poder ubicar el stand (0088). Mismo filtro que
+     el formulario de sub-eventos: una zona a medio crear no se ofrece. */
+  const zonasEvento = useMemo(
+    () => (evento?.page_json?.zonas || []).filter(z => z?.id && String(z.nombre || '').trim()),
+    [evento?.page_json?.zonas],
+  );
+  const porUbicar = useMemo(() => stands.filter(s => !s.zona_id).length, [stands]);
+
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
@@ -120,8 +129,8 @@ function StandsEditor({ evento, soyOwner }) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const abrirNuevo   = () => { setEditando('nuevo'); setForm({ nombre: '', stand: '', descripcion: '', logo_url: '', sitio_web: '' }); };
-  const abrirEdicion = (s) => { setEditando(s.id); setForm({ nombre: s.nombre || '', stand: s.stand || '', descripcion: s.descripcion || '', logo_url: s.logo_url || '', sitio_web: s.sitio_web || '' }); };
+  const abrirNuevo   = () => { setEditando('nuevo'); setForm({ nombre: '', stand: '', zona_id: '', descripcion: '', logo_url: '', sitio_web: '', galeria: [] }); };
+  const abrirEdicion = (s) => { setEditando(s.id); setForm({ nombre: s.nombre || '', stand: s.stand || '', zona_id: s.zona_id || '', descripcion: s.descripcion || '', logo_url: s.logo_url || '', sitio_web: s.sitio_web || '', galeria: s.galeria || [] }); };
   const cerrar       = () => { setEditando(null); setForm(null); };
   const set          = (patch) => setForm(f => ({ ...f, ...patch }));
 
@@ -165,6 +174,19 @@ function StandsEditor({ evento, soyOwner }) {
         )}
       </div>
 
+      {/* La zona de cada stand no se pudo deducir de lo que ya había: "A-12" es
+          una etiqueta, no un sitio, y adivinar habría mandado al visitante a
+          caminar hasta la zona equivocada. Así que se asigna a mano, y esto
+          convierte ese trabajo en algo visible y con final en vez de un dato
+          que falta sin que nadie se entere. */}
+      {zonasEvento.length > 0 && porUbicar > 0 && (
+        <p className="rounded-2xl border border-border bg-surface/40 px-4 py-3 text-xs text-text-3">
+          <strong className="text-text-2">{porUbicar}</strong>{' '}
+          {porUbicar === 1 ? 'stand no tiene zona asignada' : 'stands no tienen zona asignada'} en el plano.
+          Sin ella no aparecen al tocar su zona en el mapa del evento.
+        </p>
+      )}
+
       {/* Formulario de alta/edición */}
       {editando !== null && form && (
         <div className="rounded-3xl border-2 border-primary/30 bg-primary/5 p-5 space-y-4">
@@ -179,11 +201,31 @@ function StandsEditor({ evento, soyOwner }) {
                 className="input rounded-xl py-2.5 text-sm" placeholder="Ej. Nintendo, Café del Valle" autoFocus />
             </div>
             <div className="field">
-              <label className="label text-xs">Stand / ubicación</label>
+              <label className="label text-xs">Stand</label>
               <input value={form.stand} onChange={e => set({ stand: e.target.value })}
                 className="input rounded-xl py-2.5 text-sm" placeholder="Ej. A-12" />
             </div>
           </div>
+          {zonasEvento.length > 0 && (
+            <div className="field">
+              <label className="label text-xs">Zona del plano <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              {/* A diferencia del formulario de sub-eventos, elegir zona NO
+                  rellena el campo de arriba: "A-12" es la etiqueta del puesto
+                  y "Zona Gamer" es dónde está. Son dos datos distintos, y
+                  copiarlos el uno sobre el otro es justo lo que hacía que no
+                  se pudiera contestar qué stands hay en una zona. */}
+              <select value={form.zona_id} onChange={e => set({ zona_id: e.target.value })}
+                className="input rounded-xl py-2.5 text-sm">
+                <option value="">Sin ubicar</option>
+                {zonasEvento.map(z => (
+                  <option key={z.id} value={z.id}>{z.nombre}{z.aforo_max ? ` (aforo ${z.aforo_max})` : ''}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-text-3 mt-1">
+                Al tocar esa zona en el plano, este stand aparece entre los que están montados ahí.
+              </p>
+            </div>
+          )}
           <div className="field">
             <label className="label text-xs">Descripción</label>
             <textarea value={form.descripcion} onChange={e => set({ descripcion: e.target.value })}
@@ -200,6 +242,8 @@ function StandsEditor({ evento, soyOwner }) {
                 className="input rounded-xl py-2.5 text-sm" placeholder="https://…" />
             </div>
           </div>
+          <GalleryUploader value={form.galeria} onChange={(galeria) => set({ galeria })} ownerId={evento.id}
+            maxItems={3} label="Fotos del stand" />
           <div className="flex justify-end gap-2">
             <button onClick={cerrar} className="btn-ghost btn-sm">Cancelar</button>
             <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">
@@ -529,8 +573,8 @@ function TarjetaStand({ s, evento, onEditar, onBorrar }) {
     <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3 group">
       <div className="flex items-start gap-3">
         {s.logo_url
-          ? <img src={s.logo_url} alt="" className="w-14 h-14 rounded-xl object-cover border border-border flex-shrink-0" />
-          : <div className="w-14 h-14 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-lg font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
+          ? <img src={s.logo_url} alt="" className="w-20 h-20 rounded-xl object-cover border border-border flex-shrink-0" />
+          : <div className="w-20 h-20 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-2xl font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-text-1 truncate">{s.nombre}</p>
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -542,6 +586,13 @@ function TarjetaStand({ s, evento, onEditar, onBorrar }) {
               : marcadores.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-2 text-text-3">Sin ubicar</span>}
           </div>
           {s.descripcion && <p className="text-xs text-text-3 mt-1.5 line-clamp-2">{s.descripcion}</p>}
+          {s.galeria?.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              {s.galeria.slice(0, 3).map((url, i) => (
+                <img key={i} src={url} alt="" className="w-8 h-8 rounded-md object-cover border border-border" />
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <button onClick={onEditar} title="Editar"

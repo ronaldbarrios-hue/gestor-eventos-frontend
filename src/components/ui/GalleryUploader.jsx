@@ -7,12 +7,13 @@ import { uploadEventImage } from './CoverUploader.jsx';
    onChange(urls): recibe el nuevo arreglo
    Permite agregar, quitar, reordenar y elegir cover/principal (con corona). */
 
-const MAX_ITEMS = 8;
+const MAX_ITEMS_DEFAULT = 8;
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPTED  = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-export default function GalleryUploader({ value = [], onChange, ownerId, label = 'Galería de imágenes' }) {
+export default function GalleryUploader({ value = [], onChange, ownerId, label = 'Galería de imágenes', maxItems = MAX_ITEMS_DEFAULT }) {
   const urls = Array.isArray(value) ? value : [];
+  const MAX_ITEMS = maxItems;
   const fileInput = useRef(null);
   const { error: toastError } = useToast();
   const [uploading, setUploading] = useState(false);
