@@ -11,6 +11,7 @@ export const clientesApi = {
   /* Pone el contador a cero sin borrar el histórico (escribe un corte). */
   limpiarAforo : (eventoId, body = {})           => client.post(`/eventos/${eventoId}/zonas/limpiar`, body).then(r => r.data),
   reporteZonas : (eventoId, params = {})         => client.get(`/eventos/${eventoId}/zonas/reporte`, { params }).then(r => r.data),
+  reporteManual: (eventoId, body)                => client.post(`/eventos/${eventoId}/zonas/reporte-manual`, body).then(r => r.data),
   /* El estado en vivo de todo lo que hay puesto en el plano: aforo de las
      zonas, ingresos por cada puerta e inscripción de cada sub-evento. */
   mapaVivo     : (eventoId)                      => client.get(`/eventos/${eventoId}/mapa/vivo`).then(r => r.data),

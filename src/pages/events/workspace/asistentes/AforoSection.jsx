@@ -6,6 +6,7 @@ import GLoader from '../../../../components/ui/GLoader.jsx';
 import MapaAforo, { nivelDeZona, DetalleMarcador, calorDeZona, estaEnLlamas, IconoLlama } from '../../../../components/aforo/MapaAforo.jsx';
 import { exportar } from '../../../../lib/hojaEscribir.js';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
+import FormPhotoUploader from '../../../../components/ui/FormPhotoUploader.jsx';
 
 /* Asistentes · Aforo por zonas — la sala de control del recinto.
  *
@@ -43,6 +44,7 @@ export default function AforoSection({ evento, soyOwner = true }) {
   const [enVivo, setEnVivo] = useState(true);
   const [ultimo, setUltimo] = useState(null);
   const [ocupado, setOcupado] = useState(false);
+  const [reportando, setReportando] = useState(null); // zona sobre la que se está tomando un reporte manual
   const vivoRef = useRef(true);
 
   const mapa = evento.page_json?.mapa || null;
@@ -186,7 +188,8 @@ export default function AforoSection({ evento, soyOwner = true }) {
                     <div className="col-span-2 pt-2 border-t border-border">
                       <Controles z={zonaSel} ocupado={ocupado}
                         onMover={(tipo, n) => mover(zonaSel, tipo, n)}
-                        onLimpiar={soyOwner ? () => limpiar(zonaSel) : null} />
+                        onLimpiar={soyOwner ? () => limpiar(zonaSel) : null}
+                        onReportar={() => setReportando(zonaSel)} />
                     </div>
                   )}
                 </DetalleMarcador>
@@ -207,12 +210,18 @@ export default function AforoSection({ evento, soyOwner = true }) {
               <TarjetaZona key={z.id} z={z} activa={zonaSel?.id === z.id} ocupado={ocupado}
                 onSelect={() => setSel(sel === `zona:${z.id}` ? null : `zona:${z.id}`)}
                 onMover={(tipo, n) => mover(z, tipo, n)}
-                onLimpiar={soyOwner ? () => limpiar(z) : null} />
+                onLimpiar={soyOwner ? () => limpiar(z) : null}
+                onReportar={() => setReportando(z)} />
             ))}
           </div>
         </>
       ) : (
         <Reporte evento={evento} zonas={zonas} />
+      )}
+
+      {reportando && (
+        <TomarReporteModal evento={evento} zona={reportando} onCerrar={() => setReportando(null)}
+          onListo={() => { setReportando(null); success('Reporte guardado.'); }} />
       )}
     </div>
   );
@@ -287,7 +296,7 @@ function Totales({ total, zonas, ultimo }) {
 }
 
 /* ── Una zona: el número grande y los botones para moverlo ── */
-function TarjetaZona({ z, activa, ocupado, onSelect, onMover, onLimpiar }) {
+function TarjetaZona({ z, activa, ocupado, onSelect, onMover, onLimpiar, onReportar }) {
   const nivel = nivelDeZona(z);
   const pct = z.aforo_max ? Math.min(100, Math.round((z.dentro / z.aforo_max) * 100)) : null;
 
@@ -315,14 +324,14 @@ function TarjetaZona({ z, activa, ocupado, onSelect, onMover, onLimpiar }) {
         </div>
       </button>
 
-      <Controles z={z} ocupado={ocupado} onMover={onMover} onLimpiar={onLimpiar} />
+      <Controles z={z} ocupado={ocupado} onMover={onMover} onLimpiar={onLimpiar} onReportar={onReportar} />
     </div>
   );
 }
 
 /* Los botones de marcar gente. Viven aparte porque se usan en dos sitios: la
    tarjeta de la zona y la ficha que abre el plano al hacer clic. */
-function Controles({ z, ocupado, onMover, onLimpiar }) {
+function Controles({ z, ocupado, onMover, onLimpiar, onReportar }) {
   const [lote, setLote] = useState(1);
   return (
     <div className="space-y-3">
@@ -340,14 +349,68 @@ function Controles({ z, ocupado, onMover, onLimpiar }) {
         </button>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[11px] text-text-3">
           {z.ultima_at ? `Último movimiento ${hora(z.ultima_at)}` : 'Sin movimientos'}
           {z.corte_at ? ` · limpiada ${hora(z.corte_at)}` : ''}
         </p>
-        {onLimpiar && (
-          <button onClick={onLimpiar} className="text-[11px] text-text-3 hover:text-danger transition-colors">Limpiar</button>
-        )}
+        <div className="flex items-center gap-3">
+          {onReportar && (
+            <button onClick={onReportar} className="text-[11px] text-text-3 hover:text-text-1 transition-colors">Tomar reporte</button>
+          )}
+          {onLimpiar && (
+            <button onClick={onLimpiar} className="text-[11px] text-text-3 hover:text-danger transition-colors">Limpiar</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Tomar reporte: una foto de evidencia + una nota, sin poner nada en cero.
+   A diferencia de "Limpiar", esto no toca el contador — sólo queda en el
+   histórico con la ocupación de ese instante. Sin límite de cuántos se
+   pueden tomar en el día. */
+function TomarReporteModal({ evento, zona, onCerrar, onListo }) {
+  const { error } = useToast();
+  const [foto, setFoto] = useState('');
+  const [nota, setNota] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const enviar = async () => {
+    if (!foto) { error('El reporte necesita una foto de evidencia.'); return; }
+    setEnviando(true);
+    try {
+      await clientesApi.reporteManual(evento.id, { zona_id: zona.id, foto_url: foto, nota: nota.trim() || undefined });
+      onListo();
+    } catch (e) { error(e.response?.data?.error || e.message); }
+    finally { setEnviando(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={onCerrar}>
+      <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        <div>
+          <h3 className="text-base font-semibold text-text-1">Tomar reporte · {zona.nombre}</h3>
+          <p className="text-xs text-text-3 mt-1">
+            Queda en el histórico con la ocupación de ahora ({zona.dentro}{zona.aforo_max ? ` / ${zona.aforo_max}` : ''}). No pone el contador en cero.
+          </p>
+        </div>
+
+        <FormPhotoUploader value={foto} onChange={setFoto} eventoId={evento.id} campoId="reporte-aforo" />
+
+        <div>
+          <label className="label text-xs">Nota <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+          <textarea value={nota} onChange={e => setNota(e.target.value)} rows={2} maxLength={500}
+            placeholder="Ej. Cola larga en la entrada, se abrió la puerta lateral…" className="input w-full text-sm" />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={onCerrar} className="btn-ghost btn-sm">Cancelar</button>
+          <button onClick={enviar} disabled={enviando || !foto} className="btn-primary btn-sm">
+            {enviando ? 'Guardando…' : 'Guardar reporte'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -373,11 +436,11 @@ function Reporte({ evento, zonas }) {
       ['Aforo por zonas', evento.titulo || ''],
       ['Generado', new Date().toLocaleString('es-CO')],
       [],
-      ['Zona', 'Aforo máx', 'Dentro ahora', 'Excedido', 'Entradas', 'Salidas', 'Personas distintas', 'Conteo manual', 'Pico simultáneo', 'Hora del pico', '% del aforo en el pico', 'Estancia media (min)', 'Primer movimiento', 'Último movimiento'],
+      ['Zona', 'Aforo máx', 'Dentro ahora', 'Excedido', 'Entradas', 'Salidas', 'Personas distintas', 'Conteo manual', 'Pico simultáneo', 'Hora del pico', '% del aforo en el pico', 'Estancia media (min)', 'Estancia máxima (min)', 'Primer movimiento', 'Último movimiento'],
       ...(datos?.zonas || []).map(z => [
         z.nombre, z.aforo_max ?? '', z.dentro, z.excedido, z.entradas, z.salidas, z.personas, z.manuales,
         z.pico, z.pico_at ? fechaHora(z.pico_at) : '', z.pico_pct ?? '',
-        z.estancia_min ?? '', z.primera_at ? fechaHora(z.primera_at) : '', z.ultima_at ? fechaHora(z.ultima_at) : '',
+        z.estancia_min ?? '', z.estancia_max ?? '', z.primera_at ? fechaHora(z.primera_at) : '', z.ultima_at ? fechaHora(z.ultima_at) : '',
       ]),
       [],
       [`Curva de ocupación (franjas de ${datos?.intervalo || intervalo} min)`],
@@ -417,7 +480,8 @@ function Reporte({ evento, zonas }) {
 
       <p className="text-[11px] text-text-3">
         «Personas distintas» cuenta boletas, no cabezas: el conteo manual no lleva boleta y por eso va aparte.
-        La estancia media sale de emparejar cada entrada con su salida ({zs.reduce((s, z) => s + (z.estancia_tramos || 0), 0)} tramos medidos en total).
+        La estancia sale de emparejar cada entrada con su salida ({zs.reduce((s, z) => s + (z.estancia_tramos || 0), 0)} tramos medidos en total);
+        la máxima da contexto a la media — 12 min de media puede ser que todos se quedan poco, o que la mayoría entra y sale y unos pocos se quedan una hora.
       </p>
     </div>
   );
@@ -431,6 +495,7 @@ function FichaReporte({ z, intervalo }) {
     ['Personas distintas', z.personas],
     ['Conteo manual', z.manuales],
     ['Estancia media', z.estancia_min != null ? `${z.estancia_min} min` : '—'],
+    ['Estancia máxima', z.estancia_max != null ? `${z.estancia_max} min` : '—'],
     ['Actividad', z.primera_at ? `${hora(z.primera_at)} → ${hora(z.ultima_at)}` : '—'],
   ];
   return (

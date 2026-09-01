@@ -36,7 +36,6 @@ import { useSondeo } from '../../../hooks/useSondeo.js';
 const COLORES_PUNTO = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#0EA5E9', '#64748B'];
 
 function uid() { return 'm_' + Math.random().toString(36).slice(2, 9); }
-function zid() { return 'z_' + Math.random().toString(36).slice(2, 9); }
 
 /* Migra marcadores viejos (emoji/sin tipo) al modelo nuevo. */
 function normMarcadores(arr) {
@@ -108,13 +107,6 @@ export default function MapaSection({ evento }) {
   const sinAcceso = accesos.filter(a => !colocAcc.has(a.id));
   const sel = marcadores.find(m => m._k === selK) || null;
 
-  const crearZona = ({ nombre, aforo_max }) => {
-    const z = { id: zid(), nombre: nombre.trim(), aforo_max: Number(aforo_max) || null };
-    setZonas(l => [...l, z]);
-    setZonasTocadas(true);
-    agregar({ tipo: 'zona', zona_id: z.id, color: '#0EA5E9' });
-    return z;
-  };
   const editarZona = (id, patch) => {
     setZonas(l => l.map(z => z.id === id ? { ...z, ...patch } : z));
     setZonasTocadas(true);
@@ -232,7 +224,7 @@ export default function MapaSection({ evento }) {
           ) : (
             <Paleta pestana={pestana} setPestana={setPestana}
               expositores={expositores} sinExpo={sinExpo} sinSes={sinSes} sinZona={sinZona} sinAcceso={sinAcceso}
-              onAgregar={agregar} onCrearZona={crearZona} />
+              onAgregar={agregar} />
           )}
         </div>
       </div>
@@ -445,22 +437,14 @@ function EditorMarcador({ sel, expo, ses, zona, aforo, acceso, onChange, onZona,
 }
 
 /* ── Paleta para agregar marcadores ── */
-function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, sinZona, sinAcceso = [], onAgregar, onCrearZona }) {
+function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, sinZona, sinAcceso = [], onAgregar }) {
   const [codigo, setCodigo] = useState('');
   const [nombre, setNombre] = useState('');
   const [color, setColor] = useState(COLORES_PUNTO[0]);
-  const [zNombre, setZNombre] = useState('');
-  const [zAforo, setZAforo] = useState('');
 
   const crearPunto = () => {
     onAgregar({ tipo: 'punto', codigo: (codigo || 'P').toUpperCase().slice(0, 4), nombre: nombre.trim(), color });
     setCodigo(''); setNombre('');
-  };
-
-  const crearZona = () => {
-    if (!zNombre.trim()) return;
-    onCrearZona({ nombre: zNombre, aforo_max: zAforo });
-    setZNombre(''); setZAforo('');
   };
 
   return (
@@ -513,7 +497,15 @@ function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, sinZona, si
             <p className="text-[11px] text-text-3">
               Zonas de aforo: el marcador muestra cuánta gente hay dentro, en vivo. Las mismas de Accesos e ingresos.
             </p>
-            {sinZona.length > 0 && (
+            {/* Las zonas se crean en Espacio del evento → Accesos e ingresos, y
+               sólo ahí: tener el alta también aquí eran dos formularios para la
+               misma cosa, y uno de los dos siempre quedaba desactualizado. Este
+               mapa sólo coloca zonas que ya existen — mismo trato que Puertas. */}
+            {sinZona.length === 0 ? (
+              <p className="text-xs text-text-3 px-1">
+                No hay zonas por colocar. Se crean en <b>Espacio del evento → Accesos e ingresos</b>.
+              </p>
+            ) : (
               <div className="space-y-1.5">
                 {sinZona.map(z => (
                   <PaletaItem key={z.id} onClick={() => onAgregar({ tipo: 'zona', zona_id: z.id, color: '#0EA5E9' })}
@@ -521,12 +513,6 @@ function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, sinZona, si
                 ))}
               </div>
             )}
-            <div className="pt-2 border-t border-border space-y-2">
-              <p className="text-[11px] text-text-3">{sinZona.length === 0 ? 'Todas las zonas están en el plano. Crea una nueva:' : 'O crea una nueva:'}</p>
-              <input value={zNombre} onChange={e => setZNombre(e.target.value)} placeholder="Nombre de la zona" className="input" />
-              <input type="number" min="0" value={zAforo} onChange={e => setZAforo(e.target.value)} placeholder="Aforo máx (opcional)" className="input" />
-              <button onClick={crearZona} disabled={!zNombre.trim()} className="btn-primary btn-sm w-full disabled:opacity-50">+ Crear zona y ponerla en el mapa</button>
-            </div>
           </div>
         )}
         {pestana === 'acceso' && (
