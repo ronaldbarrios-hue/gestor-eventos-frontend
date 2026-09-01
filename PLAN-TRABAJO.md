@@ -58,6 +58,13 @@ cerrarlas, con el nombre de quien la hizo y la fecha.
 | Índice `torneo_categorias_unica_hija` compilable en MySQL: va sobre `nombre` (TEXT) y MySQL no lo indexa sin prefijo (error 1170) → columna generada, igual que el caso raíz. `db/esquema/02` y `db/migraciones/003` quedan idénticos | **A · los 8 índices parciales a mano** | Sekkon0906 · 2026-09-01 | backend #18 |
 | «Accesos e ingresos» movido de **Asistentes → Espacio del evento** (puertas y zonas son DÓNDE, no quién). Mismo patrón que aforo/stands: `REUBICADAS` para los enlaces viejos | **C1** | Sekkon0906 · 2026-09-01 | frontend #22 |
 | Revisión de los artefactos de la fase 6 ya subidos (`db/esquema/`, `scripts/comparar-bases.js`, `modules/contadores/`). Hallazgos anotados abajo en el frente A | **A · pasos 3–5** | Sekkon0906 · 2026-09-01 | — revisión, sin PR |
+| Fix del bug de documento del padrón previo (columna se buscaba en minúscula exacta) + aviso de UUIDs en vez de cédulas al subir el archivo | D · prellenado por cédula | Claude · 2026-09-01 | backend #19, frontend #24 |
+| Fase 1 (Camino unitario): quitar el modelo de incidente del aforo, dos links stale corregidos, guardar puertas/zonas por fila en vez de un botón global, borrar persiste al momento | **C · fase 1** | Claude · 2026-09-01 | backend #20, frontend #25 |
+| Fase 2: reporte manual de aforo con foto de evidencia y nota, sin resetear el contador (migración 0087 ya aplicada en Supabase — verificada contra 0 filas antes de aplicar) | **C · fase 2** | Claude · 2026-09-01 | backend #20, frontend #25 |
+| Fase 3: cron del reporte automático de aforo (mínimo 60 min, configurable por evento) | **C · fase 3** | Claude · 2026-09-01 | backend #21, frontend #26 |
+| Fase 4: tabla «qué actividad llena cada zona», cruzando los reportes contra la agenda. Hallazgo sin resolver: hay tres implementaciones de mapa en vivo sin compartir componente — consolidarlas es su propia sesión | **C · fase 4** | Claude · 2026-09-01 | frontend #26 |
+| Duplicado quitado: el editor del mapa tenía su propio «+ Crear zona», una segunda forma de crear lo que ya se crea en Accesos e ingresos | **C1** | Claude · 2026-09-01 | frontend #25 |
+| Hasta 3 fotos por stand (`galeria`, ya existía desde la 0057 pero no llegaba al directorio/mapa públicos) + logo más grande en la tarjeta del panel | — pedido nuevo, fuera del plan original | Claude · 2026-09-01 | backend #22, frontend #27 |
 
 ### Backlog · aforo, mapa y «tomar reporte» (frente C)
 
