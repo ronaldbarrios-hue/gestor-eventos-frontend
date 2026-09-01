@@ -696,11 +696,21 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
 
      Las dos clases van escritas ENTERAS y no armadas con plantilla: Tailwind
      las genera leyendo el código, y una clase construida en tiempo de
-     ejecución no la ve nadie — el estilo no existiría. */
+     ejecución no la ve nadie — el estilo no existiría.
+
+     SIN `_both` a propósito: con `both` el `transform` del último fotograma se
+     queda pegado en cada campo para siempre, y un `transform` —aunque sea la
+     identidad y no mueva nada— crea un contexto de apilamiento. Eso encerraba
+     la lista de `SelectorBuscable` (que es `absolute z-30`) dentro de su
+     propio campo: su z-index no podía subir por encima del campo siguiente y
+     la lista salía DEBAJO del `<select>` que venía después. Sin fill-mode el
+     transform desaparece al acabar la animación (180 ms) y el apilamiento con
+     él; el estado final —opacity 1, sin desplazamiento— es el natural del
+     campo, así que no se nota ningún salto al terminar. */
   const claseEntrada = !paginado ? ''
     : haciaAdelante
-      ? 'animate-[pasoAdelante_180ms_cubic-bezier(0.16,1,0.3,1)_both]'
-      : 'animate-[pasoAtras_180ms_cubic-bezier(0.16,1,0.3,1)_both]';
+      ? 'animate-[pasoAdelante_180ms_cubic-bezier(0.16,1,0.3,1)]'
+      : 'animate-[pasoAtras_180ms_cubic-bezier(0.16,1,0.3,1)]';
 
   const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
 
