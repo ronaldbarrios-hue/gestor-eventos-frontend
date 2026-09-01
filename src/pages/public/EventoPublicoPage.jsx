@@ -25,6 +25,7 @@ import { descargarTarjetaPng } from '../../lib/tarjetaPng.jsx';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
+import BoletaConocida, { guardarBoleta } from '../../components/public/BoletaConocida.jsx';
 import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
 
@@ -318,6 +319,11 @@ export default function EventoPublicoPage() {
         </div>
       </div>
 
+      {/* Quien ya tiene boleta: reconocerlo y darle sus dos salidas (ver la
+          boleta, apuntarse a actividades) en vez de sólo el botón de
+          registrarse otra vez. */}
+      <BoletaConocida slug={slug} />
+
       {/* Contenedor único que envuelve TODO el contenido restante (imagen + bloques + footer):
           la píldora es sticky dentro de este contenedor, así que se mantiene visible mientras
           se hace scroll por toda la página, no solo mientras se ve la imagen de portada. */}
@@ -461,7 +467,12 @@ export default function EventoPublicoPage() {
              concreto, no una entrada libre a cualquier tipo del evento. */
           cupoToken={cupo && cupo.ticket_type_id === reservaTipo.id ? cupoToken : ''}
           onClose={() => setReservaTipo(null)}
-          onSuccess={(t) => { setReservaTipo(null); setReservaOk(t); }}
+          onSuccess={(t) => {
+            setReservaTipo(null);
+            setReservaOk(t);
+            /* Para que al volver a esta página se le reconozca (§4.2). */
+            if (t?.codigo) guardarBoleta(slug, t.codigo);
+          }}
         />
       )}
       {reservaOk && (
