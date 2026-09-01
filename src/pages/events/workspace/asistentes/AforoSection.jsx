@@ -416,6 +416,35 @@ function TomarReporteModal({ evento, zona, onCerrar, onListo }) {
   );
 }
 
+/* Fase 4 del Camino unitario: qué actividad llena cada zona. Cruza los
+   cortes manuales/automáticos (con su `contexto`: ocupación de todas las
+   zonas + qué sesión de agenda corría en ésta, migración 0087) contra el
+   nombre de la sesión, para responder «mientras corría el Keynote, la zona
+   gamer estaba al 110%; durante Networking, al 40%». Un corte `reset` no
+   trae `contexto`, así que no aporta aquí — sólo los reportes. */
+function estudioActividades(zonasConCortes) {
+  const porActividad = new Map();
+  for (const z of zonasConCortes) {
+    for (const c of z.cortes || []) {
+      const sesiones = c.contexto?.sesiones_en_zona;
+      if (!sesiones?.length) continue;
+      const zonaCtx = c.contexto.zonas?.find(zz => zz.id === z.id);
+      const pct = zonaCtx?.aforo_max ? Math.round((zonaCtx.dentro / zonaCtx.aforo_max) * 100) : null;
+      for (const s of sesiones) {
+        if (!s.titulo) continue;
+        const e = porActividad.get(s.titulo) || { titulo: s.titulo, veces: 0, sumaPct: 0, conPct: 0, maxPct: 0, zonas: new Set() };
+        e.veces++;
+        e.zonas.add(z.nombre);
+        if (pct != null) { e.sumaPct += pct; e.conPct++; e.maxPct = Math.max(e.maxPct, pct); }
+        porActividad.set(s.titulo, e);
+      }
+    }
+  }
+  return [...porActividad.values()]
+    .map(e => ({ titulo: e.titulo, veces: e.veces, zonas: [...e.zonas], pctMedio: e.conPct ? Math.round(e.sumaPct / e.conPct) : null, pctMax: e.conPct ? e.maxPct : null }))
+    .sort((a, b) => (b.pctMax ?? -1) - (a.pctMax ?? -1));
+}
+
 /* ── Reporte ── */
 function Reporte({ evento, zonas }) {
   const { error } = useToast();
@@ -447,9 +476,15 @@ function Reporte({ evento, zonas }) {
       ['Zona', 'Franja', 'Entradas', 'Salidas', 'Dentro al cerrar la franja'],
       ...(datos?.zonas || []).flatMap(z => (z.curva || []).map(p => [z.nombre, fechaHora(p.at), p.entradas, p.salidas, p.dentro])),
       [],
-      ['Cortes de aforo (limpiezas)'],
-      ['Zona', 'Cuándo', 'Personas que marcaba', 'Motivo'],
-      ...(datos?.zonas || []).flatMap(z => (z.cortes || []).map(c => [z.nombre, fechaHora(c.created_at), c.dentro_antes ?? '', c.motivo || ''])),
+      ['Cortes (limpiezas y reportes)'],
+      ['Zona', 'Cuándo', 'Tipo', 'Personas que marcaba', 'Motivo / nota', 'Foto'],
+      ...(datos?.zonas || []).flatMap(z => (z.cortes || []).map(c =>
+        [z.nombre, fechaHora(c.created_at), c.tipo || 'reset', c.dentro_antes ?? '', c.motivo || c.nota || '', c.foto_url || ''])),
+      [],
+      ['Qué actividad llena cada zona (de los reportes con foto o automáticos)'],
+      ['Actividad', 'Veces medida', 'Zonas', 'Ocupación media', 'Ocupación máxima'],
+      ...estudioActividades(datos?.zonas || []).map(a =>
+        [a.titulo, a.veces, a.zonas.join(', '), a.pctMedio != null ? `${a.pctMedio}%` : '', a.pctMax != null ? `${a.pctMax}%` : '']),
     ];
     try {
       await exportar(filas, { titulo: 'Aforo por zonas', base: `aforo-${evento.titulo || 'evento'}` });
@@ -483,6 +518,47 @@ function Reporte({ evento, zonas }) {
         La estancia sale de emparejar cada entrada con su salida ({zs.reduce((s, z) => s + (z.estancia_tramos || 0), 0)} tramos medidos en total);
         la máxima da contexto a la media — 12 min de media puede ser que todos se quedan poco, o que la mayoría entra y sale y unos pocos se quedan una hora.
       </p>
+
+      <EstudioActividades zonas={zs} />
+    </div>
+  );
+}
+
+/* Qué actividad llena cada zona: sale de los reportes con foto (manual) o
+   automáticos (Fase 2/3 del Camino unitario) — un corte sin `contexto`
+   (los `reset` de siempre) no aporta aquí. Vacío hasta que haya al menos
+   un reporte tomado con alguna sesión de agenda corriendo en ese momento. */
+function EstudioActividades({ zonas }) {
+  const filas = estudioActividades(zonas);
+  if (filas.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 p-4">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Qué actividad llena cada zona</p>
+      <p className="text-[11px] text-text-3 mb-3">De los reportes tomados (con foto o automáticos) mientras esa actividad corría.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-widest text-text-3 text-left">
+              <th className="pb-1.5 pr-3 font-semibold">Actividad</th>
+              <th className="pb-1.5 pr-3 font-semibold">Zona(s)</th>
+              <th className="pb-1.5 pr-3 font-semibold text-right">Veces medida</th>
+              <th className="pb-1.5 pr-3 font-semibold text-right">Ocupación media</th>
+              <th className="pb-1.5 font-semibold text-right">Ocupación máxima</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map(a => (
+              <tr key={a.titulo} className="border-t border-border">
+                <td className="py-1.5 pr-3 text-text-1">{a.titulo}</td>
+                <td className="py-1.5 pr-3 text-text-3">{a.zonas.join(', ')}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-text-2">{a.veces}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-text-2">{a.pctMedio != null ? `${a.pctMedio}%` : '—'}</td>
+                <td className={`py-1.5 text-right tabular-nums font-semibold ${a.pctMax >= 100 ? 'text-danger' : 'text-text-1'}`}>{a.pctMax != null ? `${a.pctMax}%` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
