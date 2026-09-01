@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
+import GalleryUploader from '../../../components/ui/GalleryUploader.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 
@@ -120,8 +121,8 @@ function StandsEditor({ evento, soyOwner }) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const abrirNuevo   = () => { setEditando('nuevo'); setForm({ nombre: '', stand: '', descripcion: '', logo_url: '', sitio_web: '' }); };
-  const abrirEdicion = (s) => { setEditando(s.id); setForm({ nombre: s.nombre || '', stand: s.stand || '', descripcion: s.descripcion || '', logo_url: s.logo_url || '', sitio_web: s.sitio_web || '' }); };
+  const abrirNuevo   = () => { setEditando('nuevo'); setForm({ nombre: '', stand: '', descripcion: '', logo_url: '', sitio_web: '', galeria: [] }); };
+  const abrirEdicion = (s) => { setEditando(s.id); setForm({ nombre: s.nombre || '', stand: s.stand || '', descripcion: s.descripcion || '', logo_url: s.logo_url || '', sitio_web: s.sitio_web || '', galeria: s.galeria || [] }); };
   const cerrar       = () => { setEditando(null); setForm(null); };
   const set          = (patch) => setForm(f => ({ ...f, ...patch }));
 
@@ -200,6 +201,8 @@ function StandsEditor({ evento, soyOwner }) {
                 className="input rounded-xl py-2.5 text-sm" placeholder="https://…" />
             </div>
           </div>
+          <GalleryUploader value={form.galeria} onChange={(galeria) => set({ galeria })} ownerId={evento.id}
+            maxItems={3} label="Fotos del stand" />
           <div className="flex justify-end gap-2">
             <button onClick={cerrar} className="btn-ghost btn-sm">Cancelar</button>
             <button onClick={guardar} disabled={saving} className="btn-primary btn-sm">
@@ -529,8 +532,8 @@ function TarjetaStand({ s, evento, onEditar, onBorrar }) {
     <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3 group">
       <div className="flex items-start gap-3">
         {s.logo_url
-          ? <img src={s.logo_url} alt="" className="w-14 h-14 rounded-xl object-cover border border-border flex-shrink-0" />
-          : <div className="w-14 h-14 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-lg font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
+          ? <img src={s.logo_url} alt="" className="w-20 h-20 rounded-xl object-cover border border-border flex-shrink-0" />
+          : <div className="w-20 h-20 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-2xl font-bold text-text-3 flex-shrink-0">{(s.nombre || '?').charAt(0).toUpperCase()}</div>}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-text-1 truncate">{s.nombre}</p>
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -542,6 +545,13 @@ function TarjetaStand({ s, evento, onEditar, onBorrar }) {
               : marcadores.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-2 text-text-3">Sin ubicar</span>}
           </div>
           {s.descripcion && <p className="text-xs text-text-3 mt-1.5 line-clamp-2">{s.descripcion}</p>}
+          {s.galeria?.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              {s.galeria.slice(0, 3).map((url, i) => (
+                <img key={i} src={url} alt="" className="w-8 h-8 rounded-md object-cover border border-border" />
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <button onClick={onEditar} title="Editar"
