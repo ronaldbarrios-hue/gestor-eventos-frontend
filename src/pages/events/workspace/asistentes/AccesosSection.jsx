@@ -54,6 +54,8 @@ export default function AccesosSection({ evento }) {
   const [loading, setLoading] = useState(true);
   const [guardandoAccesos, setGuardandoAccesos] = useState(false);
   const [guardandoZonas, setGuardandoZonas] = useState(false);
+  const [cadencia, setCadencia] = useState(() => evento.page_json?.aforo?.reporte_cada_min || '');
+  const [guardandoCadencia, setGuardandoCadencia] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -165,6 +167,21 @@ export default function AccesosSection({ evento }) {
 
   const accesosSucio = JSON.stringify(limpiarAccesos(accesos)) !== JSON.stringify(accesosGuardados);
   const zonasSucio = JSON.stringify(limpiarZonas(zonas)) !== JSON.stringify(zonasGuardadas);
+
+  /* Cadencia del reporte automático de aforo (Fase 3 del Camino unitario):
+     el cron nunca baja de 60 minutos aunque esto quedara en blanco o mal
+     guardado -lo aplica lib/aforoReporteAuto.js del backend-, así que las
+     opciones de aquí ya parten de ahí en vez de ofrecer valores que luego
+     se ignorarían. */
+  const guardarCadencia = async (valor) => {
+    setCadencia(valor);
+    setGuardandoCadencia(true);
+    try {
+      await eventosApi.update(evento.id, { page_json: { aforo: { reporte_cada_min: valor ? Number(valor) : null } } });
+      success(valor ? `Reporte automático cada ${valor} minutos.` : 'Reporte automático apagado.');
+    } catch (e) { error(e.response?.data?.error || e.message); }
+    finally { setGuardandoCadencia(false); }
+  };
 
   if (loading) return <GLoader message="Cargando accesos…" />;
 
@@ -291,6 +308,18 @@ export default function AccesosSection({ evento }) {
           <h3 className="text-base font-semibold text-text-1">Aforo por zonas</h3>
           <p className="text-sm text-text-2">Define zonas del recinto (tarima, zona VIP, patio de comidas…) con su aforo máximo. Operarlas —entradas, salidas, poner el contador a cero y el reporte— se hace en <b>Asistentes → Aforo por zonas</b>; en el plano (<b>Espacio del evento → Mapa</b>) se colocan encima del recinto.</p>
           <p className="text-xs text-text-3 mt-1">El aforo máximo avisa, no bloquea: si una zona se pasa, la gente sigue entrando y queda registrado el excedente.</p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs text-text-3">Tomar reporte automático cada</label>
+          <select value={cadencia} disabled={guardandoCadencia}
+            onChange={e => guardarCadencia(e.target.value)} className="input !h-8 !py-1 text-sm w-auto">
+            <option value="">Apagado</option>
+            <option value="60">60 min</option>
+            <option value="90">90 min</option>
+            <option value="120">120 min</option>
+          </select>
+          <p className="text-[11px] text-text-3">Mismo reporte que «Tomar reporte» en Aforo por zonas, pero sin foto — se toma solo mientras el evento está en curso.</p>
         </div>
 
         {aforo.length > 0 && (
