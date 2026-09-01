@@ -4,6 +4,10 @@ Escrito el 29 de agosto de 2026, después de repasar la hoja de requisitos
 actualizada y de comprobar **en el código** qué existe ya. Varias cosas de la
 lista estaban hechas; están marcadas abajo para no volver a pagarlas.
 
+**Actualizado el 1 de septiembre de 2026** (Sekkon0906): sección 2 nueva
+—«Camino unitario»— con lo cerrado ese día y el backlog de aforo/reporte, y
+avance anotado dentro de los frentes A y C.
+
 La división no es por tamaño: es por **qué archivos toca cada frente**. Dos
 sesiones en frentes distintos no chocan al hacer merge. Dos sesiones en el
 mismo frente sí, y por eso están separados así y no de otra manera.
@@ -39,6 +43,65 @@ Para que nadie lo vuelva a empezar:
 
 ---
 
+## 2 · Camino unitario · tareas que puede tomar cualquiera de los dos
+
+A diferencia del reparto A/B del final (servidor vs código), esto son tareas
+que **no dependen de cPanel y no se pisan entre sí**. Cualquiera de los dos
+desarrolladores las puede tomar. La columna «Quién · cuándo» se rellena al
+cerrarlas, con el nombre de quien la hizo y la fecha.
+
+### Hecho
+
+| Tarea | Frente | Quién · cuándo | PR |
+|---|---|---|---|
+| La lista del selector buscable ya no cae **detrás** del campo siguiente en el registro incrustado (`_both` de la animación de paso dejaba un `transform` pegado que creaba contexto de apilamiento) | D · modal de registro | Sekkon0906 · 2026-09-01 | frontend #21 |
+| Índice `torneo_categorias_unica_hija` compilable en MySQL: va sobre `nombre` (TEXT) y MySQL no lo indexa sin prefijo (error 1170) → columna generada, igual que el caso raíz. `db/esquema/02` y `db/migraciones/003` quedan idénticos | **A · los 8 índices parciales a mano** | Sekkon0906 · 2026-09-01 | backend #18 |
+| «Accesos e ingresos» movido de **Asistentes → Espacio del evento** (puertas y zonas son DÓNDE, no quién). Mismo patrón que aforo/stands: `REUBICADAS` para los enlaces viejos | **C1** | Sekkon0906 · 2026-09-01 | frontend #22 |
+| Revisión de los artefactos de la fase 6 ya subidos (`db/esquema/`, `scripts/comparar-bases.js`, `modules/contadores/`). Hallazgos anotados abajo en el frente A | **A · pasos 3–5** | Sekkon0906 · 2026-09-01 | — revisión, sin PR |
+
+### Backlog · aforo, mapa y «tomar reporte» (frente C)
+
+Diseño cerrado con Sekkon0906 el 2026-09-01. Reutiliza lo que ya existe: los
+**cortes de `zona_cortes`** como almacén (ya alimentan `zonas/reporte`), el
+endpoint `mapa/vivo` (zonas + puertas + sesiones en una llamada) y
+`agenda_sessions.zona_id` (migración 0080). El reporte manual lleva **foto de
+evidencia**; el automático lo marca cada evento con **cadencia mínima de 1 h**.
+
+**Fase 1 — quitar el modelo de «incidente» + botón por ítem.** Sólo frontend +
+un ajuste chico de backend. Sin migración.
+- `alertarAforo` (`routes/clientes.js`) deja de crear la alerta «resuelve esto»
+  cuando una zona se pasa de aforo. Se quedan el aviso al owner y el disparo de
+  automatización `aforo_lleno`. El exceso se ve en rojo en el tablero y punto —
+  pasarse de aforo es un dato, no un incidente que resolver.
+- Arreglar el botón «Resolver» que no responde, y el link stale
+  `s=asistentes&t=aforo` (aforo ya está en `espacio`).
+- Cada puerta y cada zona con su **propio botón de crear/guardar**; fuera el
+  «Guardar accesos» global; borrar persiste al momento. El `PATCH` mezcla
+  `page_json` por clave (0064), así que guardar sólo `accesos` no toca `zonas`.
+
+**Fase 2 — «Tomar reporte» manual.** Migración aditiva + endpoint + subida de foto.
+- `zona_cortes` gana `tipo` (`reset` | `auto` | `manual`), `foto_url`, `nota` y
+  `contexto` jsonb: ocupación de cada zona + qué sesión de agenda estaba
+  corriendo en ese instante (por hora + `sesiones_en_zona`).
+- Botón en Aforo por zonas → corte `manual` con foto (mismo Storage que las
+  fotos de formulario) y nota. Sin límite de cuántos.
+- `page_json.aforo.reporte_cada_min`: cadencia del automático, elegida por
+  evento; **mínimo 60**, opciones 15/30/60.
+
+**Fase 3 — el cron.** Patrón de `scripts/cron-*` (ya hay `cron-cola`, `cron-recordatorios`).
+- Job que, **sólo dentro de la ventana del evento**, escribe un corte `auto` a
+  la cadencia configurada.
+
+**Fase 4 — el estudio + rematar el mapa.** Frente C2/C3.
+- Vista que cruza cortes ↔ agenda: «mientras corría *Keynote IA*, zona gamer
+  110 %; durante *Networking*, 40 %» → qué actividades atraen. En la pestaña
+  Reporte de Aforo.
+- Auditar `MapaSection` / `MapaAforo` contra `mapa/vivo` para que cada marcador
+  (zona, puerta, sub-evento, expositor) tire del mismo estado vivo y enlace a
+  su tablero.
+
+---
+
 ## FRENTE A · Migración a servidor propio
 
 **Archivos:** `db/migraciones/`, `core/`, `modules/`, `config/` del backend.
@@ -65,6 +128,30 @@ No conviene partirlo entre dos personas.
 **Regla que manda sobre este frente:** Supabase **no se apaga** hasta que todo
 lo nuevo esté conectado y probado. Hay un pitch. `AUTH_PROPIA` y
 `ARCHIVOS_PROPIOS` se quedan apagados; ya lo están por defecto.
+
+### Avance · Sekkon0906 · 2026-09-01
+
+- **Paso 1 (índices parciales):** `torneo_categorias_unica_hija` de
+  `003_esquema_indices_parciales.sql` no compilaba en MySQL 8 (índice sobre
+  `nombre` TEXT, error 1170). Arreglado con columna generada; `db/esquema/02`
+  y `db/migraciones/003` quedan idénticos. **backend #18.**
+- **Pasos 3–5 (revisión de lo ya subido):** `db/esquema/` y los módulos de
+  contadores están bien hechos y con pruebas. Pendientes encontrados:
+  1. **`scripts/comparar-bases.js` compara 24 de las 72 tablas y no lo dice.**
+     No cubre torneos, `oauth_tokens`, `discount_codes`, `evento_legal`,
+     `padron_previo`, `email_cola`… y aun así imprime «Todo cuadra». Es el
+     paso que decide el corte. Debería cubrir todas o listar en voz alta las
+     que deja fuera.
+  2. Ese mismo script asume `id` en toda tabla (`ORDER BY id`); al cubrir las
+     72 fallará en las de PK compuesta. El comentario dice «clave natural»
+     pero no está implementado.
+  3. Falsos DIFIERE garantizados en columnas `numeric`/`decimal`: `mysql2`
+     las da como texto y `supabase-js` como número, y `normalizar` mantiene
+     `12` ≠ `"12"` a propósito.
+  4. `canjearRecompensa` revienta con `bal.id` si el premio cuesta 0 y el
+     usuario no tiene fila de saldo (`bal` es `undefined`).
+  5. `db/esquema/02` no trae preámbulo `SET NAMES`/`SET time_zone` aunque el
+     README dice que sí.
 
 ---
 
@@ -128,13 +215,18 @@ hecho: es cómo funcionan las pasarelas.
 Es el frente más "de producto": son varias piezas que ya existen y no se
 hablan entre sí.
 
-### C1 · Mover dos secciones de sitio
+### C1 · Mover dos secciones de sitio — ✅ Sekkon0906 · 2026-09-01
 
-`Aforo por zonas` y `Stands y puntos` están hoy bajo **Asistentes**, y son de
-**Espacio del evento**. El movimiento es barato (`EventWorkspace.jsx`, la
-lista de `tabs`) pero hay que dejar las direcciones viejas redirigidas: ya
-existe el mecanismo `REUBICADAS` en ese mismo archivo, hecho justo para esto
-cuando se fusionó Dinámicas.
+`Aforo por zonas` y `Stands` ya se movieron a **Espacio del evento**, con su
+redirección en `REUBICADAS`. Ahora también **«Accesos e ingresos»** (mismo
+`EventWorkspace.jsx`, misma lista de `tabs`, misma `REUBICADAS`) — **frontend
+#22**. Por lo mismo: puertas y zonas son DÓNDE se entra, no quién asiste.
+
+Redacción original, para contexto: `Aforo por zonas` y `Stands y puntos`
+estaban bajo **Asistentes** y son de **Espacio del evento**. El movimiento es
+barato (`EventWorkspace.jsx`, la lista de `tabs`) y hay que dejar las
+direcciones viejas redirigidas: el mecanismo `REUBICADAS` en ese mismo archivo
+existe justo para esto, de cuando se fusionó Dinámicas.
 
 ### C2 · Conectar zona ↔ calendario ↔ mapa ↔ aforo
 
@@ -168,9 +260,16 @@ código, no supuesto:
 - La usan `routes/clientes.js` y `routes/eventos.publicos.js`, y `MapaAforo.jsx`
   **ya la pinta** (`z.agenda`, con los estados `ahora` / `terminado`).
 
-Este frente está hecho. Lo único que queda es lo pequeño: que crear una zona
-ofrezca **ponerla en el mapa** ahí mismo, en vez de obligar a ir a otra
-pantalla a buscarla.
+El enlace de base ya está hecho, incluido lo pequeño: crear una zona en
+«Accesos e ingresos» ya ofrece **ponerla en el mapa** ahí mismo
+(`AccesosSection.jsx`, enlace «Ponerla en el mapa →»).
+
+**Lo que sigue abierto (2026-09-01, Sekkon0906):** el mapa y el aforo se ven
+como piezas sueltas al operarlos. El trabajo real —revisar cada función para
+reusarla y que todo tire del mismo estado vivo (`mapa/vivo`)— más el **estudio
+de qué actividad llena cada zona** están en el **Camino unitario, Fases 1–4**
+de la sección 2. Ese estudio es alcance nuevo respecto a la redacción de este
+C2.
 
 ### C3 · Nutrir «Estancia y puntos»
 
@@ -324,6 +423,10 @@ propio que ya usa `baseDelEvento`.
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
 sesiones distintas sin que el merge duela.
+
+El **Camino unitario** (sección 2) es el tercer cubo: tareas que no dependen
+de cPanel ni se pisan entre sí, así que las toma quien esté libre —no hay
+Persona A / Persona B ahí—.
 
 Lo único que los cruza es `page_json`, y ahí hay una trampa ya conocida: el
 `PATCH` **mezcla por claves de primer nivel** desde la migración 0064, así que
