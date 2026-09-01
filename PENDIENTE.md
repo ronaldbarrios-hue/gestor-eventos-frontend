@@ -491,11 +491,15 @@ El grueso es frontend: el editor de horarios por zona y el panel de detalle.
 
 ## 6 · Peticiones de Supabase Realtime — reducido (1 sep)
 
-**Hecho** (rama de esta sesión): `useAsistenciaEnVivo` pasó de WebSocket
-permanente de Supabase a sondeo (`useSondeo`, se para con la pestaña oculta), y
-el latido de Realtime subió de 25 s a 50 s en `src/lib/supabase.js`. Con eso una
-pestaña de fondo pasa a coste cero y el resto ~se reduce a la mitad.
+**Hecho:**
+- `useAsistenciaEnVivo` pasó de WebSocket permanente a sondeo (`useSondeo`, se
+  para con la pestaña oculta). Latido de Realtime 25 s → 50 s en
+  `src/lib/supabase.js`.
+- `ChatTab` (`ChannelView`): el socket de Realtime sólo se abre mientras la
+  pestaña se ve; al volver, reconecta y recarga los mensajes por si llegó
+  alguno. Una pestaña de fondo con el chat abierto pasa a coste cero.
 
-**Falta:** `ChatTab` sigue con Realtime — sólo suscribir cuando la pestaña está
-visible, o pasarlo a SSE contra el backend (MIGRACION-SUPABASE.md §6 etapa 5).
-El chat es el único caso donde el tiempo real de verdad aporta.
+Con esto no queda Realtime de Supabase corriendo en segundo plano. El chat es el
+único que sigue en tiempo real cuando la pestaña está activa — que es lo
+correcto. Pasarlo a SSE contra Express (MIGRACION-SUPABASE.md §6 etapa 5) es para
+cuando se corte Supabase, no urge.

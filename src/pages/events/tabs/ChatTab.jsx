@@ -204,47 +204,61 @@ function ChannelView({ evento, channel, usuario }) {
     });
   }, []);
 
-  /* Carga inicial */
-  useEffect(() => {
-    setLoading(true);
-    chatApi.messages(evento.id, channel.id, { limit: 80 })
+  /* Traer (o volver a traer) los últimos mensajes del canal. `toastErr` y
+     `scrollToBottom` se dejan fuera de las deps a propósito, como la carga
+     inicial de antes: sólo cambian id de evento y de canal. */
+  const cargarMensajes = useCallback((conSpinner = false) => {
+    if (conSpinner) setLoading(true);
+    return chatApi.messages(evento.id, channel.id, { limit: 80 })
       .then(d => { setMessages(d.messages || []); setTimeout(scrollToBottom, 50); })
-      .catch(e => toastErr(e.message))
-      .finally(() => setLoading(false));
-    /* eslint-disable-next-line */
+      .catch(e => { if (conSpinner) toastErr(e.message); })
+      .finally(() => { if (conSpinner) setLoading(false); });
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [evento.id, channel.id]);
 
-  /* Realtime: subscribe a INSERT en chat_messages del canal activo */
-  useEffect(() => {
-    const ch = supabase
-      .channel(`chat:${channel.id}`)
-      .on('postgres_changes', {
-        event : 'INSERT',
-        schema: 'public',
-        table : 'chat_messages',
-        filter: `channel_id=eq.${channel.id}`,
-      }, async (payload) => {
-        const row = payload.new;
-        /* Evitamos duplicar mensajes propios que ya pusimos optimistas */
-        setMessages(prev => {
-          if (prev.some(m => m.id === row.id)) return prev;
-          return [...prev, { ...row, autor: { nombre: '...', avatar_url: null } }];
-        });
-        scrollToBottom();
-        /* Hidratar el autor si es de otro user */
-        /* De la vista, no de `profiles`. Aquí se está leyendo la ficha de OTRA
-           persona, y de esa ficha lo único que hace falta para pintar un
-           mensaje es su nombre y su foto. Pedirla entera traía también su
-           correo y su teléfono, y era la razón por la que `profiles` tenía que
-           seguir siendo legible entre cuentas. */
-        const { data } = await supabase
-          .from('perfiles_publicos').select('id, nombre, avatar_url').eq('id', row.user_id).maybeSingle();
-        if (data) setMessages(prev => prev.map(m => m.id === row.id ? { ...m, autor: data } : m));
-      })
-      .subscribe();
+  /* Carga inicial */
+  useEffect(() => { cargarMensajes(true); }, [cargarMensajes]);
 
-    return () => { supabase.removeChannel(ch); };
-  }, [channel.id, scrollToBottom]);
+  /* Realtime: INSERT en chat_messages del canal activo.
+     Sólo hay socket abierto mientras la pestaña se ve — un panel de fondo con
+     el chat abierto mantenía una conexión permanente a Supabase con su latido
+     cada pocos segundos sin que nadie mirara. Al volver a la pestaña se
+     reconecta y se recargan los mensajes por si llegó alguno mientras tanto. */
+  useEffect(() => {
+    let ch = null;
+    const alLlegar = async (payload) => {
+      const row = payload.new;
+      setMessages(prev => {
+        if (prev.some(m => m.id === row.id)) return prev;   // no duplicar los optimistas propios
+        return [...prev, { ...row, autor: { nombre: '...', avatar_url: null } }];
+      });
+      scrollToBottom();
+      /* Autor desde la vista, no de `profiles`: aquí sólo hace falta nombre y
+         foto, y `profiles` entera traía correo y teléfono de otra persona. */
+      const { data } = await supabase
+        .from('perfiles_publicos').select('id, nombre, avatar_url').eq('id', row.user_id).maybeSingle();
+      if (data) setMessages(prev => prev.map(m => m.id === row.id ? { ...m, autor: data } : m));
+    };
+
+    const conectar = () => {
+      if (ch) return;
+      ch = supabase
+        .channel(`chat:${channel.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${channel.id}` }, alLlegar)
+        .subscribe();
+    };
+    const desconectar = () => { if (ch) { supabase.removeChannel(ch); ch = null; } };
+
+    const visible = () => typeof document === 'undefined' || document.visibilityState === 'visible';
+    const alCambiar = () => {
+      if (visible()) { cargarMensajes(); conectar(); }
+      else desconectar();
+    };
+
+    if (visible()) conectar();
+    document.addEventListener('visibilitychange', alCambiar);
+    return () => { document.removeEventListener('visibilitychange', alCambiar); desconectar(); };
+  }, [channel.id, scrollToBottom, cargarMensajes]);
 
   const onEnviar = async (e) => {
     e?.preventDefault();
