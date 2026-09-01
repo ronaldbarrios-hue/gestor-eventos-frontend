@@ -16,10 +16,25 @@ import { useSondeo } from '../../../../hooks/useSondeo.js';
 
 function uid() { return 'acc_' + Math.random().toString(36).slice(2, 9); }
 
+/* Para comparar contra lo ya guardado y saber si una lista tiene cambios sin
+   persistir. Mismo recorte que hace `guardar*` antes de mandar al servidor:
+   sin esto, un espacio de más en el nombre marcaría "sin guardar" para
+   siempre. */
+const limpiarAccesos = (l) => (l || []).map(({ id, nombre, tipos, staff }) =>
+  ({ id, nombre: (nombre || '').trim(), tipos: tipos || [], staff: staff || [] }));
+const limpiarZonas = (l) => (l || []).map(({ id, nombre, aforo_max }) =>
+  ({ id, nombre: (nombre || '').trim(), aforo_max: Number(aforo_max) || null }));
+
 export default function AccesosSection({ evento }) {
   const { success, error } = useToast();
   const [accesos, setAccesos] = useState(() => (evento.page_json?.accesos || []).map(a => ({ ...a, _k: a.id })));
   const [zonas, setZonas] = useState(() => (evento.page_json?.zonas || []).map(z => ({ ...z, _k: z.id })));
+  /* Última versión que sí quedó en el servidor. Guardar puertas y guardar
+     zonas son ahora dos acciones independientes —el PATCH mezcla `page_json`
+     por clave (migración 0064), así que una no pisa a la otra— y esto es lo
+     que decide si el botón de guardar de cada fila tiene algo que hacer. */
+  const [accesosGuardados, setAccesosGuardados] = useState(() => limpiarAccesos(evento.page_json?.accesos));
+  const [zonasGuardadas, setZonasGuardadas] = useState(() => limpiarZonas(evento.page_json?.zonas));
 
   /* Qué zonas están ya puestas en el plano. El mapa guarda sus marcadores en
      `page_json.mapa.marcadores` y ya usaba esto para no ofrecer dos veces la
@@ -37,7 +52,8 @@ export default function AccesosSection({ evento }) {
   const [miembros, setMiembros] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [guardandoAccesos, setGuardandoAccesos] = useState(false);
+  const [guardandoZonas, setGuardandoZonas] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -88,7 +104,11 @@ export default function AccesosSection({ evento }) {
 
   const setZona = (k, patch) => setZonas(l => l.map(z => z._k === k ? { ...z, ...patch } : z));
   const agregarZona = () => setZonas(l => [...l, { _k: uid(), id: uid(), nombre: '', aforo_max: '' }]);
-  const quitarZona = (k) => setZonas(l => l.filter(z => z._k !== k));
+  const quitarZona = (k) => {
+    const lista = zonas.filter(z => z._k !== k);
+    setZonas(lista);
+    guardarZonas(lista); // borrar persiste al momento, no espera al botón de guardar
+  };
 
   /* Conteo de ingresos por puerta (tickets ya usados con su acceso). */
   const conteo = useMemo(() => {
@@ -100,7 +120,11 @@ export default function AccesosSection({ evento }) {
 
   const set = (k, patch) => setAccesos(l => l.map(a => a._k === k ? { ...a, ...patch } : a));
   const agregar = () => setAccesos(l => [...l, { _k: uid(), id: uid(), nombre: '', tipos: [], staff: [] }]);
-  const quitar = (k) => setAccesos(l => l.filter(a => a._k !== k));
+  const quitar = (k) => {
+    const lista = accesos.filter(a => a._k !== k);
+    setAccesos(lista);
+    guardarAccesos(lista); // borrar persiste al momento, no espera al botón de guardar
+  };
   const toggleTipo = (k, tid) => set(k, { tipos: (accesos.find(a => a._k === k)?.tipos || []).includes(tid)
     ? accesos.find(a => a._k === k).tipos.filter(x => x !== tid)
     : [...(accesos.find(a => a._k === k)?.tipos || []), tid] });
@@ -108,29 +132,47 @@ export default function AccesosSection({ evento }) {
     ? accesos.find(a => a._k === k).staff.filter(x => x !== sid)
     : [...(accesos.find(a => a._k === k)?.staff || []), sid] });
 
-  const guardar = async () => {
-    for (const a of accesos) if (!a.nombre.trim()) { error('Cada puerta necesita un nombre.'); return; }
-    for (const z of zonas) if (!z.nombre.trim()) { error('Cada zona necesita un nombre.'); return; }
-    setSaving(true);
+  /* Guardar puertas y guardar zonas van cada una por su lado: antes un botón
+     único mandaba las dos listas juntas, así que una puerta a medio llenar
+     bloqueaba guardar un cambio de zona que no tenía nada que ver. El PATCH
+     mezcla `page_json` por clave (migración 0064), así que mandar sólo
+     `accesos` no toca `zonas` y viceversa. `lista` opcional es para poder
+     guardar de inmediato la lista recién recortada al borrar una fila, antes
+     de que el estado de React se actualice. */
+  const guardarAccesos = async (lista = accesos) => {
+    for (const a of lista) if (!a.nombre.trim()) { error('Cada puerta necesita un nombre.'); return; }
+    setGuardandoAccesos(true);
     try {
-      const limpio = accesos.map(({ id, nombre, tipos, staff }) => ({ id, nombre: nombre.trim(), tipos: tipos || [], staff: staff || [] }));
-      const zonasLimpio = zonas.map(({ id, nombre, aforo_max }) => ({ id, nombre: nombre.trim(), aforo_max: Number(aforo_max) || null }));
-      await eventosApi.update(evento.id, { page_json: { accesos: limpio, zonas: zonasLimpio } });
-      success('Accesos guardados. En el check-in cada puerta y zona ya se pueden elegir.');
+      const limpio = limpiarAccesos(lista);
+      await eventosApi.update(evento.id, { page_json: { accesos: limpio } });
+      setAccesosGuardados(limpio);
+      success('Puertas guardadas.');
     } catch (e) { error(e.response?.data?.error || e.message); }
-    finally { setSaving(false); }
+    finally { setGuardandoAccesos(false); }
   };
+
+  const guardarZonas = async (lista = zonas) => {
+    for (const z of lista) if (!z.nombre.trim()) { error('Cada zona necesita un nombre.'); return; }
+    setGuardandoZonas(true);
+    try {
+      const limpio = limpiarZonas(lista);
+      await eventosApi.update(evento.id, { page_json: { zonas: limpio } });
+      setZonasGuardadas(limpio);
+      success('Zonas guardadas.');
+    } catch (e) { error(e.response?.data?.error || e.message); }
+    finally { setGuardandoZonas(false); }
+  };
+
+  const accesosSucio = JSON.stringify(limpiarAccesos(accesos)) !== JSON.stringify(accesosGuardados);
+  const zonasSucio = JSON.stringify(limpiarZonas(zonas)) !== JSON.stringify(zonasGuardadas);
 
   if (loading) return <GLoader message="Cargando accesos…" />;
 
   return (
     <div className="space-y-5 max-w-3xl">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Accesos e ingresos</h2>
-          <p className="text-sm text-text-2 mt-1">Define las entradas del evento, qué boletas admite cada una y quién registra.</p>
-        </div>
-        <button onClick={guardar} disabled={saving} className="btn-primary">{saving ? 'Guardando…' : 'Guardar accesos'}</button>
+      <div>
+        <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Accesos e ingresos</h2>
+        <p className="text-sm text-text-2 mt-1">Define las entradas del evento, qué boletas admite cada una y quién registra.</p>
       </div>
 
       {/* ── Alertas en vivo ── */}
@@ -201,7 +243,11 @@ export default function AccesosSection({ evento }) {
               <span className="text-xs text-text-3 w-5">{i + 1}.</span>
               <input value={a.nombre} onChange={e => set(a._k, { nombre: e.target.value })}
                 placeholder="Ej. Entrada principal, Entrada VIP, Puerta Norte" className="input flex-1" />
-              <button onClick={() => quitar(a._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center">✕</button>
+              {accesosSucio && (
+                <button onClick={() => guardarAccesos()} disabled={guardandoAccesos}
+                  className="btn-secondary btn-sm flex-shrink-0">{guardandoAccesos ? 'Guardando…' : 'Guardar'}</button>
+              )}
+              <button onClick={() => quitar(a._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
             </div>
 
             {tipos.length > 0 && (
@@ -296,6 +342,10 @@ export default function AccesosSection({ evento }) {
                     title="Colocarla en el plano del evento">
                     Ponerla en el mapa →
                   </Link>}
+              {zonasSucio && (
+                <button onClick={() => guardarZonas()} disabled={guardandoZonas}
+                  className="btn-secondary btn-sm flex-shrink-0">{guardandoZonas ? 'Guardando…' : 'Guardar'}</button>
+              )}
               <button onClick={() => quitarZona(z._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
             </div>
           ))}
