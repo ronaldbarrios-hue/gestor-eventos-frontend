@@ -124,9 +124,11 @@ export function embedUrl({ origin, slug, seccion, tema = 'auto', fondo = 'transp
 /* Snippet listo para pegar. El script es opcional (autoAlto): sin él el
    iframe queda a la altura fija indicada; con él se ajusta solo mediante
    postMessage, que es lo que la mayoría va a querer. */
-export function embedSnippet({ origin, slug, seccion, titulo, tema = 'auto', fondo = 'transparente', alto = 600, autoAlto = true }) {
+export function embedSnippet({ origin, slug, seccion, titulo, tema = 'auto', fondo = 'transparente', alto = 600, autoAlto = true, heredarEstilo = true }) {
   const fid = embedFrameId(slug, seccion);
   const url = embedUrl({ origin, slug, seccion, tema, fondo, fid });
+  const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
+  const destino = base ? `'${base}'` : "'*'";
   const title = String(titulo || 'Sección del evento').replace(/"/g, "'");
   const iframe =
 `<iframe id="${fid}"
@@ -136,16 +138,27 @@ export function embedSnippet({ origin, slug, seccion, titulo, tema = 'auto', fon
         loading="lazy"
         style="width:100%;border:0;display:block;overflow:hidden"
         scrolling="no"></iframe>`;
-  if (!autoAlto) return iframe;
+  if (!autoAlto && !heredarEstilo) return iframe;
   return `${iframe}
 <script>
 (function () {
   var f = document.getElementById('${fid}');
-  window.addEventListener('message', function (e) {
+  if (!f) return;
+${heredarEstilo ? `  function estilo() {
+    try {
+      f.contentWindow.postMessage({
+        gestek: 'estilo', fid: '${fid}',
+        fuente: getComputedStyle(document.body).fontFamily
+      }, ${destino});
+    } catch (e) {}
+  }
+  f.addEventListener('load', estilo);
+` : ''}  window.addEventListener('message', function (e) {
     var d = e.data;
-    if (!d || d.gestek !== 'alto' || d.fid !== '${fid}') return;
-    f.style.height = d.alto + 'px';
-  });
+    if (!d || d.fid !== '${fid}') return;
+${autoAlto ? `    if (d.gestek === 'alto') { f.style.height = d.alto + 'px'; }
+` : ''}${heredarEstilo ? `    if (d.gestek === 'pide-estilo') { estilo(); }
+` : ''}  });
 })();
 <\/script>`;
 }

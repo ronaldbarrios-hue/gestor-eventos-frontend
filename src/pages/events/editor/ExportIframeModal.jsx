@@ -16,6 +16,7 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
   const [tema,   setTema]   = useState('auto');
   const [alto,   setAlto]   = useState(600);
   const [autoAlto, setAutoAlto] = useState(true);
+  const [heredarEstilo, setHeredarEstilo] = useState(true);
 
   const slug = evento?.slug;
   const seccion = modo === 'exacta'
@@ -38,8 +39,8 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
   const snippet = useMemo(
     () => (alcance === 'boton'
       ? widgetSnippet({ slug })
-      : embedSnippet({ slug, seccion, titulo: `${label} — ${evento?.nombre || 'Evento'}`, tema, fondo, alto, autoAlto })),
-    [alcance, slug, seccion, label, evento?.nombre, tema, fondo, alto, autoAlto]
+      : embedSnippet({ slug, seccion, titulo: `${label} — ${evento?.nombre || 'Evento'}`, tema, fondo, alto, autoAlto, heredarEstilo })),
+    [alcance, slug, seccion, label, evento?.nombre, tema, fondo, alto, autoAlto, heredarEstilo]
   );
 
   const copiar = async (texto, que) => {
@@ -162,6 +163,14 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
               Añade unas líneas de JavaScript para que el iframe crezca con el contenido.
             </span>
           </label>
+
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" checked={heredarEstilo} onChange={e => setHeredarEstilo(e.target.checked)} className="mt-0.5" />
+            <span className="text-xs text-text-2">
+              <span className="font-medium text-text-1">Heredar la tipografía de mi web</span><br />
+              La sección usa la misma fuente que el resto de tu página, para que no parezca traída de fuera.
+            </span>
+          </label>
           </>)}
 
           <div>
@@ -199,7 +208,7 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
                   </div>
                   <button
                     onClick={() => copiar(
-                      embedSnippet({ slug, seccion: e.seccion, titulo: `${e.label} — ${evento?.nombre || 'Evento'}`, tema, fondo, alto, autoAlto }),
+                      embedSnippet({ slug, seccion: e.seccion, titulo: `${e.label} — ${evento?.nombre || 'Evento'}`, tema, fondo, alto, autoAlto, heredarEstilo }),
                       e.label
                     )}
                     className="btn-ghost btn-sm flex-shrink-0">

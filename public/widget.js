@@ -75,6 +75,9 @@
       ancho     : dato(el, 'ancho', 'auto'),
       fuente    : dato(el, 'fuente', 'inherit'),
       titulo    : dato(el, 'titulo', 'Registro'),
+      /* Que el formulario de dentro use la tipografía de esta web. Así no se
+         ve "traído de fuera". Se puede apagar con data-heredar-fuente="0". */
+      heredarFuente: dato(el, 'heredar-fuente', '1') !== '0',
     };
   }
 
@@ -182,6 +185,20 @@
     };
     for (var k3 in m) marco.style[k3] = m[k3];
 
+    /* La tipografía de esta página, para que el formulario de dentro la use y
+       no parezca de otro sitio. Se manda al cargar el iframe y cada vez que
+       él la pida (por si cargó antes de que montáramos el listener). */
+    function enviarEstilo() {
+      if (cfg.heredarFuente === false) return;
+      try {
+        marco.contentWindow.postMessage({
+          gestek: 'estilo', fid: fid,
+          fuente: getComputedStyle(document.body).fontFamily,
+        }, ORIGEN || '*');
+      } catch (e) { /* el iframe aún no ha navegado */ }
+    }
+    marco.addEventListener('load', enviarEstilo);
+
     var cerrarBtn = document.createElement('button');
     cerrarBtn.type = 'button';
     cerrarBtn.setAttribute('aria-label', 'Cerrar');
@@ -230,6 +247,8 @@
       var d = e.data;
       if (!d || typeof d !== 'object' || !d.gestek) return;
       if (d.fid && d.fid !== fid) return;
+
+      if (d.gestek === 'pide-estilo') { enviarEstilo(); return; }
 
       if (d.gestek === 'alto' && d.alto) {
         var tope = Math.round(window.innerHeight * 0.92);
