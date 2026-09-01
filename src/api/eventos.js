@@ -20,7 +20,13 @@ export const eventosApi = {
   guardarFormulario : (id, campos) => client.put(`/eventos/${id}/formulario`, { campos }).then(r => r.data),
   /* Públicas (sin auth) */
   publicos     : (params = {}) => client.get('/eventos/publicos', { params }).then(r => r.data),
-  publicoBySlug: (slug)        => client.get(`/eventos/publicos/slug/${slug}`).then(r => r.data),
+  /* `seccion` es para el embed: el servidor devuelve SÓLO el bloque de esa
+     sección en vez de la landing entera. Sin ella, incrustar «Cómo llegar» en
+     una web ajena metía en su DOM todos los demás bloques con su configuración.
+     Ver `bloqueDeSeccion` en el backend. */
+  publicoBySlug: (slug, seccion) => client
+    .get(`/eventos/publicos/slug/${slug}`, seccion ? { params: { seccion } } : undefined)
+    .then(r => r.data),
   /* Términos y privacidad PROPIOS del evento (migración 0059). El formulario
      de inscripción los enlaza siempre. */
   legalPublico : (slug)        => client.get(`/eventos/publicos/slug/${slug}/legal`).then(r => r.data),
