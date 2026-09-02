@@ -1342,7 +1342,43 @@ de la visita, no de la persona. Así que **aun con los encabezados perfectos, el
 «Barrio o vereda» acierta, pero «ciudad» contra «Ciudad de nacimiento» mete el
 dato en la pregunta equivocada, y eso es peor que no prellenar.
 
-### M1 · El desplegable se corta dentro del modal
+### M0-bis · El mapeo, medido contra producción (2-sep)
+
+Con la conexión a Supabase ya disponible, medido contra **FESTECH IBAGUÉ**
+(`festech2026`), que es el evento que tiene padrón:
+
+- `page_json->padron` está **en NULL**: nadie ha guardado todavía el mapeo. Con
+  lo que hay hoy, `emparejar()` cae al cruce por nombre y **de las 11 preguntas
+  del formulario sólo cruza una**, «Comuna».
+- Las 4.124 filas confirman lo diagnosticado: `apellidos` en las 4.124,
+  `nombre completo` en 3.624, y **las columnas que el formulario sí pregunta
+  —`ciudad`, `barrio_vereda`, `zona_residencia`, `corregimiento`, `genero`,
+  `poblaciones`, `discapacidad`, `situacion_actual`— sólo en 500**. Otras 436
+  traen `visit_date`, `room`, `latitude`, `longitude`.
+
+Es decir: **guardar el mapeo sube el cruce de 1 pregunta a 10, pero sólo para
+esas 500 personas.** Para las otras 3.624 no hay nada que prellenar, y ningún
+mapeo lo arregla — eso se arregla subiendo un archivo con los datos, no tocando
+código. El mapeo que corresponde, columna por columna:
+
+| Pregunta | Columna |
+|---|---|
+| Barrio o Vereda | `barrio_vereda` |
+| Comuna | `comuna` |
+| Ciudad de residencia | `ciudad` |
+| Zona | `zona_residencia` |
+| Corregimiento | `corregimiento` |
+| Identidad de Género | `genero` |
+| Autorreconocimiento Étnico | `poblaciones` |
+| Discapacidad | `discapacidad` |
+| Situación Actual / Enfoque Diferencial | `situacion_actual` |
+| Edad | *(sin mapear: el archivo trae `fecha_nacimiento`, que es otro dato)* |
+| Documento de Identidad | *(sin mapear: sólo se guarda su hash, y está bien)* |
+
+Falta **guardarlo desde la pantalla de mapeo**, que es lo que sigue sin verse
+contra el evento real (M9).
+
+### M1 · El desplegable se corta dentro del modal — ✅ hecho
 
 En la captura de «Comuna», la lista de opciones se corta contra el borde del
 modal: se ven `10, 11, 12, 13, No sé` y no hay forma de llegar al resto. El
@@ -1368,34 +1404,34 @@ primero.
 Ya se pidió antes que ese botón no estuviera en ninguna parte. Sigue en el
 modal de registro. Fuera.
 
-### M4 · El modal de boletas nunca se cierra
+### M4 · El modal de boletas nunca se cierra — ✅ hecho
 
 Al pulsar «Reservar» se abre el formulario **encima**, pero «BOLETAS
 DISPONIBLES · Registro · Gratis · Reservar» sigue detrás; y sigue ahí después
 de confirmar, cuando la persona **ya tiene su boleta**. Al pulsar «Listo»
 reaparece. Es el mismo modal que no se desmonta en ningún momento del flujo.
 
-### M5 · «Falta un paso» es mentira
+### M5 · «Falta un paso» es mentira — ✅ hecho
 
 Lo dice cuando el registro ya está hecho. Lo que hay debajo —una actividad que
 se apunta aparte— no es un paso que falte, es algo que **se puede** hacer. En
 su sitio: «si quieres seguir explorando el evento», y de ahí desplegar los
 sub-eventos.
 
-### M6 · Tres descargas para lo mismo
+### M6 · Tres descargas para lo mismo — ✅ hecho
 
 «Descargar boleta (PDF)», «Descargar QR» y «Descargar tarjeta» son tres
 botones para el mismo objeto. **Un solo «Descargar»**, y que la persona elija
 formato (PDF o imagen). Ya se había pedido unificar esto; se quedó en tres
 funciones distintas por costumbre, no por diseño.
 
-### M7 · «Actividades con inscripción» no dice nada
+### M7 · «Actividades con inscripción» no dice nada — ✅ hecho
 
 Sólo sale `PijaoTech · 17 de sept, 10:43 a.m. · 16 cupos · Auditorio 02`. Ni
 descripción, ni de qué es, ni quién la da. Literalmente no hay información
 para decidir si apuntarse.
 
-### M8 · El flujo no termina
+### M8 · El flujo no termina — ✅ hecho
 
 Al pulsar «Listo» vuelve al modal de boletas. Tiene que **cerrar** con un
 cierre de verdad: «gracias por inscribirte, te esperamos el {fecha}», y salir.
