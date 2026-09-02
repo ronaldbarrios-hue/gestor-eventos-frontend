@@ -78,6 +78,24 @@ export default function EventoPublicoPage() {
   const cupoToken = params.get('cupo') || '';
   const [cupo, setCupo] = useState(null);
 
+  /* La píldora de páginas se pega debajo de la barra de salidas (más abajo,
+     `sticky top-0`), y necesita saber cuánto mide esa barra para no montarse
+     encima ni dejar un hueco. Antes era un `top-[72px]` fijo: en móvil, si los
+     enlaces de la barra de arriba se envuelven a dos filas (son hasta seis:
+     volver, rueda de negocios, torneo, espacio, ranking, mapa, compartir), la
+     barra crece y ese número deja de ser cierto. Se mide de verdad con
+     `ResizeObserver` — reacciona también si la ventana rota o si `nav.enlaces`
+     cambia el ancho disponible, no sólo al montar. */
+  const barraSalidasRef = useRef(null);
+  const [altoBarraSalidas, setAltoBarraSalidas] = useState(72);
+  useEffect(() => {
+    const el = barraSalidasRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(([entry]) => setAltoBarraSalidas(Math.ceil(entry.contentRect.height)));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!cupoToken) { setCupo(false); return; }
     let vivo = true;
@@ -258,7 +276,7 @@ export default function EventoPublicoPage() {
           de páginas, porque son dos barras distintas y si las dos flotaran a la
           misma altura se solaparían. Ésta se pega arriba y la otra queda por
           debajo, que además es el orden en que se leen. */}
-      <div className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
+      <div ref={barraSalidasRef} className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
                       bg-bg/85 backdrop-blur-md border-b border-border/60
                       flex items-center justify-between gap-4 flex-wrap">
         {(isStandalone || !nav.mostrar_explorar) ? <span /> : (
@@ -330,9 +348,11 @@ export default function EventoPublicoPage() {
       <div className="relative">
         {/* La píldora va por debajo de la barra de salidas, que ahora también
             es fija: a `top-4` quedaría tapada por ella. El desplazamiento es
-            la altura de esa barra más un respiro. */}
+            la altura REAL de esa barra (medida con ResizeObserver arriba), no
+            un número fijo — en móvil, con los enlaces envueltos a dos filas,
+            72px deja de ser cierto y las dos barras se solapan. */}
         {hasCover && (
-          <div className={`sticky top-[72px] z-20 flex ${pillAlign} mb-[-1px]`}>
+          <div style={{ top: `${altoBarraSalidas}px` }} className={`sticky z-20 flex ${pillAlign} mb-[-1px]`}>
             <div className="max-w-[calc(100%-2rem)]">
               {tabsPill}
             </div>
