@@ -78,6 +78,24 @@ export default function EventoPublicoPage() {
   const cupoToken = params.get('cupo') || '';
   const [cupo, setCupo] = useState(null);
 
+  /* La píldora de páginas se pega debajo de la barra de salidas (más abajo,
+     `sticky top-0`), y necesita saber cuánto mide esa barra para no montarse
+     encima ni dejar un hueco. Antes era un `top-[72px]` fijo: en móvil, si los
+     enlaces de la barra de arriba se envuelven a dos filas (son hasta seis:
+     volver, rueda de negocios, torneo, espacio, ranking, mapa, compartir), la
+     barra crece y ese número deja de ser cierto. Se mide de verdad con
+     `ResizeObserver` — reacciona también si la ventana rota o si `nav.enlaces`
+     cambia el ancho disponible, no sólo al montar. */
+  const barraSalidasRef = useRef(null);
+  const [altoBarraSalidas, setAltoBarraSalidas] = useState(72);
+  useEffect(() => {
+    const el = barraSalidasRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(([entry]) => setAltoBarraSalidas(Math.ceil(entry.contentRect.height)));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!cupoToken) { setCupo(false); return; }
     let vivo = true;
@@ -258,7 +276,7 @@ export default function EventoPublicoPage() {
           de páginas, porque son dos barras distintas y si las dos flotaran a la
           misma altura se solaparían. Ésta se pega arriba y la otra queda por
           debajo, que además es el orden en que se leen. */}
-      <div className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
+      <div ref={barraSalidasRef} className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
                       bg-bg/85 backdrop-blur-md border-b border-border/60
                       flex items-center justify-between gap-4 flex-wrap">
         {(isStandalone || !nav.mostrar_explorar) ? <span /> : (
@@ -330,9 +348,11 @@ export default function EventoPublicoPage() {
       <div className="relative">
         {/* La píldora va por debajo de la barra de salidas, que ahora también
             es fija: a `top-4` quedaría tapada por ella. El desplazamiento es
-            la altura de esa barra más un respiro. */}
+            la altura REAL de esa barra (medida con ResizeObserver arriba), no
+            un número fijo — en móvil, con los enlaces envueltos a dos filas,
+            72px deja de ser cierto y las dos barras se solapan. */}
         {hasCover && (
-          <div className={`sticky top-[72px] z-20 flex ${pillAlign} mb-[-1px]`}>
+          <div style={{ top: `${altoBarraSalidas}px` }} className={`sticky z-20 flex ${pillAlign} mb-[-1px]`}>
             <div className="max-w-[calc(100%-2rem)]">
               {tabsPill}
             </div>
@@ -632,7 +652,7 @@ function AvisoCupo({ cupo, onTomar }) {
   );
 }
 
-export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess }) {
+export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess, embebido = false }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
@@ -855,7 +875,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
        utiles, o sea dos columnas de ~340px, que es donde un correo o una
        direccion se leen enteros. El organizador puede subirlo o bajarlo desde
        Proceso de compra (`checkout.modal_ancho` / `modal_alto`). */
-    <ModalShell onClose={onClose}
+    <ModalShell onClose={onClose} embebido={embebido}
       ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-3xl')}
       alto={altoModal(checkout.modal_alto)}>
       <form onSubmit={submit} className="grid-form">
@@ -1064,7 +1084,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   );
 }
 
-export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose }) {
+export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose, embebido = false }) {
   const qrValue = ticket.qr_token || ticket.codigo;
   const [bajando, setBajando] = useState(false);
 
@@ -1175,7 +1195,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
     }
   }, [redirectUrl, checkout.redirect_auto, vista]);
   return (
-    <ModalShell onClose={onClose}
+    <ModalShell onClose={onClose} embebido={embebido}
       ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-md')}
       alto={altoModal(checkout.modal_alto)}>
       {vista === 'subeventos' ? (
@@ -1354,12 +1374,41 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
    · `ancho` es un parametro porque el mismo cascaron sirve para un formulario
      de dos campos y para uno de veinte. Fijarlo en `max-w-md` obligaba a que
      todo cupiera en 400px, que es de donde viene la columna larguisima. */
-function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[90vh]' }) {
+function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[90vh]', embebido = false }) {
   useEffect(() => {
+    /* Bloquear el scroll del fondo tiene sentido cuando el modal tapa TODA la
+       pantalla — dentro de un iframe embebido no la tapa (ver abajo), y
+       bloquear el scroll del documento del iframe no sirve de nada: quien
+       scrollea es la página del cliente, por fuera del iframe. */
+    if (embebido) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
-  }, []);
+  }, [embebido]);
+
+  /* Embebido: sin fondo oscuro ni tarjeta, en el flujo normal del documento
+     en vez de `fixed inset-0`. Es lo que pidió el cliente al incrustar el
+     registro en su web — que se vea como parte de su página, no como un
+     recuadro de software ajeno flotando encima. De paso, esto es lo que deja
+     que `EmbedPage` mida el alto con el mismo ResizeObserver de siempre: un
+     modal `fixed` no se puede medir (mide casi cero, fuera del flujo), que es
+     por lo que hoy existe el truco de pedir un alto fijo de 20000px mientras
+     hay un modal abierto. En flujo normal, ese truco deja de hacer falta. */
+  if (embebido) {
+    return (
+      <div className="relative w-full animate-[fadeIn_0.2s_ease_both]">
+        <div className="flex items-center justify-end mb-1">
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2/60 flex items-center justify-center transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>

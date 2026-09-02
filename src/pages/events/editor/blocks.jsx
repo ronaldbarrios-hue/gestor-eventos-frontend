@@ -1474,6 +1474,31 @@ function MapaEventoPreview({ data, evento }) {
                   </ul>
                 </div>
               )}
+              {(() => {
+                /* Qué stands hay aquí. Tocar la zona debería contestar "qué
+                   hay" entero, no sólo la agenda — y evento.expositores ya
+                   trae zona_id, así que esto es sólo agrupar, sin pedir nada
+                   nuevo al servidor. */
+                const aqui = (evento?.expositores || []).filter(e => e.zona_id === sel.data.id);
+                if (aqui.length === 0) return null;
+                return (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1.5">Stands aquí</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aqui.slice(0, 8).map(e => (
+                        <button key={e.id} onClick={() => setSel({ kind: 'expositor', data: e })}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-border hover:border-border-2 bg-surface-2/60 text-xs text-text-1 transition-colors">
+                          {e.logo_url
+                            ? <img src={e.logo_url} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                            : <span className="w-4 h-4 rounded-full bg-surface-3 flex items-center justify-center text-[9px] font-bold text-text-3 flex-shrink-0">{(e.nombre || '?')[0]}</span>}
+                          {e.nombre}
+                        </button>
+                      ))}
+                      {aqui.length > 8 && <span className="text-[11px] text-text-3 self-center">+{aqui.length - 8} más</span>}
+                    </div>
+                  </div>
+                );
+              })()}
             </>) : sel.kind === 'sesion' ? (<>
               <div className="flex items-start gap-3">
                 <span className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0" style={{ background: tipoEspacio(sel.data.tipo).color }}>{(sel.data.titulo || '?')[0].toUpperCase()}</span>

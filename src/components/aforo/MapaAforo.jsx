@@ -215,6 +215,7 @@ export function DetalleMarcador({ sel, datos, children }) {
         <Dato k="Entradas" v={z.entradas} />
         <Dato k="Salidas" v={z.salidas} />
         <ProgramaZona z={z} />
+        <StandsDeZona z={z} />
         {children}
       </Ficha>
     );
@@ -298,6 +299,32 @@ function ProgramaZona({ z }) {
           {pendientes.length > 4 && <p className="text-[11px] text-text-3 mt-0.5">y {pendientes.length - 4} más</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+/* Qué stands están montados aquí. Es la otra mitad de "zona como centro de
+   mando": el aforo dice cuánta gente hay, la agenda dice qué está pasando, y
+   esto dice a quién puede visitar mientras está dentro. Viene de
+   `mapa/vivo` (routes/clientes.js, cruzado con `standsPorZona` de
+   lib/expositores.js) — sin aforo propio del stand, que es cosa del panel de
+   Stands, no de este tablero. */
+function StandsDeZona({ z }) {
+  const stands = z.stands || [];
+  if (stands.length === 0) return null;
+  return (
+    <div className="col-span-2 pt-2 border-t border-border">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Stands aquí</p>
+      <div className="flex flex-wrap gap-1.5">
+        {stands.map(s => (
+          <span key={s.id} className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-border bg-surface-2/60 text-xs text-text-1">
+            {s.logo_url
+              ? <img src={s.logo_url} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+              : <span className="w-4 h-4 rounded-full bg-surface-3 flex items-center justify-center text-[9px] font-bold text-text-3 flex-shrink-0">{(s.nombre || '?')[0]}</span>}
+            {s.nombre}{s.stand ? ` · ${s.stand}` : ''}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
