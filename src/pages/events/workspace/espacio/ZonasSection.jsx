@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { clientesApi } from '../../../../api/clientes.js';
 import { eventosApi } from '../../../../api/eventos.js';
+import { agendaApi } from '../../../../api/agenda.js';
+import { networkingApi } from '../../../../api/networking.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
@@ -44,11 +46,22 @@ import {
  * ── Quién puede editar ────────────────────────────────────────────────────
  *
  * La pestaña se abre con permiso de `checkin`, porque mirar la zona es parte
- * de trabajar el evento. Pero crear y borrar zonas escribe en `page_json`, y
- * eso el backend lo reserva a `editar_pagina_publica` o al owner
- * (`routes/eventos.js`, el PATCH). Así que el alta sólo se dibuja si
- * `puedeEditar`: enseñar un botón que devuelve 403 es peor que no tenerlo.
+ * de trabajar el evento. Pero las tres cosas que se pueden CAMBIAR desde aquí
+ * viven en tres tablas distintas, y el backend pide un permiso distinto para
+ * cada una:
+ *
+ *   la zona en sí → `page_json`               → `editar_pagina_publica`
+ *   la actividad  → `agenda_sessions.zona_id` → `gestionar_agenda` | `editar_evento`
+ *   el stand      → `networking_expositores`  → `gestionar_expositores` | `editar_evento`
+ *
+ * (el owner puede las tres). Se comprueban por separado y no con una sola
+ * bandera, por dos razones: enseñar un botón que devuelve 403 es peor que no
+ * enseñarlo, y juntarlas obligaría a exigir el permiso más alto de los tres
+ * para hacer lo más barato.
  */
+
+const puedeCon = (soyOwner, permisos, lista) =>
+  Boolean(soyOwner) || lista.some(p => (permisos || []).includes(p));
 
 function uid() { return 'zona_' + Math.random().toString(36).slice(2, 9); }
 
@@ -68,7 +81,11 @@ const limpiar = (l) => (l || []).map(({ id, nombre, aforo_max }) =>
    desaparecer de la lista. */
 const VACIA = { dentro: 0, entradas: 0, salidas: 0, excedido: 0, agenda: [], ahora: [], siguiente: null, stands: [] };
 
-export default function ZonasSection({ evento, puedeEditar = false, reload }) {
+export default function ZonasSection({ evento, soyOwner = false, permisos, reload }) {
+  const puedeEditar = puedeCon(soyOwner, permisos, ['editar_pagina_publica']);
+  const puedeAgenda = puedeCon(soyOwner, permisos, ['gestionar_agenda', 'editar_evento']);
+  const puedeStands = puedeCon(soyOwner, permisos, ['gestionar_expositores', 'editar_evento']);
+
   const { success, error } = useToast();
   const [zonas, setZonas] = useState(null);
   const [sel, setSel] = useState(null);
@@ -173,6 +190,49 @@ export default function ZonasSection({ evento, puedeEditar = false, reload }) {
 
   const sucio = JSON.stringify(limpiar(configuradas)) !== JSON.stringify(guardadas);
 
+  /* ── Colgar cosas de la zona (fase 3) ──────────────────────────────────
+     Las listas completas de actividades y de stands, que `mapa/vivo` no trae:
+     de la agenda sólo devuelve lo que está puesto en el plano, y de los stands
+     sólo los que YA tienen zona. Para poder asignar hace falta ver también lo
+     que todavía no está en ninguna parte.
+
+     Se piden una sola vez y sólo si se puede asignar algo: a quien no tiene el
+     permiso no se le gasta la petición. */
+  const [agendaTodo, setAgendaTodo] = useState(null);
+  const [standsTodo, setStandsTodo] = useState(null);
+  const [asignando, setAsignando] = useState(false);
+
+  const cargarAsignables = useCallback(async () => {
+    const [ag, st] = await Promise.all([
+      puedeAgenda ? agendaApi.sessions(evento.id).catch(() => null) : Promise.resolve(null),
+      puedeStands ? networkingApi.expositoresAdmin(evento.id).catch(() => null) : Promise.resolve(null),
+    ]);
+    if (!vivoRef.current) return;
+    if (ag) setAgendaTodo(ag.sessions || []);
+    if (st) setStandsTodo(st.expositores || []);
+  }, [evento.id, puedeAgenda, puedeStands]);
+
+  useEffect(() => { cargarAsignables(); }, [cargarAsignables]);
+
+  /* Asignar y desasignar son la MISMA operación con distinto valor, así que es
+     una sola función: `zonaId` a null desasigna. Van de a una petición por
+     ítem —los endpoints de agenda y de stands ya aceptan `zona_id` en su
+     PATCH— y no hay endpoint en lote porque para un puñado de ítems no hace
+     falta uno; si algún día se asignan cincuenta de golpe, ahí sí. */
+  const mover = async (que, id, zonaId) => {
+    setAsignando(true);
+    try {
+      if (que === 'agenda') await agendaApi.editarSession(evento.id, id, { zona_id: zonaId });
+      else await networkingApi.editarStand(evento.id, id, { zona_id: zonaId });
+      success(zonaId ? 'Movido a la zona.' : 'Quitado de la zona.');
+      /* Dos refrescos y los dos hacen falta: `cargar` trae la zona con su
+         contenido nuevo, `cargarAsignables` actualiza qué queda por asignar. */
+      await Promise.all([cargar(), cargarAsignables()]);
+    } catch (e) {
+      error(e.response?.data?.error || e.message);
+    } finally { setAsignando(false); }
+  };
+
   /* Cada zona configurada con lo que se sepa de ella en vivo. La configurada
      manda: si el endpoint no la trae todavía, sale en ceros en vez de
      desaparecer. */
@@ -274,7 +334,27 @@ export default function ZonasSection({ evento, puedeEditar = false, reload }) {
             {seleccionada ? (
               <>
                 <DetalleMarcador sel={`zona:${seleccionada.id}`} datos={datosDetalle} />
-                <Acciones evento={evento} z={seleccionada} />
+                {puedeAgenda && (
+                  <Colgar titulo="Actividades aquí" vacio="Ninguna actividad programada en esta zona."
+                    ocupando={asignando}
+                    dentro={(agendaTodo || []).filter(s => s.zona_id === seleccionada.id)}
+                    fuera={(agendaTodo || []).filter(s => s.zona_id !== seleccionada.id)}
+                    etiqueta={s => s.titulo || 'Sin título'}
+                    nota={s => s.zona_id ? 'en otra zona' : null}
+                    onMeter={id => mover('agenda', id, seleccionada.id)}
+                    onSacar={id => mover('agenda', id, null)} />
+                )}
+                {puedeStands && (
+                  <Colgar titulo="Stands aquí" vacio="Ningún stand montado en esta zona."
+                    ocupando={asignando}
+                    dentro={(standsTodo || []).filter(s => s.zona_id === seleccionada.id)}
+                    fuera={(standsTodo || []).filter(s => s.zona_id !== seleccionada.id)}
+                    etiqueta={s => `${s.nombre}${s.stand ? ` · ${s.stand}` : ''}`}
+                    nota={s => s.zona_id ? 'en otra zona' : null}
+                    onMeter={id => mover('stands', id, seleccionada.id)}
+                    onSacar={id => mover('stands', id, null)} />
+                )}
+                <Acciones evento={evento} z={seleccionada} puedeAgenda={puedeAgenda} puedeStands={puedeStands} />
               </>
             ) : (
               <div className="rounded-2xl border border-border bg-surface/40 p-5 text-center">
@@ -370,21 +450,79 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
  * Son enlaces y no formularios a propósito: mientras la administración siga
  * viviendo en Accesos e ingresos, duplicarla aquí sería volver a tener dos
  * dueños del mismo dato — que es justo lo que se acaba de quitar del mapa. */
-function Acciones({ evento, z }) {
+function Acciones({ evento, z, puedeAgenda, puedeStands }) {
   const base = `/eventos/${evento.id}?s=espacio`;
   return (
     <div className="rounded-2xl border border-border bg-surface/40 p-3.5 space-y-2">
       <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ir a</p>
       <Enlace to={`${base}&t=mapa`} texto={z._enPlano ? 'Mover en el plano' : 'Colocar en el plano'} nota="Mapa del evento" />
       <Enlace to={`${base}&t=aforo`} texto="Operar y tomar reporte" nota="Aforo por zonas" />
-      {/* Estas dos siguen siendo enlaces y no formularios: asignar una
-          actividad o un stand DESDE la zona es la fase 3 del frente. Hasta
-          entonces, la dirección sigue siendo la de siempre —el sub-evento
-          elige su zona— y lo honesto es llevar allí en vez de aparentar que
-          ya se puede hacer al revés. */}
-      <Enlace to={`${base}&t=calendario`} texto="Programar una actividad aquí" nota="Calendario · campo «Zona del plano»" />
-      <Enlace to={`${base}&t=stands`} texto="Montar un stand aquí" nota="Stands · campo «Zona del plano»" />
+      {/* Asignar ya se hace arriba, desde la zona. Estos dos enlaces se quedan
+          para lo que aquí NO se puede hacer: crear la actividad o el stand que
+          todavía no existe. Sólo se ofrecen a quien no puede asignar desde
+          aquí; a quien sí, serían dos caminos al mismo sitio. */}
+      {!puedeAgenda && <Enlace to={`${base}&t=calendario`} texto="Programar una actividad" nota="Calendario · campo «Zona del plano»" />}
+      {!puedeStands && <Enlace to={`${base}&t=stands`} texto="Montar un stand" nota="Stands · campo «Zona del plano»" />}
+      <Enlace to={`${base}&t=calendario`} texto="Crear una actividad nueva" nota="Calendario" />
       <Enlace to={`${base}&t=accesos`} texto="Puertas del recinto" nota="Accesos e ingresos" />
+    </div>
+  );
+}
+
+/* Colgar cosas de una zona, y descolgarlas.
+ *
+ * Es la mitad que faltaba: hasta ahora una actividad elegía su zona y un stand
+ * elegía la suya, y desde la zona no se podía conectar nada. Los dos casos son
+ * el mismo problema —una lista de lo que ya está y un desplegable con lo que
+ * se puede añadir— así que es un solo componente y no dos parecidos.
+ *
+ * El desplegable dice «en otra zona» cuando corresponde, en vez de esconder
+ * esos ítems: mover una charla de la Sala A a la Sala B es una cosa
+ * perfectamente normal, y ocultarla obligaría a ir a buscarla al Calendario.
+ */
+function Colgar({ titulo, vacio, dentro, fuera, etiqueta, nota, onMeter, onSacar, ocupando }) {
+  const [abierto, setAbierto] = useState('');
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 p-3.5 space-y-2">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">{titulo}</p>
+
+      {dentro.length === 0
+        ? <p className="text-xs text-text-3">{vacio}</p>
+        : (
+          <ul className="space-y-1">
+            {dentro.map(it => (
+              <li key={it.id} className="flex items-center gap-2 text-sm text-text-1">
+                <span className="flex-1 min-w-0 truncate">{etiqueta(it)}</span>
+                <button onClick={() => onSacar(it.id)} disabled={ocupando}
+                  title="Quitar de esta zona"
+                  className="text-[11px] text-text-3 hover:text-danger transition-colors flex-shrink-0 disabled:opacity-40">
+                  quitar
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+      {fuera.length > 0 && (
+        <div className="flex items-center gap-2 pt-1">
+          <select value={abierto} onChange={e => setAbierto(e.target.value)}
+            disabled={ocupando} className="input !h-9 text-sm flex-1 min-w-0">
+            <option value="">Añadir…</option>
+            {fuera.map(it => (
+              <option key={it.id} value={it.id}>
+                {etiqueta(it)}{nota(it) ? ` — ${nota(it)}` : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={async () => { const id = abierto; setAbierto(''); await onMeter(id); }}
+            disabled={ocupando || !abierto}
+            className="btn-secondary btn-sm flex-shrink-0">
+            Añadir
+          </button>
+        </div>
+      )}
     </div>
   );
 }

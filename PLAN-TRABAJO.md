@@ -904,20 +904,46 @@ cambiar aforo y borrar zonas ya vive en «Zonas de interés».
 
 Verificado: `eslint` y `build` limpios.
 
-### Fase 3 · Las relaciones, en dirección inversa
+### Fase 3 · Las relaciones, en dirección inversa — ✅ Hecho el 2026-09-02
 
-Lo que hoy no se puede hacer. Necesita backend chico:
+**Esto era el corazón del pedido.** Desde la zona ya se pueden colgar y
+descolgar actividades y stands: la dirección que no existía.
 
-- Desde la zona, **añadir o quitar actividades**: escribe `agenda_sessions.zona_id`
-  en lote. El `PATCH` de agenda ya admite `zona_id` (`routes/agenda.js:224`,
-  está en la lista `allowed`) — falta el endpoint que acepte varias sesiones de
-  una vez, o hacerlo con N llamadas si son pocas.
-- Desde la zona, **añadir o quitar stands**: escribe
-  `networking_expositores.zona_id`, ya validado por `zonaInvalida`
-  (`routes/networking.js:483-487`).
-- Los dos formularios de siempre (`SessionForm`, `StandsTab`) **se quedan como
-  están**: elegir la zona mientras creas una charla es cómodo y hay que
-  conservarlo. Lo que cambia es que ya no es la única dirección posible.
+- **Sin backend nuevo.** Los `PATCH` que ya había aceptan `zona_id`
+  (`routes/agenda.js:218` lo tiene en su lista `allowed`;
+  `routes/networking.js:513` además lo valida con `zonaInvalida`). Se manda una
+  petición por ítem. No se hizo endpoint en lote: para un puñado de ítems no
+  hace falta, y añadir una ruta nueva es añadir superficie de permisos. Si
+  algún día hay que asignar cincuenta de golpe, ahí sí.
+- **Un solo componente `<Colgar>` para los dos casos**, porque son el mismo
+  problema: una lista de lo que ya está y un desplegable con lo que se puede
+  añadir. Asignar y desasignar son la misma llamada con `zona_id` a `null`.
+- **El desplegable no esconde lo que está en otra zona**, lo marca «en otra
+  zona». Mover una charla de la Sala A a la Sala B es normal, y ocultarla
+  obligaría a ir a buscarla al Calendario — es decir, a lo de antes.
+- **Hacía falta pedir las listas completas**: `mapa/vivo` sólo devuelve la
+  agenda que está puesta en el plano y los stands que YA tienen zona. Para
+  asignar hay que ver también lo que no está en ninguna parte, así que se
+  piden `sessions` y `expositores` aparte — y sólo a quien tiene el permiso,
+  para no gastar la petición.
+- Los dos formularios de siempre (`SessionForm`, `StandsTab`) **se quedaron
+  igual**: elegir la zona mientras creas una charla es cómodo. Lo que cambia
+  es que ya no es la única dirección posible.
+
+**Los tres permisos, que era la parte delicada.** Cada cosa que se cambia
+desde esta pantalla vive en una tabla distinta y el backend pide un permiso
+distinto:
+
+| Qué se cambia | Dónde | Permiso |
+|---|---|---|
+| La zona | `page_json` | `editar_pagina_publica` |
+| La actividad | `agenda_sessions.zona_id` | `gestionar_agenda` \| `editar_evento` |
+| El stand | `networking_expositores.zona_id` | `gestionar_expositores` \| `editar_evento` |
+
+Se comprueban por separado (`puedeCon`) y no con una bandera única: juntarlas
+obligaría a exigir el permiso más alto de los tres para hacer lo más barato.
+
+Verificado: `eslint` y `build` limpios.
 
 ### Fase 4 · Zona ↔ puerta, la relación que falta
 

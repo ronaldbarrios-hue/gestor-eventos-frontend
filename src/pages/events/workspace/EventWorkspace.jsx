@@ -406,11 +406,6 @@ export default function EventWorkspace() {
    componente de arriba, y aquí dentro no existía. Al abrir Comunicación →
    Anuncios se lanzaba un ReferenceError y la pestaña no se pintaba. */
 function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
-  /* Escribir en `page_json` pide `editar_pagina_publica` (o ser owner): lo
-     comprueba `routes/eventos.js` en el PATCH. Se calcula aquí para que una
-     pantalla que el staff SÍ puede abrir no le enseñe botones que van a
-     devolver 403. */
-  const puedeEditarSitio = soyOwner || (permisos || []).includes('editar_pagina_publica');
   if (!seccion || !tab) return null;
   if (tab.placeholder) return <PlaceholderTab title={tab.placeholder[0]} desc={tab.placeholder[1]} icon="spark" />;
 
@@ -445,7 +440,10 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
-    case 'espacio/zonas'            : return <ZonasSection evento={evento} puedeEditar={puedeEditarSitio} reload={reload} />;
+    /* Esta pantalla toca tres cosas con tres permisos distintos (la zona, la
+       agenda y los stands), así que recibe la lista y decide ella: la regla de
+       cada acción vive junto a la acción. */
+    case 'espacio/zonas'            : return <ZonasSection evento={evento} soyOwner={soyOwner} permisos={permisos} reload={reload} />;
     case 'espacio/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
     case 'espacio/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
