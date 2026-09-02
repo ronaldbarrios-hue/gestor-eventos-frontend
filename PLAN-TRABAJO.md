@@ -1242,12 +1242,27 @@ indica, así que se pueden tomar en paralelo.
 
 ### Barato y con valor claro
 
-3. **Un solo alta de expositor.** El caso más grave de la auditoría: dos
-   pantallas, dos endpoints, la misma tabla, y desde «Rueda de negocios» el
-   expositor **no se puede editar** porque esa ruta no tiene `PATCH` (§3.1).
-   Que `NetworkingTab` use el endpoint de Stands, o que el suyo gane los
-   campos y el `PATCH` que le faltan. **Toca `routes/networking.js`, igual que
-   el Frente I fase 3 — coordinar.**
+3. ~~**Un solo alta de expositor.**~~ — ✅ **hecho el 2026-09-02.** Los tres
+   manejadores (crear, editar, borrar) viven una sola vez y se montan en las
+   dos rutas; las dos URL siguen existiendo porque las usan dos pantallas
+   distintas. El gate de categoría de la Rueda de Negocios pasó a middleware,
+   porque los stands funcionan para cualquier evento y ponérselo los rompería.
+
+   **Y apareció un agujero al juntarlas:** el `DELETE` de la Rueda borraba por
+   `id` a secas. `assertOwner` comprueba que quien pide manda en ESTE evento,
+   no que el expositor sea de este evento — así que quien organizara un evento
+   cualquiera podía borrar la ficha de otro evento ajeno pasándole su id, y ese
+   id sale en el directorio público. El borrado unificado filtra por
+   `evento_id`.
+
+   En el frontend, `NetworkingTab` gana el botón de editar y el modal sirve
+   para alta y edición. Antes, corregir una letra del nombre obligaba a borrar
+   al expositor —con sus horarios y las citas ya reservadas— y crearlo de
+   nuevo.
+
+   Backend PR #30, con `test/expositoresRutas.test.js` (424 en verde).
+   **Sin ver en navegador:** el panel exige cuenta y este entorno no tiene
+   credenciales de sesión.
 4. **Conectar `oauth_barrer()`** a alguno de los `cron-*.js` que ya corren, o
    documentar que sigue pendiente. Hoy `oauth_codes`/`oauth_tokens` crecen sin
    límite (§3.4).

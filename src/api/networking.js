@@ -14,6 +14,10 @@ export const networkingApi = {
   borrarStand     : (eventoId, id) => client.delete(`/eventos/${eventoId}/expositores/${id}`).then(r => r.data),
   admin           : (eventoId) => client.get(`/eventos/${eventoId}/networking/admin`).then(r => r.data),
   crearExpositor  : (eventoId, body) => client.post(`/eventos/${eventoId}/networking/expositores`, body).then(r => r.data),
+  /* Faltaba, y su ausencia se notaba: un expositor creado desde la Rueda de
+     Negocios no se podía editar desde ninguna parte — sólo borrar y volver a
+     crear. Detrás es el mismo manejador que `editarStand`. */
+  editarExpositor : (eventoId, id, body) => client.patch(`/eventos/${eventoId}/networking/expositores/${id}`, body).then(r => r.data),
   borrarExpositor : (eventoId, expositorId) => client.delete(`/eventos/${eventoId}/networking/expositores/${expositorId}`).then(r => r.data),
   generarHorarios : (eventoId, expositorId, body) => client.post(`/eventos/${eventoId}/networking/expositores/${expositorId}/horarios`, body).then(r => r.data),
   borrarHorario   : (eventoId, horarioId) => client.delete(`/eventos/${eventoId}/networking/horarios/${horarioId}`).then(r => r.data),

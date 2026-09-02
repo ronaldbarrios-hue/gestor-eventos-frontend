@@ -207,7 +207,9 @@ export function MisCitasView({ evento }) {
 function AdminView({ evento }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [formOpen, setFormOpen] = useState(false);
+  /* `null` = cerrado, `'nuevo'` = alta, un expositor = edición. Un solo estado
+     porque es un solo modal: dos banderas se desincronizan. */
+  const [editando, setEditando] = useState(null);
   const [horariosPara, setHorariosPara] = useState(null); // expositor seleccionado
   const { success, error: toastErr } = useToast();
 
@@ -242,7 +244,7 @@ function AdminView({ evento }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button onClick={() => setFormOpen(true)} className="btn-gradient btn-sm">+ Agregar expositor</button>
+        <button onClick={() => setEditando('nuevo')} className="btn-gradient btn-sm">+ Agregar expositor</button>
       </div>
 
       {(!data || data.length === 0) ? (
@@ -262,7 +264,11 @@ function AdminView({ evento }) {
                   {exp.stand && <p className="text-xs text-text-3">Stand {exp.stand}</p>}
                 </div>
                 <button onClick={() => setHorariosPara(exp)} className="btn-secondary btn-sm">+ Horarios</button>
-                <button onClick={() => borrarExpositor(exp)} aria-label="Borrar"
+                <button onClick={() => setEditando(exp)} aria-label={`Editar a ${exp.nombre}`}
+                  className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                </button>
+                <button onClick={() => borrarExpositor(exp)} aria-label={`Borrar a ${exp.nombre}`}
                   className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -290,11 +296,16 @@ function AdminView({ evento }) {
         </div>
       )}
 
-      {formOpen && (
-        <NuevoExpositorModal
+      {editando && (
+        <ExpositorModal
+          /* La clave fuerza un montaje nuevo al cambiar de ficha: sin ella, el
+             modal reusaría el estado del expositor anterior y aparecería con
+             los datos de otro. */
+          key={editando === 'nuevo' ? 'nuevo' : editando.id}
           eventoId={evento.id}
-          onClose={() => setFormOpen(false)}
-          onDone={() => { setFormOpen(false); cargar(); }}
+          expositor={editando === 'nuevo' ? null : editando}
+          onClose={() => setEditando(null)}
+          onDone={() => { setEditando(null); cargar(); }}
         />
       )}
 
@@ -310,10 +321,15 @@ function AdminView({ evento }) {
   );
 }
 
-function NuevoExpositorModal({ eventoId, onClose, onDone }) {
-  const [nombre, setNombre] = useState('');
-  const [stand, setStand] = useState('');
-  const [descripcion, setDescripcion] = useState('');
+/* Alta y edición en el mismo modal. Antes sólo había alta, y un expositor
+   creado aquí no se podía tocar desde ninguna parte: para corregir una letra
+   del nombre había que borrarlo —perdiendo sus horarios y las citas que
+   alguien ya hubiera reservado— y volver a crearlo. */
+function ExpositorModal({ eventoId, expositor, onClose, onDone }) {
+  const editando = !!expositor;
+  const [nombre, setNombre] = useState(expositor?.nombre || '');
+  const [stand, setStand] = useState(expositor?.stand || '');
+  const [descripcion, setDescripcion] = useState(expositor?.descripcion || '');
   const [working, setWorking] = useState(false);
   const { error: toastErr } = useToast();
 
@@ -321,8 +337,14 @@ function NuevoExpositorModal({ eventoId, onClose, onDone }) {
     e.preventDefault();
     if (!nombre.trim()) { toastErr('El nombre es requerido.'); return; }
     setWorking(true);
+    const cuerpo = {
+      nombre: nombre.trim(),
+      stand: stand.trim() || null,
+      descripcion: descripcion.trim() || null,
+    };
     try {
-      await networkingApi.crearExpositor(eventoId, { nombre: nombre.trim(), stand: stand.trim() || null, descripcion: descripcion.trim() || null });
+      if (editando) await networkingApi.editarExpositor(eventoId, expositor.id, cuerpo);
+      else await networkingApi.crearExpositor(eventoId, cuerpo);
       onDone();
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
@@ -338,7 +360,7 @@ function NuevoExpositorModal({ eventoId, onClose, onDone }) {
         onClick={e => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 bg-surface px-6 py-5 border-b border-border flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Nuevo expositor</h2>
+          <h2 className="text-xl font-bold font-display tracking-tight text-text-1">{editando ? 'Editar expositor' : 'Nuevo expositor'}</h2>
           <button onClick={onClose} aria-label="Cerrar"
             className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -362,7 +384,9 @@ function NuevoExpositorModal({ eventoId, onClose, onDone }) {
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-3 rounded-2xl text-sm font-medium text-text-1 border border-border-2 hover:bg-surface-2">Cancelar</button>
             <button type="submit" disabled={working} className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-text-1 text-bg hover:bg-white disabled:opacity-60 flex items-center justify-center gap-2">
-              {working ? <><Spinner size="sm" /> Creando...</> : 'Crear'}
+              {working
+                ? <><Spinner size="sm" /> {editando ? 'Guardando...' : 'Creando...'}</>
+                : (editando ? 'Guardar' : 'Crear')}
             </button>
           </div>
         </form>
