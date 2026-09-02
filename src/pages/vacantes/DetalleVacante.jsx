@@ -9,6 +9,7 @@ import { vacantesApi, formatoPago, ETAPAS_VACANTE } from '../../api/vacantes.js'
 import { useToast } from '../../context/ToastContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
+import GLoader from '../../components/ui/GLoader.jsx';
 
 export default function DetalleVacante({ id, onClose, onPostulado }) {
   const { t } = useI18n();
