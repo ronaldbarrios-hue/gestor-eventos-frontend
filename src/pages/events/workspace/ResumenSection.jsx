@@ -164,15 +164,22 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
                   const detalle = detalleAccion(a);
                   return (
                     <li key={a.id || i} className="flex items-start gap-2.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 flex-shrink-0" />
+                      <Avatar actor={a.actor} correo={a.actor_email} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-text-1 leading-snug">
                           <span className="font-medium">{nombreDelActor(a)}</span>
                           {' '}<span className="text-text-2">{describirAccion(a.accion)}</span>
                         </p>
-                        <p className="text-[11px] text-text-3">
-                          {detalle && <span className="text-text-2">{detalle} · </span>}
-                          {a.created_at ? relativo(a.created_at) : ''}
+                        {detalle && <p className="text-[13px] text-text-2 leading-snug">{detalle}</p>}
+                        {/* La hora exacta, no «hace 18h». Un registro de
+                            auditoría se consulta para cuadrar cuándo pasó algo
+                            con lo que alguien cuenta que pasó, y para eso
+                            «hace 18h» obliga a hacer la resta a mano. Lo
+                            relativo se queda en el `title`, que es donde
+                            sirve: para leer «ah, fue hoy» de un vistazo. */}
+                        <p className="text-[11px] text-text-3 tabular-nums"
+                          title={a.created_at ? relativo(a.created_at) : ''}>
+                          {a.created_at ? fechaHora(a.created_at) : ''}
                         </p>
                       </div>
                     </li>
@@ -304,6 +311,37 @@ function relativo(iso) {
   if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
   return `hace ${Math.floor(diff / 86400)}d`;
 }
+
+/* El día y la hora, que es lo que se le pide a un registro de auditoría.
+   Mismo formato que la tabla de Auditoría en Equipo y roles, para que las dos
+   pantallas no cuenten la misma hora de dos maneras. El año sólo si no es
+   este: en un evento que dura una semana, «2 sep, 14:32» se lee mejor. */
+function fechaHora(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const esteAno = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleString('es-CO', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    ...(esteAno ? {} : { year: 'numeric' }),
+  });
+}
+
+/* La foto de quien hizo el cambio, con su inicial de respaldo.
+   El endpoint de auditoría ya devolvía `actor.avatar_url` desde el principio
+   —la consulta lo pide— y esta pantalla lo ignoraba: pintaba un punto de
+   color. Ver quién fue de un vistazo es la mitad de para qué sirve un
+   registro de actividad. */
+function Avatar({ actor, correo }) {
+  const inicial = (actor?.nombre?.[0] || correo?.[0] || '?').toUpperCase();
+  return (
+    <div className="w-7 h-7 rounded-full overflow-hidden bg-gradient-to-br from-primary to-accent
+                    flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0 mt-0.5">
+      {actor?.avatar_url
+        ? <img src={actor.avatar_url} alt="" className="w-full h-full object-cover" />
+        : inicial}
+    </div>
+  );
+}
 /* Cada acción que el backend audita, dicha como se lo contarías a alguien.
 
    El diccionario cubría ocho y el backend registra catorce, así que las que
@@ -334,6 +372,13 @@ const ACCIONES = {
   'ticket.borrar'           : 'borró un tipo de boleta',
   'tarea.crear'             : 'creó una tarea',
   'tarea.editar'            : 'actualizó una tarea',
+  /* La agenda no se auditaba y es de lo que más se toca entre varias
+     personas: quien monta el programa, quien lo corrige y quien mueve una
+     charla de sala suelen ser tres distintas. */
+  'sesion.crear'            : 'agregó un sub-evento',
+  'sesion.editar'           : 'editó un sub-evento',
+  'sesion.borrar'           : 'borró un sub-evento',
+  'aforo.limpiar'           : 'puso a cero el contador de una zona',
 };
 
 function describirAccion(a) {

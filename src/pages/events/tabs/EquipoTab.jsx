@@ -71,6 +71,10 @@ const ACCION_LABEL = {
   'ticket.crear'  : 'Creó un tipo de boleta',
   'ticket.editar' : 'Editó un tipo de boleta',
   'ticket.borrar' : 'Borró un tipo de boleta',
+  'sesion.crear'  : 'Agregó un sub-evento',
+  'sesion.editar' : 'Editó un sub-evento',
+  'sesion.borrar' : 'Borró un sub-evento',
+  'aforo.limpiar' : 'Puso a cero el contador de una zona',
 };
 
 function AuditoriaSection({ eventoId }) {
