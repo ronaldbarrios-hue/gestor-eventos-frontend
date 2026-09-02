@@ -65,11 +65,92 @@ conviene saberlo: centra la ventana en vez de anclarla abajo, el overlay ya
 scrollea, y acota el iframe con `window.innerHeight`, que en iOS sí sigue al
 área visible — al contrario que `vh`.
 
-### Lo que queda del flujo, en auditoría
+### ✅ El flujo de la aplicación · 2026-09-02
+
+Pedido con una lista de síntomas. La causa de cada uno, medida en el código:
+
+| Síntoma | Causa | Estado |
+|---|---|---|
+| «Siempre entra en la landing en vez del panel, pero al darle iniciar sesión entra bien» | `App.jsx` registraba `/` **sin ningún guard**, mientras `/login` y `/register` sí tenían `PublicOnlyRoute`. No era una carrera async: no había redirect | ✅ |
+| «Al volver atrás desde un evento volvemos a la landing» | Los tres «Explorar eventos» de la página pública apuntaban a `/explorar`, que vive **fuera** del panel | ✅ ahora `/app/explorar` con sesión |
+| «Parece otra página ajena; sale la vista de un usuario sin registrarse» | `EventoPublicoPage` **no consultaba `useAuth` en ningún punto**. Es marca blanca a propósito, pero para quien tiene cuenta era un callejón sin salida | ✅ enlace «Mi panel» |
+| «Hay 2 navbar; Inicio/Expositores/FAQ debe ir arriba» | Dos barras fijas apiladas: la de salidas y la píldora de **páginas** del builder. La misma pregunta partida en dos filas | ✅ una sola barra |
+| «Quitar el ocultar, el bot abajo, la mesa como borde, más pequeño» | El botón «Ocultar» era del acompañante (no del sidebar); medía 250×190 y flotaba con margen | ✅ 176×134, pegado al borde, sin botón |
+| «Donde esté el gestbot en carga, pon el logo» | `PantallaCarga` repetía el personaje que ya vive en la barra lateral | ✅ logo; y el de la barra dice «Poniéndote en línea…» |
+| «Gestbot del home debería ser Sugerencias de Gestbot y sin el bot» | — | ✅ |
+| **El crash de vacantes** (`GLoader is not defined`) | `DetalleVacante.jsx` usaba `<GLoader>` sin importarlo | ✅ |
+
+**Un hallazgo que vale más que su arreglo:** `eslint.config.js` tiene
+`no-undef` puesta *exactamente* para esa clase de fallo —su cabecera enumera
+tres incidentes previos— y **no la cazó, porque `no-undef` no mira dentro de
+JSX**. Un componente inexistente en una etiqueta compila sin una queja y
+revienta al pintar. Se revisó el proyecto entero: no hay más. Cerrarlo de
+verdad pide `eslint-plugin-react` y su regla `react/jsx-no-undef`, que lo hace
+por AST en vez de por texto.
+
+### Lo que queda del flujo de registro, en auditoría
 
 Pedido: «todo el flujo de registro debe quedar bien, desde la creación de
 boletas, el ponerlas en la landing, el poder exportar las boletas, y que al
 momento de exportar todo funcione». En curso.
+
+### FRENTE K · Vacantes, de punta a punta — sin empezar
+
+**Pedido el 2026-09-02.** «El apartado de vacantes no está sirviendo. Sería
+pertinente mejorar la creación de este, que todo sea más profesional, poder
+dejar la CV, cosas importantes. Y en la vista de la persona que quiere
+postularse, que pueda responder las preguntas, agregar CV, hacer preguntas. Y
+ya la empresa lo que hace es agendar una reunión para formalizar todo, ya sea
+por Meet o donde prefiera la empresa.»
+
+Es rediseño, no un arreglo, así que **no se toca sin diseñar antes** — la
+lección del botón de móvil de hoy: la primera hipótesis obvia no servía.
+
+**Qué hay ya, comprobado:** `pages/vacantes/DetalleVacante.jsx` (modal de
+postulación, con `preguntas` y un `mensaje` libre), `api/vacantes.js`
+(`ETAPAS_VACANTE`, `formatoPago`), el perfil de talento (`perfil_talento`) que
+se crea al postularse por primera vez, y `VacantesTab.jsx` en el panel.
+
+**Las cuatro decisiones que hay que tomar antes de escribir código:**
+
+1. **La CV.** ¿Un archivo por postulación o uno en el perfil de talento que se
+   reutiliza? Ya existe `src/lib/archivos.js` con `TIPOS_CV`/`MAX_CV` y un
+   `PerfilTalentoEditor` que lo sube. Reusar el del perfil es más barato y
+   evita que la misma persona suba diez copias; adjuntar por postulación
+   permite adaptar la CV a la vacante. **Ojo:** la migración `0081` —pendiente—
+   borra columnas de `perfil_talento`, así que esta decisión y esa migración
+   son la misma conversación.
+2. **Las preguntas.** Hoy son texto libre (`input`). ¿Se les da tipo —opción
+   múltiple, sí/no, número, archivo— como ya tiene el formulario de registro
+   (`lib/formularioCampos.js`, con `visible_si` y todo)? **Reutilizar ese
+   motor** en vez de escribir un segundo sistema de preguntas es lo correcto:
+   ya está probado y ya sabe validar en servidor.
+3. **Preguntas DEL candidato.** «Hacer preguntas» es una conversación, y eso
+   ya existe en el proyecto: `routes/chat.js` con sus canales. Antes de
+   construir una bandeja nueva hay que ver si un canal por postulación encaja.
+4. **La reunión.** «Meet o donde prefiera la empresa» son dos cosas muy
+   distintas: integrar Google Calendar de verdad (ya hay
+   `lib/googleCalendar.js` y `routes/google.js`, con OAuth) o **sólo guardar un
+   enlace y una hora** que la empresa pega a mano. Lo segundo funciona el
+   primer día y no depende de credenciales de nadie; lo primero es una
+   integración con su propio mantenimiento. **Recomendación: empezar por el
+   enlace pegado a mano**, y dejar la integración para cuando se pida.
+
+**Entregable antes de programar:** las cuatro respuestas. Sin ellas, lo que se
+escriba se tira.
+
+### FRENTE L · El workspace del evento no habla inglés — sin empezar
+
+`EventWorkspace.jsx` **no importa `useI18n` en absoluto**: sus ~45 etiquetas de
+sección y pestaña («Espacio del evento», «Rueda de negocios», «Accesos e
+ingresos», «Zonas de interés»…) están hardcodeadas en español y se pintan tal
+cual. `ResumenSection.jsx` igual. Son las dos pantallas que más se miran de un
+evento.
+
+La fragilidad estructural ya se quitó (el aside pasó de ancho clavado a
+`min-w`/`max-w`), pero traducirlo es mecánico y largo: ~45 claves nuevas en
+`src/i18n/en.js` más las del resumen. Se hace de una vez o no se hace — medio
+traducido es peor que en un solo idioma.
 
 ### Aparcado por esto (retomar después)
 
@@ -78,7 +159,16 @@ momento de exportar todo funcione». En curso.
   datos que escondía (nacían invisibles para el público) ya está arreglado;
   unificar las rutas sigue pendiente y es decisión de producto.
 - **Frente J.4-J.6** — `oauth_barrer`, `StatCard`/`BarraProgreso`, limpieza.
-- **Migraciones `0081` y `0083`** — esperan decisión de aplicarlas (§3.5).
+- **Migración `0083`** — aprobada, **bloqueada al aplicar**: el intento se
+  detuvo en el control de permisos del entorno, no por la base. Comprobado
+  antes: tocaría **exactamente 1 fila** de 33 (la única con `credenciales` y
+  sin `wallet`), tiene `WHERE`, es idempotente y **no borra `credenciales`**,
+  así que se puede volver atrás. Falta que alguien con permiso de escritura la
+  corra.
+- **Migración `0081`** — **no aplicar todavía, a propósito.** Es `DROP COLUMN`
+  sobre datos de persona en `perfil_talento`: irreversible. Y toca justo la
+  tabla que el **Frente K** va a rediseñar, así que decidirla antes de saber
+  qué necesita el perfil de talento es decidir a ciegas.
 
 ---
 
