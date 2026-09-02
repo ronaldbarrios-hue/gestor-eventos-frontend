@@ -12,6 +12,7 @@ import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import { COVER_ASPECTOS, coverLayout } from '../../../components/public/EventChrome.jsx';
 import { tipoEspacio } from '../../../lib/espacio.js';
 import LlamaZona from '../../../components/aforo/LlamaZona.jsx';
+import MarcadorMapa from '../../../components/mapa/MarcadorMapa.jsx';
 
 /* ─────────── reordenar sub-elementos EN la vista previa (Rework #2) ───────────
    Cuando un bloque con lista está seleccionado en el editor, sus items se pueden
@@ -1343,18 +1344,12 @@ function MapaEventoPreview({ data, evento }) {
               const e = expoPorId.get(m.expositor_id);
               if (!e) return null;
               onClick = () => setSel({ kind: 'expositor', data: e });
-              circulo = (
-                <span className="block w-11 h-11 rounded-full border-2 border-white shadow-lg bg-white overflow-hidden ring-2 ring-white/70">
-                  {e.logo_url
-                    ? <img src={e.logo_url} alt="" className="w-full h-full object-cover" />
-                    : <span className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-700">{(e.nombre || '?')[0]}</span>}
-                </span>
-              );
+              circulo = <MarcadorMapa tipo="expositor" logoUrl={e.logo_url} inicial={e.nombre} />;
             } else if (tipo === 'sesion') {
               const s = sesPorId.get(m.sesion_id);
               if (!s) return null;
               onClick = () => setSel({ kind: 'sesion', data: s });
-              circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold flex items-center justify-center" style={{ background: '#6366F1' }}>{(s.titulo || '?')[0].toUpperCase()}</span>;
+              circulo = <MarcadorMapa tipo="sesion" inicial={s.titulo} />;
             } else if (tipo === 'zona') {
               const z = zonaPorId.get(m.zona_id);
               if (!z) return null;
@@ -1371,31 +1366,21 @@ function MapaEventoPreview({ data, evento }) {
               const nivel = zv?.nivel || null;
               onClick = () => setSel({ kind: 'zona', data: { ...z, ...(zv || {}), dentro: viva?.dentro ?? zv?.dentro ?? null, lleno: viva?.lleno ?? zv?.lleno ?? null, nivel, ocupacion_pct: zv?.ocupacion_pct ?? null, descripcion: m.descripcion || '' } });
               circulo = (
-                <LlamaZona nivel={nivel} size={44}>
-                  <span className="relative min-w-[44px] h-11 px-1.5 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center tabular-nums"
-                    style={{ background: nivel === 'en_fuego' ? '#EF4444' : nivel === 'caliente' ? '#F97316' : (m.color || '#0EA5E9') }}>
-                    {viva ? viva.dentro : (zv?.dentro ?? (z.nombre || 'Z')[0].toUpperCase())}
-                    {enCurso.length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse" />
-                    )}
-                  </span>
-                </LlamaZona>
+                <MarcadorMapa
+                  tipo="zona" color={m.color} nivel={nivel}
+                  valor={viva ? viva.dentro : (zv?.dentro ?? null)}
+                  inicial={z.nombre}
+                  puntoVivo={enCurso.length > 0}
+                />
               );
             } else if (tipo === 'acceso') {
               const a = accesoPorId.get(m.acceso_id);
               if (!a) return null;
               onClick = () => setSel({ kind: 'punto', data: { nombre: a.nombre, descripcion: 'Entrada al evento.' } });
-              circulo = (
-                <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white flex items-center justify-center"
-                  style={{ background: m.color || '#3B82F6' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="M10 17l5-5-5-5M15 12H3" />
-                  </svg>
-                </span>
-              );
+              circulo = <MarcadorMapa tipo="acceso" color={m.color} />;
             } else {
               onClick = () => setSel({ kind: 'punto', data: m });
-              circulo = <span className="w-11 h-11 rounded-full border-2 border-white shadow-lg ring-2 ring-white/70 text-white font-bold text-sm flex items-center justify-center" style={{ background: m.color || '#64748B' }}>{m.codigo || 'P'}</span>;
+              circulo = <MarcadorMapa tipo="punto" color={m.color} codigo={m.codigo} />;
             }
 
             return (

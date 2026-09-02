@@ -5,6 +5,7 @@ import { auditoriaApi } from '../../../api/auditoria.js';
 import { agendaApi } from '../../../api/agenda.js';
 import { equipoApi } from '../../../api/equipo.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
+import { useI18n } from '../../../context/I18nContext.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -15,6 +16,7 @@ import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 
 export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, onEliminar }) {
   const { usuario } = useAuth();
+  const { t, lang } = useI18n();
   const [, setSearchParams] = useSearchParams();
   const [tareas, setTareas]       = useState([]);
   const [actividad, setActividad] = useState(null); /* null = sin acceso */
@@ -54,11 +56,13 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
 
   /* Gestbot: diagnóstico proactivo del evento */
   const sugerencias = [];
-  if (['borrador', 'configuracion'].includes(evento.estado)) sugerencias.push('El evento aún no está publicado.');
-  if (vencidas.length > 0) sugerencias.push(`Detecté ${vencidas.length} tarea${vencidas.length > 1 ? 's' : ''} vencida${vencidas.length > 1 ? 's' : ''}.`);
-  if (pct !== null && pct >= 90) sugerencias.push(`El aforo va en ${pct}% — considera abrir lista de espera.`);
-  if (!evento.cover_url) sugerencias.push('La landing no tiene imagen de portada.');
-  if (sugerencias.length === 0) sugerencias.push('Todo en orden por ahora. Pregúntame lo que necesites.');
+  if (['borrador', 'configuracion'].includes(evento.estado)) sugerencias.push(t('El evento aún no está publicado.'));
+  if (vencidas.length > 0) sugerencias.push(vencidas.length === 1
+      ? t('Detecté 1 tarea vencida.')
+      : t('Detecté {n} tareas vencidas.', { n: vencidas.length }));
+  if (pct !== null && pct >= 90) sugerencias.push(t('El aforo va en {pct}% — considera abrir lista de espera.', { pct }));
+  if (!evento.cover_url) sugerencias.push(t('La landing no tiene imagen de portada.'));
+  if (sugerencias.length === 0) sugerencias.push(t('Todo en orden por ahora. Pregúntame lo que necesites.'));
 
   const proximas = useMemo(() => {
     const ahora = new Date();
@@ -84,7 +88,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
           <div className="min-w-0">
             <h2 className="text-xl sm:text-2xl font-bold font-display text-white tracking-tight truncate">{evento.titulo}</h2>
             <p className="text-sm text-white/70 truncate">
-              {evento.fecha_inicio ? new Date(evento.fecha_inicio).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' }) : 'Sin fecha'}
+              {evento.fecha_inicio ? new Date(evento.fecha_inicio).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-CO', { day: 'numeric', month: 'long' }) : t('Sin fecha')}
               {evento.location_nombre ? ` · ${evento.location_nombre}` : ''}
             </p>
           </div>
@@ -98,20 +102,20 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Kpi label="Boletas vendidas" valor={(evento.aforo_vendido || 0).toLocaleString('es-CO')} />
-        <Kpi label="Aforo" valor={pct !== null ? `${pct}%` : 'Sin tope'} sub={evento.aforo_total ? `${evento.aforo_vendido || 0} / ${evento.aforo_total}` : null} />
-        <Kpi label="En el evento ahora" valor={ingresados ?? 0} />
-        <Kpi label="Tareas abiertas" valor={tareas.filter(t => t.estado !== 'hecho').length} alerta={vencidas.length > 0 ? `${vencidas.length} vencidas` : null} />
-        <Kpi label={diasRestantes !== null && diasRestantes >= 0 ? 'Días para el evento' : 'Estado'} valor={diasRestantes !== null && diasRestantes >= 0 ? diasRestantes : (evento.estado || '—')} />
+        <Kpi label={t('Boletas vendidas')} valor={(evento.aforo_vendido || 0).toLocaleString(lang === 'en' ? 'en-US' : 'es-CO')} />
+        <Kpi label={t('Aforo')} valor={pct !== null ? `${pct}%` : t('Sin tope')} sub={evento.aforo_total ? `${evento.aforo_vendido || 0} / ${evento.aforo_total}` : null} />
+        <Kpi label={t('En el evento ahora')} valor={ingresados ?? 0} />
+        <Kpi label={t('Tareas abiertas')} valor={tareas.filter(x => x.estado !== 'hecho').length} alerta={vencidas.length > 0 ? t('{n} vencidas', { n: vencidas.length }) : null} />
+        <Kpi label={diasRestantes !== null && diasRestantes >= 0 ? t('Días para el evento') : t('Estado')} valor={diasRestantes !== null && diasRestantes >= 0 ? diasRestantes : (evento.estado || '—')} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-5">
         {/* ── Columna principal ── */}
         <div className="lg:col-span-2 space-y-5">
           {/* Mi trabajo */}
-          <Card titulo="Mi trabajo" accion={<button onClick={irATareas} className="text-xs text-accent hover:underline">Ver tareas →</button>}>
+          <Card titulo={t('Mi trabajo')} accion={<button onClick={irATareas} className="text-xs text-accent hover:underline">{t('Ver tareas →')}</button>}>
             {misTareas.length === 0 ? (
-              <p className="text-sm text-text-2 py-2">No tienes tareas pendientes en este evento.</p>
+              <p className="text-sm text-text-2 py-2">{t('No tienes tareas pendientes en este evento.')}</p>
             ) : (
               <ul className="divide-y divide-border -mx-5">
                 {misTareas.map(t => {
@@ -134,8 +138,8 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
 
           {/* Equipo del evento — quién trabaja y su rol */}
           {miembros.length > 0 && (
-            <Card titulo="Equipo del evento"
-              accion={<Link to="?s=organizacion&t=equipo" className="text-xs text-accent hover:underline">Gestionar equipo →</Link>}>
+            <Card titulo={t('Equipo del evento')}
+              accion={<Link to="?s=organizacion&t=equipo" className="text-xs text-accent hover:underline">{t('Gestionar equipo →')}</Link>}>
               <ul className="divide-y divide-border -mx-5">
                 {miembros.map(m => (
                   <li key={m.id} className="flex items-center gap-3 px-5 py-2.5">
@@ -152,13 +156,13 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
                   </li>
                 ))}
               </ul>
-              <Link to="?s=comunicacion&t=chat" className="block mt-3 text-xs text-accent hover:underline">Escribir al equipo en los chats →</Link>
+              <Link to="?s=comunicacion&t=chat" className="block mt-3 text-xs text-accent hover:underline">{t('Escribir al equipo en los chats →')}</Link>
             </Card>
           )}
 
           {/* Actividad reciente (auditoría) */}
           {Array.isArray(actividad) && actividad.length > 0 && (
-            <Card titulo="Actividad reciente">
+            <Card titulo={t('Actividad reciente')}>
               <ul className="space-y-2.5">
                 {actividad.slice(0, 8).map((a, i) => {
                   const detalle = detalleAccion(a);
@@ -191,7 +195,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
 
           {/* Próximas actividades */}
           {proximas.length > 0 && (
-            <Card titulo="Próximas actividades">
+            <Card titulo={t('Próximas actividades')}>
               <ul className="divide-y divide-border -mx-5">
                 {proximas.map(s => (
                   <li key={s.id} className="flex items-center gap-3 px-5 py-2.5">
@@ -216,7 +220,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
           <div className="rounded-3xl border border-accent/25 bg-gradient-to-br from-accent/15 to-transparent p-5">
             <div className="flex items-center gap-2.5 mb-3">
               <span className="w-8 h-8 rounded-xl bg-accent/25 text-accent flex items-center justify-center">✦</span>
-              <h3 className="text-sm font-semibold text-text-1">Gestbot</h3>
+              <h3 className="text-sm font-semibold text-text-1">{t('Sugerencias de Gestbot')}</h3>
             </div>
             <ul className="space-y-2 mb-4">
               {sugerencias.slice(0, 3).map((s, i) => (
@@ -231,7 +235,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
           </div>
 
           {/* Información general */}
-          <Card titulo="Información general">
+          <Card titulo={t('Información general')}>
             <div className="space-y-2.5 text-sm">
               <Fila k="Estado" v={evento.estado} />
               <Fila k="Inicio" v={fmt(evento.fecha_inicio)} />
@@ -244,7 +248,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
 
           {/* Acciones del evento (movidas aquí desde el header) */}
           {soyOwner && (onEditar || onAnuncio || onEliminar) && (
-            <Card titulo="Acciones del evento">
+            <Card titulo={t('Acciones del evento')}>
               <div className="space-y-2">
                 {onEditar && (
                   <button onClick={onEditar} className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex items-center gap-2.5">

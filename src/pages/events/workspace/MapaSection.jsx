@@ -6,7 +6,7 @@ import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
-import LlamaZona from '../../../components/aforo/LlamaZona.jsx';
+import MarcadorMapa from '../../../components/mapa/MarcadorMapa.jsx';
 import { useSondeo } from '../../../hooks/useSondeo.js';
 
 /* Mapa del evento — plano del recinto con las UBICACIONES de todo.
@@ -253,59 +253,35 @@ function Marcador({ m, expo, ses, zona, aforo, acceso, seleccionado, onPointerDo
   );
 }
 
-/* El círculo en sí, compartido con el look del landing. */
+/* El círculo, ahora en `components/mapa/MarcadorMapa.jsx`.
+ *
+ * Esta función pintaba las cinco ramas por tipo a mano, y el mapa PÚBLICO
+ * (`editor/blocks.jsx`) tenía las mismas cinco copiadas. Cada corrección había
+ * que hacerla dos veces, y la segunda copia se enteraba cuando alguien notaba
+ * que los dos mapas se veían distintos.
+ *
+ * Este envoltorio se queda porque traduce: el editor tiene un marcador y unos
+ * mapas de ids, y el componente compartido recibe cómo pintarse. Ese reparto
+ * es lo que permite que el mapa público —que recibe los datos ya resueltos por
+ * el servidor, en otra forma— use el mismo círculo sin adaptarse a esta. */
 export function CirculoMarcador({ m, expo, ses, zona, aforo, acceso, ring = 'ring-2 ring-white/70', size = 44 }) {
-  const st = { width: size, height: size };
-  /* La puerta lleva una flecha de entrar: en el plano se distingue de un
-     vistazo de las zonas, que llevan número. */
-  if (m.tipo === 'acceso') {
-    return (
-      <span className={`rounded-full border-2 border-white shadow-lg text-white flex items-center justify-center ${ring}`}
-        style={{ ...st, background: m.color || '#3B82F6' }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-          <path d="M10 17l5-5-5-5M15 12H3" />
-        </svg>
-      </span>
-    );
-  }
-  /* La zona enseña gente, no un código: es el único marcador con un número vivo
-     dentro. Sin datos todavía (o zona sin estrenar) cae a la inicial. Cuando el
-     aforo llega al tope, se prende en fuego (nivel lo da el backend). */
-  if (m.tipo === 'zona') {
-    const dentro = aforo?.dentro;
-    const nivel = aforo?.nivel || null;
-    return (
-      <LlamaZona nivel={nivel} size={size}>
-        <span className={`rounded-full border-2 border-white shadow-lg text-white font-bold font-display tabular-nums flex items-center justify-center ${ring}`}
-          style={{ ...st, background: nivel === 'en_fuego' ? '#EF4444' : nivel === 'caliente' ? '#F97316' : (m.color || '#0EA5E9') }}>
-          {dentro == null ? (zona?.nombre || 'Z')[0].toUpperCase() : dentro}
-        </span>
-      </LlamaZona>
-    );
-  }
-  if (m.tipo === 'expositor') {
-    return (
-      <span className={`block rounded-full border-2 border-white shadow-lg bg-white overflow-hidden flex items-center justify-center ${ring}`} style={st}>
-        {expo?.logo_url
-          ? <img src={expo.logo_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
-          : <span className="text-xs font-bold text-slate-700">{(expo?.nombre || '?')[0]}</span>}
-      </span>
-    );
-  }
-  if (m.tipo === 'sesion') {
-    return (
-      <span className={`rounded-full border-2 border-white shadow-lg text-white font-bold flex items-center justify-center ${ring}`}
-        style={{ ...st, background: '#6366F1' }}>
-        {(ses?.titulo || '?')[0].toUpperCase()}
-      </span>
-    );
-  }
+  const inicial = m.tipo === 'expositor' ? (expo?.nombre || '?')
+    : m.tipo === 'sesion' ? (ses?.titulo || '?')
+    : m.tipo === 'zona' ? (zona?.nombre || 'Z')
+    : (acceso?.nombre || '?');
+
   return (
-    <span className={`rounded-full border-2 border-white shadow-lg text-white font-bold text-sm flex items-center justify-center ${ring}`}
-      style={{ ...st, background: m.color || '#64748B' }}>
-      {m.codigo || 'P'}
-    </span>
+    <MarcadorMapa
+      tipo={m.tipo}
+      color={m.color}
+      size={size}
+      ring={ring}
+      logoUrl={expo?.logo_url || ''}
+      inicial={inicial}
+      valor={m.tipo === 'zona' ? (aforo?.dentro ?? null) : null}
+      nivel={m.tipo === 'zona' ? (aforo?.nivel || null) : null}
+      codigo={m.codigo}
+    />
   );
 }
 
