@@ -1282,13 +1282,13 @@ indica, así que se pueden tomar en paralelo.
 
 ---
 
-## FRENTE M · El flujo de registro visto de punta a punta — sin empezar
+## FRENTE M · El flujo de registro visto de punta a punta — en curso
 
 **Pedido el 2026-09-02**, recorriendo el registro real de FESTECH 2026 con
 capturas. Nueve cosas de interfaz más el padrón, que es lo único con
 diagnóstico ya hecho. **Nada de esto está empezado.**
 
-### M0 · El padrón previo no reconoce a nadie — ✅ diagnosticado, sin arreglar
+### M0 · El padrón previo no reconoce a nadie — ✅ HECHO el 2026-09-02
 
 «Se puso la base de datos grande y no sirve.» Medido contra producción, y la
 causa **no** es el tamaño.
@@ -1317,26 +1317,39 @@ completo`. Otras 436 traen `visit_date`, `room`, `latitude`, `longitude` — dat
 de la visita, no de la persona. Así que **aun con los encabezados perfectos, el
 88 % del padrón no puede prellenar nada**, porque no hay nada que prellenar.
 
-**Cómo hacerlo eficiente, en orden de lo que cuesta:**
+**Lo construido (los cuatro puntos que se propusieron, hechos):**
 
-1. **Hoy, sin tocar código:** renombrar los encabezados del archivo para que
-   digan **exactamente** lo que dicen las preguntas («Ciudad de residencia»,
-   «Barrio o vereda»), y subir **una fila por persona** con las columnas que el
-   formulario sí pregunta. Volver a subirlo es seguro. Esto funciona ya, pero
-   es frágil: depende de que alguien acierte el texto.
-2. **El arreglo de verdad — un paso de mapeo al subir.** Enseñar las columnas
-   del archivo al lado de las preguntas del evento y que el organizador las
-   conecte una vez. Es como importa cualquier herramienta seria, y **la mitad
-   del dato ya existe**: el endpoint de subida ya devuelve
-   `columnas_sin_pregunta`, que es justo «esta columna no la recoge ninguna
-   pregunta». Guardar el mapeo, no adivinarlo.
-3. **Guardar el mapeo por `id` de pregunta, no por etiqueta.** Hoy el cruce va
-   contra la etiqueta, así que **renombrar una pregunta rompe el padrón en
-   silencio**. Es una mina puesta.
-4. **Que la subida diga la verdad.** Ahora informa `guardadas` y
-   `sin_documento`, pero no cuántas filas traían documento y **cruzaron cero
-   preguntas** — que es el 88 % de este caso. Sin ese número, un padrón inútil
-   se ve igual que uno bueno.
+1. **Un paso de mapeo, sin plantilla obligatoria.** Tabla en el panel: cada
+   pregunta con un desplegable de las columnas del archivo. El organizador las
+   conecta una vez y sube el archivo **como lo tenga**. `PUT
+   /eventos/:id/padron/mapeo`, guardado en `page_json.padron` — sin migración.
+2. **Guardado por `id` de pregunta, no por etiqueta.** Era la mina: el cruce
+   iba contra el texto del enunciado, así que renombrar una pregunta rompía el
+   padrón **en silencio**. Con el id, renombrarla no lo toca.
+3. **«El archivo no lo trae» es una opción del desplegable**, y se conserva
+   como decisión: si el organizador lo deja en blanco a propósito, el sistema
+   **no** vuelve a adivinar por nombre a sus espaldas. Son tres estados
+   distintos —sin mapear / en blanco / mapeado— y confundir dos de ellos
+   desactiva el prellenado de todos los eventos que hoy funcionan. Pasó: la
+   primera versión usaba `mapeo && mapeo[id]`, que da `null` sin mapeo, y lo
+   trataba como «en blanco». **Lo cazó la prueba antes de salir**, y hay un
+   test que lo fija.
+4. **La subida dice cuántas filas no llenan NI UNA pregunta.** Era el número
+   que faltaba: informaba «4.124 personas en el padrón» y con eso un archivo
+   inútil se veía igual que uno bueno.
+
+Además: reemplazar el archivo **conserva el mapeo** de las preguntas que sigan
+existiendo, y el estado del padrón devuelve columnas y mapeo para poder
+corregir una columna sin volver a subir nada.
+
+**Lo que sigue valiendo como consejo:** el archivo debería ser **una fila por
+persona** con las columnas que el formulario pregunta. El mapeo arregla los
+nombres, no la ausencia de datos: si 3.624 filas traen sólo nombre y apellidos,
+no hay mapeo que las salve.
+
+**Lo que NO se hizo, y a propósito:** cruce difuso por parecido. «ciudad»
+contra «Ciudad de nacimiento» mete el dato en la pregunta equivocada, y eso es
+peor que no prellenar. El mapeo explícito es justo lo que evita adivinar.
 
 **Lo que NO hay que hacer:** cruce difuso por parecido. «Barrio» contra
 «Barrio o vereda» acierta, pero «ciudad» contra «Ciudad de nacimiento» mete el
@@ -1350,30 +1363,48 @@ selector buscable pinta su lista **dentro** del contenedor con `overflow`, así
 que la recorta. Es primo del fallo del botón de «Continuar» (§0-bis): el modal
 acota a sus hijos y un desplegable no es un hijo cualquiera.
 
-### M2 · El correo de contacto de las páginas legales
+### M2 · El correo de contacto de las páginas legales — ✅ HECHO
 
 El contacto es un **Gmail personal** (`medinapipe123@gmail.com`) y tiene que
 ser el corporativo. Está **hardcodeado en tres páginas públicas**:
 `TerminosPage.jsx:121`, `PrivacidadPage.jsx:103` y `FAQPage.jsx` — una
 aparición en cada una.
 
-Al arreglarlo, que sea **una sola constante** (por ejemplo en
-`lib/enlacesPublicos.js`, junto a lo demás que es «datos de la empresa») y no
-un reemplazo en tres archivos: repetido en tres sitios, el día que cambie
-volverá a quedar uno viejo. Es un dato público en páginas legales, así que va
-primero.
+Hecho como **una sola constante** (`CORREO_CONTACTO` en
+`lib/enlacesPublicos.js`) y no como tres reemplazos: repetido en tres sitios,
+el día que cambie habría quedado uno viejo — y en una página legal un correo
+viejo es la dirección a la que alguien manda un derecho de petición.
 
-### M3 · El «← Atrás» del modal
+**Puesto `juan.medina@hytrex.co`**, que es corporativo y real. Si el definitivo
+es un buzón genérico (`contacto@`, `hola@`), es cambiar esa línea — pero antes
+hay que comprobar que ese buzón existe y que alguien lo lee, porque si rebota,
+rebota un aviso legal.
 
-Ya se pidió antes que ese botón no estuviera en ninguna parte. Sigue en el
-modal de registro. Fuera.
+### M3 · El «← Atrás» del modal — ✅ HECHO
 
-### M4 · El modal de boletas nunca se cierra
+Se quitó **la flecha**, que es lo que se veía mal, y se conservó el botón:
+es la navegación de un formulario de **cuatro pasos**, y sin él alguien que va
+por el tercero se queda encerrado. Ahora dice «Atrás» con el mismo peso visual
+que «Cancelar», que es lo que es — una salida secundaria.
 
-Al pulsar «Reservar» se abre el formulario **encima**, pero «BOLETAS
-DISPONIBLES · Registro · Gratis · Reservar» sigue detrás; y sigue ahí después
-de confirmar, cuando la persona **ya tiene su boleta**. Al pulsar «Listo»
-reaparece. Es el mismo modal que no se desmonta en ningún momento del flujo.
+Si de verdad tiene que desaparecer, hay que dar otra forma de volver (los pasos
+de la barra de progreso, por ejemplo) antes de quitarlo.
+
+### M4 · El modal de boletas nunca se cierra — ✅ HECHO
+
+**Era una consecuencia directa de un arreglo anterior, y conviene que quede
+escrito.** El modal incrustado se hizo `embebido` —sin fondo oscuro y en el
+flujo del documento— para que el botón de «Continuar» fuera alcanzable en
+móvil. Aquel fondo oscuro era lo que tapaba la lista de boletas; al quitarlo,
+la lista se quedó **arriba** del formulario. Así que alguien rellenaba sus
+datos con un «Reservar» a la vista y, tras confirmar, seguía viendo «Boletas
+disponibles · Gratis · Reservar» como si no hubiera hecho nada.
+
+Arreglado en `EmbedPage.jsx`: mientras hay formulario o confirmación, la
+sección no se pinta. Dentro de un iframe no hay sitio para dos cosas a la vez.
+
+**Queda M8**, que es la otra mitad: al pulsar «Listo» el flujo tiene que
+despedirse, no volver al principio.
 
 ### M5 · «Falta un paso» es mentira
 

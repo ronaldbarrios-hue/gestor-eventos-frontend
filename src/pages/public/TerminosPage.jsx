@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { LegalLayout, Seccion, Lista } from './legal.jsx';
+import { CORREO_CONTACTO } from '../../lib/enlacesPublicos.js';
 
 /* Términos y Condiciones del Servicio de GESTEK.
    NOTA INTERNA: reemplazar [RAZÓN SOCIAL] y [NIT] antes del lanzamiento.
@@ -118,7 +119,7 @@ export default function TerminosPage() {
           Estos términos se rigen por las leyes de la República de Colombia. Cualquier controversia
           se someterá a los jueces competentes de Colombia, sin perjuicio de los mecanismos de
           protección al consumidor. Contacto:{' '}
-          <a className="text-primary-light hover:underline" href="mailto:medinapipe123@gmail.com">medinapipe123@gmail.com</a>.
+          <a className="text-primary-light hover:underline" href={`mailto:${CORREO_CONTACTO}`}>{CORREO_CONTACTO}</a>.
         </p>
         <p>
           Podremos modificar estos términos; publicaremos la versión vigente en esta página y

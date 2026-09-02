@@ -17,6 +17,9 @@ export const eventosApi = {
   subirPadron  : (id, filas, origen) => client.post(`/eventos/${id}/padron`, { filas, origen }).then(r => r.data),
   padronEstado : (id)          => client.get(`/eventos/${id}/padron/estado`).then(r => r.data),
   borrarPadron : (id)          => client.delete(`/eventos/${id}/padron`).then(r => r.data),
+  /* Qué columna del archivo llena cada pregunta. Por id de pregunta, no por
+     su enunciado: renombrar una pregunta no debe romper el prellenado. */
+  guardarMapeoPadron: (id, mapeo) => client.put(`/eventos/${id}/padron/mapeo`, { mapeo }).then(r => r.data),
   guardarFormulario : (id, campos) => client.put(`/eventos/${id}/formulario`, { campos }).then(r => r.data),
   /* Públicas (sin auth) */
   publicos     : (params = {}) => client.get('/eventos/publicos', { params }).then(r => r.data),
