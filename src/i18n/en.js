@@ -1131,4 +1131,32 @@ export default {
   'Módulo en construcción dentro del rework.': 'Module under construction as part of the rework.',
   'Tokens, webhooks y SDK para integraciones externas.': 'Tokens, webhooks and SDK for external integrations.',
   'Dominios permitidos, CORS, accesos y auditoría técnica.': 'Allowed domains, CORS, access and technical audit.',
+
+  /* ── Resumen del evento ───────────────────────────────────────
+     Los KPIs, las tarjetas y las sugerencias de Gestbot. Las frases
+     con número usan {n}/{pct}, que `t()` interpola: el plural se
+     elige antes, en el componente, porque en inglés no coincide con
+     el español ni en todos los casos. */
+  'El evento aún no está publicado.': 'The event isn\'t published yet.',
+  'Detecté 1 tarea vencida.': 'I found 1 overdue task.',
+  'Detecté {n} tareas vencidas.': 'I found {n} overdue tasks.',
+  'El aforo va en {pct}% — considera abrir lista de espera.': 'Capacity is at {pct}% — consider opening a waitlist.',
+  'La landing no tiene imagen de portada.': 'The landing page has no cover image.',
+  'Todo en orden por ahora. Pregúntame lo que necesites.': 'All good for now. Ask me anything.',
+  'Sin fecha': 'No date',
+  'Aforo': 'Capacity',
+  'Sin tope': 'No limit',
+  'En el evento ahora': 'In the event now',
+  'Tareas abiertas': 'Open tasks',
+  '{n} vencidas': '{n} overdue',
+  'Días para el evento': 'Days to the event',
+  'Estado': 'Status',
+  'Ver tareas →': 'View tasks →',
+  'No tienes tareas pendientes en este evento.': 'You have no pending tasks in this event.',
+  'Gestionar equipo →': 'Manage team →',
+  'Escribir al equipo en los chats →': 'Message the team in chats →',
+  'Sugerencias de Gestbot': 'Gestbot suggestions',
+  'Próximas actividades': 'Upcoming activities',
+  'Información general': 'General information',
+  'Acciones del evento': 'Event actions',
 };
