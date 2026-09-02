@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import Icono from '../../../../components/ui/Iconos.jsx';
 import Spinner from '../../../../components/ui/Spinner.jsx';
 import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } from '../../../../lib/espacio.js';
+import { zonasDelEvento, etiquetaZona } from '../../../../lib/zonas.js';
 import PreguntasSubEvento from '../PreguntasSubEvento.jsx';
 import { toLocalInput, withDefaultTime } from './agendaComun.jsx';
 
@@ -49,9 +50,7 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
     return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'es'));
   }, [sessions]);
 
-  const zonasEvento = useMemo(
-    () => (evento?.page_json?.zonas || []).filter(z => z?.id && String(z.nombre || '').trim()),
-    [evento]);
+  const zonasEvento = useMemo(() => zonasDelEvento(evento), [evento]);
   const tracksUsados = useMemo(() => sitiosDelEvento(evento, sessions, 'track'), [evento, sessions]);
   const ubicaciones  = useMemo(() => sitiosDelEvento(evento, sessions, 'ubicacion'), [evento, sessions]);
 
@@ -192,7 +191,7 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
             className="input bg-surface-2 rounded-2xl py-3 text-base">
             <option value="">Sin zona</option>
             {zonasEvento.map(z => (
-              <option key={z.id} value={z.id}>{z.nombre}{z.aforo_max ? ` (aforo ${z.aforo_max})` : ''}</option>
+              <option key={z.id} value={z.id}>{etiquetaZona(z)}</option>
             ))}
           </select>
           <p className="text-[11px] text-text-3 mt-1">

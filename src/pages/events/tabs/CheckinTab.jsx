@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
+import { zonasDelEvento, etiquetaZona } from '../../../lib/zonas.js';
 import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
 import { leerQr } from '../../../lib/qrEscaneado.js';
 
@@ -57,8 +58,10 @@ export default function CheckinTab({ evento }) {
     try { localStorage.setItem(`gestek-puerta:${evento.id}`, id); } catch { /* noop */ }
   };
 
-  /* Zonas (page_json.zonas) — solo aplican en modo Reingreso, para el aforo por zona. */
-  const zonas = Array.isArray(evento.page_json?.zonas) ? evento.page_json.zonas : [];
+  /* Zonas (page_json.zonas) — solo aplican en modo Reingreso, para el aforo por
+     zona. Filtradas como en todas partes: esto leía la lista cruda, así que una
+     zona recién creada y todavía sin nombre salía como una opción en blanco. */
+  const zonas = zonasDelEvento(evento);
   const [zonaId, setZonaId] = useState('');
   const zonaRef = useRef('');
   const elegirZona = (id) => { setZonaId(id); zonaRef.current = id; };
@@ -363,7 +366,7 @@ export default function CheckinTab({ evento }) {
               <span className="text-xs text-text-3">Zona:</span>
               <select value={zonaId} onChange={e => elegirZona(e.target.value)} className="input !h-8 !py-1 text-sm w-auto">
                 <option value="">Recinto (general)</option>
-                {zonas.map(z => <option key={z.id} value={z.id}>{z.nombre}</option>)}
+                {zonas.map(z => <option key={z.id} value={z.id}>{etiquetaZona(z)}</option>)}
               </select>
             </div>
           )}

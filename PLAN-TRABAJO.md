@@ -163,17 +163,38 @@ veces. **Lo aborda el Frente I, fase 5.** Lo que NO hay que fusionar: editar
 posición vs. sólo lectura vs. modal público son tres comportamientos distintos
 y deben seguir siéndolo.
 
-### 3.3 · Un bug activo, en producción
+### 3.3 · Un bug activo, en producción — ✅ arreglado el 2026-09-02
 
-**El buzón de sugerencias devuelve 404 siempre.** `src/api/sugerencias.js:8-9`
-llama a `/me/sugerencias`, y el backend sólo expone `/sugerencias/dinamica`
-(`routes/sugerencias.js:53,84`, montado en `/` y en `/me` — `index.js:140,165`).
-Falta el segmento `/dinamica`.
+**El buzón de sugerencias devolvía 404 siempre.** `src/api/sugerencias.js:8-9`
+llama a `/me/sugerencias` y esa ruta **nunca se escribió**: el backend sólo
+tenía `/sugerencias/dinamica` (`routes/sugerencias.js`, montado en `/` y en
+`/me` — `index.js:140,165`). Fallaba desde el 2026-08-12 en las dos pantallas
+donde está puesto (`BuzonSugerencia.jsx:30`, desde `EventCreatePage.jsx:491` y
+`VacantesTab.jsx:182`).
 
-No es teórico: `BuzonSugerencia.jsx:30` lo usa de verdad, y está montado en
-`EventCreatePage.jsx:491` y `VacantesTab.jsx:182`. Y hay una **segunda
-implementación del mismo buzón** que sí funciona porque escribe la ruta bien:
-`components/eventos/PedirDinamica.jsx:34,43`. Arreglo: dos líneas.
+**La primera lectura de este hallazgo era equivocada, y conviene dejarla
+escrita.** Parecía que faltaba el segmento `/dinamica` en el frontend —
+arreglo de dos líneas. No: **el frontend estaba bien**. Son dos buzones
+distintos, con dos tablas distintas:
+
+- `sugerencias_catalogo` (migración 0063, ya en producción): «la lista se quedó
+  corta». Una línea al lado del `<select>`, **sin mínimo de longitud** a
+  propósito — quien escribe «feria de adopción» ya dijo todo lo que hacía
+  falta.
+- `sugerencias_dinamica` (0075): pedir una mecánica que no existe. Exige
+  explicar cómo funciona (mínimo 40 caracteres), porque sin eso no se puede
+  construir.
+
+Apuntar el primero al endpoint del segundo lo habría roto: el cuerpo no pasa la
+validación, y exigirle un párrafo a quien sólo quería avisar que falta una
+opción es la forma segura de no recibir ninguna respuesta. La tabla estaba, el
+formulario estaba; **faltaba la ruta de en medio**, y es lo que se escribió
+(backend, 9 pruebas nuevas).
+
+Queda una decisión de producto: `BuzonSugerencia.jsx` y
+`components/eventos/PedirDinamica.jsx` son dos formularios para dos cosas
+parecidas. Hoy los dos funcionan. Si se unifican, que sea por diseño y no
+porque uno estaba roto.
 
 ### 3.4 · Piezas construidas y nunca conectadas
 
@@ -188,18 +209,39 @@ implementación del mismo buzón** que sí funciona porque escribe la ruta bien:
 | `ARCHIVOS_PROPIOS` | `core/config/index.js:108` | Apagada, y a diferencia de `AUTH_PROPIA` **no tiene ningún consumidor en el frontend**: encenderla hoy no cambiaría nada visible. Ninguna de las dos banderas está en los `.env.example`. |
 | `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | El comentario del archivo dice que se extrajeron de `DocumentosSection.jsx` para reusarlas — y `DocumentosSection.jsx` nunca importa el módulo. Refactor a medias. |
 
-### 3.5 · Dos migraciones mienten en su cabecera
+### 3.5 · Cinco migraciones mentían en su cabecera — ✅ arreglado el 2026-09-02
 
-`0084_*.sql` y `0087_*.sql` dicen **«PENDIENTE DE APLICAR»** y **las dos están
-aplicadas**. Verificado el 2026-09-02 contra la base de producción
-(`information_schema`, sólo lectura): existen `event_form_fields.visible_si`,
-`zona_cortes.tipo` y `zona_cortes.foto_url`.
+**Siete** archivos decían «PENDIENTE DE APLICAR». Comprobado contra producción
+(`information_schema` y un conteo sobre `eventos`, sólo lectura), la verdad era
+otra:
+
+| Estado real | Migraciones |
+|---|---|
+| **Aplicadas** — la cabecera mentía | `0079`, `0082`, `0084`, `0085`, `0087` |
+| **Pendientes de verdad** | `0081`, `0083` |
 
 Importa por lo de siempre en este proyecto: el backend no mira el error de
 `supabase-js`, así que una columna que falta se ve como datos en blanco sin
 aviso. Un comentario que dice «pendiente» cuando no lo está entrena a
-desconfiar del único sitio donde se registra ese estado. Arreglo: corregir las
-dos cabeceras.
+desconfiar del único sitio donde se registra ese estado — y entonces el día
+que una de verdad falte, nadie lo cree.
+
+Las cinco cabeceras se corrigieron. Las dos pendientes quedaron anotadas con lo
+que se midió, **sin aplicarlas**:
+
+- **`0081`** borra columnas de datos de persona de `perfil_talento`, y
+  `foto_url` sigue ahí. No rompe nada, pero **la intención de privacidad no
+  está cumplida**. Y es `DROP COLUMN`: revertirla no devuelve los datos, así
+  que antes hay que ver cuántas filas los tienen rellenos.
+- **`0083`** migra `credenciales` → `wallet.variantes`, y la tienen **0 de 33
+  eventos**. No rompe nada porque `walletVariantes()`
+  (`src/lib/wallet.js:127`) traduce la forma vieja en caliente: **el fallback
+  del código está haciendo el trabajo de la migración**. Aplicarla sigue siendo
+  lo correcto —deja el dato en su forma nueva en vez de traducirlo en cada
+  render—, pero no es urgente.
+
+Las dos necesitan que alguien decida aplicarlas contra producción, y ninguna es
+automática: la primera destruye datos y la segunda toca los 33 eventos.
 
 ### 3.6 · Basura de refactors anteriores
 
@@ -771,21 +813,28 @@ centro de mando, y hoy sólo lo consume `AforoSection.jsx:63`.
 Por eso las fases 1 y 2 de abajo **no necesitan backend nuevo**: son montar una
 pantalla sobre datos que ya viajan.
 
-### Fase 0 · Cerrar el segundo camino de escritura
+### Fase 0 · Cerrar el segundo camino de escritura — ✅ Hecho el 2026-09-02
 
-Barato, y quita la duplicación que originó el pedido. Sin backend.
+- `MapaSection.jsx` ya no edita `nombre` ni `aforo_max`: se queda con color y
+  posición, y muestra el nombre con una nota que apunta a Accesos e ingresos —
+  **el mismo trato que ya recibía «puerta»** en ese archivo. Sólo hubo que
+  aplicarle a zona lo que ya se le aplicaba a puerta.
+- Fuera el flag `zonasTocadas`, la función `editarZona`, la rama
+  `parche.zonas` y el prop `onZona`. `zonas` pasó de `useState` a `useMemo`:
+  **si no es editable, no es estado.** Un solo camino de escritura.
+- **No se hizo un `<SelectorZona>`**, y conviene explicar por qué: los tres
+  `onChange` son distintos **a propósito** y está documentado en cada uno (en
+  sub-eventos elegir zona rellena también `ubicacion`; en stands
+  deliberadamente NO, porque «A-12» es la etiqueta del puesto y no dónde está).
+  Un componente único habría tenido que aceptar tres comportamientos por
+  parámetro, que es más enredo que las tres copias.
+  Lo que sí se repetía era el **filtro** y la **etiqueta**, y eso vive ahora en
+  `src/lib/zonas.js` (`zonasDelEvento`, `etiquetaZona`) — con el mismo nombre
+  que el helper del backend (`lib/aforoZonas.js`), que es el mismo concepto.
+  De paso arregla el bug real: `CheckinTab` leía `page_json.zonas` **crudo**,
+  así que una zona recién creada y aún sin nombre salía como opción en blanco.
 
-- `MapaSection.jsx` deja de editar `nombre` y `aforo_max` (líneas 384-393): se
-  queda con color y posición, y una nota que apunta al lugar único —
-  **exactamente el trato que ya recibe «puerta»** en ese mismo archivo
-  (líneas 357-377), que dice «el nombre… se edita en Accesos e ingresos. Aquí
-  sólo se decide dónde queda en el plano». Sólo hay que aplicarle a zona lo que
-  ya se le aplicó a puerta.
-- Desaparece el flag `zonasTocadas` y la rama `parche.zonas` (`:150`): un solo
-  camino de escritura.
-- Un `<SelectorZona>` compartido reemplaza las tres copias del desplegable
-  (`SessionForm.jsx:52`, `StandsTab.jsx:115`, `CheckinTab.jsx:61` — esta última
-  hoy sin el filtro, que es un bug menor real).
+Verificado: `eslint` y `build` limpios, y las 7 pruebas del widget en verde.
 
 ### Fase 1 · La sección, en sólo lectura
 
@@ -873,14 +922,19 @@ Tareas sueltas que salieron de la sección 3, ordenadas por lo que cuesta contra
 lo que arregla. **No comparten archivos con el Frente I** salvo donde se
 indica, así que se pueden tomar en paralelo.
 
-### Ahora · un bug que está fallando en producción
+### ✅ Hecho el 2026-09-02
 
-1. **El buzón de sugerencias devuelve 404.** `src/api/sugerencias.js:8-9`:
-   `/me/sugerencias` → `/me/sugerencias/dinamica`. Dos líneas. Y decidir si
-   `BuzonSugerencia.jsx` y `PedirDinamica.jsx` —dos implementaciones del mismo
-   buzón, una rota— se unifican (§3.3).
-2. **Corregir la cabecera de `0084` y `0087`**: dicen «PENDIENTE DE APLICAR» y
-   están aplicadas, verificado contra producción (§3.5).
+1. **El buzón de sugerencias ya no devuelve 404.** Faltaba la ruta, no el
+   segmento de la URL: se escribió `POST`/`GET /me/sugerencias` contra
+   `sugerencias_catalogo`, con 9 pruebas (§3.3). **401 tests en verde.**
+2. **Cabeceras de migración corregidas**: cinco decían «pendiente» estando
+   aplicadas; las dos que sí lo están quedaron anotadas con la medición (§3.5).
+
+### Pendiente de una decisión tuya
+
+0. **Aplicar `0081` y `0083`**, o dejarlas. No las apliqué a propósito: `0081`
+   es `DROP COLUMN` sobre datos de persona (irreversible) y `0083` reescribe
+   `page_json` de los 33 eventos. Ver §3.5 para lo que se midió de cada una.
 
 ### Barato y con valor claro
 

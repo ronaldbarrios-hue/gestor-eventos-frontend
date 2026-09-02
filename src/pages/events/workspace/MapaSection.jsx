@@ -63,13 +63,17 @@ export default function MapaSection({ evento }) {
   const [pestana, setPestana] = useState('expositor'); // expositor | sesion | punto | zona
   const [selK, setSelK] = useState(null);              // marcador seleccionado (para editar)
   const [saving, setSaving] = useState(false);
-  /* Las zonas se definen en Accesos e ingresos, pero desde aquí también se
-     pueden crear: obligar a saltar de pantalla para poner una zona en el plano
-     era el paso que hacía que nadie las pusiera. */
-  const [zonas, setZonas] = useState(() => (evento.page_json?.zonas || []).filter(z => z?.id));
-  /* Las puertas se definen en Accesos e ingresos; aquí sólo se colocan. */
+  /* Zonas y puertas se administran en Accesos e ingresos; aquí SÓLO se colocan
+     en el plano. Las dos igual, y por la misma razón.
+
+     Antes esta pantalla también editaba el nombre y el aforo de una zona, y
+     los guardaba por su propio camino: dos formularios para lo mismo y dos
+     escrituras sobre `page_json.zonas`. Se sostenía con un flag —`zonasTocadas`—
+     que evitaba pisar lo que la otra pantalla hubiera guardado mientras ésta
+     estaba abierta. Un candado así es la señal de que había dos dueños de un
+     mismo dato; el arreglo es tener uno. */
+  const zonas = useMemo(() => (evento.page_json?.zonas || []).filter(z => z?.id), [evento.page_json]);
   const accesos = useMemo(() => (evento.page_json?.accesos || []).filter(a => a?.id), [evento.page_json]);
-  const [zonasTocadas, setZonasTocadas] = useState(false);
   const [aforo, setAforo] = useState([]);              // ocupación viva, para verla sobre el plano
   const [mostrarAforo, setMostrarAforo] = useState(Boolean(evento.page_json?.mapa?.mostrar_aforo));
   const mapRef = useRef(null);
@@ -107,11 +111,6 @@ export default function MapaSection({ evento }) {
   const sinAcceso = accesos.filter(a => !colocAcc.has(a.id));
   const sel = marcadores.find(m => m._k === selK) || null;
 
-  const editarZona = (id, patch) => {
-    setZonas(l => l.map(z => z.id === id ? { ...z, ...patch } : z));
-    setZonasTocadas(true);
-  };
-
   const agregar = (m) => { const _k = uid(); setMarcadores(l => [...l, { ...m, x: 50, y: 50, _k }]); setSelK(_k); };
   const setMarc = (k, patch) => setMarcadores(l => l.map(m => m._k === k ? { ...m, ...patch } : m));
   const quitar = (k) => { setMarcadores(l => l.filter(m => m._k !== k)); if (selK === k) setSelK(null); };
@@ -139,17 +138,14 @@ export default function MapaSection({ evento }) {
   };
 
   const guardar = async () => {
-    for (const z of zonas) if (!String(z.nombre || '').trim()) { error('Cada zona necesita un nombre.'); return; }
     setSaving(true);
     try {
       const limpios = marcadores.map(({ _k, ...m }) => m);
-      /* `zonas` sólo viaja si se crearon o editaron desde aquí. Mandarlo siempre
-         pisaría con esta copia lo que hubiera guardado Accesos e ingresos
-         mientras esta pantalla estaba abierta. */
+      /* Sólo `mapa`. Esta pantalla no es dueña de `zonas` ni de `accesos`: los
+         coloca. Y el PATCH mezcla `page_json` por clave de primer nivel desde
+         la 0064, así que mandar sólo la nuestra no toca las de nadie. */
       const parche = { mapa: { imagen_url: imagen || '', marcadores: limpios, mostrar_aforo: mostrarAforo } };
-      if (zonasTocadas) parche.zonas = zonas.map(z => ({ id: z.id, nombre: String(z.nombre).trim(), aforo_max: Number(z.aforo_max) || null }));
       await eventosApi.update(evento.id, { page_json: parche });
-      setZonasTocadas(false);
       success('Mapa guardado. Agrégalo a la landing con el bloque “Mapa del evento”.');
     } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }
@@ -219,7 +215,7 @@ export default function MapaSection({ evento }) {
           {sel ? (
             <EditorMarcador sel={sel} expo={expoPorId.get(sel.expositor_id)} ses={sesPorId.get(sel.sesion_id)}
               zona={zonaPorId.get(sel.zona_id)} aforo={aforoPorId.get(sel.zona_id)} acceso={accesoPorId.get(sel.acceso_id)}
-              onChange={(p) => setMarc(sel._k, p)} onZona={(p) => editarZona(sel.zona_id, p)}
+              onChange={(p) => setMarc(sel._k, p)}
               onQuitar={() => quitar(sel._k)} onCerrar={() => setSelK(null)} />
           ) : (
             <Paleta pestana={pestana} setPestana={setPestana}
@@ -313,7 +309,7 @@ export function CirculoMarcador({ m, expo, ses, zona, aforo, acceso, ring = 'rin
 }
 
 /* ── Editor del marcador seleccionado ── */
-function EditorMarcador({ sel, expo, ses, zona, aforo, acceso, onChange, onZona, onQuitar, onCerrar }) {
+function EditorMarcador({ sel, expo, ses, zona, aforo, acceso, onChange, onQuitar, onCerrar }) {
   const titulo = sel.tipo === 'expositor' ? (expo?.nombre || 'Expositor')
     : sel.tipo === 'sesion' ? (ses?.titulo || 'Sub-evento')
     : sel.tipo === 'zona' ? (zona?.nombre || 'Zona')
@@ -381,19 +377,14 @@ function EditorMarcador({ sel, expo, ses, zona, aforo, acceso, onChange, onZona,
           {!zona ? (
             <p className="text-xs text-danger">Esta zona ya no existe (la borraron en Accesos e ingresos). Quítala del mapa.</p>
           ) : (<>
-            <div>
-              <label className="label text-xs">Nombre de la zona</label>
-              <input value={zona.nombre || ''} onChange={e => onZona({ nombre: e.target.value })}
-                placeholder="Ej. Zona VIP" className="input" />
-            </div>
-            <div>
-              <label className="label text-xs">Aforo máximo <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
-              <input type="number" min="0" value={zona.aforo_max ?? ''} onChange={e => onZona({ aforo_max: e.target.value })}
-                placeholder="Sin tope" className="input" />
-              <p className="text-[11px] text-text-3 mt-1">
-                El tope avisa, no bloquea: si se pasa, la gente sigue entrando y el tablero marca el excedente.
-              </p>
-            </div>
+            <p className="text-sm font-medium text-text-1">
+              {zona.nombre}
+              {zona.aforo_max ? <span className="text-text-3 font-normal"> · aforo {zona.aforo_max}</span> : null}
+            </p>
+            <p className="text-xs text-text-3">
+              El nombre y el aforo máximo se editan en <b>Espacio del evento → Accesos e ingresos</b>, que es
+              donde viven las zonas. Aquí sólo se decide dónde queda en el plano.
+            </p>
             <div>
               <label className="label text-xs">Color en el plano</label>
               <div className="flex flex-wrap gap-1.5">
