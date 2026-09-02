@@ -9,6 +9,7 @@ import GLoader from '../../../components/ui/GLoader.jsx';
 import ErrorBoundary from '../../../components/ui/ErrorBoundary.jsx';
 import GestekMark from '../../../components/layout/GestekMark.jsx';
 import TopBar from '../../../components/layout/TopBar.jsx';
+import { useI18n } from '../../../context/I18nContext.jsx';
 
 import ResumenSection    from './ResumenSection.jsx';
 import WhiteLabelSection from './WhiteLabelSection.jsx';
@@ -168,6 +169,7 @@ export default function EventWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { usuario } = useAuth();
+  const { t } = useI18n();
   const { success, error: toastErr } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -225,9 +227,11 @@ export default function EventWorkspace() {
     return SECCIONES
       .map(s => ({
         ...s,
+        /* `tab` y no `t`: `t` es la funcion de traduccion en este archivo, y
+           usarla como nombre de la pestaña la tapaba. */
         tabs: s.tabs
-          .filter(t => puedeVer(t.perm, soyOwner, permisos))
-          .filter(t => t.id !== 'networking' || permiteNetworking),
+          .filter(tab => puedeVer(tab.perm, soyOwner, permisos))
+          .filter(tab => tab.id !== 'networking' || permiteNetworking),
       }))
       .filter(s => s.tabs.length > 0);
   }, [evento, soyOwner, permisos]);
@@ -264,7 +268,7 @@ export default function EventWorkspace() {
     </div>
   );
 
-  const rolLabel = soyOwner ? 'Administrando' : 'Trabajando en';
+  const rolLabel = soyOwner ? t('Administrando') : t('Trabajando en');
 
   /* `min-w` en vez de ancho clavado: 264px es el ancho de diseño, pero una
      etiqueta más larga —«Rueda de negocios» pasa a «Business matchmaking» al
@@ -306,7 +310,7 @@ export default function EventWorkspace() {
                           ${act ? 'bg-accent text-white shadow-glow-sm' : 'text-slate-300 hover:text-white hover:bg-sidebar-2'}`}
             >
               <Icon className="w-[17px] h-[17px] flex-shrink-0" />
-              {s.label}
+              {t(s.label)}
             </button>
           );
         })}
@@ -349,7 +353,7 @@ export default function EventWorkspace() {
                 </button>
                 <div className="min-w-0">
                   <p className="text-xs text-text-3 mb-0.5 truncate">{evento.titulo}</p>
-                  <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{seccion?.label}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{seccion?.label ? t(seccion.label) : ''}</h1>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -365,15 +369,15 @@ export default function EventWorkspace() {
             {/* Sub-tabs de la sección */}
             {seccion && seccion.tabs.length > 1 && (
               <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0">
-                {seccion.tabs.map(t => (
+                {seccion.tabs.map(tab => (
                   <button
-                    key={t.id}
-                    onClick={() => irA(seccion.id, t.id)}
-                    className={`relative px-4 py-2.5 text-[14px] font-medium whitespace-nowrap transition-colors
-                                ${tabActivo?.id === t.id ? 'text-text-1' : 'text-text-3 hover:text-text-2'}`}
+                    key={tab.id}
+                    onClick={() => irA(seccion.id, tab.id)}
+                    className={`relative px-4 py-2.5 text-[14px] font-medium transition-colors
+                                ${tabActivo?.id === tab.id ? 'text-text-1' : 'text-text-3 hover:text-text-2'}`}
                   >
-                    {t.label}
-                    {tabActivo?.id === t.id && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" />}
+                    {t(tab.label)}
+                    {tabActivo?.id === tab.id && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" />}
                   </button>
                 ))}
               </div>
@@ -410,8 +414,9 @@ export default function EventWorkspace() {
    componente de arriba, y aquí dentro no existía. Al abrir Comunicación →
    Anuncios se lanzaba un ReferenceError y la pestaña no se pintaba. */
 function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
+  const { t } = useI18n();
   if (!seccion || !tab) return null;
-  if (tab.placeholder) return <PlaceholderTab title={tab.placeholder[0]} desc={tab.placeholder[1]} icon="spark" />;
+  if (tab.placeholder) return <PlaceholderTab title={t(tab.placeholder[0])} desc={t(tab.placeholder[1])} icon="spark" />;
 
   const k = `${seccion.id}/${tab.id}`;
   switch (k) {
@@ -459,7 +464,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'configuracion/general'    : return <ConfigGeneral evento={evento} />;
     case 'configuracion/automatizaciones': return <AutomatizacionesSection evento={evento} />;
     case 'configuracion/integraciones': return <IntegracionesSection />;
-    default: return <PlaceholderTab title={tab.label} desc="Módulo en construcción dentro del rework." icon="spark" />;
+    default: return <PlaceholderTab title={t(tab.label)} desc={t('Módulo en construcción dentro del rework.')} icon="spark" />;
   }
 }
 
