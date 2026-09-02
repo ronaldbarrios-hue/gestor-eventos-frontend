@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../../context/I18nContext.jsx';
+import { CORREO_CONTACTO } from '../../lib/enlacesPublicos.js';
 
 /* Preguntas frecuentes.
 
@@ -182,7 +183,7 @@ function Buzon() {
   ];
 
   const asunto = tipo === 'pregunta' ? 'Pregunta sobre GESTEK' : 'Sugerencia para GESTEK';
-  const enlace = `mailto:medinapipe123@gmail.com?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`;
+  const enlace = `mailto:${CORREO_CONTACTO}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`;
   const listo = texto.trim().length > 8;
 
   return (

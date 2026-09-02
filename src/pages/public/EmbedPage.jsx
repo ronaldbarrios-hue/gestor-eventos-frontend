@@ -254,31 +254,46 @@ export default function EmbedPage() {
             [data-gestek-embed] .font-display { font-family: ${fuente} !important; }
           `}</style>
         )}
-        {Especial ? (
-          <Especial evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />
-        ) : bloque.type === 'lienzo' ? (
-          <CanvasPublico
-            canvas={bloque.data?.canvas}
-            evento={evento}
-            boletasRender={<BloqueBoletas evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />}
-          />
-        ) : (
-          <Preview
-            data={bloque.data || {}}
-            evento={evento}
-            onReservar={abrirCompra}
-            onWaitlist={abrirPaginaCompleta}
-          />
-        )}
-        {/* Sin "Eventos gestionados con GESTEK".
+        {/* Mientras hay formulario o confirmación, la sección NO se pinta.
+         *
+         * Esto es una consecuencia directa de haber hecho el modal `embebido`
+         * —sin fondo oscuro y en el flujo del documento— para que el botón de
+         * «Continuar» fuera alcanzable en móvil. Aquel fondo oscuro tapaba la
+         * lista de boletas; al quitarlo, la lista se quedó ARRIBA del
+         * formulario. El resultado era que alguien rellenaba sus datos con un
+         * «Reservar» todavía a la vista, y después de confirmar seguía viendo
+         * «Boletas disponibles · Gratis · Reservar» como si no hubiera hecho
+         * nada.
+         *
+         * Dentro de un iframe no hay sitio para dos cosas a la vez: lo que se
+         * está haciendo es el formulario, así que es lo único que se enseña. */}
+        {!reservaTipo && !reservaOk && (<>
+          {Especial ? (
+            <Especial evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />
+          ) : bloque.type === 'lienzo' ? (
+            <CanvasPublico
+              canvas={bloque.data?.canvas}
+              evento={evento}
+              boletasRender={<BloqueBoletas evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />}
+            />
+          ) : (
+            <Preview
+              data={bloque.data || {}}
+              evento={evento}
+              onReservar={abrirCompra}
+              onWaitlist={abrirPaginaCompleta}
+            />
+          )}
+          {/* Sin "Eventos gestionados con GESTEK".
 
-            Esto se incrusta en la web de otro. Ahí nuestra marca no pinta
-            nada: el visitante está en la página del organizador y lo que ve
-            tiene que ser suya. El footer propio del organizador sí se
-            respeta, porque ése lo puso él. */}
-        {organizador?.branding?.footer && (
-          <p className="text-xs text-text-3 mt-4 text-center">{organizador.branding.footer}</p>
-        )}
+              Esto se incrusta en la web de otro. Ahí nuestra marca no pinta
+              nada: el visitante está en la página del organizador y lo que ve
+              tiene que ser suya. El footer propio del organizador sí se
+              respeta, porque ése lo puso él. */}
+          {organizador?.branding?.footer && (
+            <p className="text-xs text-text-3 mt-4 text-center">{organizador.branding.footer}</p>
+          )}
+        </>)}
 
         {reservaTipo && (
           <ReservaModal
