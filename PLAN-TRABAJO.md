@@ -174,18 +174,32 @@ se crea al postularse por primera vez, y `VacantesTab.jsx` en el panel.
 **Entregable antes de programar:** las cuatro respuestas. Sin ellas, lo que se
 escriba se tira.
 
-### FRENTE L · El workspace del evento no habla inglés — sin empezar
+### FRENTE L · El workspace del evento ya habla inglés — ✅ Hecho el 2026-09-02
 
-`EventWorkspace.jsx` **no importa `useI18n` en absoluto**: sus ~45 etiquetas de
-sección y pestaña («Espacio del evento», «Rueda de negocios», «Accesos e
-ingresos», «Zonas de interés»…) están hardcodeadas en español y se pintan tal
-cual. `ResumenSection.jsx` igual. Son las dos pantallas que más se miran de un
-evento.
+`EventWorkspace.jsx` y `ResumenSection.jsx` no importaban `useI18n` en
+absoluto. **63 claves nuevas** (864 en el diccionario): las 46 etiquetas de
+sección y pestaña, los KPIs del resumen, los títulos de las tarjetas, los
+estados vacíos y las sugerencias de Gestbot.
 
-La fragilidad estructural ya se quitó (el aside pasó de ancho clavado a
-`min-w`/`max-w`), pero traducirlo es mecánico y largo: ~45 claves nuevas en
-`src/i18n/en.js` más las del resumen. Se hace de una vez o no se hace — medio
-traducido es peor que en un solo idioma.
+**Dos trampas que tenía este trabajo, por si vuelve a aparecer el patrón:**
+
+1. **`t` estaba ocupado.** Las pestañas se recorrían con `.map(t => …)`, así
+   que declarar el `t()` del i18n lo habría tapado en silencio: `t.label`
+   seguiría funcionando y `t('Resumen')` explotaría. Se renombraron a `tab`.
+2. **`Contenido` es otro componente**, no una parte del primero. Envolver ahí
+   un texto en `t()` dejó dos `t` sin definir — y **esta vez el linter sí lo
+   cazó**, porque son llamadas a función y no etiquetas JSX. Es exactamente la
+   diferencia que dejó pasar el `<GLoader>` de vacantes (§0-bis).
+
+Las frases con número usan `{n}`/`{pct}`, que `t()` interpola, y **el plural se
+elige en el componente**: `tarea${n>1?'s':''}` no se puede traducir porque el
+inglés no lo forma en el mismo sitio. Son dos claves, no una con parches. Las
+fechas y los miles también siguen a `lang` — estaban clavados en `es-CO`.
+
+Las traducciones no son literales donde eso ayuda: «Accesos e ingresos» es
+*Doors and entries* y no *Access and entries*, porque lo que se configura ahí
+son puertas; «Stands» es *Booths*; y «Tarjeta» es *Wallet card* para que no se
+confunda con una tarjeta de pago.
 
 ### Aparcado por esto (retomar después)
 
@@ -194,12 +208,9 @@ traducido es peor que en un solo idioma.
   datos que escondía (nacían invisibles para el público) ya está arreglado;
   unificar las rutas sigue pendiente y es decisión de producto.
 - **Frente J.4-J.6** — `oauth_barrer`, `StatCard`/`BarraProgreso`, limpieza.
-- **Migración `0083`** — aprobada, **bloqueada al aplicar**: el intento se
-  detuvo en el control de permisos del entorno, no por la base. Comprobado
-  antes: tocaría **exactamente 1 fila** de 33 (la única con `credenciales` y
-  sin `wallet`), tiene `WHERE`, es idempotente y **no borra `credenciales`**,
-  así que se puede volver atrás. Falta que alguien con permiso de escritura la
-  corra.
+- **Migración `0083`** — ✅ **aplicada el 2026-09-02.** Medido antes y después:
+  tocó **1 fila de 33**, quedó 1 con `wallet.variantes`, 1 conserva
+  `credenciales` (la red de vuelta) y 0 pendientes.
 - **Migración `0081`** — **no aplicar todavía, a propósito.** Es `DROP COLUMN`
   sobre datos de persona en `perfil_talento`: irreversible. Y toca justo la
   tabla que el **Frente K** va a rediseñar, así que decidirla antes de saber
@@ -950,7 +961,7 @@ información en mano.
 
 ---
 
-## FRENTE I · Zonas de interés — fases 0-4 ✅, queda la 5
+## FRENTE I · Zonas de interés — ✅ completo (fases 0-5)
 
 **Pedido por Sekkon0906 el 2026-09-02**, con estas palabras: «un apartado que
 se llame *zonas de interés*, y ahí se pueda conectar TODO: la creación de
@@ -1159,13 +1170,35 @@ no tenía respuesta en ninguna pantalla.
 zona. Es dato mostrado al lado, no aritmética nueva — cambiar cómo se calcula
 el aforo no lo pidió nadie y es la parte que no conviene tocar sin necesidad.
 
-### Fase 5 · El marcador compartido
+### Fase 5 · El marcador compartido — ✅ Hecho el 2026-09-02
 
-Lo que la Fase 4 del Camino unitario dejó anotado como «su propia sesión»
-(§3.2 de la auditoría): un `<MarcadorMapa tipo color valor label modo>`
-compartido por las tres implementaciones de mapa, que hoy copian las mismas
-80-120 líneas cada una. **Va al final a propósito:** es refactor sin función
-nueva, y es el único paso que puede romper las tres pantallas a la vez.
+El círculo que se coloca sobre el plano estaba escrito **dos** veces, igual, en
+`MapaSection.jsx` (el editor) y `editor/blocks.jsx` (el mapa público). Ahora es
+`components/mapa/MarcadorMapa.jsx`.
+
+**Corrección al plan, y conviene que quede escrita:** este apartado decía que
+el mapa está escrito **tres** veces y que había que unificar las tres. Al mirar
+el código, no: `components/aforo/MapaAforo.jsx` —el tablero en vivo— **no es la
+tercera copia**. Lo suyo es una píldora ancha con un valor grande, un halo
+naranja que se ve de lejos y una etiqueta debajo; su trabajo es que alguien de
+pie en el recinto lea el número desde tres metros. Meterlo en el componente
+compartido habría sido forzar tres comportamientos con banderas, que es peor
+que dos copias honestas. **Se queda como está.**
+
+El contrato del componente es de presentación —`tipo`, `color`, `logoUrl`,
+`inicial`, `valor`, `nivel`, `puntoVivo`, `codigo`— y no de dominio. Ésa es la
+costura: cada mapa sabe leer lo suyo (el editor tiene marcadores y mapas de
+ids; el público recibe el evento ya resuelto por el servidor) y los dos saben
+decir «un círculo azul con este logo».
+
+**Verificado en navegador** con las 12 combinaciones: nada desborda, todos
+redondos, todos ≥ 44 px. Los dos casos que importaban: una zona con 4 cifras
+(`1240`) ensancha en vez de recortar, y `0` se distingue de «sin dato» —uno
+dice que la zona está vacía y el otro que no lo sabemos—, que era fácil de
+perder al unificar.
+
+**Pendiente:** mirar los dos mapas contra un evento real. El componente está
+medido; el cableado de cada pantalla, no.
 
 ### Qué NO hace este frente
 
