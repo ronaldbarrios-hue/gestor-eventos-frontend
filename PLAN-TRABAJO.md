@@ -94,7 +94,42 @@ Pedido: «todo el flujo de registro debe quedar bien, desde la creación de
 boletas, el ponerlas en la landing, el poder exportar las boletas, y que al
 momento de exportar todo funcione». En curso.
 
-### FRENTE K · Vacantes, de punta a punta — sin empezar
+### FRENTE K · Vacantes — ⚠️ era mucho menos de lo que parecía
+
+**Lo primero que se hizo fue mirar qué existe, y eso cambió el tamaño del
+trabajo.** Casi todo estaba construido y sin conectar:
+
+| Lo pedido | Estado real |
+|---|---|
+| «Poder dejar la CV» | **Ya existía.** `PerfilTalentoEditor` la sube a Storage (`cv_url`, `cv_nombre`) y viaja en el `perfil_snapshot` al postularse |
+| «Responder las preguntas» | **Ya existía** en `DetalleVacante` |
+| «La empresa agenda una reunión, por Meet o donde prefiera» | **Ya existía**, y completo: `POST …/entrevista` con **Google Calendar integrado** (`lib/googleCalendar.js`) y respaldo de enlace manual, aviso al candidato y salto de etapa |
+| Que el candidato vea su reunión | **Ya existía**: `MisPostulaciones.jsx:52`, con fecha y enlace |
+| Requisitos de la vacante | ❌ la columna existía en la base, en `SEL_VACANTE` **y** en `CAMPOS_VACANTE`, y nadie la escribía ni la pintaba |
+| «Hacer preguntas» (candidato → empresa) | ❌ no existe en ninguna capa |
+
+**✅ Hecho el 2026-09-02:**
+
+- **Los requisitos.** El único sitio donde se pedían era el *placeholder* de la
+  descripción («horarios, requisitos generales»): metidos a mano dentro de un
+  párrafo. Ahora son una lista en el formulario del organizador y una lista en
+  la vista del candidato. Aparte de la descripción a propósito — un párrafo se
+  lee en diagonal; una lista de requisitos se compara consigo mismo.
+- **«Lo que envías».** El pie decía «Necesitas un perfil de talento…», un aviso
+  genérico que no decía si lo tenías ni si tu hoja de vida iba dentro. Y va
+  dentro. Ahora se lista, con el nombre del archivo y enlace para abrirlo; si
+  falta, lleva a subirla. Una promesa pasa a ser una comprobación.
+
+**Queda una sola decisión, y es la de «hacer preguntas»:** es una conversación,
+y el proyecto ya tiene canales de chat (`routes/chat.js`). **Antes de construir
+una bandeja nueva hay que decidir si un canal por postulación encaja.** Es lo
+único de este frente que no existe en ninguna capa.
+
+**Corrección al §3.5:** la migración `0081` **no** bloquea nada de la CV. Borra
+`foto_url`, `telefono` y `ciudad` de `perfil_talento`; `cv_url` y `cv_nombre`
+no los toca. Sigue pendiente por ser `DROP COLUMN` irreversible, no por esto.
+
+### Redacción original del frente, para contexto
 
 **Pedido el 2026-09-02.** «El apartado de vacantes no está sirviendo. Sería
 pertinente mejorar la creación de este, que todo sea más profesional, poder
