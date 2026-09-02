@@ -764,7 +764,7 @@ información en mano.
 
 ---
 
-## FRENTE I · Zonas de interés · un solo lugar de administración
+## FRENTE I · Zonas de interés — fases 0-4 ✅, queda la 5
 
 **Pedido por Sekkon0906 el 2026-09-02**, con estas palabras: «un apartado que
 se llame *zonas de interés*, y ahí se pueda conectar TODO: la creación de
@@ -1099,16 +1099,23 @@ Más los frentes **B, C, D, E** enteros, que son la plataforma.
 Orden por lo que rinde antes — **reordenado el 2026-09-02**, porque casi todo
 lo de la lista vieja (E, C1, C4, C2, D, B) resultó estar hecho ya:
 
-1. **J.1 y J.2** — el buzón que devuelve 404 y las dos cabeceras de migración
-   que mienten. Minutos, y una de las dos está fallando hoy.
-2. **I fase 0** — cerrar el segundo camino de escritura de zonas y compartir el
-   selector. Es la duplicación que originó el pedido, y es barata.
-3. **I fases 1-2** — la sección «Zonas de interés» y mover ahí el CRUD. Fase 1
-   no necesita backend: `mapa/vivo` ya devuelve todo.
-4. **J.3** — un solo alta de expositor. El caso más grave de la auditoría.
-5. **I fases 3-4** — las relaciones en dirección inversa, y zona ↔ puerta.
+1. ~~**J.1 y J.2**~~ — ✅ el buzón que devolvía 404 (faltaba la ruta) y las
+   cabeceras de migración. Hecho el 2026-09-02.
+2. ~~**I fase 0**~~ — ✅ cerrado el segundo camino de escritura de zonas y
+   compartido el filtro en `lib/zonas.js`.
+3. ~~**I fases 1-2**~~ — ✅ la sección «Zonas de interés» y el CRUD movido ahí.
+4. ~~**I fases 3-4**~~ — ✅ las relaciones en dirección inversa y zona ↔ puerta.
+5. **J.3** — un solo alta de expositor. **El caso más grave de la auditoría** y
+   lo siguiente que rinde: dos pantallas, dos endpoints, la misma tabla, y
+   desde «Rueda de negocios» el expositor no se puede editar.
 6. **J.4-J.6** — `oauth_barrer`, `StatCard`/`BarraProgreso`, limpieza mecánica.
-7. **I fase 5** — el marcador compartido. Refactor sin función nueva, al final.
+7. **I fase 5** — el marcador compartido. Refactor sin función nueva, al final
+   y a propósito: es el único paso que puede romper las tres pantallas de mapa
+   a la vez, y conviene hacerlo con las fases 1-4 ya probadas en navegador.
+
+**Antes de seguir, dos cosas esperan decisión:** aplicar (o no) las migraciones
+`0081` y `0083` —§3.5— y mirar «Zonas de interés» contra un evento real, que
+en el entorno donde se escribió no se pudo por falta de credenciales.
 
 Los frentes **B, C, D, E** ya están cerrados (ver sus marcas ✅). Lo que queda
 de C vive en el Camino unitario y en el Frente I.
