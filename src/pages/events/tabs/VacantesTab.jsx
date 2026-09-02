@@ -112,10 +112,20 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
     modalidad: vacante?.modalidad || 'presencial', cupos: vacante?.cupos || 1,
     estado: vacante?.estado || 'abierta',
     preguntas: Array.isArray(vacante?.preguntas) ? vacante.preguntas : [],
+    /* La columna `requisitos` existía en la base y en el payload público
+       desde el principio, y NADIE la escribía ni la pintaba: el único sitio
+       donde se pedían era el `placeholder` de la descripción («horarios,
+       requisitos generales»), o sea metidos a mano en un párrafo. Aquí
+       pasan a ser una lista, que es como se leen. */
+    requisitos: Array.isArray(vacante?.requisitos) ? vacante.requisitos : [],
   }));
   const [saving, setSaving] = useState(false);
   const [nuevoRol, setNuevoRol] = useState('');
   const set = (patch) => setF(x => ({ ...x, ...patch }));
+
+  const addRequisito = () => set({ requisitos: [...f.requisitos, ''] });
+  const setRequisito = (i, v) => set({ requisitos: f.requisitos.map((r, n) => n === i ? v : r) });
+  const delRequisito = (i) => set({ requisitos: f.requisitos.filter((_, n) => n !== i) });
 
   const addPregunta = () => set({ preguntas: [...f.preguntas, { id: uid(), label: '', requerido: false }] });
   const setPregunta = (id, patch) => set({ preguntas: f.preguntas.map(p => p.id === id ? { ...p, ...patch } : p) });
@@ -137,7 +147,9 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
     if (f.pago_monto === '' || Number(f.pago_monto) < 0) { toastErr('El pago del contrato es obligatorio.'); return; }
     setSaving(true);
     try {
-      const body = { ...f, pago_monto: Number(f.pago_monto), cupos: Number(f.cupos) || 1, preguntas: f.preguntas.filter(p => p.label.trim()) };
+      const body = { ...f, pago_monto: Number(f.pago_monto), cupos: Number(f.cupos) || 1,
+        preguntas: f.preguntas.filter(p => p.label.trim()),
+        requisitos: f.requisitos.map(r => r.trim()).filter(Boolean) };
       if (vacante) await vacantesApi.editar(evento.id, vacante.id, body);
       else await vacantesApi.crear(evento.id, body);
       success(vacante ? 'Vacante actualizada.' : 'Vacante publicada.');
@@ -233,6 +245,28 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
               <option value="abierta">Abierta</option><option value="pausada">Pausada</option><option value="cerrada">Cerrada</option>
             </select>
           </div>
+        </div>
+
+        {/* Requisitos: lo que hace falta para el puesto.
+            Van aparte de la descripción a propósito. Una descripción es un
+            párrafo que se lee en diagonal; una lista de requisitos se compara
+            consigo mismo —«esto lo tengo, esto no»— y es lo que decide si
+            alguien se postula o cierra la pestaña. */}
+        <div className="space-y-2">
+          <label className="label text-xs">
+            Requisitos <span className="lowercase tracking-normal font-normal text-text-3">(uno por línea)</span>
+          </label>
+          {f.requisitos.map((r, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-text-3 text-xs w-3 flex-shrink-0">·</span>
+              <input value={r} onChange={e => setRequisito(i, e.target.value)}
+                className="input rounded-lg py-2 text-sm flex-1"
+                placeholder="Ej. Experiencia previa en montaje de tarimas" />
+              <button onClick={() => delRequisito(i)}
+                className="w-7 h-7 rounded-lg text-text-3 hover:text-danger flex items-center justify-center flex-shrink-0">✕</button>
+            </div>
+          ))}
+          <button type="button" onClick={addRequisito} className="btn-ghost btn-sm text-xs">+ Agregar requisito</button>
         </div>
 
         {/* Preguntas */}
