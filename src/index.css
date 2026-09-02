@@ -342,6 +342,24 @@
   .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .no-scrollbar::-webkit-scrollbar { display:none; }
   .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+
+  /* El alto de un modal a pantalla completa en un movil.
+   *
+   * `position: fixed; inset: 0` NO sirve, y costo registros de verdad: en un
+   * movil eso abarca el viewport GRANDE —el que habria si las barras del
+   * navegador estuvieran escondidas—, mientras lo que se ve es el PEQUENO,
+   * unos 120px menos en iOS Safari. Si el contenido se ancla abajo
+   * (`items-end`, que es como se ve una hoja que sube desde el borde), su
+   * borde inferior queda DETRAS de la barra del navegador. Y no hay forma de
+   * llegar: el contenido cabe en el contenedor, asi que no hay scroll que
+   * hacer, y el scroll del documento esta bloqueado mientras el modal vive.
+   *
+   * Se mide con `dvh`, que es el viewport visible y se actualiza cuando las
+   * barras aparecen o desaparecen. Las dos declaraciones son a proposito:
+   * `vh` es el respaldo para quien no entiende `dvh` (iOS < 15.4), y la
+   * segunda gana donde si se entiende. Por eso va aqui en CSS y no como dos
+   * clases de Tailwind: ahi el orden de la cascada no esta garantizado. */
+  .alto-visible { height: 100vh; height: 100dvh; }
 }
 
 /* ── Animaciones del Lienzo libre (Event Experience) ─────────────── */

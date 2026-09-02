@@ -41,10 +41,27 @@ export const ANCHO_MODAL = {
   xl:  'sm:max-w-3xl',
   xxl: 'sm:max-w-5xl',
 };
+/* `dvh` y no `vh`, y esto costó registros de verdad.
+ *
+ * En un móvil `vh` es el viewport GRANDE: el que habría si las barras del
+ * navegador estuvieran escondidas. Lo que se ve es el PEQUEÑO, un 15-20% menos
+ * en iOS Safari. Con `max-h-[90vh]` la tarjeta podía medir el 90% del grande
+ * estando anclada abajo (`items-end`), así que su parte final —donde está el
+ * botón de «Continuar»— quedaba por debajo de lo visible.
+ *
+ * Y no había forma de llegar a él: `overflow-y-auto` de la tarjeta no scrollea
+ * porque el contenido NO desborda la tarjeta —es la tarjeta la que desborda la
+ * pantalla—, y `ModalShell` bloquea el scroll del documento mientras el modal
+ * está abierto. Resultado: gente que abría el formulario, lo rellenaba y no
+ * podía enviarlo.
+ *
+ * `dvh` mide el viewport visible de verdad y se actualiza cuando las barras
+ * aparecen o desaparecen. La variante `completo` ya lo usaba —alguien topó con
+ * esto y arregló sólo ese caso—; ahora lo usan las tres. */
 export const ALTO_MODAL = {
-  normal:   'max-h-[90vh]',
-  alto:     'max-h-[95vh]',
-  completo: 'max-h-[100dvh] sm:max-h-[97vh]',
+  normal:   'max-h-[90dvh]',
+  alto:     'max-h-[95dvh]',
+  completo: 'max-h-[100dvh] sm:max-h-[97dvh]',
 };
 /* `porDefecto` es la clase que ese modal usaba antes: sin configurar nada, nada
    cambia. */
@@ -1410,22 +1427,49 @@ function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[9
     );
   }
 
+  /* `inset-x-0 top-0 alto-visible` y NO `inset-0`. Medido en navegador con una
+     barra de 122px simulada, y es la parte que de verdad arregla el fallo:
+
+       tarjeta 90vh  + overlay inset-0        → el botón se sale 98px
+       tarjeta 90dvh + overlay inset-0        → el botón se sale 98px  ← igual
+       tarjeta 90dvh + overlay alto-visible   → el botón entra
+
+     Acotar la tarjeta no basta, porque sigue anclada al fondo de un overlay
+     que abarca el viewport grande. Lo que hay que acotar es el overlay; la
+     tarjeta va después. (El por qué está en `.alto-visible`, en index.css.)
+
+     Y dos scrolls, los dos necesarios: el de la TARJETA es el normal —un
+     formulario largo se recorre dentro de su recuadro— y el del OVERLAY es la
+     red de seguridad para cuando la tarjeta aun acotada no cabe: un navegador
+     sin `dvh`, o el teclado abierto, que encoge la pantalla sin que `dvh` se
+     entere. Sin esa segunda salida el modal se queda sin ninguna, porque el
+     scroll del documento está bloqueado arriba.
+     `overscroll-contain` evita que al llegar al final se arrastre la página de
+     detrás, que en móvil se siente como que el modal «salta». */
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
-      <div
-        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl ${alto} overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-end px-4 sm:px-6 py-2.5 bg-surface/95 backdrop-blur border-b border-border">
-          <button onClick={onClose} aria-label="Cerrar"
-            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-6 sm:p-8">
-          {children}
+    <div
+      className="fixed inset-x-0 top-0 alto-visible z-50 overflow-y-auto overscroll-contain bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]"
+      onClick={onClose}
+    >
+      <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
+        <div
+          className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl ${alto} overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-end px-4 sm:px-6 py-2.5 bg-surface/95 backdrop-blur border-b border-border">
+            <button onClick={onClose} aria-label="Cerrar"
+              className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {/* `pb` extra en móvil: deja aire por debajo del último control para
+              que el botón de enviar no quede pegado al borde de la pantalla ni
+              debajo de la barra de gestos del sistema. */}
+          <div className="p-6 sm:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-8">
+            {children}
+          </div>
         </div>
       </div>
     </div>
