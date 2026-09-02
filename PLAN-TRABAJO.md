@@ -24,6 +24,13 @@ POST devuelve 401, GET devuelve 200. Escanear una escarapela para dar puntos
 El arreglo ya está en la rama. **Hay que desplegar los dos repositorios a la
 vez**: sólo el frontend, sobre un backend viejo, lo rompe en más sitios.
 
+**✅ Verificado el 2026-09-01 (Claude):** en el código actual de `main` (ambos
+repos) las dos rutas de canje y sus dos llamadores usan POST — no hay
+mismatch. `routes/interacciones.js:292` y `routes/expositor.js:263`, con un
+comentario explícito de por qué es POST (no filtrar `qr_token` en logs de
+acceso). Si sigue fallando en producción es porque **lo desplegado en Render
+está desactualizado**, no un problema de código.
+
 ---
 
 ## 1 · Lo que ya estaba hecho (comprobado en el código, no en un documento)
@@ -65,6 +72,11 @@ cerrarlas, con el nombre de quien la hizo y la fecha.
 | Fase 4: tabla «qué actividad llena cada zona», cruzando los reportes contra la agenda. Hallazgo sin resolver: hay tres implementaciones de mapa en vivo sin compartir componente — consolidarlas es su propia sesión | **C · fase 4** | Claude · 2026-09-01 | frontend #26 |
 | Duplicado quitado: el editor del mapa tenía su propio «+ Crear zona», una segunda forma de crear lo que ya se crea en Accesos e ingresos | **C1** | Claude · 2026-09-01 | frontend #25 |
 | Hasta 3 fotos por stand (`galeria`, ya existía desde la 0057 pero no llegaba al directorio/mapa públicos) + logo más grande en la tarjeta del panel | — pedido nuevo, fuera del plan original | Claude · 2026-09-01 | backend #22, frontend #27 |
+| Fuga del embed: `/embed/<slug>/<sección>` pedía el evento completo y filtraba en el navegador — el resto de la landing viajaba igual, sólo sin dibujarse. La sección se resuelve ahora en servidor | — pedido nuevo | Claude (sesión Opus) · 2026-09-01 | backend #23, frontend #29 |
+| Un stand sabe en qué zona del plano está (`zona_id`, migración 0088, sin backfill a propósito) | — pedido nuevo, fuera del plan original | Claude (sesión Opus) · 2026-09-01 | backend #24, frontend #30 |
+| 5 bugs del código dormido de Frente A (cobertura de `comparar-bases.js`, clave natural, falso DIFIERE en decimales, `canjearRecompensa` con premio gratis y sin saldo previo, preámbulo SQL que faltaba) | **A** | Claude · 2026-09-01 | backend #25 |
+| Zona como centro de mando: tocar una zona ya muestra también sus stands (`standsPorZona`, que existía sin usarse), en el tablero en vivo y en el mapa público | **C2/C3** · pedido nuevo | Claude · 2026-09-01 | backend #26, frontend #31 |
+| E1, pulido: la píldora de páginas mide con `ResizeObserver` la altura real de la barra de arriba en vez de un `top-[72px]` fijo, que se desalineaba en móvil con los enlaces envueltos | **E1** | Claude · 2026-09-01 | frontend #32 |
 
 ### Backlog · aforo, mapa y «tomar reporte» (frente C)
 
@@ -160,6 +172,25 @@ lo nuevo esté conectado y probado. Hay un pitch. `AUTH_PROPIA` y
   5. `db/esquema/02` no trae preámbulo `SET NAMES`/`SET time_zone` aunque el
      README dice que sí.
 
+### ✅ Los 5 hallazgos, arreglados · Claude · 2026-09-01 · backend #25
+
+Nada de esto corre contra producción (código dormido para la futura
+migración), pero se arregló para no arrastrarlo:
+
+1. `TABLAS` en `comparar-bases.js` ahora cubre las ~70 tablas del esquema
+   (antes 24), y `verificarCobertura()` avisa si el esquema real gana una
+   tabla que la lista no conoce.
+2. `CLAVE_POR_TABLA` declara la clave natural de las 6 tablas sin `id`
+   (comprobado contra el `PRIMARY KEY` real de cada una).
+3. El falso `DIFIERE` en columnas `numeric`/`decimal` se arregló en el origen
+   (`decimalNumbers: true` en `core/db/mysql.js`), no en la comparación.
+4. `canjearRecompensa` ya no truena con `bal.id` cuando el premio cuesta 0 y
+   no hay saldo previo.
+5. `02_indices_unicos_parciales.sql` y `04_indices.sql` ya tienen su
+   preámbulo `SET NAMES`/`SET time_zone`.
+
+398 tests en verde (6 nuevos).
+
 ---
 
 ## FRENTE B · El editor de landing y la exportación
@@ -171,7 +202,25 @@ lo nuevo esté conectado y probado. Hay un pitch. `AUTH_PROPIA` y
 Es el frente con más diseño por delante y el que más se beneficia de tener una
 sesión entera dedicada.
 
-### B1 · Modo desarrollador de la landing
+### B1 · Modo desarrollador de la landing — ✅ Hecho (verificado 2026-09-01, Claude)
+
+**Ya está construido por completo, en una sesión anterior a este plan** (commit
+`1d6ccbb`, «La landing pasa a tener contrato, y Claude puede armarla por
+MCP»). La decisión que sigue estaba pendiente cuando se escribió este
+documento ya se tomó: **(b) un DSL propio en JSON**.
+
+- `lib/bloquesLanding.js` (backend): el catálogo de bloques (`BLOQUES`) es el
+  contrato — qué campos admite cada uno y de qué tipo — y `fallaBloque`/
+  `fallaPaginas` lo hacen cumplir. Nada de HTML libre; cero superficie de XSS.
+- `lib/agente.js` (backend): tres herramientas MCP —
+  `catalogo_bloques_landing` (el contrato, listo para pasárselo a un modelo),
+  `ver_landing`, `guardar_landing` (valida ANTES de tocar la base; si algo no
+  encaja, no se guarda nada)—. Esto es exactamente «que Claude pueda armar una
+  página por MCP llamando a las funciones».
+- `PageBuilder.jsx` (frontend): editor de JSON crudo con validación, para el
+  humano que sepa escribirlo.
+
+Redacción original, para contexto — lo que se pedía decidir:
 
 Hoy hay 21 tipos de bloque (`BLOCKS` en `blocks.jsx`) y **ninguna forma de
 escribir código**. La idea es que quien sepa pueda hacerlo, y que Claude pueda
@@ -193,7 +242,14 @@ Lo que hay que decidir antes de escribir nada, porque cambia todo lo demás:
 **Entregable de este bloque antes de programar:** el contrato. Qué bloques,
 qué props, qué valida el servidor. Sin eso, lo que se escriba se tira.
 
-### B2 · Exportación granular
+### B2 · Exportación granular — ✅ Hecho (verificado 2026-09-01, Claude)
+
+**Ya está construido por completo.** `ExportIframeModal.jsx` ya ofrece las
+tres opciones de abajo (bloque completo, sin fondo, sólo el botón sin
+iframe vía `widget.js`), con el aviso correcto de que el pago abre pestaña
+aparte porque las pasarelas no funcionan dentro de un iframe ajeno.
+
+Redacción original, para contexto — lo que se pedía:
 
 Hoy `ExportIframeModal` exporta **una sección entera como iframe**, y nada más.
 Lo pedido es poder elegir:
@@ -278,6 +334,15 @@ de qué actividad llena cada zona** están en el **Camino unitario, Fases 1–4*
 de la sección 2. Ese estudio es alcance nuevo respecto a la redacción de este
 C2.
 
+**✅ Zona como centro de mando · Claude · 2026-09-01 · backend #26, frontend
+#31.** Pedido nuevo del usuario: tocar una zona debía mostrar también sus
+stands, no sólo aforo y agenda. `standsPorZona()` ya existía (`lib/expositores.js`,
+migración 0088) sin usarse desde ninguna ruta — se cruzó en `mapa/vivo`
+(tablero en vivo) y se agrupó client-side en el mapa público (`evento.expositores`
+ya trae `zona_id`). **No se consolidaron** las tres implementaciones de mapa
+en un componente compartido — eso sigue siendo su propia sesión, tal como se
+anotó abajo en la Fase 4.
+
 ### C3 · Nutrir «Estancia y puntos»
 
 Hoy muestra el nombre y una foto pequeña, y poco más. Se va a llamar desde el
@@ -346,7 +411,17 @@ puntos. Lo que propongo:
 `event_form_fields`, `EventoPublicoPage.jsx` (el modal de registro).
 **No toca:** el editor de landing ni el mapa.
 
-### D1 · Preguntas condicionales
+### D1 · Preguntas condicionales — ✅ Hecho (verificado 2026-09-01, Claude)
+
+**Ya está construido por completo** (migración 0084, ya aplicada pese a que
+su comentario dice «PENDIENTE DE APLICAR» — residuo, no estado real).
+`lib/formularioCampos.js` (validación server-side) + `lib/camposCondicionales.js`
+(mismo cálculo en el cliente, para reactividad instantánea) implementan
+`visible_si: { campo, op, valor }` completo: un campo oculto no se exige como
+obligatorio y sus respuestas no se guardan. UI en `FormularioTab.jsx`, filtro
+en `EventoPublicoPage.jsx`.
+
+Redacción original, para contexto:
 
 «Si vive en zona rural, se abren estas opciones; si urbana, estas otras.»
 
@@ -357,9 +432,15 @@ y que la validación del servidor la respete: si un campo está oculto por su
 condición, exigirlo como obligatorio deja el formulario imposible de enviar, y
 ése es el fallo clásico de esta función.
 
-### D2 · Prellenado por cédula desde una base anterior
+### D2 · Prellenado por cédula desde una base anterior — ✅ Hecho
 
-Tres cosas que van juntas:
+Las tres cosas de abajo ya existían (el padrón previo, con `lib/padronPrevio.js`
+y su endpoint de subida) y, además, el bug del alias de columna en mayúscula
+se arregló esta sesión (Claude · 2026-09-01 · backend #19, frontend #24):
+la columna del documento se buscaba en minúscula exacta y «Documento», «NIT»
+en mayúscula o alias en inglés (`id_number`) no se reconocían.
+
+Redacción original, para contexto — tres cosas que van juntas:
 
 1. **Subir la base de datos de eventos anteriores.** Formato, columnas, y qué
    hacer con los duplicados.
@@ -383,9 +464,16 @@ enganche natural para el punto 2.
 **Archivos:** `EventoPublicoPage.jsx`, `components/public/EventChrome.jsx`.
 **No toca:** nada del panel.
 
-### E1 · Barra de navegación fija
+### E1 · Barra de navegación fija — ✅ Hecho (verificado y pulido 2026-09-01, Claude)
 
-**Comprobado en el código:** hay dos barras y sólo una es fija.
+**Ya estaba hecho cuando se investigó**: las dos barras de
+`EventoPublicoPage.jsx` son `sticky` (`top-0` la de salidas, `top-[72px]` la
+píldora de páginas) — no como describía este documento. Lo único que faltaba
+—el offset fijo de `72px` podía desalinearse en móvil si los enlaces se
+envolvían a dos filas— se arregló con `ResizeObserver` (frontend #32).
+
+Redacción original, para contexto — comprobado en el código en su momento:
+hay dos barras y sólo una es fija.
 
 - La píldora de páginas **sí** es sticky (`sticky top-4 z-20`), pero además
   sólo se pinta cuando el evento tiene portada (`hasCover`).
