@@ -29,6 +29,7 @@ import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import BoletaConocida, { guardarBoleta } from '../../components/public/BoletaConocida.jsx';
 import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
+import { Flotante, usePosicionFlotante } from '../../components/ui/Flotante.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
    Event Experience → Proceso de compra (`page_json.checkout.modal_ancho` /
@@ -1113,6 +1114,16 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   );
 }
 
+/* El «track» sólo dice algo si el evento tiene varias líneas. Medido contra
+   Festech: su única actividad con inscripción viene con `track: "principal"`,
+   que es el valor por defecto de la agenda. Enseñarlo es peor que no enseñar
+   nada — llena el hueco de la descripción con algo que parece información. */
+const TRACKS_VACIOS = new Set(['principal', 'general', 'default', 'main']);
+const trackUtil = (t) => {
+  const v = String(t ?? '').trim();
+  return TRACKS_VACIOS.has(v.toLowerCase()) ? '' : v;
+};
+
 /* Los formatos de descarga de la boleta, en el orden en que se eligen: el que
    casi todo el mundo quiere primero. */
 const FORMATOS_BOLETA = [
@@ -1206,6 +1217,27 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
   const [menuDescarga, setMenuDescarga] = useState(false);
   const ocupado = bajando || bajandoTarjeta;
   const descargasPorFormato = { pdf: descargarPdf, tarjeta: descargarTarjeta, qr: descargarQr };
+
+  /* Este menú nació con el mismo fallo que el desplegable de «Comuna» y se vio
+     al recorrerlo contra un evento real: `absolute` dentro del modal, y la
+     tercera opción caía fuera del recorte, imposible de pulsar. Va por
+     [[Flotante]], igual que la lista del selector buscable. */
+  const anclaDescarga = useRef(null);
+  const cajaDescarga = useRef(null);
+  const menuRef = useRef(null);
+  const posDescarga = usePosicionFlotante(menuDescarga && !ocupado, anclaDescarga, { altoMax: 300 });
+
+  /* Cerrar al pinchar fuera: sin esto el menú se queda abierto tapando los
+     botones de al lado, y el contenido ya no es hijo del botón. */
+  useEffect(() => {
+    if (!menuDescarga) return;
+    const fuera = (e) => {
+      if (menuRef.current?.contains(e.target) || cajaDescarga.current?.contains(e.target)) return;
+      setMenuDescarga(false);
+    };
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, [menuDescarga]);
 
   const pendientes = subeventos.filter(s => !inscritas.has(s.id));
 
@@ -1310,11 +1342,11 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
                     {s.descripcion?.trim() && (
                       <p className="text-xs text-text-2 mt-1 leading-relaxed line-clamp-3">{s.descripcion.trim()}</p>
                     )}
-                    {(s.speaker?.nombre || s.track) && (
+                    {(s.speaker?.nombre || trackUtil(s.track)) && (
                       <p className="text-[11px] text-text-2 mt-1">
                         {s.speaker?.nombre && <>Con <span className="font-medium text-text-1">{s.speaker.nombre}</span>{s.speaker.empresa ? ` · ${s.speaker.empresa}` : ''}</>}
-                        {s.speaker?.nombre && s.track ? ' · ' : ''}
-                        {s.track}
+                        {s.speaker?.nombre && trackUtil(s.track) ? ' · ' : ''}
+                        {trackUtil(s.track)}
                       </p>
                     )}
                     <p className="text-[11px] text-text-3 mt-0.5">
@@ -1406,16 +1438,17 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
             había uno. Ahora se pulsa «Descargar» y se elige el formato, que es
             el orden en que se piensa. */}
         <div className="flex items-center justify-center gap-2 flex-wrap">
-          <div className="relative">
-            <button onClick={() => setMenuDescarga(v => !v)} disabled={ocupado}
+          <div className="relative" ref={cajaDescarga}>
+            <button ref={anclaDescarga} onClick={() => setMenuDescarga(v => !v)} disabled={ocupado}
               aria-expanded={menuDescarga} aria-haspopup="menu"
               className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60 inline-flex items-center gap-2">
               {ocupado ? 'Generando…' : 'Descargar'}
               <span aria-hidden className="text-xs">▾</span>
             </button>
             {menuDescarga && !ocupado && (
-              <div role="menu"
-                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-20 w-60 rounded-2xl border border-border-2 bg-surface shadow-xl overflow-hidden text-left">
+              <Flotante pos={posDescarga} ancho="propio" role="menu" ref={menuRef}
+                style={{ width: 260 }}
+                className="rounded-2xl border border-border-2 bg-surface shadow-xl text-left">
                 {FORMATOS_BOLETA.map(f => (
                   <button key={f.id} role="menuitem" type="button"
                     onClick={() => { setMenuDescarga(false); descargasPorFormato[f.id](); }}
@@ -1424,7 +1457,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
                     <span className="block text-[11px] text-text-3 mt-0.5">{f.pista}</span>
                   </button>
                 ))}
-              </div>
+              </Flotante>
             )}
           </div>
           {pendientes.length > 0 && (

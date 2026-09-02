@@ -1378,6 +1378,60 @@ código. El mapeo que corresponde, columna por columna:
 Falta **guardarlo desde la pantalla de mapeo**, que es lo que sigue sin verse
 contra el evento real (M9).
 
+### M-bis · Recorrido en navegador contra eventos reales (2-sep)
+
+Ya no está construido a ciegas. Con el front local apuntando al backend
+desplegado, la página pública no pide cuenta, así que el registro se recorrió
+entero.
+
+**Contra FESTECH IBAGUÉ (sólo lectura, sin registrar a nadie):** M1 medido en
+el sitio donde fallaba. La lista de «Comuna» sale a `document.body`, en
+`position: fixed`, con **las 48 opciones** y entera dentro de la pantalla
+(526–782 de 800). En móvil (375×812), con el campo pegado al borde inferior
+(759–812), **se abre hacia arriba** (499–755) y tampoco se recorta. Elegir una
+opción la selecciona y cierra: el clic-fuera aprendió que la lista ya no es hija
+del campo.
+
+**Contra TechNova Summit 2026 (el evento de pruebas):** una reserva de prueba de
+punta a punta, 14 pasos, **anulada después** (boleta `5TBVH3AV`). En la
+confirmación se vio M5 («SI QUIERES SEGUIR EXPLORANDO EL EVENTO», ya no «Falta
+un paso»), la tarjeta de sub-eventos con su «Ver →», y M6 como **un solo
+«Descargar ▾»** con los tres formatos y su línea de para qué sirve cada uno.
+
+**Y el recorrido encontró un fallo que la lectura no vio:** el menú de descarga
+recién escrito **nacía con el mismo problema que M1**. Iba `absolute` dentro del
+modal, medía 653–921, y el modal acaba en 769: **la tercera opción, «Sólo el
+QR», quedaba fuera del recorte y no se podía pulsar.** Es exactamente el fallo
+que se acababa de arreglar al lado.
+
+Por eso la colocación dejó de estar escrita dos veces y vive en
+`components/ui/Flotante.jsx` (`usePosicionFlotante` + `Flotante`): portal a
+`body`, coordenadas de pantalla, vuelta hacia arriba si abajo no cabe, y remedida
+en cada scroll con captura. Lo usan el selector buscable y el menú de descarga.
+**Suelto, este fallo vuelve cada vez que alguien añada un desplegable dentro de
+un modal.**
+
+**Lo que queda sin ver en navegador:** el menú de descarga después del arreglo
+(exigía una segunda reserva de prueba y no se hizo), la lista de sub-eventos por
+dentro, el cierre de M8, los dos mapas y «Zonas de interés», y la pantalla de
+mapeo del padrón.
+
+### M7-bis · La descripción no existe, y ése es el problema
+
+Medido contra los dos eventos: la única actividad con inscripción de Festech
+(`PijaoTech`) **no tiene descripción ni ponente**, sólo `track: "principal"`,
+que es el valor por defecto de la agenda. Es decir, pintar lo que venga no
+arregla M7 para Festech: no hay nada que pintar.
+
+Dos consecuencias en el código:
+
+1. El `track` por defecto (`principal`, `general`, `default`, `main`) **no se
+   enseña**. Llenaba el hueco de la descripción con algo que parece información
+   y no lo es.
+2. **El aviso se pone donde se arregla**, no donde se sufre: en la agenda del
+   panel, un sub-evento que pide inscripción y no tiene ni descripción ni
+   ponente lo dice — «al público le sale sólo el título, la hora y el cupo».
+
 ### M1 · El desplegable se corta dentro del modal — ✅ hecho
 
 En la captura de «Comuna», la lista de opciones se corta contra el borde del
