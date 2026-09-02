@@ -8,6 +8,13 @@ lista estaban hechas; están marcadas abajo para no volver a pagarlas.
 —«Camino unitario»— con lo cerrado ese día y el backlog de aforo/reporte, y
 avance anotado dentro de los frentes A y C.
 
+**Actualizado el 2 de septiembre de 2026** (Sekkon0906): sección 3 nueva con la
+**auditoría del proyecto** —qué está duplicado, muerto o desconectado, con
+archivo y línea—, y dos frentes nuevos que salen de ella: **Frente I · Zonas de
+interés** (el «un solo lugar de administración» que se pidió) y **Frente J**
+(la deuda que dejó la auditoría, incluido un bug que está fallando hoy en
+producción).
+
 La división no es por tamaño: es por **qué archivos toca cada frente**. Dos
 sesiones en frentes distintos no chocan al hacer merge. Dos sesiones en el
 mismo frente sí, y por eso están separados así y no de otra manera.
@@ -118,6 +125,147 @@ un ajuste chico de backend. Sin migración.
 - Auditar `MapaSection` / `MapaAforo` contra `mapa/vivo` para que cada marcador
   (zona, puerta, sub-evento, expositor) tire del mismo estado vivo y enlace a
   su tablero.
+
+---
+
+## 3 · Auditoría del 2026-09-02 · qué está duplicado, muerto o desconectado
+
+Pedida por Sekkon0906 con esta frase: «hay varias zonas donde se crean aforos,
+se crean zonas, se crean de muchas maneras las mismas cosas». Se comprobó en el
+código de los dos repos, no en documentos. **La sospecha se confirma, y el peor
+caso no era el de las zonas.**
+
+Cada hallazgo lleva su archivo y línea para que nadie tenga que volver a
+buscarlo. Los que ya tienen tarea propia apuntan al frente correspondiente.
+
+### 3.1 · Lo que se crea o edita desde más de un sitio
+
+| Qué | Dónde 1 | Dónde 2 | Gravedad |
+|---|---|---|---|
+| **Expositor / stand** | `StandsTab.jsx:105-272` → `POST/PATCH/DELETE /eventos/:id/expositores` (`routes/networking.js:491`) | `NetworkingTab.jsx:206-372` → `POST/DELETE /eventos/:id/networking/expositores` (`routes/networking.js:592`) | **Alta.** Dos pantallas, **dos endpoints distintos**, la misma tabla `networking_expositores`. El de Networking no tiene `PATCH`: un expositor creado en «Rueda de negocios» **no se puede editar** sin ir a Stands. El de Stands acepta `zona_id`, `galeria`, `sitio_web`; el otro no. |
+| **Zona de aforo** | `AccesosSection.jsx:105-164` (alta, nombre, aforo, borrado) | `MapaSection.jsx:384-393` edita `nombre` y `aforo_max` desde el marcador, y guarda por su propio PATCH (`:150`, tras el flag `zonasTocadas`) | Media. El flag evita el choque, pero son dos formularios y dos caminos de escritura para el mismo array. **Lo arregla el Frente I, fase 0.** |
+| **Selector `<select>` de zonas** | `SessionForm.jsx:52-53` | `StandsTab.jsx:115-116` (su comentario admite «mismo filtro que el formulario de sub-eventos») y `CheckinTab.jsx:61`, que lee `page_json.zonas` **crudo, sin el filtro** | Baja, pero es una inconsistencia real: la tercera copia muestra zonas sin id o sin nombre. |
+
+### 3.2 · El mapa está escrito tres veces
+
+- `MapaSection.jsx` (editor: sube plano, arrastra marcadores) — su propio
+  `Marcador`/`CirculoMarcador`, líneas 236-313.
+- `components/aforo/MapaAforo.jsx` (tablero en vivo) — su propio render,
+  líneas 162-193. Exporta `nivelDeZona`, `calorDeZona`, `estaEnLlamas`.
+- `editor/blocks.jsx:1274+` (`MapaEventoPreview`, el mapa público) — tercer
+  render completo, líneas 1309-1385, **sin importar** los helpers de nivel de
+  `MapaAforo.jsx`: los reimplementa.
+
+Lo único compartido hoy entre las tres es `components/aforo/LlamaZona.jsx`. El
+«dibuja un marcador según su tipo, color y valor» —unas 80-120 líneas por
+archivo, con las mismas clases de Tailwind— es el mismo problema resuelto tres
+veces. **Lo aborda el Frente I, fase 5.** Lo que NO hay que fusionar: editar
+posición vs. sólo lectura vs. modal público son tres comportamientos distintos
+y deben seguir siéndolo.
+
+### 3.3 · Un bug activo, en producción
+
+**El buzón de sugerencias devuelve 404 siempre.** `src/api/sugerencias.js:8-9`
+llama a `/me/sugerencias`, y el backend sólo expone `/sugerencias/dinamica`
+(`routes/sugerencias.js:53,84`, montado en `/` y en `/me` — `index.js:140,165`).
+Falta el segmento `/dinamica`.
+
+No es teórico: `BuzonSugerencia.jsx:30` lo usa de verdad, y está montado en
+`EventCreatePage.jsx:491` y `VacantesTab.jsx:182`. Y hay una **segunda
+implementación del mismo buzón** que sí funciona porque escribe la ruta bien:
+`components/eventos/PedirDinamica.jsx:34,43`. Arreglo: dos líneas.
+
+### 3.4 · Piezas construidas y nunca conectadas
+
+| Qué | Dónde | Estado |
+|---|---|---|
+| `components/ui/StatCard.jsx` | existe, con su clase `stat-card` en `index.css` | **Cero consumidores.** Mientras tanto, 18 pantallas reinventan su propia tarjeta de número (`ReporteTab`, `AnalyticsTab`, `ClientesTab`, `EquipoTab`, `TicketsTab`, `VacantesTab`, `ChatTab`, `NetworkingTab`, `CheckoutSection`…). |
+| Editor de plantillas de correo | `routes/emails.js:160,198,226,243,266,347` (GET/PUT/DELETE catálogo, previsualizar, diagnóstico, envíos) | Seis endpoints sin una sola pantalla que los llame. El frontend sólo usa `prueba`, `enviar`, `cola`, `reintentarCola`. Decidir: conectar o borrar. |
+| Bolsa y cuotas de expositores | `routes/networking.js:341,361,392` | Sin UI. Relacionado con la migración 0057. |
+| `public.oauth_barrer()` | `db/migrations/0073:92-98` | **Nadie la llama.** La propia migración dice que el backend debería invocarla «en el mismo ciclo que ya corre cada quince minutos», y ningún `cron-*.js` la incluye: `oauth_codes`/`oauth_tokens` crecen sin límite. |
+| Editar franja de expositor | `routes/expositor.js:328` (`PATCH`) | El frontend sólo crea y borra franjas. ¿Falta el botón «editar horario»? |
+| `modules/aforo/consultas.js` | backend | Muerto **a propósito**: es la traducción a MySQL para el corte del Frente A. Su comentario ya lo dice. No tocar. |
+| `ARCHIVOS_PROPIOS` | `core/config/index.js:108` | Apagada, y a diferencia de `AUTH_PROPIA` **no tiene ningún consumidor en el frontend**: encenderla hoy no cambiaría nada visible. Ninguna de las dos banderas está en los `.env.example`. |
+| `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | El comentario del archivo dice que se extrajeron de `DocumentosSection.jsx` para reusarlas — y `DocumentosSection.jsx` nunca importa el módulo. Refactor a medias. |
+
+### 3.5 · Dos migraciones mienten en su cabecera
+
+`0084_*.sql` y `0087_*.sql` dicen **«PENDIENTE DE APLICAR»** y **las dos están
+aplicadas**. Verificado el 2026-09-02 contra la base de producción
+(`information_schema`, sólo lectura): existen `event_form_fields.visible_si`,
+`zona_cortes.tipo` y `zona_cortes.foto_url`.
+
+Importa por lo de siempre en este proyecto: el backend no mira el error de
+`supabase-js`, así que una columna que falta se ve como datos en blanco sin
+aviso. Un comentario que dice «pendiente» cuando no lo está entrena a
+desconfiar del único sitio donde se registra ese estado. Arreglo: corregir las
+dos cabeceras.
+
+### 3.6 · Basura de refactors anteriores
+
+- **10 comentarios de sección huérfanos** (el header quedó, la función se fue a
+  otro archivo): `StandsTab.jsx:367`, `AgendaLista.jsx:95`, `SalasGrid.jsx:85`,
+  `SessionForm.jsx:330`, `AgendaTab.jsx:414`, `TorneoBracket.jsx:136`,
+  `TorneoEquipos.jsx:284`, `TorneoLiga.jsx:145`,
+  `TorneoPartidoModales.jsx:159`, `TorneoTab.jsx:302`. Todos son la huella del
+  split de `AgendaTab`/`TorneoTab` en subcarpetas.
+- **11 imports sin usar**: `CheckinTab.jsx:2`, `ClientesTab.jsx:7`,
+  `EquipoTab.jsx:8`, `FormularioTab.jsx:1`, `StandsTab.jsx:3` (`leerQr` — del
+  canje que se movió), `TareasTab.jsx:1`, `GestbotPage.jsx:5`,
+  `CompletarPerfilPage.jsx:2`, `EventsListPage.jsx:10`,
+  `EventoPublicoPage.jsx:4`, `ProductoPage.jsx:1`.
+- **Un estado que nadie lee**: `AuthPage.jsx:440`, `checkingInvite` se asigna
+  (`:481,483`) y no se usa en el JSX. Probablemente falta un spinner.
+- **11 exports sin un solo consumidor** (verificados con `grep -rw` sobre el
+  árbol completo, descartando la copia de `.claude/worktrees/`):
+  frontend — `LlamaZona.jsx:18` `nivelZona` (sólo se menciona en su propio
+  comentario; nació el 2026-09-01), `embed.js:98` `modoPublicacion`,
+  `enlacesPublicos.js:35` `enlaceEvento`, `Badge.jsx:34` `RolBadge`,
+  `Iconos.jsx:79` `NOMBRES_ICONO`, `CampoFormulario.jsx:51` `valorInicial`,
+  `hojaCalculo.js:376` `esAfirmativo`, `archivos.js:43` `ACCEPT_DOCUMENTO`;
+  backend — `agente.js:3496` `_TOOLS` y `:3497` `_seleccionar` (alias de debug;
+  `routes/mcp.js` usa `agente.TOOLS` directo), `turnstile.js:7`
+  `turnstileHabilitado`.
+  **Ojo con el falso positivo:** `paletaImagen.js:14` `rgbAHex` aparece en
+  listas de «muerto» pero se usa 3 veces dentro de su propio archivo — es
+  export de más, no código muerto. Hay decenas de ese tipo en `lib/` de los dos
+  repos (constantes de configuración exportadas y usadas sólo en casa);
+  **no vale la pena tocarlas**, el riesgo supera al beneficio.
+- **Sin barra de progreso compartida**: el mismo
+  `<div className="h-2 rounded-full …">` a mano en `AccesosSection.jsx:313`,
+  `AforoSection.jsx:313`, `AnalyticsTab.jsx:221`, `ImportarAsistentes.jsx:365`,
+  `StandsTab.jsx:621`, `EventsListPage.jsx:388`, `MiTicketPage.jsx:322`.
+
+### 3.7 · Nombres que engañan
+
+- **`page_json.zonas` (espacio físico) vs. `ticket_types.zonas_acceso`**
+  (`0001_init.sql:153`, `routes/tickets.js:22`): un `text[]` libre tipo
+  `["general","vip"]`, **sin ningún vínculo** con los id de las zonas del
+  recinto. La misma palabra para dos cosas que no se tocan. Es la trampa más
+  fácil de pisar de todo el proyecto.
+- **`clave` vs. `zona_id` vs. `id`**: tres nombres para el mismo
+  identificador según la capa (`lib/aforoZonas.js:33` usa `clave` =
+  `COALESCE(zona_id, zona)`).
+- **`dentro` vs. `personas`**: son dos números distintos a propósito (uno
+  incluye conteos manuales, el otro cuenta boletas únicas) y el nombre no lo
+  delata. Está comentado en `modules/aforo/consultas.js:49-51`.
+- **`mapa_zonas` vs. `mapa_aforo`** (`routes/eventos.publicos.js:563,581`): el
+  segundo es formato legado mantenido en paralelo porque hay páginas
+  publicadas que ya lo leen. Documentado, pero quien consuma la ficha pública
+  tiene que saber que existen los dos.
+- **`zonas/aforo` vs. `mapa/vivo`**: el segundo es superconjunto del primero, y
+  los nombres no lo dicen. `AforoSection.jsx:61-67` necesita un fallback
+  explícito entre ambos.
+
+### 3.8 · Pestañas que hacen demasiado
+
+`AgendaTab.jsx` tiene **dos niveles** de sub-pestañas anidadas: `view`
+(`sessions | speakers`) × `subView` (`lista | dia | semana | mes | salas`) —
+diez combinaciones dentro de una pestaña llamada «Calendario».
+`StandsTab.jsx` mete cuatro trabajos (`stands | pasaporte | motivos |
+historial`) en 638 líneas. `AforoSection.jsx` mezcla operar en vivo con
+reportería. `CheckinTab.jsx` son 778 líneas con cinco modos — pero ése es
+**deliberado y correcto** (C4): la acción física es una sola.
 
 ---
 
@@ -344,7 +492,14 @@ ya trae `zona_id`). **No se consolidaron** las tres implementaciones de mapa
 en un componente compartido — eso sigue siendo su propia sesión, tal como se
 anotó abajo en la Fase 4.
 
-### C3 · Nutrir «Estancia y puntos»
+### C3 · Nutrir «Estancia y puntos» — ⤷ reemplazado por el FRENTE I
+
+**No tomar esta tarea.** Los datos que pedía ya se calculan y ya se pintan
+(`aforo_zonas_estancia` → `routes/clientes.js:846` → `AforoSection.jsx:497-498`,
+con los tramos medidos al lado). Lo que faltaba era un sitio donde leerlos
+junto al resto de la zona, y eso es la **Fase 1 del Frente I**.
+
+Redacción original, para contexto:
 
 Hoy muestra el nombre y una foto pequeña, y poco más. Se va a llamar desde el
 mapa, así que tiene que aguantar que la miren. Antes de rediseñar conviene
@@ -567,6 +722,206 @@ información en mano.
 
 ---
 
+## FRENTE I · Zonas de interés · un solo lugar de administración
+
+**Pedido por Sekkon0906 el 2026-09-02**, con estas palabras: «un apartado que
+se llame *zonas de interés*, y ahí se pueda conectar TODO: la creación de
+zonas, conectar las actividades a las zonas, etc. Sería conveniente manejar
+sólo 1 lugar de administración, y ya luego en el resto se llaman a esas
+funciones».
+
+**Archivos:** `AccesosSection.jsx`, `AforoSection.jsx`, `MapaSection.jsx`,
+`components/aforo/`, `StandsTab.jsx`, `agenda/SessionForm.jsx`,
+`routes/clientes.js`, `routes/networking.js`, `routes/agenda.js`,
+`lib/aforoZonas.js`.
+
+> **No se puede correr en paralelo con el FRENTE C ni con las Fases 1-4 del
+> Camino unitario: toca los mismos archivos.** Este frente es su continuación
+> natural, y **reemplaza a C3** (ver más abajo).
+
+### El diagnóstico, medido
+
+Una zona es lo único del evento que aparece en cuatro pantallas y no se puede
+administrar en ninguna. Hoy:
+
+| Qué de la zona | Dónde se hace | Dirección |
+|---|---|---|
+| Crearla, nombrarla, ponerle aforo | `AccesosSection.jsx:105-164`, mezclada con las puertas | — |
+| Editar nombre y aforo **otra vez** | `MapaSection.jsx:384-393`, segundo camino de escritura | — |
+| Colocarla en el plano | `MapaSection.jsx` | — |
+| Ver quién hay dentro, tomar reporte | `AforoSection.jsx` | — |
+| Qué actividades ocurren en ella | `SessionForm.jsx:181-194` | **el sub-evento elige su zona** |
+| Qué stands están en ella | `StandsTab.jsx:209-227` | **el stand elige su zona** |
+| Por qué puerta se entra | *no existe la relación* | — |
+
+Las dos últimas filas son el corazón del problema: **todas las relaciones de
+una zona se establecen desde el otro lado**. Se puede decir «esta charla ocurre
+en la Zona Gamer», pero estando en la Zona Gamer no se puede decir «aquí ocurre
+esta charla». Para armar una zona hay que recorrer cuatro pantallas, y en tres
+de ellas la zona es un desplegable dentro del formulario de otra cosa.
+
+### La buena noticia: el backend ya está
+
+`GET /:eventoId/mapa/vivo` (`routes/clientes.js:735`) **ya devuelve en una sola
+llamada** las zonas con su ocupación viva (`ocupacion()`), su agenda
+(`agendaPorZona()`), sus stands (`standsPorZona()`), las puertas con su conteo
+y las sesiones con inscritos. Es exactamente el modelo de datos que necesita un
+centro de mando, y hoy sólo lo consume `AforoSection.jsx:63`.
+
+Por eso las fases 1 y 2 de abajo **no necesitan backend nuevo**: son montar una
+pantalla sobre datos que ya viajan.
+
+### Fase 0 · Cerrar el segundo camino de escritura
+
+Barato, y quita la duplicación que originó el pedido. Sin backend.
+
+- `MapaSection.jsx` deja de editar `nombre` y `aforo_max` (líneas 384-393): se
+  queda con color y posición, y una nota que apunta al lugar único —
+  **exactamente el trato que ya recibe «puerta»** en ese mismo archivo
+  (líneas 357-377), que dice «el nombre… se edita en Accesos e ingresos. Aquí
+  sólo se decide dónde queda en el plano». Sólo hay que aplicarle a zona lo que
+  ya se le aplicó a puerta.
+- Desaparece el flag `zonasTocadas` y la rama `parche.zonas` (`:150`): un solo
+  camino de escritura.
+- Un `<SelectorZona>` compartido reemplaza las tres copias del desplegable
+  (`SessionForm.jsx:52`, `StandsTab.jsx:115`, `CheckinTab.jsx:61` — esta última
+  hoy sin el filtro, que es un bug menor real).
+
+### Fase 1 · La sección, en sólo lectura
+
+Pestaña nueva **«Zonas de interés»** en *Espacio del evento*, alimentada por
+`mapa/vivo`. Maestro-detalle:
+
+- **Lista:** cada zona con nombre, aforo, cuánta gente hay dentro ahora,
+  cuántas actividades tiene, cuántos stands, y si está colocada en el plano.
+  Una zona sin nada conectado se ve de un golpe — hoy no.
+- **Detalle (el centro de mando):** identidad, dónde está en el plano, qué pasa
+  aquí ahora y después, qué stands hay, ocupación viva, y el histórico
+  (curva del día, estancia media). Todo lo que hoy está repartido, junto.
+
+Nada de esto cambia datos todavía: es la pantalla que hoy no existe, sobre el
+endpoint que ya existe. Se puede soltar sola y ya vale.
+
+### Fase 2 · Mover el CRUD de zonas aquí
+
+- Crear, renombrar, cambiar aforo y borrar zonas pasa de `AccesosSection.jsx` a
+  la sección nueva. **Éste es el «1 lugar de administración» del pedido.**
+- `AccesosSection.jsx` se queda con las puertas, que es lo que su nombre dice.
+  Su enlace «Ponerla en el mapa →» (que ya existe) apunta ahora a la sección
+  nueva.
+- `REUBICADAS` (`EventWorkspace.jsx:180-191`) redirige las direcciones viejas,
+  mismo mecanismo que ya se usó para mover aforo, stands y accesos.
+
+### Fase 3 · Las relaciones, en dirección inversa
+
+Lo que hoy no se puede hacer. Necesita backend chico:
+
+- Desde la zona, **añadir o quitar actividades**: escribe `agenda_sessions.zona_id`
+  en lote. El `PATCH` de agenda ya admite `zona_id` (`routes/agenda.js:224`,
+  está en la lista `allowed`) — falta el endpoint que acepte varias sesiones de
+  una vez, o hacerlo con N llamadas si son pocas.
+- Desde la zona, **añadir o quitar stands**: escribe
+  `networking_expositores.zona_id`, ya validado por `zonaInvalida`
+  (`routes/networking.js:483-487`).
+- Los dos formularios de siempre (`SessionForm`, `StandsTab`) **se quedan como
+  están**: elegir la zona mientras creas una charla es cómodo y hay que
+  conservarlo. Lo que cambia es que ya no es la única dirección posible.
+
+### Fase 4 · Zona ↔ puerta, la relación que falta
+
+Hoy `page_json.accesos` y `page_json.zonas` son dos listas sin ningún campo
+cruzado (verificado en `AccesosSection.jsx:23-26`: `limpiarAccesos` no tiene
+`zona_id`), y las puertas cuentan ingresos por `tickets.acceso`, que es un
+nombre, no una zona.
+
+- Una puerta declara **a qué zona da**. Sin migración: `page_json.accesos`
+  gana `zona_id`, y el `PATCH` ya mezcla `page_json` por clave (0064).
+- Con eso la zona contesta «por dónde se entra aquí», y el conteo por puerta
+  se puede leer junto al de la zona.
+
+### Fase 5 · El marcador compartido
+
+Lo que la Fase 4 del Camino unitario dejó anotado como «su propia sesión»
+(§3.2 de la auditoría): un `<MarcadorMapa tipo color valor label modo>`
+compartido por las tres implementaciones de mapa, que hoy copian las mismas
+80-120 líneas cada una. **Va al final a propósito:** es refactor sin función
+nueva, y es el único paso que puede romper las tres pantallas a la vez.
+
+### Qué NO hace este frente
+
+- **No fusiona** el editor del mapa, el tablero en vivo y el mapa público en
+  una sola pantalla. Son tres contextos de permisos distintos (organizador
+  editando, organizador operando, público mirando) y deben seguir separados.
+  Lo que se comparte son los datos y el marcador, no la pantalla.
+- **No toca** `ticket_types.zonas_acceso`. Pese al nombre, no tiene nada que
+  ver con las zonas del recinto (§3.7).
+
+### C3 queda reemplazado
+
+C3 («Nutrir Estancia y puntos») se escribió cuando no existía dónde colgar esos
+datos. Ya existe: `aforo_zonas_estancia` se usa desde
+`GET /zonas/reporte` (`routes/clientes.js:846`) y se pinta en
+`AforoSection.jsx:497-498` con sus tramos medidos para dar contexto. Lo que
+faltaba —un sitio donde leerlo junto al resto de la zona— **es la Fase 1 de
+este frente**. No hace falta una tarea aparte.
+
+---
+
+## FRENTE J · Deuda de la auditoría del 2026-09-02
+
+Tareas sueltas que salieron de la sección 3, ordenadas por lo que cuesta contra
+lo que arregla. **No comparten archivos con el Frente I** salvo donde se
+indica, así que se pueden tomar en paralelo.
+
+### Ahora · un bug que está fallando en producción
+
+1. **El buzón de sugerencias devuelve 404.** `src/api/sugerencias.js:8-9`:
+   `/me/sugerencias` → `/me/sugerencias/dinamica`. Dos líneas. Y decidir si
+   `BuzonSugerencia.jsx` y `PedirDinamica.jsx` —dos implementaciones del mismo
+   buzón, una rota— se unifican (§3.3).
+2. **Corregir la cabecera de `0084` y `0087`**: dicen «PENDIENTE DE APLICAR» y
+   están aplicadas, verificado contra producción (§3.5).
+
+### Barato y con valor claro
+
+3. **Un solo alta de expositor.** El caso más grave de la auditoría: dos
+   pantallas, dos endpoints, la misma tabla, y desde «Rueda de negocios» el
+   expositor **no se puede editar** porque esa ruta no tiene `PATCH` (§3.1).
+   Que `NetworkingTab` use el endpoint de Stands, o que el suyo gane los
+   campos y el `PATCH` que le faltan. **Toca `routes/networking.js`, igual que
+   el Frente I fase 3 — coordinar.**
+4. **Conectar `oauth_barrer()`** a alguno de los `cron-*.js` que ya corren, o
+   documentar que sigue pendiente. Hoy `oauth_codes`/`oauth_tokens` crecen sin
+   límite (§3.4).
+5. **Adoptar `StatCard.jsx`** donde el layout ya coincide, y añadir un
+   `<BarraProgreso>` para las 7 copias a mano (§3.4, §3.6). Empezar por dos o
+   tres pantallas, no por las 18 de golpe.
+6. **Limpieza mecánica:** los 10 comentarios huérfanos, los 11 imports sin
+   usar, los 11 exports sin consumidor y el estado no leído de
+   `AuthPage.jsx:440` (§3.6). Un solo PR, sin decisiones.
+
+### Decisiones de producto antes de programar
+
+7. **Editor de plantillas de correo:** seis endpoints
+   (`routes/emails.js:160-347`) sin UI. ¿Se conecta o se borra? (§3.4)
+8. **Bolsa y cuotas de expositores** (`routes/networking.js:341,361,392`):
+   misma pregunta (§3.4).
+9. **`PATCH` de franja de expositor** (`routes/expositor.js:328`): ¿falta el
+   botón «editar horario» o sobra el endpoint? (§3.4)
+10. **`ARCHIVOS_PROPIOS`**: la bandera existe y el frontend no tiene ningún
+    consumidor, así que encenderla hoy no cambia nada. Decidir si se completa
+    o se retira. Y meter las dos banderas en los `.env.example`, donde hoy no
+    están (§3.4).
+
+### Anotado, sin tarea
+
+11. `modules/aforo/consultas.js` está muerto **a propósito** (es la traducción
+    a MySQL del Frente A). No tocar.
+12. Los «exports de más» de `lib/` en los dos repos —constantes internas que se
+    exportan sin consumidor externo— son ruido de bajo riesgo. Dejarlos.
+
+---
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
@@ -602,14 +957,26 @@ en JavaScript dentro del repo del backend. Eso es el grueso, y no toca cPanel.
 
 Más los frentes **B, C, D, E** enteros, que son la plataforma.
 
-Orden por lo que rinde antes:
+Orden por lo que rinde antes — **reordenado el 2026-09-02**, porque casi todo
+lo de la lista vieja (E, C1, C4, C2, D, B) resultó estar hecho ya:
 
-1. **E** — la barra fija. Se ve en el pitch.
-2. **C1 + C4** — la reorganización. Es la que arregla el problema de fondo:
-   funciones repetidas en ventanas distintas.
-3. **C2** — enlazar zona, calendario, mapa y aforo. Casi todo está hecho.
-4. **D** — preguntas condicionales y prellenado por cédula.
-5. **B** — editor y exportación, empezando por el contrato de bloques.
+1. **J.1 y J.2** — el buzón que devuelve 404 y las dos cabeceras de migración
+   que mienten. Minutos, y una de las dos está fallando hoy.
+2. **I fase 0** — cerrar el segundo camino de escritura de zonas y compartir el
+   selector. Es la duplicación que originó el pedido, y es barata.
+3. **I fases 1-2** — la sección «Zonas de interés» y mover ahí el CRUD. Fase 1
+   no necesita backend: `mapa/vivo` ya devuelve todo.
+4. **J.3** — un solo alta de expositor. El caso más grave de la auditoría.
+5. **I fases 3-4** — las relaciones en dirección inversa, y zona ↔ puerta.
+6. **J.4-J.6** — `oauth_barrer`, `StatCard`/`BarraProgreso`, limpieza mecánica.
+7. **I fase 5** — el marcador compartido. Refactor sin función nueva, al final.
+
+Los frentes **B, C, D, E** ya están cerrados (ver sus marcas ✅). Lo que queda
+de C vive en el Camino unitario y en el Frente I.
+
+**Regla de reparto para los frentes nuevos:** I y J **no** se pueden tomar a la
+vez sin coordinar, porque J.3 toca `routes/networking.js`, que también toca la
+fase 3 de I. Todo lo demás de J es independiente.
 
 ### Lo que no depende de nosotros
 
