@@ -87,7 +87,14 @@ export default function App() {
           <Suspense fallback={<AuthLoader />}>
             <Routes>
               <Route element={<PublicLayout />}>
-                <Route path="/"                  element={<LandingHomePage />} />
+                {/* La raíz manda al panel si ya hay sesión.
+                    Sin esto, quien vuelve a la pestaña o abre el dominio a
+                    secas aterrizaba en la página de marketing —«qué es
+                    GESTEK»— estando dentro de su propia cuenta, y sólo
+                    entraba al panel si pulsaba «Iniciar sesión», que es lo
+                    único que tenía este guard. Se veía como si la sesión no
+                    contara. */}
+                <Route path="/"                  element={<PublicOnlyRoute><LandingHomePage /></PublicOnlyRoute>} />
                 <Route path="/como-funciona"     element={<ComoFuncionaPage />} />
                 <Route path="/producto"          element={<ProductoPage />} />
                 <Route path="/explorar"          element={<ExplorarPage />} />

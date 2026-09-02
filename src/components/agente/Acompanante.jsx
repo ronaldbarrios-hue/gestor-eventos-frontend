@@ -29,12 +29,16 @@ import { useNavigate } from 'react-router-dom';
 import Criatura from './Criatura.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
+import { alCambiarCarga } from '../../lib/cargaGlobal.js';
 
-const ANCHO = 250;
-const ALTO  = 190;
-const BOT   = 112;
-const BOT_X = 18;
-const BOT_Y = 42;
+/* Se encogió ~30%: a 250x190 el escritorio se comía la esquina de la barra
+   lateral y empujaba los atajos hacia arriba. El personaje sigue
+   reconociéndose a este tamaño; el mueble era lo que sobraba. */
+const ANCHO = 176;
+const ALTO  = 134;
+const BOT   = 79;
+const BOT_X = 13;
+const BOT_Y = 30;
 const MANO_X = Math.round(BOT_X + (114 / 140) * BOT);   // 109
 const MANO_Y = Math.round(BOT_Y + (32 / 140) * BOT);    // 68
 
@@ -95,20 +99,13 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
   const { theme, toggle } = useTheme();
   const { t, recargando } = useI18n();
   const [tirando, setTirando] = useState(false);
-  /* Esconderlo es una preferencia, no un estado de la pantalla: se recuerda.
+  /* Mientras la aplicación está en su primera carga, el acompañante lo dice.
+     Antes ese mensaje lo llevaba la pantalla de carga junto a un robot grande
+     en el centro; ahora esa pantalla enseña el logo y el personaje —que ya
+     estaba aquí— es quien acompaña la espera. */
+  const [cargando, setCargando] = useState(false);
+  useEffect(() => alCambiarCarga(setCargando), []);
 
-     Antes vivía sólo en memoria, así que quien lo apartaba se lo volvía a
-     encontrar en la siguiente recarga y en cada pestaña nueva. Un acompañante
-     que reaparece después de que le dijiste que no deja de ser compañía. */
-  const [oculto, setOculto] = useState(() => {
-    try { return localStorage.getItem('gestek:acompanante:oculto') === '1'; }
-    catch { return false; }
-  });
-
-  useEffect(() => {
-    try { localStorage.setItem('gestek:acompanante:oculto', oculto ? '1' : '0'); }
-    catch { /* modo privado o almacenamiento lleno: no vale romper por esto */ }
-  }, [oculto]);
   const [dormido, setDormido] = useState(false);
   const [encima, setEncima]   = useState(false);
   const temporizadores = useRef([]);
@@ -150,30 +147,33 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
   /* Orden de prioridad, de lo más inmediato a lo más pasivo: lo que el
      usuario acaba de hacer con la mano manda sobre todo lo demás. */
   const mood = tirando ? 'cordon'
-    : recargando ? 'recargando'
+    : (recargando || cargando) ? 'recargando'
     : encima ? 'atento'
     : dormido ? 'durmiendo'
     : 'thinking';
 
-  if (oculto) {
-    return (
-      <button
-        onClick={() => setOculto(false)}
-        aria-label={t('Mostrar el acompañante')}
-        className={`hidden lg:flex fixed bottom-5 ${lado === 'derecha' ? 'right-5' : 'left-5'} z-40 h-10 w-10 rounded-full border border-primary/40
-                   bg-surface/90 backdrop-blur shadow-card items-center justify-center
-                   hover:border-primary transition-colors`}
-      >
-        <span className="block h-2 w-2 rounded-full bg-primary" />
-      </button>
-    );
-  }
-
   return (
     <div
       className={`ac-raiz ${tirando ? 'ac-tirando' : ''} hidden lg:block fixed z-40 select-none pointer-events-none`}
-      style={{ [lado === 'derecha' ? 'right' : 'left']: 12, bottom: 10, width: ANCHO, height: ALTO }}
+      /* Pegado al borde, sin margen: así la mesa hace de remate de la
+         pantalla en vez de flotar sobre ella con un hueco debajo. */
+      style={{ [lado === 'derecha' ? 'right' : 'left']: 0, bottom: 0, width: ANCHO, height: ALTO }}
     >
+      {/* Lo que dice mientras se carga. Va por ENCIMA del alto del escritorio
+          (`bottom: ALTO`) para no taparle la cara, y sin `pointer-events` como
+          el resto: es un aviso, no un control.
+          `whitespace-nowrap` no: el texto traducido al inglés es más largo y
+          aquí el ancho es el del mueble, así que se deja envolver. */}
+      {cargando && (
+        <div className="absolute left-1 right-0 animate-[fadeUp_0.35s_ease_both]"
+             style={{ bottom: ALTO - 12 }}>
+          <p className="text-[10px] leading-tight text-text-3 bg-surface/85 backdrop-blur
+                        border border-border/60 rounded-lg px-2 py-1.5">
+            {t('Poniéndote en línea…')}
+          </p>
+        </div>
+      )}
+
       <svg
         viewBox={`0 0 ${ANCHO} ${ALTO}`} width={ANCHO} height={ALTO}
         className="absolute inset-0 overflow-visible"
@@ -331,15 +331,6 @@ export default function Acompanante({ lado = 'izquierda', alAbrir = null }) {
         </button>
       )}
 
-      {/* Salida discreta, por si estorba */}
-      <button
-        onClick={() => setOculto(true)}
-        aria-label={t('Ocultar acompañante')}
-        className="pointer-events-auto absolute bottom-0 left-0 text-[10px] text-text-3 hover:text-text-2
-                   transition-colors px-1"
-      >
-        {t('Ocultar')}
-      </button>
     </div>
   );
 }

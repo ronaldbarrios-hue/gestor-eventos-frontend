@@ -1,21 +1,23 @@
-/* El widget de Gestbot en el Inicio.
-
-   Antes era una ranura estrecha con un aviso y un botón, y no se distinguía
-   de cualquier otra tarjeta de la rejilla. Ahora el bot está DENTRO: mira al
-   usuario, y lo que dice sale de él en vez de aparecer como texto suelto.
-
-   Sigue siendo proactivo y no un chat. Lo que se ve son cosas que ya pasaron
-   —borradores sin publicar, solicitudes esperando, notificaciones acumuladas—
-   y cada una lleva a donde se resuelve. Un widget que solo dijera "pregúntame
-   algo" ocuparía sitio sin adelantar trabajo.
-
-   El aviso más urgente manda el gesto del bot: si hay algo esperando
-   respuesta se pone atento, y si no, se queda contento. Es la diferencia
-   entre un personaje decorativo y uno que reacciona a tu situación. */
+/* «Sugerencias de Gestbot» en el Inicio.
+ *
+ * Es proactivo y no un chat: lo que se ve son cosas que ya pasaron —borradores
+ * sin publicar, solicitudes esperando, notificaciones acumuladas— y cada una
+ * lleva a donde se resuelve. Un widget que sólo dijera «pregúntame algo»
+ * ocuparía sitio sin adelantar trabajo.
+ *
+ * ── El bot ya no vive aquí ────────────────────────────────────────────────
+ *
+ * Estaba dentro de la tarjeta, mirando al usuario, y ocupaba 78px de ancho en
+ * la esquina. Se quitó por dos razones: el bot ya está en la barra lateral,
+ * siempre presente, así que aquí era el mismo personaje dos veces en la misma
+ * pantalla; y lo que esta tarjeta aporta son las sugerencias, que con el bot
+ * al lado quedaban en una columna más estrecha de lo necesario.
+ *
+ * Lo que se pierde —el gesto que reaccionaba a lo urgente— se recupera en la
+ * barra lateral, que es donde el personaje vive ahora. */
 
 import { Link } from 'react-router-dom';
 import { useInicioData } from '../../inicio/InicioDataContext.jsx';
-import Criatura from '../../agente/Criatura.jsx';
 
 export default function GestbotWidget() {
   const { eventos, notifs, solicitudes, loading } = useInicioData();
@@ -72,18 +74,8 @@ export default function GestbotWidget() {
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-accent/10 to-transparent">
-      <div className="flex-1 min-h-0 flex items-start gap-4 px-5 py-4">
-        {/* El bot. Reacciona a lo que hay: atento si algo espera respuesta,
-            contento si no hay nada pendiente. */}
-        <div className="flex-shrink-0 -mt-1" aria-hidden="true">
-          <Criatura
-            size={78}
-            mood={loading ? "thinking" : (avisos.some(a => a.urgente) ? "atento" : (tranquilo ? "happy" : "talking"))}
-            seguirCursor
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
+      <div className="flex-1 min-h-0 px-5 py-4">
+        <div className="min-w-0">
           {tranquilo ? (
             <p className="text-sm text-text-1 leading-snug">
               Todo en orden. Puedo ayudarte a crear tu próximo evento.

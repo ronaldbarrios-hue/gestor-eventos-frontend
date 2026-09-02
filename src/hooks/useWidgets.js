@@ -34,7 +34,7 @@ export const WIDGETS_META = [
 
      Se deja en el catálogo, no se borra: quien la quiera la vuelve a encender
      desde Personalizar. */
-  { id: 'gestbot',       titulo: 'Gestbot',            descripcion: 'Sugerencias inteligentes según tu actividad.',      defaultSize: 'lg',  defaultVisible: false },
+  { id: 'gestbot',       titulo: 'Sugerencias de Gestbot', descripcion: 'Lo que conviene revisar, según tu actividad.',   defaultSize: 'lg',  defaultVisible: false },
   { id: 'mi-trabajo',    titulo: 'Mi trabajo',         descripcion: 'Tareas, solicitudes y aprobaciones pendientes.',    defaultSize: 'md',  defaultVisible: true  },
   { id: 'ventas',        titulo: 'Ventas',             descripcion: 'Resumen de boletas vendidas y ocupación.',          defaultSize: 'sm',  defaultVisible: true  },
   { id: 'calendario',    titulo: 'Calendario',         descripcion: 'Próximos compromisos relacionados contigo.',        defaultSize: 'sm',  defaultVisible: true  },

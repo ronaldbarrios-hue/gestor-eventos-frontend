@@ -266,8 +266,12 @@ export default function EventWorkspace() {
 
   const rolLabel = soyOwner ? 'Administrando' : 'Trabajando en';
 
+  /* `min-w` en vez de ancho clavado: 264px es el ancho de diseño, pero una
+     etiqueta más larga —«Rueda de negocios» pasa a «Business matchmaking» al
+     traducir— ensancha la columna en vez de desbordarla. Con `w-[264px]` y el
+     `whitespace-nowrap` de las pestañas, el texto se salía del panel. */
   const sidebar = (
-    <aside className="w-[264px] h-full flex-shrink-0 bg-sidebar text-slate-300 flex flex-col">
+    <aside className="w-[264px] min-w-[264px] max-w-[320px] h-full flex-shrink-0 bg-sidebar text-slate-300 flex flex-col">
       {/* Logo → volver a la app */}
       <div className="px-4 pt-5 pb-3 flex items-center gap-3">
         <NavLink to="/inicio" className="flex items-center gap-2.5 group">

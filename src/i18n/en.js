@@ -610,8 +610,10 @@ export default {
   /* El monitor de Gestbot (#40) lleva idioma y tema; "Apariencia" ya existe,
      pero el rótulo de esa pantalla es más corto. */
   'Tema': 'Theme',
-  'Ocultar': 'Hide',
   'El asistente de GESTEK en su escritorio': 'The GESTEK assistant at their desk',
+  /* Lo que dice el acompañante mientras la aplicación hace su primera
+     carga. Corto a propósito: cabe en el ancho de su escritorio. */
+  'Poniéndote en línea…': 'Getting you online…',
 
   /* ── Perfil de talento y postulaciones ──────────────────────── */
   'Cargando tu perfil…': 'Loading your profile…',
