@@ -514,6 +514,49 @@ propio que ya usa `baseDelEvento`.
 
 ---
 
+## FRENTE H · Impresión de escarapelas el día del evento
+
+**Sin empezar, a propósito — anotado el 2026-09-01, se retoma más adelante.**
+Se consiguió una impresora térmica de etiquetas (**SAT TT460**, 203 dpi,
+máx. 6 ips, soporta cinta de cera/resina para transferencia térmica, USB +
+Ethernet + Bluetooth 5.0 (BLE/WiFi), identifica el sensor automáticamente con
+el botón de calibración) para imprimir en el sitio los QR de las escarapelas
+el día del evento.
+
+**Lo que hay que decidir antes de programar nada** (esto sí es una decisión
+de arquitectura, como B1 lo fue — no una tarea mecánica):
+
+- **Cómo habla el navegador con la impresora.** Tres caminos, con
+  implicaciones muy distintas:
+  1. *Driver del sistema operativo + diálogo de impresión del navegador*:
+     más simple de montar, pero un layout de etiqueta preciso (tamaño exacto,
+     sin márgenes del navegador) vía `window.print()` + `@media print` es
+     frágil entre navegadores y no sirve bien para "que el staff imprima
+     desde el celular en la puerta".
+  2. *WebUSB o Web Bluetooth desde el navegador, mandando comandos crudos*
+     (la mayoría de impresoras térmicas de esta gama hablan **TSPL** o un
+     dialecto de **ESC/POS**): control total, sin instalar nada, encaja con
+     que GESTEK ya es una app web — pero hace falta el manual de comandos
+     del fabricante (SAT/PCS) o probar contra la impresora real para
+     confirmar qué dialecto habla, y WebUSB no funciona en Safari/iOS.
+  3. *Servidor de impresión local* (un pequeño proceso en el computador de
+     la puerta que recibe la orden por HTTP/websocket y la manda a la
+     impresora por USB): más piezas que mantener, pero es lo único que
+     funciona igual en cualquier navegador/SO el día del evento.
+- **Qué lleva la etiqueta.** Sólo el QR, o QR + nombre + tipo de boleta —
+  afecta el tamaño de etiqueta que hay que comprar y el layout.
+- **Desde dónde se dispara la impresión.** ¿Un botón en Credenciales/Tarjeta
+  (config previa) que imprime en lote antes del evento, o un botón en
+  Escanear/Check-in que imprime una escarapela al vuelo cuando alguien llega
+  sin la suya? Son dos flujos de trabajo distintos.
+
+**Entregable antes de programar:** probar la impresora contra un mensaje
+simple (por USB, siguiendo la guía impresa que trae en la caja) para
+confirmar el dialecto de comandos, y decidir el camino de arriba con esa
+información en mano.
+
+---
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
