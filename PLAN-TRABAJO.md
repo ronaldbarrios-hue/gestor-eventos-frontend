@@ -21,6 +21,67 @@ mismo frente sí, y por eso están separados así y no de otra manera.
 
 ---
 
+## 0-bis · El flujo de registro · 2026-09-02
+
+**Prioridad máxima, dicho por Sekkon0906 con gente intentando registrarse en
+ese momento.** Todo lo demás de este documento queda aparcado hasta que esto
+esté cerrado.
+
+### ✅ El botón de «Continuar» no se podía alcanzar en móvil
+
+El síntoma reportado fue «el formulario activa `overflow: hidden` y no permite
+hacer scroll para ver el botón de continuar». El `overflow: hidden` era real
+pero **no era la causa**: era lo que quitaba la última salida.
+
+La causa: `position: fixed; inset: 0` en un móvil abarca el viewport **grande**
+—el que habría si las barras del navegador estuvieran escondidas— y lo que se
+ve es el **pequeño**, unos 122 px menos en iOS Safari. La tarjeta se ancla
+abajo (`items-end`), así que su borde inferior, donde está el botón, caía
+detrás de la barra del navegador. Y `overflow-y-auto` de la tarjeta no
+scrollea, porque el contenido no desborda la tarjeta: es la tarjeta la que
+desborda la pantalla.
+
+**Medido en navegador** con una barra de 122 px simulada y las clases reales
+del componente:
+
+| Variante | Botón | ¿Alcanzable? |
+|---|---|---|
+| `90vh` + overlay `inset-0` (lo que había) | se sale 98 px | ❌ |
+| `90dvh` + overlay `inset-0` | se sale 98 px | ❌ **igual** |
+| `90dvh` + overlay `alto-visible` | entra (666 ≤ 690) | ✅ |
+
+La fila del medio importa: **el primer intento de arreglo fue cambiar sólo
+`ALTO_MODAL` a `dvh`, y no servía de nada.** Acotar la tarjeta no ayuda si
+sigue anclada al fondo de un overlay que abarca el viewport grande. Lo que hay
+que acotar es el overlay.
+
+Arreglado: `.alto-visible` en `index.css` (con `vh` de respaldo para
+iOS < 15.4), el overlay pasa a `inset-x-0 top-0 alto-visible` con su propio
+scroll de emergencia, `ALTO_MODAL` en `dvh`, y `env(safe-area-inset-bottom)`
+para que el botón no quede bajo la barra de gestos.
+
+**El camino incrustado (`public/widget.js`) NO tenía este fallo**, y por qué
+conviene saberlo: centra la ventana en vez de anclarla abajo, el overlay ya
+scrollea, y acota el iframe con `window.innerHeight`, que en iOS sí sigue al
+área visible — al contrario que `vh`.
+
+### Lo que queda del flujo, en auditoría
+
+Pedido: «todo el flujo de registro debe quedar bien, desde la creación de
+boletas, el ponerlas en la landing, el poder exportar las boletas, y que al
+momento de exportar todo funcione». En curso.
+
+### Aparcado por esto (retomar después)
+
+- **Frente I fase 5** — el marcador de mapa compartido. Era lo siguiente.
+- **Frente J.3** — que existan dos rutas para crear un expositor. El bug de
+  datos que escondía (nacían invisibles para el público) ya está arreglado;
+  unificar las rutas sigue pendiente y es decisión de producto.
+- **Frente J.4-J.6** — `oauth_barrer`, `StatCard`/`BarraProgreso`, limpieza.
+- **Migraciones `0081` y `0083`** — esperan decisión de aplicarlas (§3.5).
+
+---
+
 ## 0 · Antes de nada: lo que está roto hoy
 
 **Los dos escáneres de canje fallan en producción.** El frontend desplegado
