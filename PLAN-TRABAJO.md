@@ -24,7 +24,7 @@ POST devuelve 401, GET devuelve 200. Escanear una escarapela para dar puntos
 El arreglo ya está en la rama. **Hay que desplegar los dos repositorios a la
 vez**: sólo el frontend, sobre un backend viejo, lo rompe en más sitios.
 
-**✅ Verificado el 2026-09-01 (Claude):** en el código actual de `main` (ambos
+**✅ Verificado el 2026-09-01:** en el código actual de `main` (ambos
 repos) las dos rutas de canje y sus dos llamadores usan POST — no hay
 mismatch. `routes/interacciones.js:292` y `routes/expositor.js:263`, con un
 comentario explícito de por qué es POST (no filtrar `qr_token` en logs de
@@ -65,18 +65,18 @@ cerrarlas, con el nombre de quien la hizo y la fecha.
 | Índice `torneo_categorias_unica_hija` compilable en MySQL: va sobre `nombre` (TEXT) y MySQL no lo indexa sin prefijo (error 1170) → columna generada, igual que el caso raíz. `db/esquema/02` y `db/migraciones/003` quedan idénticos | **A · los 8 índices parciales a mano** | Sekkon0906 · 2026-09-01 | backend #18 |
 | «Accesos e ingresos» movido de **Asistentes → Espacio del evento** (puertas y zonas son DÓNDE, no quién). Mismo patrón que aforo/stands: `REUBICADAS` para los enlaces viejos | **C1** | Sekkon0906 · 2026-09-01 | frontend #22 |
 | Revisión de los artefactos de la fase 6 ya subidos (`db/esquema/`, `scripts/comparar-bases.js`, `modules/contadores/`). Hallazgos anotados abajo en el frente A | **A · pasos 3–5** | Sekkon0906 · 2026-09-01 | — revisión, sin PR |
-| Fix del bug de documento del padrón previo (columna se buscaba en minúscula exacta) + aviso de UUIDs en vez de cédulas al subir el archivo | D · prellenado por cédula | Claude · 2026-09-01 | backend #19, frontend #24 |
-| Fase 1 (Camino unitario): quitar el modelo de incidente del aforo, dos links stale corregidos, guardar puertas/zonas por fila en vez de un botón global, borrar persiste al momento | **C · fase 1** | Claude · 2026-09-01 | backend #20, frontend #25 |
-| Fase 2: reporte manual de aforo con foto de evidencia y nota, sin resetear el contador (migración 0087 ya aplicada en Supabase — verificada contra 0 filas antes de aplicar) | **C · fase 2** | Claude · 2026-09-01 | backend #20, frontend #25 |
-| Fase 3: cron del reporte automático de aforo (mínimo 60 min, configurable por evento) | **C · fase 3** | Claude · 2026-09-01 | backend #21, frontend #26 |
-| Fase 4: tabla «qué actividad llena cada zona», cruzando los reportes contra la agenda. Hallazgo sin resolver: hay tres implementaciones de mapa en vivo sin compartir componente — consolidarlas es su propia sesión | **C · fase 4** | Claude · 2026-09-01 | frontend #26 |
-| Duplicado quitado: el editor del mapa tenía su propio «+ Crear zona», una segunda forma de crear lo que ya se crea en Accesos e ingresos | **C1** | Claude · 2026-09-01 | frontend #25 |
-| Hasta 3 fotos por stand (`galeria`, ya existía desde la 0057 pero no llegaba al directorio/mapa públicos) + logo más grande en la tarjeta del panel | — pedido nuevo, fuera del plan original | Claude · 2026-09-01 | backend #22, frontend #27 |
-| Fuga del embed: `/embed/<slug>/<sección>` pedía el evento completo y filtraba en el navegador — el resto de la landing viajaba igual, sólo sin dibujarse. La sección se resuelve ahora en servidor | — pedido nuevo | Claude (sesión Opus) · 2026-09-01 | backend #23, frontend #29 |
-| Un stand sabe en qué zona del plano está (`zona_id`, migración 0088, sin backfill a propósito) | — pedido nuevo, fuera del plan original | Claude (sesión Opus) · 2026-09-01 | backend #24, frontend #30 |
-| 5 bugs del código dormido de Frente A (cobertura de `comparar-bases.js`, clave natural, falso DIFIERE en decimales, `canjearRecompensa` con premio gratis y sin saldo previo, preámbulo SQL que faltaba) | **A** | Claude · 2026-09-01 | backend #25 |
-| Zona como centro de mando: tocar una zona ya muestra también sus stands (`standsPorZona`, que existía sin usarse), en el tablero en vivo y en el mapa público | **C2/C3** · pedido nuevo | Claude · 2026-09-01 | backend #26, frontend #31 |
-| E1, pulido: la píldora de páginas mide con `ResizeObserver` la altura real de la barra de arriba en vez de un `top-[72px]` fijo, que se desalineaba en móvil con los enlaces envueltos | **E1** | Claude · 2026-09-01 | frontend #32 |
+| Fix del bug de documento del padrón previo (columna se buscaba en minúscula exacta) + aviso de UUIDs en vez de cédulas al subir el archivo | D · prellenado por cédula | Sekkon0906 · 2026-09-01 | backend #19, frontend #24 |
+| Fase 1 (Camino unitario): quitar el modelo de incidente del aforo, dos links stale corregidos, guardar puertas/zonas por fila en vez de un botón global, borrar persiste al momento | **C · fase 1** | Sekkon0906 · 2026-09-01 | backend #20, frontend #25 |
+| Fase 2: reporte manual de aforo con foto de evidencia y nota, sin resetear el contador (migración 0087 ya aplicada en Supabase — verificada contra 0 filas antes de aplicar) | **C · fase 2** | Sekkon0906 · 2026-09-01 | backend #20, frontend #25 |
+| Fase 3: cron del reporte automático de aforo (mínimo 60 min, configurable por evento) | **C · fase 3** | Sekkon0906 · 2026-09-01 | backend #21, frontend #26 |
+| Fase 4: tabla «qué actividad llena cada zona», cruzando los reportes contra la agenda. Hallazgo sin resolver: hay tres implementaciones de mapa en vivo sin compartir componente — consolidarlas es su propia sesión | **C · fase 4** | Sekkon0906 · 2026-09-01 | frontend #26 |
+| Duplicado quitado: el editor del mapa tenía su propio «+ Crear zona», una segunda forma de crear lo que ya se crea en Accesos e ingresos | **C1** | Sekkon0906 · 2026-09-01 | frontend #25 |
+| Hasta 3 fotos por stand (`galeria`, ya existía desde la 0057 pero no llegaba al directorio/mapa públicos) + logo más grande en la tarjeta del panel | — pedido nuevo, fuera del plan original | Sekkon0906 · 2026-09-01 | backend #22, frontend #27 |
+| Fuga del embed: `/embed/<slug>/<sección>` pedía el evento completo y filtraba en el navegador — el resto de la landing viajaba igual, sólo sin dibujarse. La sección se resuelve ahora en servidor | — pedido nuevo | Sekkon0906 · 2026-09-01 | backend #23, frontend #29 |
+| Un stand sabe en qué zona del plano está (`zona_id`, migración 0088, sin backfill a propósito) | — pedido nuevo, fuera del plan original | Sekkon0906 · 2026-09-01 | backend #24, frontend #30 |
+| 5 bugs del código dormido de Frente A (cobertura de `comparar-bases.js`, clave natural, falso DIFIERE en decimales, `canjearRecompensa` con premio gratis y sin saldo previo, preámbulo SQL que faltaba) | **A** | Sekkon0906 · 2026-09-01 | backend #25 |
+| Zona como centro de mando: tocar una zona ya muestra también sus stands (`standsPorZona`, que existía sin usarse), en el tablero en vivo y en el mapa público | **C2/C3** · pedido nuevo | Sekkon0906 · 2026-09-01 | backend #26, frontend #31 |
+| E1, pulido: la píldora de páginas mide con `ResizeObserver` la altura real de la barra de arriba en vez de un `top-[72px]` fijo, que se desalineaba en móvil con los enlaces envueltos | **E1** | Sekkon0906 · 2026-09-01 | frontend #32 |
 
 ### Backlog · aforo, mapa y «tomar reporte» (frente C)
 
@@ -172,7 +172,7 @@ lo nuevo esté conectado y probado. Hay un pitch. `AUTH_PROPIA` y
   5. `db/esquema/02` no trae preámbulo `SET NAMES`/`SET time_zone` aunque el
      README dice que sí.
 
-### ✅ Los 5 hallazgos, arreglados · Claude · 2026-09-01 · backend #25
+### ✅ Los 5 hallazgos, arreglados · Sekkon0906 · 2026-09-01 · backend #25
 
 Nada de esto corre contra producción (código dormido para la futura
 migración), pero se arregló para no arrastrarlo:
@@ -202,12 +202,12 @@ migración), pero se arregló para no arrastrarlo:
 Es el frente con más diseño por delante y el que más se beneficia de tener una
 sesión entera dedicada.
 
-### B1 · Modo desarrollador de la landing — ✅ Hecho (verificado 2026-09-01, Claude)
+### B1 · Modo desarrollador de la landing — ✅ Hecho (verificado 2026-09-01)
 
 **Ya está construido por completo, en una sesión anterior a este plan** (commit
-`1d6ccbb`, «La landing pasa a tener contrato, y Claude puede armarla por
-MCP»). La decisión que sigue estaba pendiente cuando se escribió este
-documento ya se tomó: **(b) un DSL propio en JSON**.
+`1d6ccbb`: la landing pasa a tener contrato, y un asistente de IA puede
+armarla por MCP). La decisión que sigue estaba pendiente cuando se escribió
+este documento ya se tomó: **(b) un DSL propio en JSON**.
 
 - `lib/bloquesLanding.js` (backend): el catálogo de bloques (`BLOQUES`) es el
   contrato — qué campos admite cada uno y de qué tipo — y `fallaBloque`/
@@ -215,16 +215,16 @@ documento ya se tomó: **(b) un DSL propio en JSON**.
 - `lib/agente.js` (backend): tres herramientas MCP —
   `catalogo_bloques_landing` (el contrato, listo para pasárselo a un modelo),
   `ver_landing`, `guardar_landing` (valida ANTES de tocar la base; si algo no
-  encaja, no se guarda nada)—. Esto es exactamente «que Claude pueda armar una
-  página por MCP llamando a las funciones».
+  encaja, no se guarda nada)—. Esto es exactamente «que un asistente de IA
+  pueda armar una página por MCP llamando a las funciones».
 - `PageBuilder.jsx` (frontend): editor de JSON crudo con validación, para el
   humano que sepa escribirlo.
 
 Redacción original, para contexto — lo que se pedía decidir:
 
 Hoy hay 21 tipos de bloque (`BLOCKS` en `blocks.jsx`) y **ninguna forma de
-escribir código**. La idea es que quien sepa pueda hacerlo, y que Claude pueda
-armar una página por MCP llamando a las funciones.
+escribir código**. La idea es que quien sepa pueda hacerlo, y que un asistente
+de IA pueda armar una página por MCP llamando a las funciones.
 
 Lo que hay que decidir antes de escribir nada, porque cambia todo lo demás:
 
@@ -233,16 +233,17 @@ Lo que hay que decidir antes de escribir nada, porque cambia todo lo demás:
   `<script>` ahí corre con el origen del evento. Las tres salidas razonables
   son (a) HTML saneado sin scripts, (b) un DSL propio en JSON que el
   renderizador interpreta, (c) el código dentro de un iframe con `sandbox`.
-  **La (b) es la que hace posible lo de Claude por MCP** — un esquema JSON es
-  algo que un modelo puede generar y validar; HTML libre no se puede validar.
-- **Qué funciones se exponen.** Si Claude va a "llamar las funciones", esas
+  **La (b) es la que hace posible lo del asistente de IA por MCP** — un
+  esquema JSON es algo que un modelo puede generar y validar; HTML libre no
+  se puede validar.
+- **Qué funciones se exponen.** Si el asistente va a "llamar las funciones", esas
   funciones tienen que ser un contrato estable y documentado, no los internos
   del editor. Es una API pública en la práctica.
 
 **Entregable de este bloque antes de programar:** el contrato. Qué bloques,
 qué props, qué valida el servidor. Sin eso, lo que se escriba se tira.
 
-### B2 · Exportación granular — ✅ Hecho (verificado 2026-09-01, Claude)
+### B2 · Exportación granular — ✅ Hecho (verificado 2026-09-01)
 
 **Ya está construido por completo.** `ExportIframeModal.jsx` ya ofrece las
 tres opciones de abajo (bloque completo, sin fondo, sólo el botón sin
@@ -334,7 +335,7 @@ de qué actividad llena cada zona** están en el **Camino unitario, Fases 1–4*
 de la sección 2. Ese estudio es alcance nuevo respecto a la redacción de este
 C2.
 
-**✅ Zona como centro de mando · Claude · 2026-09-01 · backend #26, frontend
+**✅ Zona como centro de mando · Sekkon0906 · 2026-09-01 · backend #26, frontend
 #31.** Pedido nuevo del usuario: tocar una zona debía mostrar también sus
 stands, no sólo aforo y agenda. `standsPorZona()` ya existía (`lib/expositores.js`,
 migración 0088) sin usarse desde ninguna ruta — se cruzó en `mapa/vivo`
@@ -411,7 +412,7 @@ puntos. Lo que propongo:
 `event_form_fields`, `EventoPublicoPage.jsx` (el modal de registro).
 **No toca:** el editor de landing ni el mapa.
 
-### D1 · Preguntas condicionales — ✅ Hecho (verificado 2026-09-01, Claude)
+### D1 · Preguntas condicionales — ✅ Hecho (verificado 2026-09-01)
 
 **Ya está construido por completo** (migración 0084, ya aplicada pese a que
 su comentario dice «PENDIENTE DE APLICAR» — residuo, no estado real).
@@ -436,7 +437,7 @@ condición, exigirlo como obligatorio deja el formulario imposible de enviar, y
 
 Las tres cosas de abajo ya existían (el padrón previo, con `lib/padronPrevio.js`
 y su endpoint de subida) y, además, el bug del alias de columna en mayúscula
-se arregló esta sesión (Claude · 2026-09-01 · backend #19, frontend #24):
+se arregló esta sesión (Sekkon0906 · 2026-09-01 · backend #19, frontend #24):
 la columna del documento se buscaba en minúscula exacta y «Documento», «NIT»
 en mayúscula o alias en inglés (`id_number`) no se reconocían.
 
@@ -464,7 +465,7 @@ enganche natural para el punto 2.
 **Archivos:** `EventoPublicoPage.jsx`, `components/public/EventChrome.jsx`.
 **No toca:** nada del panel.
 
-### E1 · Barra de navegación fija — ✅ Hecho (verificado y pulido 2026-09-01, Claude)
+### E1 · Barra de navegación fija — ✅ Hecho (verificado y pulido 2026-09-01)
 
 **Ya estaba hecho cuando se investigó**: las dos barras de
 `EventoPublicoPage.jsx` son `sticky` (`top-0` la de salidas, `top-[72px]` la
