@@ -47,6 +47,7 @@ import WaitlistTab       from '../tabs/WaitlistTab.jsx';
 import NetworkingTab     from '../tabs/NetworkingTab.jsx';
 import TorneoTab         from '../tabs/TorneoTab.jsx';
 import MapaSection       from './MapaSection.jsx';
+import ZonasSection      from './espacio/ZonasSection.jsx';
 import ChatTab           from '../tabs/ChatTab.jsx';
 import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
@@ -103,6 +104,12 @@ const SECCIONES = [
        eso va con el permiso de check-in. Limpiar el contador sí queda
        reservado al owner, y eso lo decide el backend. */
     { id: 'accesos',    label: 'Accesos e ingresos', perm: '__solo_owner__' },
+    /* «Zonas de interés» es la zona vista entera: su aforo en vivo, lo que
+       ocurre dentro y los stands montados ahí. Va antes del aforo porque
+       contesta «qué es esta zona»; el aforo contesta «cómo va ahora mismo» y
+       es donde se opera. Mismo permiso que el aforo: se mira mientras se
+       trabaja el evento, no es una pantalla de configuración. */
+    { id: 'zonas',      label: 'Zonas de interés',  perm: 'checkin' },
     { id: 'aforo',      label: 'Aforo por zonas',   perm: 'checkin' },
     { id: 'stands',     label: 'Stands',            perm: 'checkin' },
     { id: 'ranking',    label: 'Ranking',           perm: null },
@@ -259,8 +266,12 @@ export default function EventWorkspace() {
 
   const rolLabel = soyOwner ? 'Administrando' : 'Trabajando en';
 
+  /* `min-w` en vez de ancho clavado: 264px es el ancho de diseño, pero una
+     etiqueta más larga —«Rueda de negocios» pasa a «Business matchmaking» al
+     traducir— ensancha la columna en vez de desbordarla. Con `w-[264px]` y el
+     `whitespace-nowrap` de las pestañas, el texto se salía del panel. */
   const sidebar = (
-    <aside className="w-[264px] h-full flex-shrink-0 bg-sidebar text-slate-300 flex flex-col">
+    <aside className="w-[264px] min-w-[264px] max-w-[320px] h-full flex-shrink-0 bg-sidebar text-slate-300 flex flex-col">
       {/* Logo → volver a la app */}
       <div className="px-4 pt-5 pb-3 flex items-center gap-3">
         <NavLink to="/inicio" className="flex items-center gap-2.5 group">
@@ -373,6 +384,7 @@ export default function EventWorkspace() {
             <div key={`${seccion?.id}-${tabActivo?.id}`} className="animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
               <ErrorBoundary key={`eb-${seccion?.id}-${tabActivo?.id}`} compact>
                 <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
+                  permisos={permisos}
                   onAnuncio={() => setBroadcastOpen(true)}
                   onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
                   onEliminar={eliminar}
@@ -397,7 +409,7 @@ export default function EventWorkspace() {
 /* `anunciosVersion` viaja como prop y no como variable suelta: es estado del
    componente de arriba, y aquí dentro no existía. Al abrir Comunicación →
    Anuncios se lanzaba un ReferenceError y la pestaña no se pintaba. */
-function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
+function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
   if (!seccion || !tab) return null;
   if (tab.placeholder) return <PlaceholderTab title={tab.placeholder[0]} desc={tab.placeholder[1]} icon="spark" />;
 
@@ -432,6 +444,10 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
+    /* Esta pantalla toca tres cosas con tres permisos distintos (la zona, la
+       agenda y los stands), así que recibe la lista y decide ella: la regla de
+       cada acción vive junto a la acción. */
+    case 'espacio/zonas'            : return <ZonasSection evento={evento} soyOwner={soyOwner} permisos={permisos} reload={reload} />;
     case 'espacio/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
     case 'espacio/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;

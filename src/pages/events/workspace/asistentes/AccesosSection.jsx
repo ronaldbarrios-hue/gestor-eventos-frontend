@@ -7,6 +7,7 @@ import { equipoApi } from '../../../../api/equipo.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
+import { zonasDelEvento, etiquetaZona } from '../../../../lib/zonas.js';
 
 /* Asistentes · Accesos — control de ingresos por puerta.
    El organizador define cuántas entradas hay, qué tipos de boleta admite cada
@@ -20,32 +21,21 @@ function uid() { return 'acc_' + Math.random().toString(36).slice(2, 9); }
    persistir. Mismo recorte que hace `guardar*` antes de mandar al servidor:
    sin esto, un espacio de más en el nombre marcaría "sin guardar" para
    siempre. */
-const limpiarAccesos = (l) => (l || []).map(({ id, nombre, tipos, staff }) =>
-  ({ id, nombre: (nombre || '').trim(), tipos: tipos || [], staff: staff || [] }));
-const limpiarZonas = (l) => (l || []).map(({ id, nombre, aforo_max }) =>
-  ({ id, nombre: (nombre || '').trim(), aforo_max: Number(aforo_max) || null }));
-
+const limpiarAccesos = (l) => (l || []).map(({ id, nombre, tipos, staff, zona_id }) =>
+  ({ id, nombre: (nombre || '').trim(), tipos: tipos || [], staff: staff || [], zona_id: zona_id || null }));
 export default function AccesosSection({ evento }) {
   const { success, error } = useToast();
   const [accesos, setAccesos] = useState(() => (evento.page_json?.accesos || []).map(a => ({ ...a, _k: a.id })));
-  const [zonas, setZonas] = useState(() => (evento.page_json?.zonas || []).map(z => ({ ...z, _k: z.id })));
-  /* Última versión que sí quedó en el servidor. Guardar puertas y guardar
-     zonas son ahora dos acciones independientes —el PATCH mezcla `page_json`
-     por clave (migración 0064), así que una no pisa a la otra— y esto es lo
-     que decide si el botón de guardar de cada fila tiene algo que hacer. */
+  /* Última versión que sí quedó en el servidor: es lo que decide si el botón
+     de guardar de cada fila tiene algo que hacer. El PATCH mezcla `page_json`
+     por clave (migración 0064), así que mandar sólo `accesos` no toca las
+     zonas ni el mapa. */
   const [accesosGuardados, setAccesosGuardados] = useState(() => limpiarAccesos(evento.page_json?.accesos));
-  const [zonasGuardadas, setZonasGuardadas] = useState(() => limpiarZonas(evento.page_json?.zonas));
 
-  /* Qué zonas están ya puestas en el plano. El mapa guarda sus marcadores en
-     `page_json.mapa.marcadores` y ya usaba esto para no ofrecer dos veces la
-     misma; aquí se lee para lo contrario — avisar de las que faltan. */
-  const zonasEnMapa = useMemo(() => new Set(
-    (evento.page_json?.mapa?.marcadores || [])
-      .filter(m => m?.tipo === 'zona' && m.zona_id)
-      .map(m => m.zona_id),
-  ), [evento.page_json]);
-  const sinUbicar = zonas.filter(z => z.id && !zonasEnMapa.has(z.id)).length;
-  const [aforo, setAforo] = useState([]);
+  /* Las zonas, para poder decir a cuál da cada puerta. Sólo se leen: se
+     administran en «Zonas de interés». */
+  const zonasEvento = useMemo(() => zonasDelEvento(evento), [evento]);
+
   const [alertas, setAlertas] = useState([]);
   const [nuevaAlerta, setNuevaAlerta] = useState('');
   const [tipos, setTipos] = useState([]);
@@ -53,7 +43,6 @@ export default function AccesosSection({ evento }) {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [guardandoAccesos, setGuardandoAccesos] = useState(false);
-  const [guardandoZonas, setGuardandoZonas] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -70,12 +59,8 @@ export default function AccesosSection({ evento }) {
     }).finally(() => setLoading(false));
   }, [evento.id]);
 
-  /* Aquí sólo se DEFINEN las zonas. Operarlas —entradas, salidas, limpiar,
-     reporte— es otra pantalla (Aforo por zonas), y la ocupación se pide sólo
-     para que quien configura vea de una si la zona ya tiene gente dentro. */
   useEffect(() => {
     let vivo = true;
-    clientesApi.aforoZonas(evento.id).then(d => { if (vivo) setAforo(d.zonas || []); }).catch(() => {});
     clientesApi.alertas(evento.id).then(d => { if (vivo) setAlertas(d.alertas || []); }).catch(() => {});
     return () => { vivo = false; };
   }, [evento.id]);
@@ -102,14 +87,6 @@ export default function AccesosSection({ evento }) {
     catch (e) { error(e.response?.data?.error || e.message); }
   };
 
-  const setZona = (k, patch) => setZonas(l => l.map(z => z._k === k ? { ...z, ...patch } : z));
-  const agregarZona = () => setZonas(l => [...l, { _k: uid(), id: uid(), nombre: '', aforo_max: '' }]);
-  const quitarZona = (k) => {
-    const lista = zonas.filter(z => z._k !== k);
-    setZonas(lista);
-    guardarZonas(lista); // borrar persiste al momento, no espera al botón de guardar
-  };
-
   /* Conteo de ingresos por puerta (tickets ya usados con su acceso). */
   const conteo = useMemo(() => {
     const m = {};
@@ -134,11 +111,12 @@ export default function AccesosSection({ evento }) {
 
   /* Guardar puertas y guardar zonas van cada una por su lado: antes un botón
      único mandaba las dos listas juntas, así que una puerta a medio llenar
-     bloqueaba guardar un cambio de zona que no tenía nada que ver. El PATCH
-     mezcla `page_json` por clave (migración 0064), así que mandar sólo
-     `accesos` no toca `zonas` y viceversa. `lista` opcional es para poder
-     guardar de inmediato la lista recién recortada al borrar una fila, antes
-     de que el estado de React se actualice. */
+     bloqueaba guardar un cambio de zona que no tenía nada que ver. Las zonas
+     se fueron ya a su propia pantalla, pero el guardado por fila se queda: el
+     PATCH mezcla `page_json` por clave (migración 0064), así que mandar sólo
+     `accesos` no toca nada más. `lista` opcional es para poder guardar de
+     inmediato la lista recién recortada al borrar una fila, antes de que el
+     estado de React se actualice. */
   const guardarAccesos = async (lista = accesos) => {
     for (const a of lista) if (!a.nombre.trim()) { error('Cada puerta necesita un nombre.'); return; }
     setGuardandoAccesos(true);
@@ -151,20 +129,7 @@ export default function AccesosSection({ evento }) {
     finally { setGuardandoAccesos(false); }
   };
 
-  const guardarZonas = async (lista = zonas) => {
-    for (const z of lista) if (!z.nombre.trim()) { error('Cada zona necesita un nombre.'); return; }
-    setGuardandoZonas(true);
-    try {
-      const limpio = limpiarZonas(lista);
-      await eventosApi.update(evento.id, { page_json: { zonas: limpio } });
-      setZonasGuardadas(limpio);
-      success('Zonas guardadas.');
-    } catch (e) { error(e.response?.data?.error || e.message); }
-    finally { setGuardandoZonas(false); }
-  };
-
   const accesosSucio = JSON.stringify(limpiarAccesos(accesos)) !== JSON.stringify(accesosGuardados);
-  const zonasSucio = JSON.stringify(limpiarZonas(zonas)) !== JSON.stringify(zonasGuardadas);
 
   if (loading) return <GLoader message="Cargando accesos…" />;
 
@@ -265,6 +230,30 @@ export default function AccesosSection({ evento }) {
               </div>
             )}
 
+            {/* A qué zona da esta puerta.
+                Antes las puertas y las zonas eran dos listas sin un solo campo
+                que las cruzara, así que la pregunta de quien está delante del
+                plano —«¿por dónde se entra a la tarima?»— no tenía respuesta en
+                ninguna pantalla. Es opcional a propósito: la mayoría de las
+                puertas dan al recinto entero y no a una zona concreta. */}
+            {zonasEvento.length > 0 && (
+              <div>
+                <label className="label text-xs">
+                  A qué zona da <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>
+                </label>
+                <select value={a.zona_id || ''} onChange={e => set(a._k, { zona_id: e.target.value || null })}
+                  className="input">
+                  <option value="">Al recinto en general</option>
+                  {zonasEvento.map(z => (
+                    <option key={z.id} value={z.id}>{etiquetaZona(z)}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-text-3 mt-1">
+                  Se ve en <b>Zonas de interés</b>: la zona enseña por dónde se entra a ella.
+                </p>
+              </div>
+            )}
+
             {miembros.length > 0 && (
               <div>
                 <label className="label text-xs">Quién registra aquí <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
@@ -285,79 +274,22 @@ export default function AccesosSection({ evento }) {
 
       <button onClick={agregar} className="btn-ghost btn-sm">+ Añadir puerta</button>
 
-      {/* ── Aforo por zonas ── */}
-      <div className="border-t border-border pt-5 space-y-3">
-        <div>
-          <h3 className="text-base font-semibold text-text-1">Aforo por zonas</h3>
-          <p className="text-sm text-text-2">Define zonas del recinto (tarima, zona VIP, patio de comidas…) con su aforo máximo. Operarlas —entradas, salidas, poner el contador a cero y el reporte— se hace en <b>Asistentes → Aforo por zonas</b>; en el plano (<b>Espacio del evento → Mapa</b>) se colocan encima del recinto.</p>
-          <p className="text-xs text-text-3 mt-1">El aforo máximo avisa, no bloquea: si una zona se pasa, la gente sigue entrando y queda registrado el excedente.</p>
-        </div>
-
-        {aforo.length > 0 && (
-          <div className="rounded-2xl border border-border bg-surface/40 p-4">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ocupación ahora</p>
-              <Link to={`/eventos/${evento.id}?s=espacio&t=aforo`} className="text-[11px] text-primary-light hover:underline">Abrir el tablero →</Link>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {aforo.map(z => {
-                const pct = z.aforo_max ? Math.min(100, Math.round((z.dentro / z.aforo_max) * 100)) : null;
-                const lleno = pct != null && pct >= 90;
-                return (
-                  <div key={z.id} className="rounded-xl bg-surface-2 border border-border p-3">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="text-sm font-medium text-text-1 truncate">{z.nombre}</p>
-                      <p className="text-sm font-bold font-display tabular-nums text-text-1">{z.dentro}{z.aforo_max ? <span className="text-text-3 text-xs"> / {z.aforo_max}</span> : ''}</p>
-                    </div>
-                    {pct != null && (
-                      <div className="h-2 rounded-full bg-surface-3 overflow-hidden mt-2">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: lleno ? 'var(--danger, #EF4444)' : 'var(--brand-primary, #3B82F6)' }} />
-                      </div>
-                    )}
-                    {lleno && <p className="text-[11px] text-danger mt-1">Casi al tope</p>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-2">
-          {zonas.map((z, i) => (
-            <div key={z._k} className="flex items-center gap-2">
-              <span className="text-xs text-text-3 w-5">{i + 1}.</span>
-              <input value={z.nombre} onChange={e => setZona(z._k, { nombre: e.target.value })}
-                placeholder="Nombre de la zona" className="input flex-1" />
-              <input type="number" min="0" value={z.aforo_max} onChange={e => setZona(z._k, { aforo_max: e.target.value })}
-                placeholder="Aforo máx" className="input w-28" />
-              {/* Si ya está en el plano, se dice; si no, el enlace lleva a
-                  ponerla. El mapa ya sabía cuáles estaban colocadas —lo usa
-                  para no ofrecer dos veces la misma—, pero desde aquí no había
-                  forma de enterarse, así que se creaban zonas que nunca
-                  llegaban al plano y nadie lo notaba hasta el día del evento. */}
-              {zonasEnMapa.has(z.id)
-                ? <span className="text-[10px] px-1.5 py-1 rounded bg-success/15 text-success flex-shrink-0 whitespace-nowrap">En el mapa</span>
-                : <Link to={`/eventos/${evento.id}?s=espacio&t=mapa`}
-                    className="text-[10px] px-1.5 py-1 rounded border border-border text-text-3 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0 whitespace-nowrap"
-                    title="Colocarla en el plano del evento">
-                    Ponerla en el mapa →
-                  </Link>}
-              {zonasSucio && (
-                <button onClick={() => guardarZonas()} disabled={guardandoZonas}
-                  className="btn-secondary btn-sm flex-shrink-0">{guardandoZonas ? 'Guardando…' : 'Guardar'}</button>
-              )}
-              <button onClick={() => quitarZona(z._k)} className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
-            </div>
-          ))}
-          <button onClick={agregarZona} className="btn-ghost btn-sm">+ Añadir zona</button>
-          {zonas.length > 0 && sinUbicar > 0 && (
-            <p className="text-[11px] text-text-3 pt-1">
-              {sinUbicar === zonas.length
-                ? 'Ninguna zona está en el plano todavía. Al tocarla en el mapa, el público ve qué hay ahí y cuánta gente cabe.'
-                : `${sinUbicar} de ${zonas.length} zonas siguen sin sitio en el plano.`}
-            </p>
-          )}
-        </div>
+      {/* ── Las zonas se fueron a su propia pantalla ──
+          Estaban aquí porque una zona y una puerta se configuraban juntas, y
+          durante un tiempo tuvo sentido. Dejó de tenerlo cuando la zona pasó a
+          tener aforo en vivo, agenda y stands: eso no cabe en un apartado al
+          final de la pantalla de puertas. Se queda el enlace, y sólo el
+          enlace — repetir aquí el alta sería volver a tener dos dueños del
+          mismo dato, que es justo lo que se acaba de quitar del mapa. */}
+      <div className="border-t border-border pt-5">
+        <Link to={`/eventos/${evento.id}?s=espacio&t=zonas`}
+          className="block rounded-2xl border border-border bg-surface/40 p-4 hover:bg-surface-2/40 transition-colors">
+          <p className="text-base font-semibold text-text-1">Zonas de interés <span className="text-text-3 font-normal">→</span></p>
+          <p className="text-sm text-text-2 mt-1">
+            Las zonas del recinto —tarima, zona VIP, patio de comidas— se crean y se miran ahí:
+            cada una con su aforo en vivo, lo que ocurre dentro y los stands montados.
+          </p>
+        </Link>
       </div>
     </div>
   );

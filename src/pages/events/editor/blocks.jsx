@@ -456,6 +456,29 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
     );
   }
   const dosColumnas = data?.columnas === 2;
+
+  /* Un evento tiene DOS puertas, y hasta ahora aquí sólo se miraba una.
+   *
+   * El backend las mira las dos (`hayCupoLibre`, en `lib/waitlistOferta.js`):
+   * el cupo del tipo de boleta y el aforo general del evento. Aquí sólo se
+   * miraba `t.cupo`, así que con el aforo general lleno el botón seguía
+   * diciendo «Comprar»: la persona rellenaba el formulario entero —que puede
+   * tener veinte preguntas—, pasaba el captcha, y el servidor la rechazaba en
+   * el último paso. El peor sitio posible para enterarse.
+   *
+   * Con esto, además, se enciende sola la lista de espera: el botón
+   * «Anotarme en lista» de abajo ya existía y sólo aparece cuando `agotado`,
+   * que hasta ahora nunca era cierto por esta vía.
+   *
+   * Ojo con lo que este cálculo NO puede saber: `hayCupoLibre` descuenta
+   * también las ofertas de lista de espera vivas, y ésas no viajan al público.
+   * Así que esto puede decir «hay sitio» cuando la última plaza está
+   * reservada. Da igual: el servidor sigue siendo el que manda, y lo que se
+   * arregla aquí es no dejar que alguien rellene todo cuando está lleno de
+   * forma evidente. */
+  const aforoLleno = Boolean(evento?.aforo_total)
+    && (evento.aforo_vendido || 0) >= evento.aforo_total;
+
   return (
     <Seccion data={data}>
       <div className="rounded-3xl border border-border-2 bg-surface/60 p-5 space-y-3">
@@ -468,7 +491,7 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
         const precio = hasEarly ? Number(t.early_bird_precio) : Number(t.precio);
         const isFree = precio === 0;
         const ventaCerr = t.venta_hasta && new Date(t.venta_hasta) < new Date();
-        const agotado  = t.cupo != null && t.vendidos >= t.cupo;
+        const agotado  = aforoLleno || (t.cupo != null && t.vendidos >= t.cupo);
         return (
           <div key={t.id} className="rounded-2xl border border-border bg-surface/50 p-4">
             <div className="flex items-start justify-between gap-3 mb-2">

@@ -12,6 +12,7 @@ import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
 import { camposVisibles } from '../../lib/camposCondicionales.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 /* `verificar` y no `verificarCorreo`: la primera añade la pista cruzada
    —«eso parece un teléfono, aquí va el correo»—, que es justo lo que hace
    falta en la casilla de al lado. Llamar a la comprobación base se saltaba esa
@@ -41,10 +42,27 @@ export const ANCHO_MODAL = {
   xl:  'sm:max-w-3xl',
   xxl: 'sm:max-w-5xl',
 };
+/* `dvh` y no `vh`, y esto costó registros de verdad.
+ *
+ * En un móvil `vh` es el viewport GRANDE: el que habría si las barras del
+ * navegador estuvieran escondidas. Lo que se ve es el PEQUEÑO, un 15-20% menos
+ * en iOS Safari. Con `max-h-[90vh]` la tarjeta podía medir el 90% del grande
+ * estando anclada abajo (`items-end`), así que su parte final —donde está el
+ * botón de «Continuar»— quedaba por debajo de lo visible.
+ *
+ * Y no había forma de llegar a él: `overflow-y-auto` de la tarjeta no scrollea
+ * porque el contenido NO desborda la tarjeta —es la tarjeta la que desborda la
+ * pantalla—, y `ModalShell` bloquea el scroll del documento mientras el modal
+ * está abierto. Resultado: gente que abría el formulario, lo rellenaba y no
+ * podía enviarlo.
+ *
+ * `dvh` mide el viewport visible de verdad y se actualiza cuando las barras
+ * aparecen o desaparecen. La variante `completo` ya lo usaba —alguien topó con
+ * esto y arregló sólo ese caso—; ahora lo usan las tres. */
 export const ALTO_MODAL = {
-  normal:   'max-h-[90vh]',
-  alto:     'max-h-[95vh]',
-  completo: 'max-h-[100dvh] sm:max-h-[97vh]',
+  normal:   'max-h-[90dvh]',
+  alto:     'max-h-[95dvh]',
+  completo: 'max-h-[100dvh] sm:max-h-[97dvh]',
 };
 /* `porDefecto` es la clase que ese modal usaba antes: sin configurar nada, nada
    cambia. */
@@ -78,23 +96,21 @@ export default function EventoPublicoPage() {
   const cupoToken = params.get('cupo') || '';
   const [cupo, setCupo] = useState(null);
 
-  /* La píldora de páginas se pega debajo de la barra de salidas (más abajo,
-     `sticky top-0`), y necesita saber cuánto mide esa barra para no montarse
-     encima ni dejar un hueco. Antes era un `top-[72px]` fijo: en móvil, si los
-     enlaces de la barra de arriba se envuelven a dos filas (son hasta seis:
-     volver, rueda de negocios, torneo, espacio, ranking, mapa, compartir), la
-     barra crece y ese número deja de ser cierto. Se mide de verdad con
-     `ResizeObserver` — reacciona también si la ventana rota o si `nav.enlaces`
-     cambia el ancho disponible, no sólo al montar. */
-  const barraSalidasRef = useRef(null);
-  const [altoBarraSalidas, setAltoBarraSalidas] = useState(72);
-  useEffect(() => {
-    const el = barraSalidasRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const obs = new ResizeObserver(([entry]) => setAltoBarraSalidas(Math.ceil(entry.contentRect.height)));
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+  /* ¿Hay sesión? La página pública no lo preguntaba nunca, y por eso el
+     organizador que entraba a ver su propio evento publicado se encontraba la
+     vista de un desconocido: sin panel, sin vuelta al panel, y con los enlaces
+     de salida llevándolo fuera de GESTEK. Aquí sólo se usa para dos cosas —a
+     dónde vuelve y ofrecerle su panel—; el CONTENIDO del evento sigue siendo
+     el mismo para todo el mundo, que es lo correcto: esta página es la que ve
+     el público y el organizador tiene que verla tal cual. */
+  const { token } = useAuth();
+  const conSesion = Boolean(token);
+
+  /* Aquí vivía un `ResizeObserver` que medía la barra de salidas para que la
+     segunda barra —la píldora de páginas— se pegara justo debajo sin
+     solaparse. Ya no hace falta: las páginas se movieron DENTRO de la barra de
+     salidas y sólo queda una. El desplazamiento que había que calcular era el
+     precio de tener dos barras fijas, no un requisito. */
 
   useEffect(() => {
     if (!cupoToken) { setCupo(false); return; }
@@ -233,9 +249,18 @@ export default function EventoPublicoPage() {
   const logoUrl = organizador?.empresa_logo_url;
   const nombreOrg = organizador?.branding?.plataforma || organizador?.empresa || organizador?.nombre;
 
-  const tabsPill = (
-    <div className="flex items-center gap-1 bg-surface/80 backdrop-blur-md border border-border-2 rounded-full px-1.5 py-1.5 shadow-lg overflow-x-auto no-scrollbar">
-      <div className="flex-shrink-0 pl-1 pr-1.5">
+  /* La identidad del organizador y sus páginas, para meterlas DENTRO de la
+     barra de salidas.
+   *
+   * Antes esto era una segunda barra fija flotando por debajo de la primera,
+   * con su propio `sticky` y un desplazamiento medido con ResizeObserver para
+   * no solaparse. Dos barras de navegación en la misma pantalla, y el
+   * visitante no tenía por qué saber que las páginas del evento estaban en una
+   * y las secciones en la otra: es la misma pregunta —«a dónde puedo ir»—
+   * partida en dos filas. Ahora es un grupo más de la única barra. */
+  const grupoPaginas = (
+    <div className="flex items-center gap-1 min-w-0">
+      <div className="flex-shrink-0 pr-1.5">
         {logoUrl
           ? <img src={logoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
           : (
@@ -245,18 +270,21 @@ export default function EventoPublicoPage() {
             </div>
           )}
       </div>
-      {pages.length > 1 && pages.map((p, i) => (
-        <button
-          key={p.id}
-          onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
-          className={`flex-shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
-            ${pageIdx === i + 1 ? 'bg-text-1 text-bg' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
-          aria-current={pageIdx === i + 1 ? 'page' : undefined}
-        >
-          <span className="hidden sm:inline mr-1">{i + 1}.</span>
-          {p.nombre}
-        </button>
-      ))}
+      {pages.length > 1 && (
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {pages.map((p, i) => (
+            <button
+              key={p.id}
+              onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
+              className={`flex-shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
+                ${pageIdx === i + 1 ? 'bg-text-1 text-bg' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+              aria-current={pageIdx === i + 1 ? 'page' : undefined}
+            >
+              {p.nombre}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -276,19 +304,47 @@ export default function EventoPublicoPage() {
           de páginas, porque son dos barras distintas y si las dos flotaran a la
           misma altura se solaparían. Ésta se pega arriba y la otra queda por
           debajo, que además es el orden en que se leen. */}
-      <div ref={barraSalidasRef} className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
+      <div className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
                       bg-bg/85 backdrop-blur-md border-b border-border/60
                       flex items-center justify-between gap-4 flex-wrap">
         {(isStandalone || !nav.mostrar_explorar) ? <span /> : (
-          <Link to="/explorar"
+          /* La vuelta respeta la sesión. Con cuenta iniciada iba a `/explorar`,
+             que vive fuera del panel, así que quien estaba trabajando en su
+             evento y entraba a verlo publicado se encontraba, al volver, fuera
+             de GESTEK entero: sin barra lateral y en la vitrina pública. Ahora
+             vuelve a `/app/explorar`, que es la misma vitrina PERO dentro del
+             panel. Sin sesión, a la pública de siempre. */
+          <Link to={conSesion ? '/app/explorar' : '/explorar'}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
-                       text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+                       text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Explorar eventos
           </Link>
         )}
+
+        {/* Las páginas del evento, que antes eran una segunda barra. */}
+        {grupoPaginas}
+
+        {/* Con sesión, la puerta de vuelta a GESTEK.
+            Esta pantalla es marca blanca a propósito —oculta la cabecera y el
+            pie de la plataforma para que el visitante vea la web del
+            organizador, no la nuestra— y eso está bien para el público. Para
+            quien tiene cuenta era un callejón: entraba a ver su evento
+            publicado y se quedaba sin ninguna forma de volver a su panel salvo
+            el botón de atrás del navegador. Un enlace discreto, no una barra
+            entera: el protagonista sigue siendo el evento. */}
+        {conSesion && !isStandalone && (
+          <Link to="/inicio"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-accent/30
+                       bg-accent/10 text-xs text-accent hover:bg-accent/20 transition-colors flex-shrink-0"
+            title="Volver a tu panel de GESTEK">
+            <Icono nombre="panel" className="w-3.5 h-3.5" />
+            Mi panel
+          </Link>
+        )}
+
         <div className="flex items-center gap-2 flex-wrap">
           {nav.enlaces.map((l, i) => (
             <a key={i} href={l.url || '#'} target={l.url?.startsWith('http') ? '_blank' : undefined} rel="noreferrer noopener"
@@ -351,14 +407,6 @@ export default function EventoPublicoPage() {
             la altura REAL de esa barra (medida con ResizeObserver arriba), no
             un número fijo — en móvil, con los enlaces envueltos a dos filas,
             72px deja de ser cierto y las dos barras se solapan. */}
-        {hasCover && (
-          <div style={{ top: `${altoBarraSalidas}px` }} className={`sticky z-20 flex ${pillAlign} mb-[-1px]`}>
-            <div className="max-w-[calc(100%-2rem)]">
-              {tabsPill}
-            </div>
-          </div>
-        )}
-
         {hasCover ? (
           <div className="mb-8">
             {(() => {
@@ -392,25 +440,6 @@ export default function EventoPublicoPage() {
             <div className="mb-8">
               <BrandHeader organizador={organizador} size="lg" />
             </div>
-            {pages.length > 1 && (
-              <nav className={`mb-8 flex items-center ${pillAlign} gap-1.5 flex-wrap`}>
-                {pages.map((p, i) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
-                    className={`min-w-[40px] h-10 px-4 rounded-full text-sm font-medium transition-all
-                      ${pageIdx === i + 1
-                        ? 'bg-text-1 text-bg'
-                        : 'border border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}
-                    `}
-                    aria-current={pageIdx === i + 1 ? 'page' : undefined}
-                  >
-                    <span className="hidden sm:inline mr-1.5">{i + 1}.</span>
-                    {p.nombre}
-                  </button>
-                ))}
-              </nav>
-            )}
           </>
         )}
 
@@ -468,7 +497,7 @@ export default function EventoPublicoPage() {
         {/* Volver a explorar (oculto en modo standalone) */}
         <div className="mt-12 text-center">
           {!isStandalone && (
-            <Link to="/explorar" className="text-xs text-text-3 hover:text-text-1 transition-colors">
+            <Link to={conSesion ? '/app/explorar' : '/explorar'} className="text-xs text-text-3 hover:text-text-1 transition-colors">
               ← Volver a explorar
             </Link>
           )}
@@ -1410,22 +1439,49 @@ function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[9
     );
   }
 
+  /* `inset-x-0 top-0 alto-visible` y NO `inset-0`. Medido en navegador con una
+     barra de 122px simulada, y es la parte que de verdad arregla el fallo:
+
+       tarjeta 90vh  + overlay inset-0        → el botón se sale 98px
+       tarjeta 90dvh + overlay inset-0        → el botón se sale 98px  ← igual
+       tarjeta 90dvh + overlay alto-visible   → el botón entra
+
+     Acotar la tarjeta no basta, porque sigue anclada al fondo de un overlay
+     que abarca el viewport grande. Lo que hay que acotar es el overlay; la
+     tarjeta va después. (El por qué está en `.alto-visible`, en index.css.)
+
+     Y dos scrolls, los dos necesarios: el de la TARJETA es el normal —un
+     formulario largo se recorre dentro de su recuadro— y el del OVERLAY es la
+     red de seguridad para cuando la tarjeta aun acotada no cabe: un navegador
+     sin `dvh`, o el teclado abierto, que encoge la pantalla sin que `dvh` se
+     entere. Sin esa segunda salida el modal se queda sin ninguna, porque el
+     scroll del documento está bloqueado arriba.
+     `overscroll-contain` evita que al llegar al final se arrastre la página de
+     detrás, que en móvil se siente como que el modal «salta». */
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>
-      <div
-        className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl ${alto} overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-end px-4 sm:px-6 py-2.5 bg-surface/95 backdrop-blur border-b border-border">
-          <button onClick={onClose} aria-label="Cerrar"
-            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-6 sm:p-8">
-          {children}
+    <div
+      className="fixed inset-x-0 top-0 alto-visible z-50 overflow-y-auto overscroll-contain bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]"
+      onClick={onClose}
+    >
+      <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
+        <div
+          className={`relative w-full ${ancho} rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl ${alto} overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]`}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-end px-4 sm:px-6 py-2.5 bg-surface/95 backdrop-blur border-b border-border">
+            <button onClick={onClose} aria-label="Cerrar"
+              className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {/* `pb` extra en móvil: deja aire por debajo del último control para
+              que el botón de enviar no quede pegado al borde de la pantalla ni
+              debajo de la barra de gestos del sistema. */}
+          <div className="p-6 sm:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-8">
+            {children}
+          </div>
         </div>
       </div>
     </div>

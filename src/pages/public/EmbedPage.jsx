@@ -255,12 +255,12 @@ export default function EmbedPage() {
           `}</style>
         )}
         {Especial ? (
-          <Especial evento={evento} onReservar={abrirCompra} />
+          <Especial evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />
         ) : bloque.type === 'lienzo' ? (
           <CanvasPublico
             canvas={bloque.data?.canvas}
             evento={evento}
-            boletasRender={<BloqueBoletas evento={evento} onReservar={abrirCompra} />}
+            boletasRender={<BloqueBoletas evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />}
           />
         ) : (
           <Preview
@@ -361,12 +361,23 @@ function RankingEmbed() {
 }
 
 /* El lienzo puede contener una pieza "boletas": se le pasa el mismo bloque
-   de tickets que usa la página pública. */
-function BloqueBoletas({ evento, onReservar }) {
+   de tickets que usa la página pública.
+ *
+ * `onWaitlist` NO puede ser `onReservar`, y lo era: quien veía un tipo agotado
+ * y pulsaba «Anotarme en lista» abría el formulario de compra normal de ese
+ * tipo agotado. Rellenaba todo para que el servidor lo rechazara al final —o
+ * peor, para competir por un cupo que no existe.
+ *
+ * La lista de espera de verdad vive en la página completa (`WaitlistModal`),
+ * así que aquí se hace lo que ya hacía el otro camino de este mismo archivo:
+ * abrirla en una pestaña. Es lo honesto — dentro de un iframe ajeno no hay
+ * sitio para un segundo modal, y la inscripción a la lista pide su propio
+ * formulario. */
+function BloqueBoletas({ evento, onReservar, onWaitlist }) {
   const B = BLOCKS.tickets;
   if (!B) return null;
   const P = B.Preview;
-  return <P data={{}} evento={evento} onReservar={onReservar} onWaitlist={onReservar} />;
+  return <P data={{}} evento={evento} onReservar={onReservar} onWaitlist={onWaitlist || onReservar} />;
 }
 
 /* ── El registro, que es a donde lleva el botón incrustado ─────────────────
@@ -380,7 +391,7 @@ function BloqueBoletas({ evento, onReservar }) {
  * términos, el captcha y los sub-eventos al final—, montados por EmbedPage.
  * Reescribirlos aquí habría sido tener dos registros que se separan al mes.
  */
-function RegistroEmbed({ evento, onReservar }) {
+function RegistroEmbed({ evento, onReservar, onWaitlist }) {
   const tipos = (evento?.ticket_types || evento?.tipos_ticket || []).filter(t => t.activo);
 
   /* Con una sola, se abre sola. El `useEffect` y no una llamada directa porque
@@ -401,5 +412,5 @@ function RegistroEmbed({ evento, onReservar }) {
   if (tipos.length === 1) {
     return <p className="text-sm text-text-3 py-8 text-center">Abriendo el formulario…</p>;
   }
-  return <BloqueBoletas evento={evento} onReservar={onReservar} />;
+  return <BloqueBoletas evento={evento} onReservar={onReservar} onWaitlist={onWaitlist} />;
 }

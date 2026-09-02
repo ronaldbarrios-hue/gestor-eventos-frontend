@@ -252,7 +252,7 @@ export function DetalleMarcador({ sel, datos, children }) {
 /* Qué pasa dentro de la zona: lo que hay ahora, lo siguiente y el resto del
    día. Es la mitad que le faltaba al aforo — "40 personas" no dice nada sin
    "40 personas viendo el torneo de FIFA". */
-function ProgramaZona({ z }) {
+export function ProgramaZona({ z }) {
   const agenda = z.agenda || [];
   if (agenda.length === 0) {
     return (
@@ -309,7 +309,7 @@ function ProgramaZona({ z }) {
    `mapa/vivo` (routes/clientes.js, cruzado con `standsPorZona` de
    lib/expositores.js) — sin aforo propio del stand, que es cosa del panel de
    Stands, no de este tablero. */
-function StandsDeZona({ z }) {
+export function StandsDeZona({ z }) {
   const stands = z.stands || [];
   if (stands.length === 0) return null;
   return (

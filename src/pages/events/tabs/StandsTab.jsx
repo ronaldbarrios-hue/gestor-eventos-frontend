@@ -8,6 +8,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
+import { zonasDelEvento, etiquetaZona } from '../../../lib/zonas.js';
 import GalleryUploader from '../../../components/ui/GalleryUploader.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
@@ -110,12 +111,8 @@ function StandsEditor({ evento, soyOwner }) {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  /* Las zonas del plano, para poder ubicar el stand (0088). Mismo filtro que
-     el formulario de sub-eventos: una zona a medio crear no se ofrece. */
-  const zonasEvento = useMemo(
-    () => (evento?.page_json?.zonas || []).filter(z => z?.id && String(z.nombre || '').trim()),
-    [evento?.page_json?.zonas],
-  );
+  /* Las zonas del plano, para poder ubicar el stand (0088). */
+  const zonasEvento = useMemo(() => zonasDelEvento(evento), [evento]);
   const porUbicar = useMemo(() => stands.filter(s => !s.zona_id).length, [stands]);
 
   const cargar = useCallback(async () => {
@@ -218,7 +215,7 @@ function StandsEditor({ evento, soyOwner }) {
                 className="input rounded-xl py-2.5 text-sm">
                 <option value="">Sin ubicar</option>
                 {zonasEvento.map(z => (
-                  <option key={z.id} value={z.id}>{z.nombre}{z.aforo_max ? ` (aforo ${z.aforo_max})` : ''}</option>
+                  <option key={z.id} value={z.id}>{etiquetaZona(z)}</option>
                 ))}
               </select>
               <p className="text-[11px] text-text-3 mt-1">

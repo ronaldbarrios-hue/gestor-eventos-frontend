@@ -138,7 +138,12 @@ export function embedSnippet({ origin, slug, seccion, titulo, tema = 'auto', fon
         loading="lazy"
         style="width:100%;border:0;display:block;overflow:hidden"
         scrolling="no"></iframe>`;
-  if (!autoAlto && !heredarEstilo) return iframe;
+  /* El snippet siempre lleva script, aunque no se pida alto ni estilo: hace
+     falta para el salto a la pasarela. Sin él, quien compra desde una sección
+     incrustada se queda mirando: el iframe pide `abrir` por postMessage,
+     nadie lo escucha, y el pago no ocurre nunca. Y no se cae solo — el
+     `irAPagar` del iframe considera que avisar salió bien mientras el
+     postMessage no lance, y un mensaje que el anfitrión ignora no lanza. */
   return `${iframe}
 <script>
 (function () {
@@ -154,11 +159,23 @@ ${heredarEstilo ? `  function estilo() {
   }
   f.addEventListener('load', estilo);
 ` : ''}  window.addEventListener('message', function (e) {
-    var d = e.data;
+${base ? `    /* Sólo se escucha a nuestro iframe. Sin esto, cualquier otro script de
+       esta página -una etiqueta de publicidad, un chat de soporte- podría
+       mandar un mensaje con este mismo id y hacer que se abra la URL que
+       quisiera, a nombre de quien puso el snippet. */
+    if (e.origin !== '${base}') return;
+` : ''}    var d = e.data;
     if (!d || d.fid !== '${fid}') return;
 ${autoAlto ? `    if (d.gestek === 'alto') { f.style.height = d.alto + 'px'; }
 ` : ''}${heredarEstilo ? `    if (d.gestek === 'pide-estilo') { estilo(); }
-` : ''}  });
+` : ''}    /* El pago sale a una pestaña de verdad. Un checkout dentro de un iframe
+       de otro dominio se rompe por las cookies de terceros, por el 3-D Secure
+       -que se niega a cargarse enmarcado- y por la redirección de vuelta de la
+       pasarela, que aterrizaría dentro del recuadro. */
+    if (d.gestek === 'abrir' && d.url) {
+      window.open(d.url, '_blank', 'noopener,noreferrer');
+    }
+  });
 })();
 <\/script>`;
 }

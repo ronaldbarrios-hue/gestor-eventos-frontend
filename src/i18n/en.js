@@ -610,11 +610,23 @@ export default {
   /* El monitor de Gestbot (#40) lleva idioma y tema; "Apariencia" ya existe,
      pero el rótulo de esa pantalla es más corto. */
   'Tema': 'Theme',
-  'Ocultar': 'Hide',
   'El asistente de GESTEK en su escritorio': 'The GESTEK assistant at their desk',
+  /* Lo que dice el acompañante mientras la aplicación hace su primera
+     carga. Corto a propósito: cabe en el ancho de su escritorio. */
+  'Poniéndote en línea…': 'Getting you online…',
 
   /* ── Perfil de talento y postulaciones ──────────────────────── */
   'Cargando tu perfil…': 'Loading your profile…',
+  /* Vacantes: los requisitos y qué se envía al postularse. */
+  'Requisitos': 'Requirements',
+  'Lo que envías': 'What you send',
+  'Todavía no tienes perfil de talento.': "You don't have a talent profile yet.",
+  'Créalo antes de postularte': 'Create it before applying',
+  'Tu perfil': 'Your profile',
+  'Tu hoja de vida': 'Your résumé',
+  'ver archivo': 'view file',
+  'Sin hoja de vida.': 'No résumé.',
+  'Subirla': 'Upload one',
   'Disponible para vacantes': 'Available for jobs',
   'Si lo activas, los organizadores pueden encontrarte al buscar talento.':
     'Turn this on and organizers can find you when they search for talent.',

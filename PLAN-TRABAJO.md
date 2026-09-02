@@ -8,9 +8,202 @@ lista estaban hechas; están marcadas abajo para no volver a pagarlas.
 —«Camino unitario»— con lo cerrado ese día y el backlog de aforo/reporte, y
 avance anotado dentro de los frentes A y C.
 
+**Actualizado el 2 de septiembre de 2026** (Sekkon0906): sección 3 nueva con la
+**auditoría del proyecto** —qué está duplicado, muerto o desconectado, con
+archivo y línea—, y dos frentes nuevos que salen de ella: **Frente I · Zonas de
+interés** (el «un solo lugar de administración» que se pidió) y **Frente J**
+(la deuda que dejó la auditoría, incluido un bug que está fallando hoy en
+producción).
+
 La división no es por tamaño: es por **qué archivos toca cada frente**. Dos
 sesiones en frentes distintos no chocan al hacer merge. Dos sesiones en el
 mismo frente sí, y por eso están separados así y no de otra manera.
+
+---
+
+## 0-bis · El flujo de registro · 2026-09-02
+
+**Prioridad máxima, dicho por Sekkon0906 con gente intentando registrarse en
+ese momento.** Todo lo demás de este documento queda aparcado hasta que esto
+esté cerrado.
+
+### ✅ El botón de «Continuar» no se podía alcanzar en móvil
+
+El síntoma reportado fue «el formulario activa `overflow: hidden` y no permite
+hacer scroll para ver el botón de continuar». El `overflow: hidden` era real
+pero **no era la causa**: era lo que quitaba la última salida.
+
+La causa: `position: fixed; inset: 0` en un móvil abarca el viewport **grande**
+—el que habría si las barras del navegador estuvieran escondidas— y lo que se
+ve es el **pequeño**, unos 122 px menos en iOS Safari. La tarjeta se ancla
+abajo (`items-end`), así que su borde inferior, donde está el botón, caía
+detrás de la barra del navegador. Y `overflow-y-auto` de la tarjeta no
+scrollea, porque el contenido no desborda la tarjeta: es la tarjeta la que
+desborda la pantalla.
+
+**Medido en navegador** con una barra de 122 px simulada y las clases reales
+del componente:
+
+| Variante | Botón | ¿Alcanzable? |
+|---|---|---|
+| `90vh` + overlay `inset-0` (lo que había) | se sale 98 px | ❌ |
+| `90dvh` + overlay `inset-0` | se sale 98 px | ❌ **igual** |
+| `90dvh` + overlay `alto-visible` | entra (666 ≤ 690) | ✅ |
+
+La fila del medio importa: **el primer intento de arreglo fue cambiar sólo
+`ALTO_MODAL` a `dvh`, y no servía de nada.** Acotar la tarjeta no ayuda si
+sigue anclada al fondo de un overlay que abarca el viewport grande. Lo que hay
+que acotar es el overlay.
+
+Arreglado: `.alto-visible` en `index.css` (con `vh` de respaldo para
+iOS < 15.4), el overlay pasa a `inset-x-0 top-0 alto-visible` con su propio
+scroll de emergencia, `ALTO_MODAL` en `dvh`, y `env(safe-area-inset-bottom)`
+para que el botón no quede bajo la barra de gestos.
+
+**El camino incrustado (`public/widget.js`) NO tenía este fallo**, y por qué
+conviene saberlo: centra la ventana en vez de anclarla abajo, el overlay ya
+scrollea, y acota el iframe con `window.innerHeight`, que en iOS sí sigue al
+área visible — al contrario que `vh`.
+
+### ✅ El flujo de la aplicación · 2026-09-02
+
+Pedido con una lista de síntomas. La causa de cada uno, medida en el código:
+
+| Síntoma | Causa | Estado |
+|---|---|---|
+| «Siempre entra en la landing en vez del panel, pero al darle iniciar sesión entra bien» | `App.jsx` registraba `/` **sin ningún guard**, mientras `/login` y `/register` sí tenían `PublicOnlyRoute`. No era una carrera async: no había redirect | ✅ |
+| «Al volver atrás desde un evento volvemos a la landing» | Los tres «Explorar eventos» de la página pública apuntaban a `/explorar`, que vive **fuera** del panel | ✅ ahora `/app/explorar` con sesión |
+| «Parece otra página ajena; sale la vista de un usuario sin registrarse» | `EventoPublicoPage` **no consultaba `useAuth` en ningún punto**. Es marca blanca a propósito, pero para quien tiene cuenta era un callejón sin salida | ✅ enlace «Mi panel» |
+| «Hay 2 navbar; Inicio/Expositores/FAQ debe ir arriba» | Dos barras fijas apiladas: la de salidas y la píldora de **páginas** del builder. La misma pregunta partida en dos filas | ✅ una sola barra |
+| «Quitar el ocultar, el bot abajo, la mesa como borde, más pequeño» | El botón «Ocultar» era del acompañante (no del sidebar); medía 250×190 y flotaba con margen | ✅ 176×134, pegado al borde, sin botón |
+| «Donde esté el gestbot en carga, pon el logo» | `PantallaCarga` repetía el personaje que ya vive en la barra lateral | ✅ logo; y el de la barra dice «Poniéndote en línea…» |
+| «Gestbot del home debería ser Sugerencias de Gestbot y sin el bot» | — | ✅ |
+| **El crash de vacantes** (`GLoader is not defined`) | `DetalleVacante.jsx` usaba `<GLoader>` sin importarlo | ✅ |
+
+**Un hallazgo que vale más que su arreglo:** `eslint.config.js` tiene
+`no-undef` puesta *exactamente* para esa clase de fallo —su cabecera enumera
+tres incidentes previos— y **no la cazó, porque `no-undef` no mira dentro de
+JSX**. Un componente inexistente en una etiqueta compila sin una queja y
+revienta al pintar. Se revisó el proyecto entero: no hay más. Cerrarlo de
+verdad pide `eslint-plugin-react` y su regla `react/jsx-no-undef`, que lo hace
+por AST en vez de por texto.
+
+### Lo que queda del flujo de registro, en auditoría
+
+Pedido: «todo el flujo de registro debe quedar bien, desde la creación de
+boletas, el ponerlas en la landing, el poder exportar las boletas, y que al
+momento de exportar todo funcione». En curso.
+
+### FRENTE K · Vacantes — ⚠️ era mucho menos de lo que parecía
+
+**Lo primero que se hizo fue mirar qué existe, y eso cambió el tamaño del
+trabajo.** Casi todo estaba construido y sin conectar:
+
+| Lo pedido | Estado real |
+|---|---|
+| «Poder dejar la CV» | **Ya existía.** `PerfilTalentoEditor` la sube a Storage (`cv_url`, `cv_nombre`) y viaja en el `perfil_snapshot` al postularse |
+| «Responder las preguntas» | **Ya existía** en `DetalleVacante` |
+| «La empresa agenda una reunión, por Meet o donde prefiera» | **Ya existía**, y completo: `POST …/entrevista` con **Google Calendar integrado** (`lib/googleCalendar.js`) y respaldo de enlace manual, aviso al candidato y salto de etapa |
+| Que el candidato vea su reunión | **Ya existía**: `MisPostulaciones.jsx:52`, con fecha y enlace |
+| Requisitos de la vacante | ❌ la columna existía en la base, en `SEL_VACANTE` **y** en `CAMPOS_VACANTE`, y nadie la escribía ni la pintaba |
+| «Hacer preguntas» (candidato → empresa) | ❌ no existe en ninguna capa |
+
+**✅ Hecho el 2026-09-02:**
+
+- **Los requisitos.** El único sitio donde se pedían era el *placeholder* de la
+  descripción («horarios, requisitos generales»): metidos a mano dentro de un
+  párrafo. Ahora son una lista en el formulario del organizador y una lista en
+  la vista del candidato. Aparte de la descripción a propósito — un párrafo se
+  lee en diagonal; una lista de requisitos se compara consigo mismo.
+- **«Lo que envías».** El pie decía «Necesitas un perfil de talento…», un aviso
+  genérico que no decía si lo tenías ni si tu hoja de vida iba dentro. Y va
+  dentro. Ahora se lista, con el nombre del archivo y enlace para abrirlo; si
+  falta, lleva a subirla. Una promesa pasa a ser una comprobación.
+
+**Queda una sola decisión, y es la de «hacer preguntas»:** es una conversación,
+y el proyecto ya tiene canales de chat (`routes/chat.js`). **Antes de construir
+una bandeja nueva hay que decidir si un canal por postulación encaja.** Es lo
+único de este frente que no existe en ninguna capa.
+
+**Corrección al §3.5:** la migración `0081` **no** bloquea nada de la CV. Borra
+`foto_url`, `telefono` y `ciudad` de `perfil_talento`; `cv_url` y `cv_nombre`
+no los toca. Sigue pendiente por ser `DROP COLUMN` irreversible, no por esto.
+
+### Redacción original del frente, para contexto
+
+**Pedido el 2026-09-02.** «El apartado de vacantes no está sirviendo. Sería
+pertinente mejorar la creación de este, que todo sea más profesional, poder
+dejar la CV, cosas importantes. Y en la vista de la persona que quiere
+postularse, que pueda responder las preguntas, agregar CV, hacer preguntas. Y
+ya la empresa lo que hace es agendar una reunión para formalizar todo, ya sea
+por Meet o donde prefiera la empresa.»
+
+Es rediseño, no un arreglo, así que **no se toca sin diseñar antes** — la
+lección del botón de móvil de hoy: la primera hipótesis obvia no servía.
+
+**Qué hay ya, comprobado:** `pages/vacantes/DetalleVacante.jsx` (modal de
+postulación, con `preguntas` y un `mensaje` libre), `api/vacantes.js`
+(`ETAPAS_VACANTE`, `formatoPago`), el perfil de talento (`perfil_talento`) que
+se crea al postularse por primera vez, y `VacantesTab.jsx` en el panel.
+
+**Las cuatro decisiones que hay que tomar antes de escribir código:**
+
+1. **La CV.** ¿Un archivo por postulación o uno en el perfil de talento que se
+   reutiliza? Ya existe `src/lib/archivos.js` con `TIPOS_CV`/`MAX_CV` y un
+   `PerfilTalentoEditor` que lo sube. Reusar el del perfil es más barato y
+   evita que la misma persona suba diez copias; adjuntar por postulación
+   permite adaptar la CV a la vacante. **Ojo:** la migración `0081` —pendiente—
+   borra columnas de `perfil_talento`, así que esta decisión y esa migración
+   son la misma conversación.
+2. **Las preguntas.** Hoy son texto libre (`input`). ¿Se les da tipo —opción
+   múltiple, sí/no, número, archivo— como ya tiene el formulario de registro
+   (`lib/formularioCampos.js`, con `visible_si` y todo)? **Reutilizar ese
+   motor** en vez de escribir un segundo sistema de preguntas es lo correcto:
+   ya está probado y ya sabe validar en servidor.
+3. **Preguntas DEL candidato.** «Hacer preguntas» es una conversación, y eso
+   ya existe en el proyecto: `routes/chat.js` con sus canales. Antes de
+   construir una bandeja nueva hay que ver si un canal por postulación encaja.
+4. **La reunión.** «Meet o donde prefiera la empresa» son dos cosas muy
+   distintas: integrar Google Calendar de verdad (ya hay
+   `lib/googleCalendar.js` y `routes/google.js`, con OAuth) o **sólo guardar un
+   enlace y una hora** que la empresa pega a mano. Lo segundo funciona el
+   primer día y no depende de credenciales de nadie; lo primero es una
+   integración con su propio mantenimiento. **Recomendación: empezar por el
+   enlace pegado a mano**, y dejar la integración para cuando se pida.
+
+**Entregable antes de programar:** las cuatro respuestas. Sin ellas, lo que se
+escriba se tira.
+
+### FRENTE L · El workspace del evento no habla inglés — sin empezar
+
+`EventWorkspace.jsx` **no importa `useI18n` en absoluto**: sus ~45 etiquetas de
+sección y pestaña («Espacio del evento», «Rueda de negocios», «Accesos e
+ingresos», «Zonas de interés»…) están hardcodeadas en español y se pintan tal
+cual. `ResumenSection.jsx` igual. Son las dos pantallas que más se miran de un
+evento.
+
+La fragilidad estructural ya se quitó (el aside pasó de ancho clavado a
+`min-w`/`max-w`), pero traducirlo es mecánico y largo: ~45 claves nuevas en
+`src/i18n/en.js` más las del resumen. Se hace de una vez o no se hace — medio
+traducido es peor que en un solo idioma.
+
+### Aparcado por esto (retomar después)
+
+- **Frente I fase 5** — el marcador de mapa compartido. Era lo siguiente.
+- **Frente J.3** — que existan dos rutas para crear un expositor. El bug de
+  datos que escondía (nacían invisibles para el público) ya está arreglado;
+  unificar las rutas sigue pendiente y es decisión de producto.
+- **Frente J.4-J.6** — `oauth_barrer`, `StatCard`/`BarraProgreso`, limpieza.
+- **Migración `0083`** — aprobada, **bloqueada al aplicar**: el intento se
+  detuvo en el control de permisos del entorno, no por la base. Comprobado
+  antes: tocaría **exactamente 1 fila** de 33 (la única con `credenciales` y
+  sin `wallet`), tiene `WHERE`, es idempotente y **no borra `credenciales`**,
+  así que se puede volver atrás. Falta que alguien con permiso de escritura la
+  corra.
+- **Migración `0081`** — **no aplicar todavía, a propósito.** Es `DROP COLUMN`
+  sobre datos de persona en `perfil_talento`: irreversible. Y toca justo la
+  tabla que el **Frente K** va a rediseñar, así que decidirla antes de saber
+  qué necesita el perfil de talento es decidir a ciegas.
 
 ---
 
@@ -118,6 +311,189 @@ un ajuste chico de backend. Sin migración.
 - Auditar `MapaSection` / `MapaAforo` contra `mapa/vivo` para que cada marcador
   (zona, puerta, sub-evento, expositor) tire del mismo estado vivo y enlace a
   su tablero.
+
+---
+
+## 3 · Auditoría del 2026-09-02 · qué está duplicado, muerto o desconectado
+
+Pedida por Sekkon0906 con esta frase: «hay varias zonas donde se crean aforos,
+se crean zonas, se crean de muchas maneras las mismas cosas». Se comprobó en el
+código de los dos repos, no en documentos. **La sospecha se confirma, y el peor
+caso no era el de las zonas.**
+
+Cada hallazgo lleva su archivo y línea para que nadie tenga que volver a
+buscarlo. Los que ya tienen tarea propia apuntan al frente correspondiente.
+
+### 3.1 · Lo que se crea o edita desde más de un sitio
+
+| Qué | Dónde 1 | Dónde 2 | Gravedad |
+|---|---|---|---|
+| **Expositor / stand** | `StandsTab.jsx:105-272` → `POST/PATCH/DELETE /eventos/:id/expositores` (`routes/networking.js:491`) | `NetworkingTab.jsx:206-372` → `POST/DELETE /eventos/:id/networking/expositores` (`routes/networking.js:592`) | **Alta.** Dos pantallas, **dos endpoints distintos**, la misma tabla `networking_expositores`. El de Networking no tiene `PATCH`: un expositor creado en «Rueda de negocios» **no se puede editar** sin ir a Stands. El de Stands acepta `zona_id`, `galeria`, `sitio_web`; el otro no. |
+| **Zona de aforo** | `AccesosSection.jsx:105-164` (alta, nombre, aforo, borrado) | `MapaSection.jsx:384-393` edita `nombre` y `aforo_max` desde el marcador, y guarda por su propio PATCH (`:150`, tras el flag `zonasTocadas`) | Media. El flag evita el choque, pero son dos formularios y dos caminos de escritura para el mismo array. **Lo arregla el Frente I, fase 0.** |
+| **Selector `<select>` de zonas** | `SessionForm.jsx:52-53` | `StandsTab.jsx:115-116` (su comentario admite «mismo filtro que el formulario de sub-eventos») y `CheckinTab.jsx:61`, que lee `page_json.zonas` **crudo, sin el filtro** | Baja, pero es una inconsistencia real: la tercera copia muestra zonas sin id o sin nombre. |
+
+### 3.2 · El mapa está escrito tres veces
+
+- `MapaSection.jsx` (editor: sube plano, arrastra marcadores) — su propio
+  `Marcador`/`CirculoMarcador`, líneas 236-313.
+- `components/aforo/MapaAforo.jsx` (tablero en vivo) — su propio render,
+  líneas 162-193. Exporta `nivelDeZona`, `calorDeZona`, `estaEnLlamas`.
+- `editor/blocks.jsx:1274+` (`MapaEventoPreview`, el mapa público) — tercer
+  render completo, líneas 1309-1385, **sin importar** los helpers de nivel de
+  `MapaAforo.jsx`: los reimplementa.
+
+Lo único compartido hoy entre las tres es `components/aforo/LlamaZona.jsx`. El
+«dibuja un marcador según su tipo, color y valor» —unas 80-120 líneas por
+archivo, con las mismas clases de Tailwind— es el mismo problema resuelto tres
+veces. **Lo aborda el Frente I, fase 5.** Lo que NO hay que fusionar: editar
+posición vs. sólo lectura vs. modal público son tres comportamientos distintos
+y deben seguir siéndolo.
+
+### 3.3 · Un bug activo, en producción — ✅ arreglado el 2026-09-02
+
+**El buzón de sugerencias devolvía 404 siempre.** `src/api/sugerencias.js:8-9`
+llama a `/me/sugerencias` y esa ruta **nunca se escribió**: el backend sólo
+tenía `/sugerencias/dinamica` (`routes/sugerencias.js`, montado en `/` y en
+`/me` — `index.js:140,165`). Fallaba desde el 2026-08-12 en las dos pantallas
+donde está puesto (`BuzonSugerencia.jsx:30`, desde `EventCreatePage.jsx:491` y
+`VacantesTab.jsx:182`).
+
+**La primera lectura de este hallazgo era equivocada, y conviene dejarla
+escrita.** Parecía que faltaba el segmento `/dinamica` en el frontend —
+arreglo de dos líneas. No: **el frontend estaba bien**. Son dos buzones
+distintos, con dos tablas distintas:
+
+- `sugerencias_catalogo` (migración 0063, ya en producción): «la lista se quedó
+  corta». Una línea al lado del `<select>`, **sin mínimo de longitud** a
+  propósito — quien escribe «feria de adopción» ya dijo todo lo que hacía
+  falta.
+- `sugerencias_dinamica` (0075): pedir una mecánica que no existe. Exige
+  explicar cómo funciona (mínimo 40 caracteres), porque sin eso no se puede
+  construir.
+
+Apuntar el primero al endpoint del segundo lo habría roto: el cuerpo no pasa la
+validación, y exigirle un párrafo a quien sólo quería avisar que falta una
+opción es la forma segura de no recibir ninguna respuesta. La tabla estaba, el
+formulario estaba; **faltaba la ruta de en medio**, y es lo que se escribió
+(backend, 9 pruebas nuevas).
+
+Queda una decisión de producto: `BuzonSugerencia.jsx` y
+`components/eventos/PedirDinamica.jsx` son dos formularios para dos cosas
+parecidas. Hoy los dos funcionan. Si se unifican, que sea por diseño y no
+porque uno estaba roto.
+
+### 3.4 · Piezas construidas y nunca conectadas
+
+| Qué | Dónde | Estado |
+|---|---|---|
+| `components/ui/StatCard.jsx` | existe, con su clase `stat-card` en `index.css` | **Cero consumidores.** Mientras tanto, 18 pantallas reinventan su propia tarjeta de número (`ReporteTab`, `AnalyticsTab`, `ClientesTab`, `EquipoTab`, `TicketsTab`, `VacantesTab`, `ChatTab`, `NetworkingTab`, `CheckoutSection`…). |
+| Editor de plantillas de correo | `routes/emails.js:160,198,226,243,266,347` (GET/PUT/DELETE catálogo, previsualizar, diagnóstico, envíos) | Seis endpoints sin una sola pantalla que los llame. El frontend sólo usa `prueba`, `enviar`, `cola`, `reintentarCola`. Decidir: conectar o borrar. |
+| Bolsa y cuotas de expositores | `routes/networking.js:341,361,392` | Sin UI. Relacionado con la migración 0057. |
+| `public.oauth_barrer()` | `db/migrations/0073:92-98` | **Nadie la llama.** La propia migración dice que el backend debería invocarla «en el mismo ciclo que ya corre cada quince minutos», y ningún `cron-*.js` la incluye: `oauth_codes`/`oauth_tokens` crecen sin límite. |
+| Editar franja de expositor | `routes/expositor.js:328` (`PATCH`) | El frontend sólo crea y borra franjas. ¿Falta el botón «editar horario»? |
+| `modules/aforo/consultas.js` | backend | Muerto **a propósito**: es la traducción a MySQL para el corte del Frente A. Su comentario ya lo dice. No tocar. |
+| `ARCHIVOS_PROPIOS` | `core/config/index.js:108` | Apagada, y a diferencia de `AUTH_PROPIA` **no tiene ningún consumidor en el frontend**: encenderla hoy no cambiaría nada visible. Ninguna de las dos banderas está en los `.env.example`. |
+| `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | El comentario del archivo dice que se extrajeron de `DocumentosSection.jsx` para reusarlas — y `DocumentosSection.jsx` nunca importa el módulo. Refactor a medias. |
+
+### 3.5 · Cinco migraciones mentían en su cabecera — ✅ arreglado el 2026-09-02
+
+**Siete** archivos decían «PENDIENTE DE APLICAR». Comprobado contra producción
+(`information_schema` y un conteo sobre `eventos`, sólo lectura), la verdad era
+otra:
+
+| Estado real | Migraciones |
+|---|---|
+| **Aplicadas** — la cabecera mentía | `0079`, `0082`, `0084`, `0085`, `0087` |
+| **Pendientes de verdad** | `0081`, `0083` |
+
+Importa por lo de siempre en este proyecto: el backend no mira el error de
+`supabase-js`, así que una columna que falta se ve como datos en blanco sin
+aviso. Un comentario que dice «pendiente» cuando no lo está entrena a
+desconfiar del único sitio donde se registra ese estado — y entonces el día
+que una de verdad falte, nadie lo cree.
+
+Las cinco cabeceras se corrigieron. Las dos pendientes quedaron anotadas con lo
+que se midió, **sin aplicarlas**:
+
+- **`0081`** borra columnas de datos de persona de `perfil_talento`, y
+  `foto_url` sigue ahí. No rompe nada, pero **la intención de privacidad no
+  está cumplida**. Y es `DROP COLUMN`: revertirla no devuelve los datos, así
+  que antes hay que ver cuántas filas los tienen rellenos.
+- **`0083`** migra `credenciales` → `wallet.variantes`, y la tienen **0 de 33
+  eventos**. No rompe nada porque `walletVariantes()`
+  (`src/lib/wallet.js:127`) traduce la forma vieja en caliente: **el fallback
+  del código está haciendo el trabajo de la migración**. Aplicarla sigue siendo
+  lo correcto —deja el dato en su forma nueva en vez de traducirlo en cada
+  render—, pero no es urgente.
+
+Las dos necesitan que alguien decida aplicarlas contra producción, y ninguna es
+automática: la primera destruye datos y la segunda toca los 33 eventos.
+
+### 3.6 · Basura de refactors anteriores
+
+- **10 comentarios de sección huérfanos** (el header quedó, la función se fue a
+  otro archivo): `StandsTab.jsx:367`, `AgendaLista.jsx:95`, `SalasGrid.jsx:85`,
+  `SessionForm.jsx:330`, `AgendaTab.jsx:414`, `TorneoBracket.jsx:136`,
+  `TorneoEquipos.jsx:284`, `TorneoLiga.jsx:145`,
+  `TorneoPartidoModales.jsx:159`, `TorneoTab.jsx:302`. Todos son la huella del
+  split de `AgendaTab`/`TorneoTab` en subcarpetas.
+- **11 imports sin usar**: `CheckinTab.jsx:2`, `ClientesTab.jsx:7`,
+  `EquipoTab.jsx:8`, `FormularioTab.jsx:1`, `StandsTab.jsx:3` (`leerQr` — del
+  canje que se movió), `TareasTab.jsx:1`, `GestbotPage.jsx:5`,
+  `CompletarPerfilPage.jsx:2`, `EventsListPage.jsx:10`,
+  `EventoPublicoPage.jsx:4`, `ProductoPage.jsx:1`.
+- **Un estado que nadie lee**: `AuthPage.jsx:440`, `checkingInvite` se asigna
+  (`:481,483`) y no se usa en el JSX. Probablemente falta un spinner.
+- **11 exports sin un solo consumidor** (verificados con `grep -rw` sobre el
+  árbol completo, descartando la copia de `.claude/worktrees/`):
+  frontend — `LlamaZona.jsx:18` `nivelZona` (sólo se menciona en su propio
+  comentario; nació el 2026-09-01), `embed.js:98` `modoPublicacion`,
+  `enlacesPublicos.js:35` `enlaceEvento`, `Badge.jsx:34` `RolBadge`,
+  `Iconos.jsx:79` `NOMBRES_ICONO`, `CampoFormulario.jsx:51` `valorInicial`,
+  `hojaCalculo.js:376` `esAfirmativo`, `archivos.js:43` `ACCEPT_DOCUMENTO`;
+  backend — `agente.js:3496` `_TOOLS` y `:3497` `_seleccionar` (alias de debug;
+  `routes/mcp.js` usa `agente.TOOLS` directo), `turnstile.js:7`
+  `turnstileHabilitado`.
+  **Ojo con el falso positivo:** `paletaImagen.js:14` `rgbAHex` aparece en
+  listas de «muerto» pero se usa 3 veces dentro de su propio archivo — es
+  export de más, no código muerto. Hay decenas de ese tipo en `lib/` de los dos
+  repos (constantes de configuración exportadas y usadas sólo en casa);
+  **no vale la pena tocarlas**, el riesgo supera al beneficio.
+- **Sin barra de progreso compartida**: el mismo
+  `<div className="h-2 rounded-full …">` a mano en `AccesosSection.jsx:313`,
+  `AforoSection.jsx:313`, `AnalyticsTab.jsx:221`, `ImportarAsistentes.jsx:365`,
+  `StandsTab.jsx:621`, `EventsListPage.jsx:388`, `MiTicketPage.jsx:322`.
+
+### 3.7 · Nombres que engañan
+
+- **`page_json.zonas` (espacio físico) vs. `ticket_types.zonas_acceso`**
+  (`0001_init.sql:153`, `routes/tickets.js:22`): un `text[]` libre tipo
+  `["general","vip"]`, **sin ningún vínculo** con los id de las zonas del
+  recinto. La misma palabra para dos cosas que no se tocan. Es la trampa más
+  fácil de pisar de todo el proyecto.
+- **`clave` vs. `zona_id` vs. `id`**: tres nombres para el mismo
+  identificador según la capa (`lib/aforoZonas.js:33` usa `clave` =
+  `COALESCE(zona_id, zona)`).
+- **`dentro` vs. `personas`**: son dos números distintos a propósito (uno
+  incluye conteos manuales, el otro cuenta boletas únicas) y el nombre no lo
+  delata. Está comentado en `modules/aforo/consultas.js:49-51`.
+- **`mapa_zonas` vs. `mapa_aforo`** (`routes/eventos.publicos.js:563,581`): el
+  segundo es formato legado mantenido en paralelo porque hay páginas
+  publicadas que ya lo leen. Documentado, pero quien consuma la ficha pública
+  tiene que saber que existen los dos.
+- **`zonas/aforo` vs. `mapa/vivo`**: el segundo es superconjunto del primero, y
+  los nombres no lo dicen. `AforoSection.jsx:61-67` necesita un fallback
+  explícito entre ambos.
+
+### 3.8 · Pestañas que hacen demasiado
+
+`AgendaTab.jsx` tiene **dos niveles** de sub-pestañas anidadas: `view`
+(`sessions | speakers`) × `subView` (`lista | dia | semana | mes | salas`) —
+diez combinaciones dentro de una pestaña llamada «Calendario».
+`StandsTab.jsx` mete cuatro trabajos (`stands | pasaporte | motivos |
+historial`) en 638 líneas. `AforoSection.jsx` mezcla operar en vivo con
+reportería. `CheckinTab.jsx` son 778 líneas con cinco modos — pero ése es
+**deliberado y correcto** (C4): la acción física es una sola.
 
 ---
 
@@ -344,7 +720,14 @@ ya trae `zona_id`). **No se consolidaron** las tres implementaciones de mapa
 en un componente compartido — eso sigue siendo su propia sesión, tal como se
 anotó abajo en la Fase 4.
 
-### C3 · Nutrir «Estancia y puntos»
+### C3 · Nutrir «Estancia y puntos» — ⤷ reemplazado por el FRENTE I
+
+**No tomar esta tarea.** Los datos que pedía ya se calculan y ya se pintan
+(`aforo_zonas_estancia` → `routes/clientes.js:846` → `AforoSection.jsx:497-498`,
+con los tramos medidos al lado). Lo que faltaba era un sitio donde leerlos
+junto al resto de la zona, y eso es la **Fase 1 del Frente I**.
+
+Redacción original, para contexto:
 
 Hoy muestra el nombre y una foto pequeña, y poco más. Se va a llamar desde el
 mapa, así que tiene que aguantar que la miren. Antes de rediseñar conviene
@@ -352,9 +735,18 @@ mirar qué datos hay ya: `aforo_zonas_estancia` devuelve minutos promedio,
 máximo y cuántos tramos se midieron —ese último número está a propósito, para
 que el promedio se pueda leer con contexto— y no se está usando.
 
-### C4 · Un solo escáner · DECIDIDO
+### C4 · Un solo escáner — ✅ Hecho (verificado 2026-09-01)
 
-**El diagnóstico:** el problema no es que falten funciones. Es que la misma
+**Ya está construido por completo** (commit `e3f3e8f`, «Un solo escáner, y el
+aforo y los stands se van al Espacio del evento», 2026-08-29 — el mismo día
+en que se decidió, antes de que este documento se actualizara). `CheckinTab`
+(`src/pages/events/tabs/CheckinTab.jsx`) tiene los 5 modos —`checkin`,
+`reingreso`, `subevento`, `puntos`, `canjear`— con un único `QrScanner`
+compartido y un despachador que enruta cada resultado. `StandsTab` ya no
+escanea nada: quedó con `stands | pasaporte | motivos | historial`, la
+configuración previa al evento.
+
+Redacción original, para contexto — el diagnóstico que llevó a la decisión: el problema no es que falten funciones. Es que la misma
 función está repetida en varias ventanas, y quien la usa tiene que saber en
 cuál está.
 
@@ -558,6 +950,303 @@ información en mano.
 
 ---
 
+## FRENTE I · Zonas de interés — fases 0-4 ✅, queda la 5
+
+**Pedido por Sekkon0906 el 2026-09-02**, con estas palabras: «un apartado que
+se llame *zonas de interés*, y ahí se pueda conectar TODO: la creación de
+zonas, conectar las actividades a las zonas, etc. Sería conveniente manejar
+sólo 1 lugar de administración, y ya luego en el resto se llaman a esas
+funciones».
+
+**Archivos:** `AccesosSection.jsx`, `AforoSection.jsx`, `MapaSection.jsx`,
+`components/aforo/`, `StandsTab.jsx`, `agenda/SessionForm.jsx`,
+`routes/clientes.js`, `routes/networking.js`, `routes/agenda.js`,
+`lib/aforoZonas.js`.
+
+> **No se puede correr en paralelo con el FRENTE C ni con las Fases 1-4 del
+> Camino unitario: toca los mismos archivos.** Este frente es su continuación
+> natural, y **reemplaza a C3** (ver más abajo).
+
+### El diagnóstico, medido
+
+Una zona es lo único del evento que aparece en cuatro pantallas y no se puede
+administrar en ninguna. Hoy:
+
+| Qué de la zona | Dónde se hace | Dirección |
+|---|---|---|
+| Crearla, nombrarla, ponerle aforo | `AccesosSection.jsx:105-164`, mezclada con las puertas | — |
+| Editar nombre y aforo **otra vez** | `MapaSection.jsx:384-393`, segundo camino de escritura | — |
+| Colocarla en el plano | `MapaSection.jsx` | — |
+| Ver quién hay dentro, tomar reporte | `AforoSection.jsx` | — |
+| Qué actividades ocurren en ella | `SessionForm.jsx:181-194` | **el sub-evento elige su zona** |
+| Qué stands están en ella | `StandsTab.jsx:209-227` | **el stand elige su zona** |
+| Por qué puerta se entra | *no existe la relación* | — |
+
+Las dos últimas filas son el corazón del problema: **todas las relaciones de
+una zona se establecen desde el otro lado**. Se puede decir «esta charla ocurre
+en la Zona Gamer», pero estando en la Zona Gamer no se puede decir «aquí ocurre
+esta charla». Para armar una zona hay que recorrer cuatro pantallas, y en tres
+de ellas la zona es un desplegable dentro del formulario de otra cosa.
+
+### La buena noticia: el backend ya está
+
+`GET /:eventoId/mapa/vivo` (`routes/clientes.js:735`) **ya devuelve en una sola
+llamada** las zonas con su ocupación viva (`ocupacion()`), su agenda
+(`agendaPorZona()`), sus stands (`standsPorZona()`), las puertas con su conteo
+y las sesiones con inscritos. Es exactamente el modelo de datos que necesita un
+centro de mando, y hoy sólo lo consume `AforoSection.jsx:63`.
+
+Por eso las fases 1 y 2 de abajo **no necesitan backend nuevo**: son montar una
+pantalla sobre datos que ya viajan.
+
+### Fase 0 · Cerrar el segundo camino de escritura — ✅ Hecho el 2026-09-02
+
+- `MapaSection.jsx` ya no edita `nombre` ni `aforo_max`: se queda con color y
+  posición, y muestra el nombre con una nota que apunta a Accesos e ingresos —
+  **el mismo trato que ya recibía «puerta»** en ese archivo. Sólo hubo que
+  aplicarle a zona lo que ya se le aplicaba a puerta.
+- Fuera el flag `zonasTocadas`, la función `editarZona`, la rama
+  `parche.zonas` y el prop `onZona`. `zonas` pasó de `useState` a `useMemo`:
+  **si no es editable, no es estado.** Un solo camino de escritura.
+- **No se hizo un `<SelectorZona>`**, y conviene explicar por qué: los tres
+  `onChange` son distintos **a propósito** y está documentado en cada uno (en
+  sub-eventos elegir zona rellena también `ubicacion`; en stands
+  deliberadamente NO, porque «A-12» es la etiqueta del puesto y no dónde está).
+  Un componente único habría tenido que aceptar tres comportamientos por
+  parámetro, que es más enredo que las tres copias.
+  Lo que sí se repetía era el **filtro** y la **etiqueta**, y eso vive ahora en
+  `src/lib/zonas.js` (`zonasDelEvento`, `etiquetaZona`) — con el mismo nombre
+  que el helper del backend (`lib/aforoZonas.js`), que es el mismo concepto.
+  De paso arregla el bug real: `CheckinTab` leía `page_json.zonas` **crudo**,
+  así que una zona recién creada y aún sin nombre salía como opción en blanco.
+
+Verificado: `eslint` y `build` limpios, y las 7 pruebas del widget en verde.
+
+### Fase 1 · La sección, en sólo lectura — ✅ Hecho el 2026-09-02
+
+Pestaña nueva **«Zonas de interés»** en *Espacio del evento*
+(`src/pages/events/workspace/espacio/ZonasSection.jsx`), entre «Accesos e
+ingresos» y «Aforo por zonas», con el mismo permiso que el aforo (`checkin`):
+se mira mientras se trabaja el evento, no es configuración.
+
+- **Lista:** cada zona con su aforo en vivo, barra de ocupación, cuántas
+  actividades y cuántos stands tiene, y un aviso si no está colocada en el
+  plano. **Una zona sin nada conectado se ve de un golpe** — que era lo que
+  no se podía ver sin recorrer tres pantallas.
+- **Detalle:** es **el mismo `DetalleMarcador`** del tablero de aforo, reusado
+  tal cual (`sel={\`zona:${id}\`}`). Ya traía ocupación, entradas, salidas,
+  programación y stands. Hacer una cuarta ficha de zona habría sido el
+  problema que este frente viene a resolver.
+- **La lista manda sobre el endpoint:** `mapa/vivo` sólo devuelve zonas con
+  movimiento, así que una zona recién creada no aparecería y parecería no
+  existir. Se cruza con `zonasDelEvento(evento)` y las que no tienen datos
+  salen en ceros.
+
+Sin backend nuevo: una sola llamada a `mapa/vivo`, que ya devolvía todo esto y
+hasta ahora sólo consumía el tablero de aforo.
+
+**Desviación respecto a lo planeado, a propósito:** este apartado decía que el
+detalle llevaría también el histórico (curva del día, estancia media). No se
+hizo: eso ya está pintado en el Reporte de «Aforo por zonas», y copiarlo aquí
+habría sido duplicar. La ficha enlaza a las cinco pantallas donde se actúa
+sobre la zona (editar, colocar, operar, programar una actividad, montar un
+stand) en vez de reimplementarlas.
+
+Verificado: `eslint` y `build` limpios. **No se probó en navegador con datos
+reales** — este entorno no tiene credenciales de Supabase, así que la app no
+arranca con datos. Queda pendiente mirarla contra un evento de verdad.
+
+### Fase 2 · Mover el CRUD de zonas aquí — ✅ Hecho el 2026-09-02
+
+**Éste es el «1 lugar de administración» del pedido.** Crear, renombrar,
+cambiar aforo y borrar zonas ya vive en «Zonas de interés».
+
+- `AccesosSection.jsx` se quedó con las puertas, que es lo que su nombre dice.
+  Fuera: el estado `zonas`, `zonasGuardadas`, `limpiarZonas`, `setZona`,
+  `agregarZona`, `quitarZona`, `guardarZonas`, `zonasSucio`, `guardandoZonas`,
+  `zonasEnMapa`, `sinUbicar` y el fetch de `aforoZonas`. En su sitio queda un
+  enlace a la sección nueva, y sólo el enlace.
+- **De paso murió una tercera copia** de la barra de ocupación: el recuadro
+  «Ocupación ahora» de `AccesosSection` repintaba lo que ya pinta el tablero de
+  aforo y ahora también la lista de zonas (§3.6).
+- **El permiso, que era la trampa.** La pestaña se abre con `checkin` (mirar la
+  zona es parte de trabajar el evento), pero escribir `page_json` lo reserva el
+  backend a `editar_pagina_publica` o al owner (`routes/eventos.js`, el PATCH).
+  Mover el alta sin más habría dado a cualquier staff de puerta unos botones
+  que devuelven 403. Se resolvió pasando `permisos` a `Contenido` en
+  `EventWorkspace.jsx` y calculando `puedeEditarSitio`: el alta sólo se dibuja
+  si de verdad se puede guardar.
+- **Borrar ahora pregunta, y dice qué se lleva por delante**: cuánta gente hay
+  dentro en este momento, cuántas actividades quedan sin zona, cuántos stands
+  sin ubicar y si su marcador quedará huérfano en el plano. Antes se borraba de
+  inmediato sin avisar de nada de eso.
+- Al guardar se llama a `reload()` del workspace, porque el selector de zona
+  del Calendario y el de Stands leen `evento.page_json`, no la lista local.
+- **No hizo falta `REUBICADAS`**: `espacio/accesos` sigue existiendo (las
+  puertas) y la pestaña de zonas es nueva, así que ninguna dirección vieja
+  apunta a ella.
+- Se corrigieron los seis textos que seguían mandando a «Accesos e ingresos»
+  para editar zonas (`MapaSection`, `AforoSection`, `lib/zonas.js`).
+
+Verificado: `eslint` y `build` limpios.
+
+### Fase 3 · Las relaciones, en dirección inversa — ✅ Hecho el 2026-09-02
+
+**Esto era el corazón del pedido.** Desde la zona ya se pueden colgar y
+descolgar actividades y stands: la dirección que no existía.
+
+- **Sin backend nuevo.** Los `PATCH` que ya había aceptan `zona_id`
+  (`routes/agenda.js:218` lo tiene en su lista `allowed`;
+  `routes/networking.js:513` además lo valida con `zonaInvalida`). Se manda una
+  petición por ítem. No se hizo endpoint en lote: para un puñado de ítems no
+  hace falta, y añadir una ruta nueva es añadir superficie de permisos. Si
+  algún día hay que asignar cincuenta de golpe, ahí sí.
+- **Un solo componente `<Colgar>` para los dos casos**, porque son el mismo
+  problema: una lista de lo que ya está y un desplegable con lo que se puede
+  añadir. Asignar y desasignar son la misma llamada con `zona_id` a `null`.
+- **El desplegable no esconde lo que está en otra zona**, lo marca «en otra
+  zona». Mover una charla de la Sala A a la Sala B es normal, y ocultarla
+  obligaría a ir a buscarla al Calendario — es decir, a lo de antes.
+- **Hacía falta pedir las listas completas**: `mapa/vivo` sólo devuelve la
+  agenda que está puesta en el plano y los stands que YA tienen zona. Para
+  asignar hay que ver también lo que no está en ninguna parte, así que se
+  piden `sessions` y `expositores` aparte — y sólo a quien tiene el permiso,
+  para no gastar la petición.
+- Los dos formularios de siempre (`SessionForm`, `StandsTab`) **se quedaron
+  igual**: elegir la zona mientras creas una charla es cómodo. Lo que cambia
+  es que ya no es la única dirección posible.
+
+**Los tres permisos, que era la parte delicada.** Cada cosa que se cambia
+desde esta pantalla vive en una tabla distinta y el backend pide un permiso
+distinto:
+
+| Qué se cambia | Dónde | Permiso |
+|---|---|---|
+| La zona | `page_json` | `editar_pagina_publica` |
+| La actividad | `agenda_sessions.zona_id` | `gestionar_agenda` \| `editar_evento` |
+| El stand | `networking_expositores.zona_id` | `gestionar_expositores` \| `editar_evento` |
+
+Se comprueban por separado (`puedeCon`) y no con una bandera única: juntarlas
+obligaría a exigir el permiso más alto de los tres para hacer lo más barato.
+
+Verificado: `eslint` y `build` limpios.
+
+### Fase 4 · Zona ↔ puerta, la relación que falta — ✅ Hecho el 2026-09-02
+
+Era la única relación de la zona que **no existía**: `page_json.accesos` y
+`page_json.zonas` eran dos listas sin un solo campo cruzado, así que la
+pregunta de quien está delante del plano —«¿por dónde se entra a la tarima?»—
+no tenía respuesta en ninguna pantalla.
+
+- **Sin migración y sin backend.** `page_json.accesos` gana `zona_id`
+  (`limpiarAccesos` lo arrastra ahora), y el `PATCH` ya mezcla `page_json` por
+  clave desde la 0064.
+- **Se asigna desde la puerta**, en «Accesos e ingresos», y esta vez a
+  propósito: una puerta da a UNA zona, así que su dueño natural es la puerta.
+  Lo que faltaba no era otro formulario, era poder leerlo desde el otro lado.
+  El desplegable usa el `zonasDelEvento`/`etiquetaZona` de la fase 0 — cuarto
+  consumidor del helper, ninguna copia nueva del filtro.
+- **Es opcional**, y el valor por defecto lo dice: «Al recinto en general». La
+  mayoría de las puertas no dan a una zona concreta.
+- **La zona lo lee de la configuración, no de `mapa/vivo`.** Ese endpoint sólo
+  devuelve las puertas COLOCADAS en el plano —las necesita para dibujarlas— y
+  una puerta sin marcador sigue siendo la puerta por la que se entra. El
+  conteo de ingresos se pega desde lo vivo cuando lo hay, y cuando no hay se
+  omite: `null` no es `0`, y enseñar «0 ingresos» en una puerta que nadie ha
+  medido sería mentir.
+
+**Lo que NO se hizo:** el conteo por puerta no alimenta la ocupación de la
+zona. Es dato mostrado al lado, no aritmética nueva — cambiar cómo se calcula
+el aforo no lo pidió nadie y es la parte que no conviene tocar sin necesidad.
+
+### Fase 5 · El marcador compartido
+
+Lo que la Fase 4 del Camino unitario dejó anotado como «su propia sesión»
+(§3.2 de la auditoría): un `<MarcadorMapa tipo color valor label modo>`
+compartido por las tres implementaciones de mapa, que hoy copian las mismas
+80-120 líneas cada una. **Va al final a propósito:** es refactor sin función
+nueva, y es el único paso que puede romper las tres pantallas a la vez.
+
+### Qué NO hace este frente
+
+- **No fusiona** el editor del mapa, el tablero en vivo y el mapa público en
+  una sola pantalla. Son tres contextos de permisos distintos (organizador
+  editando, organizador operando, público mirando) y deben seguir separados.
+  Lo que se comparte son los datos y el marcador, no la pantalla.
+- **No toca** `ticket_types.zonas_acceso`. Pese al nombre, no tiene nada que
+  ver con las zonas del recinto (§3.7).
+
+### C3 queda reemplazado
+
+C3 («Nutrir Estancia y puntos») se escribió cuando no existía dónde colgar esos
+datos. Ya existe: `aforo_zonas_estancia` se usa desde
+`GET /zonas/reporte` (`routes/clientes.js:846`) y se pinta en
+`AforoSection.jsx:497-498` con sus tramos medidos para dar contexto. Lo que
+faltaba —un sitio donde leerlo junto al resto de la zona— **es la Fase 1 de
+este frente**. No hace falta una tarea aparte.
+
+---
+
+## FRENTE J · Deuda de la auditoría del 2026-09-02
+
+Tareas sueltas que salieron de la sección 3, ordenadas por lo que cuesta contra
+lo que arregla. **No comparten archivos con el Frente I** salvo donde se
+indica, así que se pueden tomar en paralelo.
+
+### ✅ Hecho el 2026-09-02
+
+1. **El buzón de sugerencias ya no devuelve 404.** Faltaba la ruta, no el
+   segmento de la URL: se escribió `POST`/`GET /me/sugerencias` contra
+   `sugerencias_catalogo`, con 9 pruebas (§3.3). **401 tests en verde.**
+2. **Cabeceras de migración corregidas**: cinco decían «pendiente» estando
+   aplicadas; las dos que sí lo están quedaron anotadas con la medición (§3.5).
+
+### Pendiente de una decisión tuya
+
+0. **Aplicar `0081` y `0083`**, o dejarlas. No las apliqué a propósito: `0081`
+   es `DROP COLUMN` sobre datos de persona (irreversible) y `0083` reescribe
+   `page_json` de los 33 eventos. Ver §3.5 para lo que se midió de cada una.
+
+### Barato y con valor claro
+
+3. **Un solo alta de expositor.** El caso más grave de la auditoría: dos
+   pantallas, dos endpoints, la misma tabla, y desde «Rueda de negocios» el
+   expositor **no se puede editar** porque esa ruta no tiene `PATCH` (§3.1).
+   Que `NetworkingTab` use el endpoint de Stands, o que el suyo gane los
+   campos y el `PATCH` que le faltan. **Toca `routes/networking.js`, igual que
+   el Frente I fase 3 — coordinar.**
+4. **Conectar `oauth_barrer()`** a alguno de los `cron-*.js` que ya corren, o
+   documentar que sigue pendiente. Hoy `oauth_codes`/`oauth_tokens` crecen sin
+   límite (§3.4).
+5. **Adoptar `StatCard.jsx`** donde el layout ya coincide, y añadir un
+   `<BarraProgreso>` para las 7 copias a mano (§3.4, §3.6). Empezar por dos o
+   tres pantallas, no por las 18 de golpe.
+6. **Limpieza mecánica:** los 10 comentarios huérfanos, los 11 imports sin
+   usar, los 11 exports sin consumidor y el estado no leído de
+   `AuthPage.jsx:440` (§3.6). Un solo PR, sin decisiones.
+
+### Decisiones de producto antes de programar
+
+7. **Editor de plantillas de correo:** seis endpoints
+   (`routes/emails.js:160-347`) sin UI. ¿Se conecta o se borra? (§3.4)
+8. **Bolsa y cuotas de expositores** (`routes/networking.js:341,361,392`):
+   misma pregunta (§3.4).
+9. **`PATCH` de franja de expositor** (`routes/expositor.js:328`): ¿falta el
+   botón «editar horario» o sobra el endpoint? (§3.4)
+10. **`ARCHIVOS_PROPIOS`**: la bandera existe y el frontend no tiene ningún
+    consumidor, así que encenderla hoy no cambia nada. Decidir si se completa
+    o se retira. Y meter las dos banderas en los `.env.example`, donde hoy no
+    están (§3.4).
+
+### Anotado, sin tarea
+
+11. `modules/aforo/consultas.js` está muerto **a propósito** (es la traducción
+    a MySQL del Frente A). No tocar.
+12. Los «exports de más» de `lib/` en los dos repos —constantes internas que se
+    exportan sin consumidor externo— son ruido de bajo riesgo. Dejarlos.
+
+---
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
@@ -593,14 +1282,33 @@ en JavaScript dentro del repo del backend. Eso es el grueso, y no toca cPanel.
 
 Más los frentes **B, C, D, E** enteros, que son la plataforma.
 
-Orden por lo que rinde antes:
+Orden por lo que rinde antes — **reordenado el 2026-09-02**, porque casi todo
+lo de la lista vieja (E, C1, C4, C2, D, B) resultó estar hecho ya:
 
-1. **E** — la barra fija. Se ve en el pitch.
-2. **C1 + C4** — la reorganización. Es la que arregla el problema de fondo:
-   funciones repetidas en ventanas distintas.
-3. **C2** — enlazar zona, calendario, mapa y aforo. Casi todo está hecho.
-4. **D** — preguntas condicionales y prellenado por cédula.
-5. **B** — editor y exportación, empezando por el contrato de bloques.
+1. ~~**J.1 y J.2**~~ — ✅ el buzón que devolvía 404 (faltaba la ruta) y las
+   cabeceras de migración. Hecho el 2026-09-02.
+2. ~~**I fase 0**~~ — ✅ cerrado el segundo camino de escritura de zonas y
+   compartido el filtro en `lib/zonas.js`.
+3. ~~**I fases 1-2**~~ — ✅ la sección «Zonas de interés» y el CRUD movido ahí.
+4. ~~**I fases 3-4**~~ — ✅ las relaciones en dirección inversa y zona ↔ puerta.
+5. **J.3** — un solo alta de expositor. **El caso más grave de la auditoría** y
+   lo siguiente que rinde: dos pantallas, dos endpoints, la misma tabla, y
+   desde «Rueda de negocios» el expositor no se puede editar.
+6. **J.4-J.6** — `oauth_barrer`, `StatCard`/`BarraProgreso`, limpieza mecánica.
+7. **I fase 5** — el marcador compartido. Refactor sin función nueva, al final
+   y a propósito: es el único paso que puede romper las tres pantallas de mapa
+   a la vez, y conviene hacerlo con las fases 1-4 ya probadas en navegador.
+
+**Antes de seguir, dos cosas esperan decisión:** aplicar (o no) las migraciones
+`0081` y `0083` —§3.5— y mirar «Zonas de interés» contra un evento real, que
+en el entorno donde se escribió no se pudo por falta de credenciales.
+
+Los frentes **B, C, D, E** ya están cerrados (ver sus marcas ✅). Lo que queda
+de C vive en el Camino unitario y en el Frente I.
+
+**Regla de reparto para los frentes nuevos:** I y J **no** se pueden tomar a la
+vez sin coordinar, porque J.3 toca `routes/networking.js`, que también toca la
+fase 3 de I. Todo lo demás de J es independiente.
 
 ### Lo que no depende de nosotros
 
