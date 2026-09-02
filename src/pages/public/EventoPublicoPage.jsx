@@ -1113,6 +1113,14 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   );
 }
 
+/* Los formatos de descarga de la boleta, en el orden en que se eligen: el que
+   casi todo el mundo quiere primero. */
+const FORMATOS_BOLETA = [
+  { id: 'pdf',     titulo: 'Boleta en PDF',        pista: 'Para imprimir o guardar. Lleva el QR dentro.' },
+  { id: 'tarjeta', titulo: 'Tarjeta (imagen)',     pista: 'Para la galería del móvil y enseñarla en la puerta.' },
+  { id: 'qr',      titulo: 'Sólo el QR (imagen)',  pista: 'Para reenviarlo por WhatsApp.' },
+];
+
 export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose, embebido = false }) {
   const qrValue = ticket.qr_token || ticket.codigo;
   const [bajando, setBajando] = useState(false);
@@ -1131,8 +1139,12 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
   const [inscritas, setInscritas] = useState(new Set());
   /* Dos vistas dentro de la misma confirmación: la boleta, y la lista de
      sub-eventos. Se pidió que «Listo» pasara a «Ver sub-eventos» y que apuntarse
-     a varios fuera el paso siguiente, no una tarjeta al margen. */
-  const [vista, setVista] = useState('boleta');   // 'boleta' | 'subeventos'
+     a varios fuera el paso siguiente, no una tarjeta al margen.
+
+     Y una tercera, la despedida: «Listo» devolvía a la página de boletas —con
+     «Reservar» otra vez delante de quien acababa de reservar—, así que el
+     flujo no terminaba, se repetía. Ahora cierra con un cierre. */
+  const [vista, setVista] = useState('boleta');   // 'boleta' | 'subeventos' | 'cierre'
   const [apuntando, setApuntando] = useState(null); // id del sub-evento en curso
 
   useEffect(() => {
@@ -1187,6 +1199,14 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
     } finally { setBajandoTarjeta(false); }
   };
 
+  /* Los tres formatos detrás del único «Descargar» (M6). El texto de abajo es
+     para qué sirve cada uno, que es lo que de verdad se está eligiendo: el PDF
+     para imprimir o guardar, la tarjeta para la galería del móvil, el QR
+     suelto para reenviarlo por WhatsApp. */
+  const [menuDescarga, setMenuDescarga] = useState(false);
+  const ocupado = bajando || bajandoTarjeta;
+  const descargasPorFormato = { pdf: descargarPdf, tarjeta: descargarTarjeta, qr: descargarQr };
+
   const pendientes = subeventos.filter(s => !inscritas.has(s.id));
 
   /* Apuntar sin abrir formulario: para los sub-eventos que no piden datos, la
@@ -1204,6 +1224,15 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
       alert(e.response?.data?.error || e.message || 'No se pudo apuntar. Puedes intentarlo desde la agenda del evento.');
     } finally { setApuntando(null); }
   };
+
+  /* La fecha para la despedida. Sin hora: lo que hay que recordar al salir es
+     el día. Si el evento no tiene fecha, la frase se queda sin ella en vez de
+     decir «Invalid Date». */
+  const fechaEvento = useMemo(() => {
+    const d = evento.fecha_inicio ? new Date(evento.fecha_inicio) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  }, [evento.fecha_inicio]);
 
   const redirectUrl = checkout.redirect_url;
   /* A dónde vuelve la persona para ver su boleta. Vacío → la página /mi-ticket de
@@ -1227,7 +1256,36 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
     <ModalShell onClose={onClose} embebido={embebido}
       ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-md')}
       alto={altoModal(checkout.modal_alto)}>
-      {vista === 'subeventos' ? (
+      {vista === 'cierre' ? (
+        /* M8 · El cierre. Antes «Listo» devolvía a la lista de boletas, con
+           «Reservar» delante de alguien que ya tenía la suya: el flujo no
+           acababa, daba la vuelta. Esto se despide, dice cuándo es el evento y
+           se va solo. */
+        <div className="text-center py-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-success/15 border border-success/30 mb-5">
+            <svg className="w-8 h-8 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight mb-3">
+            {checkout.cierre_titulo?.trim() || '¡Gracias por inscribirte!'}
+          </h2>
+          <p className="text-sm text-text-2 leading-relaxed max-w-sm mx-auto mb-2">
+            {checkout.cierre_texto?.trim()
+              || (fechaEvento ? `Te esperamos el ${fechaEvento}.` : 'Te esperamos en el evento.')}
+          </p>
+          <p className="text-xs text-text-3 mb-6">
+            Tu boleta queda guardada en <span className="font-mono text-text-2">{ticket.codigo}</span>.
+            {' '}Puedes volver a verla cuando quieras en{' '}
+            <a href={urlBoleta} {...(enlacePropio ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
+              className="text-primary-light hover:underline break-all">{textoBoleta}</a>.
+          </p>
+          <button onClick={onClose}
+            className="px-8 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+            Cerrar
+          </button>
+        </div>
+      ) : vista === 'subeventos' ? (
         <div className="py-2">
           <button type="button" onClick={() => setVista('boleta')}
             className="text-xs text-text-3 hover:text-text-1 mb-3 inline-flex items-center gap-1 transition-colors">
@@ -1243,9 +1301,22 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
               const ya = inscritas.has(s.id);
               const cargando = apuntando === s.id;
               return (
-                <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-border bg-surface/60 px-4 py-3">
+                <li key={s.id} className="flex items-start gap-3 rounded-2xl border border-border bg-surface/60 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-text-1">{s.titulo}</p>
+                    {/* M7 · Antes sólo salía «título · fecha · cupos · sala»: no
+                        había con qué decidir si apuntarse. La descripción y
+                        quién la da ya venían en la respuesta, sin pintar. */}
+                    {s.descripcion?.trim() && (
+                      <p className="text-xs text-text-2 mt-1 leading-relaxed line-clamp-3">{s.descripcion.trim()}</p>
+                    )}
+                    {(s.speaker?.nombre || s.track) && (
+                      <p className="text-[11px] text-text-2 mt-1">
+                        {s.speaker?.nombre && <>Con <span className="font-medium text-text-1">{s.speaker.nombre}</span>{s.speaker.empresa ? ` · ${s.speaker.empresa}` : ''}</>}
+                        {s.speaker?.nombre && s.track ? ' · ' : ''}
+                        {s.track}
+                      </p>
+                    )}
                     <p className="text-[11px] text-text-3 mt-0.5">
                       {s.inicio ? new Date(s.inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                       {s.libres != null ? ` · ${s.libres} cupo${s.libres === 1 ? '' : 's'}` : ''}
@@ -1272,7 +1343,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
             })}
           </ul>
           <div className="flex items-center justify-end gap-2 mt-6">
-            <button onClick={onClose} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+            <button onClick={() => setVista('cierre')} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
               Listo
             </button>
           </div>
@@ -1314,7 +1385,11 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           <button type="button" onClick={() => setVista('subeventos')}
             className="w-full flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/5 hover:bg-accent/10 p-4 mb-5 text-left transition-colors">
             <div className="flex-1 min-w-0">
-              <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-0.5">Falta un paso</p>
+              {/* M5 · Decía «Falta un paso» con el registro ya hecho. No falta
+                  nada: esto es algo que se puede hacer, no un trámite a medias. */}
+              <p className="text-xs uppercase tracking-widest text-accent-light font-semibold mb-0.5">
+                Si quieres seguir explorando el evento
+              </p>
               <p className="text-sm text-text-2">
                 {pendientes.length === 1
                   ? 'Hay 1 actividad que se apunta aparte y tiene cupo.'
@@ -1326,29 +1401,39 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           </button>
         )}
 
+        {/* M6 · Un solo «Descargar». Eran tres botones —PDF, QR, tarjeta— para
+            el mismo objeto, y obligaban a elegir formato antes de saber que
+            había uno. Ahora se pulsa «Descargar» y se elige el formato, que es
+            el orden en que se piensa. */}
         <div className="flex items-center justify-center gap-2 flex-wrap">
-          <button onClick={descargarPdf} disabled={bajando}
-            className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
-            {bajando ? 'Generando…' : 'Descargar boleta (PDF)'}
-          </button>
-          {/* El QR suelto, además del PDF. Es lo que la gente reenvía por
-              WhatsApp y lo que enseña en la puerta sin abrir un lector de PDF
-              con el móvil al 4% de batería. */}
-          <button onClick={descargarQr}
-            className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all">
-            Descargar QR
-          </button>
-          <button onClick={descargarTarjeta} disabled={bajandoTarjeta}
-            className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60">
-            {bajandoTarjeta ? 'Generando…' : 'Descargar tarjeta'}
-          </button>
+          <div className="relative">
+            <button onClick={() => setMenuDescarga(v => !v)} disabled={ocupado}
+              aria-expanded={menuDescarga} aria-haspopup="menu"
+              className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60 inline-flex items-center gap-2">
+              {ocupado ? 'Generando…' : 'Descargar'}
+              <span aria-hidden className="text-xs">▾</span>
+            </button>
+            {menuDescarga && !ocupado && (
+              <div role="menu"
+                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-20 w-60 rounded-2xl border border-border-2 bg-surface shadow-xl overflow-hidden text-left">
+                {FORMATOS_BOLETA.map(f => (
+                  <button key={f.id} role="menuitem" type="button"
+                    onClick={() => { setMenuDescarga(false); descargasPorFormato[f.id](); }}
+                    className="w-full px-4 py-3 hover:bg-surface-2 transition-colors block">
+                    <span className="block text-sm font-semibold text-text-1">{f.titulo}</span>
+                    <span className="block text-[11px] text-text-3 mt-0.5">{f.pista}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {pendientes.length > 0 && (
             <button onClick={() => setVista('subeventos')}
               className="px-6 py-3 rounded-full bg-accent text-white hover:brightness-110 text-sm font-semibold transition-all">
               Ver sub-eventos
             </button>
           )}
-          <button onClick={onClose}
+          <button onClick={() => setVista('cierre')}
             className={`px-6 py-3 rounded-full text-sm font-semibold transition-all ${pendientes.length > 0
               ? 'border border-border-2 text-text-1 hover:bg-surface-2'
               : 'bg-text-1 text-bg hover:bg-white'}`}>

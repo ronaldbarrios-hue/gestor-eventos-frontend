@@ -240,6 +240,10 @@ export default function EmbedPage() {
 
   const Preview = (Especial || bloque.type === 'lienzo') ? null : BLOCKS[bloque.type].Preview;
 
+  /* Mientras se está registrando —formulario o confirmación—, lo de debajo
+     sobra: ya eligió. */
+  const registroAbierto = !!(reservaTipo || reservaOk);
+
   return (
     <BrandingProvider organizador={organizador}>
       <div ref={rootRef} data-gestek-embed className="p-4">
@@ -254,6 +258,16 @@ export default function EmbedPage() {
             [data-gestek-embed] .font-display { font-family: ${fuente} !important; }
           `}</style>
         )}
+        {/* M4 · «BOLETAS DISPONIBLES · Reservar» se quedaba debajo del
+            formulario y seguía ahí después de confirmar, delante de alguien que
+            ya tenía su boleta. Embebido no hay fondo oscuro que lo tape —el
+            modal va en el flujo del documento—, así que hay que apartarlo.
+
+            `hidden` y no desmontar: `RegistroEmbed` lleva un pestillo en un
+            `useRef` para abrir el formulario una sola vez cuando hay una única
+            boleta. Desmontarlo reiniciaría ese pestillo y cerrar el formulario
+            volvería a abrirlo, para siempre. */}
+        <div hidden={registroAbierto}>
         {Especial ? (
           <Especial evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />
         ) : bloque.type === 'lienzo' ? (
@@ -270,6 +284,7 @@ export default function EmbedPage() {
             onWaitlist={abrirPaginaCompleta}
           />
         )}
+        </div>
         {/* Sin "Eventos gestionados con GESTEK".
 
             Esto se incrusta en la web de otro. Ahí nuestra marca no pinta

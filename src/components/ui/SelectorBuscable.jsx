@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /* GESTEK — Elegir de una lista larga escribiendo.
 
@@ -52,6 +53,47 @@ export default function SelectorBuscable({
   const [abierto, setAbierto] = useState(false);
   const [resaltada, setResaltada] = useState(0);
   const caja = useRef(null);
+  const campo = useRef(null);
+  const lista = useRef(null);
+
+  /* M1 · La lista se pintaba `absolute` dentro del contenedor del modal, que
+     recorta a sus hijos con `overflow`: en «Comuna» se veían cinco opciones y
+     al resto no había forma de llegar. Ahora va a `document.body` por portal y
+     se coloca en coordenadas de pantalla, así que no la recorta nadie.
+
+     Se mide en cada apertura y en cada scroll/resize: en flujo normal
+     —el registro embebido no es `fixed`— el campo se mueve con la página, y
+     una lista clavada donde estaba el campo hace un segundo es peor que una
+     recortada. */
+  const [pos, setPos] = useState(null);
+  const medir = useCallback(() => {
+    const el = campo.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const hueco = window.innerHeight - r.bottom;
+    /* Hacia arriba sólo si abajo no cabe y arriba cabe más: si no, el
+        desplegable salta de sitio en una pantalla pequeña por 10px. */
+    const arriba = hueco < 220 && r.top > hueco;
+    setPos({
+      left: r.left,
+      width: r.width,
+      alto: Math.max(140, Math.min(256, (arriba ? r.top : hueco) - 12)),
+      ...(arriba ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 }),
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!abierto) { setPos(null); return; }
+    medir();
+    /* `true` para capturar también el scroll de los contenedores internos —el
+       del modal es justamente uno de ellos—, que no burbujea. */
+    window.addEventListener('scroll', medir, true);
+    window.addEventListener('resize', medir);
+    return () => {
+      window.removeEventListener('scroll', medir, true);
+      window.removeEventListener('resize', medir);
+    };
+  }, [abierto, medir]);
 
   const filtradas = useMemo(
     () => filtrarOpciones(opciones, abierto ? texto : ''),
@@ -62,7 +104,12 @@ export default function SelectorBuscable({
      resto del formulario y tapa la pregunta siguiente. */
   useEffect(() => {
     if (!abierto) return;
-    const fuera = (e) => { if (caja.current && !caja.current.contains(e.target)) cerrar(); };
+    /* La lista ya no es hija de `caja` —vive en el portal—, así que pinchar una
+       opción contaba como «fuera» y cerraba antes de que llegara el clic. */
+    const fuera = (e) => {
+      if (lista.current?.contains(e.target)) return;
+      if (caja.current && !caja.current.contains(e.target)) cerrar();
+    };
     document.addEventListener('mousedown', fuera);
     return () => document.removeEventListener('mousedown', fuera);
   });
@@ -106,6 +153,7 @@ export default function SelectorBuscable({
         onChange={(e) => { setTexto(e.target.value); setAbierto(true); setResaltada(0); }}
         onFocus={() => setAbierto(true)}
         onKeyDown={teclado}
+        ref={campo}
         className="input-form bg-surface-2 w-full"
       />
 
@@ -125,9 +173,13 @@ export default function SelectorBuscable({
           aria-label="Quitar la selección">×</button>
       )}
 
-      {abierto && (
-        <ul role="listbox"
-          className="absolute z-30 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-2xl
+      {abierto && pos && createPortal(
+        <ul role="listbox" ref={lista}
+          style={{
+            position: 'fixed', left: pos.left, width: pos.width, maxHeight: pos.alto,
+            ...(pos.top != null ? { top: pos.top } : { bottom: pos.bottom }),
+          }}
+          className="z-[100] overflow-y-auto rounded-2xl
                      border border-border-2 bg-surface shadow-2xl py-1">
           {filtradas.length === 0 ? (
             <li className="px-4 py-3 text-sm text-text-3">
@@ -145,7 +197,8 @@ export default function SelectorBuscable({
               </button>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body,
       )}
 
       {/* Cuántas hay: sin esto, una lista filtrada a tres resultados parece la
