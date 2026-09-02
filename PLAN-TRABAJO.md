@@ -352,9 +352,18 @@ mirar qué datos hay ya: `aforo_zonas_estancia` devuelve minutos promedio,
 máximo y cuántos tramos se midieron —ese último número está a propósito, para
 que el promedio se pueda leer con contexto— y no se está usando.
 
-### C4 · Un solo escáner · DECIDIDO
+### C4 · Un solo escáner — ✅ Hecho (verificado 2026-09-01)
 
-**El diagnóstico:** el problema no es que falten funciones. Es que la misma
+**Ya está construido por completo** (commit `e3f3e8f`, «Un solo escáner, y el
+aforo y los stands se van al Espacio del evento», 2026-08-29 — el mismo día
+en que se decidió, antes de que este documento se actualizara). `CheckinTab`
+(`src/pages/events/tabs/CheckinTab.jsx`) tiene los 5 modos —`checkin`,
+`reingreso`, `subevento`, `puntos`, `canjear`— con un único `QrScanner`
+compartido y un despachador que enruta cada resultado. `StandsTab` ya no
+escanea nada: quedó con `stands | pasaporte | motivos | historial`, la
+configuración previa al evento.
+
+Redacción original, para contexto — el diagnóstico que llevó a la decisión: el problema no es que falten funciones. Es que la misma
 función está repetida en varias ventanas, y quien la usa tiene que saber en
 cuál está.
 
