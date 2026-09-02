@@ -1,6 +1,6 @@
 /* Las zonas del evento, leídas igual en todas partes.
  *
- * Una zona vive en `page_json.zonas` y se administra en **Accesos e ingresos**,
+ * Una zona vive en `page_json.zonas` y se administra en **Zonas de interés**,
  * que es su único dueño. El resto de pantallas la consumen: el formulario de
  * sub-eventos, el de stands, el escáner, el mapa.
  *

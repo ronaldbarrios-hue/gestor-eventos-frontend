@@ -380,6 +380,7 @@ export default function EventWorkspace() {
             <div key={`${seccion?.id}-${tabActivo?.id}`} className="animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
               <ErrorBoundary key={`eb-${seccion?.id}-${tabActivo?.id}`} compact>
                 <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
+                  permisos={permisos}
                   onAnuncio={() => setBroadcastOpen(true)}
                   onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
                   onEliminar={eliminar}
@@ -404,7 +405,12 @@ export default function EventWorkspace() {
 /* `anunciosVersion` viaja como prop y no como variable suelta: es estado del
    componente de arriba, y aquí dentro no existía. Al abrir Comunicación →
    Anuncios se lanzaba un ReferenceError y la pestaña no se pintaba. */
-function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
+function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
+  /* Escribir en `page_json` pide `editar_pagina_publica` (o ser owner): lo
+     comprueba `routes/eventos.js` en el PATCH. Se calcula aquí para que una
+     pantalla que el staff SÍ puede abrir no le enseñe botones que van a
+     devolver 403. */
+  const puedeEditarSitio = soyOwner || (permisos || []).includes('editar_pagina_publica');
   if (!seccion || !tab) return null;
   if (tab.placeholder) return <PlaceholderTab title={tab.placeholder[0]} desc={tab.placeholder[1]} icon="spark" />;
 
@@ -439,7 +445,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
-    case 'espacio/zonas'            : return <ZonasSection evento={evento} />;
+    case 'espacio/zonas'            : return <ZonasSection evento={evento} puedeEditar={puedeEditarSitio} reload={reload} />;
     case 'espacio/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
     case 'espacio/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;

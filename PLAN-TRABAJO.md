@@ -870,15 +870,39 @@ Verificado: `eslint` y `build` limpios. **No se probó en navegador con datos
 reales** — este entorno no tiene credenciales de Supabase, así que la app no
 arranca con datos. Queda pendiente mirarla contra un evento de verdad.
 
-### Fase 2 · Mover el CRUD de zonas aquí
+### Fase 2 · Mover el CRUD de zonas aquí — ✅ Hecho el 2026-09-02
 
-- Crear, renombrar, cambiar aforo y borrar zonas pasa de `AccesosSection.jsx` a
-  la sección nueva. **Éste es el «1 lugar de administración» del pedido.**
-- `AccesosSection.jsx` se queda con las puertas, que es lo que su nombre dice.
-  Su enlace «Ponerla en el mapa →» (que ya existe) apunta ahora a la sección
-  nueva.
-- `REUBICADAS` (`EventWorkspace.jsx:180-191`) redirige las direcciones viejas,
-  mismo mecanismo que ya se usó para mover aforo, stands y accesos.
+**Éste es el «1 lugar de administración» del pedido.** Crear, renombrar,
+cambiar aforo y borrar zonas ya vive en «Zonas de interés».
+
+- `AccesosSection.jsx` se quedó con las puertas, que es lo que su nombre dice.
+  Fuera: el estado `zonas`, `zonasGuardadas`, `limpiarZonas`, `setZona`,
+  `agregarZona`, `quitarZona`, `guardarZonas`, `zonasSucio`, `guardandoZonas`,
+  `zonasEnMapa`, `sinUbicar` y el fetch de `aforoZonas`. En su sitio queda un
+  enlace a la sección nueva, y sólo el enlace.
+- **De paso murió una tercera copia** de la barra de ocupación: el recuadro
+  «Ocupación ahora» de `AccesosSection` repintaba lo que ya pinta el tablero de
+  aforo y ahora también la lista de zonas (§3.6).
+- **El permiso, que era la trampa.** La pestaña se abre con `checkin` (mirar la
+  zona es parte de trabajar el evento), pero escribir `page_json` lo reserva el
+  backend a `editar_pagina_publica` o al owner (`routes/eventos.js`, el PATCH).
+  Mover el alta sin más habría dado a cualquier staff de puerta unos botones
+  que devuelven 403. Se resolvió pasando `permisos` a `Contenido` en
+  `EventWorkspace.jsx` y calculando `puedeEditarSitio`: el alta sólo se dibuja
+  si de verdad se puede guardar.
+- **Borrar ahora pregunta, y dice qué se lleva por delante**: cuánta gente hay
+  dentro en este momento, cuántas actividades quedan sin zona, cuántos stands
+  sin ubicar y si su marcador quedará huérfano en el plano. Antes se borraba de
+  inmediato sin avisar de nada de eso.
+- Al guardar se llama a `reload()` del workspace, porque el selector de zona
+  del Calendario y el de Stands leen `evento.page_json`, no la lista local.
+- **No hizo falta `REUBICADAS`**: `espacio/accesos` sigue existiendo (las
+  puertas) y la pestaña de zonas es nueva, así que ninguna dirección vieja
+  apunta a ella.
+- Se corrigieron los seis textos que seguían mandando a «Accesos e ingresos»
+  para editar zonas (`MapaSection`, `AforoSection`, `lib/zonas.js`).
+
+Verificado: `eslint` y `build` limpios.
 
 ### Fase 3 · Las relaciones, en dirección inversa
 

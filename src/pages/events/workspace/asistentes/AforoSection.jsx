@@ -138,7 +138,7 @@ export default function AforoSection({ evento, soyOwner = true }) {
         <div className="rounded-3xl border border-dashed border-border bg-surface/40 px-6 py-14 text-center">
           <p className="text-sm text-text-2 mb-2">Todavía no hay zonas definidas.</p>
           <p className="text-xs text-text-3 max-w-md mx-auto">
-            Las zonas se crean en <b>Asistentes → Accesos e ingresos</b> (nombre y aforo máximo).
+            Las zonas se crean en <b>Espacio del evento → Zonas de interés</b> (nombre y aforo máximo).
             Después, en <b>Espacio del evento → Mapa</b>, se pueden colocar sobre el plano para ver la ocupación encima del recinto.
           </p>
         </div>

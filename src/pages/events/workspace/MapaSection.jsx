@@ -25,10 +25,10 @@ import { useSondeo } from '../../../hooks/useSondeo.js';
    el tablero en vivo el plano deja de ser un dibujo y pasa a ser el panel de
    control del recinto.
 
-   Las zonas ya existían (Asistentes → Accesos e ingresos), pero vivían en una
-   lista sin sitio: se sabía que la tarima llevaba 400 personas y no dónde
-   quedaba la tarima. Colocarlas aquí es lo que convierte el aforo en algo que
-   se puede leer de un vistazo y operar desde el plano.
+   Las zonas ya existían (hoy en Espacio del evento → Zonas de interés), pero
+   vivían en una lista sin sitio: se sabía que la tarima llevaba 400 personas y
+   no dónde quedaba la tarima. Colocarlas aquí es lo que convierte el aforo en
+   algo que se puede leer de un vistazo y operar desde el plano.
 
    Config en page_json.mapa; posiciones en % (0-100). El plano se muestra
    con la MISMA proporción (alto acotado) en el editor y en el landing. */
@@ -63,8 +63,9 @@ export default function MapaSection({ evento }) {
   const [pestana, setPestana] = useState('expositor'); // expositor | sesion | punto | zona
   const [selK, setSelK] = useState(null);              // marcador seleccionado (para editar)
   const [saving, setSaving] = useState(false);
-  /* Zonas y puertas se administran en Accesos e ingresos; aquí SÓLO se colocan
-     en el plano. Las dos igual, y por la misma razón.
+  /* Las zonas se administran en «Zonas de interés» y las puertas en «Accesos e
+     ingresos»; aquí SÓLO se colocan en el plano. Las dos igual, y por la misma
+     razón.
 
      Antes esta pantalla también editaba el nombre y el aforo de una zona, y
      los guardaba por su propio camino: dos formularios para lo mismo y dos
@@ -375,14 +376,14 @@ function EditorMarcador({ sel, expo, ses, zona, aforo, acceso, onChange, onQuita
       ) : sel.tipo === 'zona' ? (
         <div className="space-y-3">
           {!zona ? (
-            <p className="text-xs text-danger">Esta zona ya no existe (la borraron en Accesos e ingresos). Quítala del mapa.</p>
+            <p className="text-xs text-danger">Esta zona ya no existe (la borraron en Zonas de interés). Quítala del mapa.</p>
           ) : (<>
             <p className="text-sm font-medium text-text-1">
               {zona.nombre}
               {zona.aforo_max ? <span className="text-text-3 font-normal"> · aforo {zona.aforo_max}</span> : null}
             </p>
             <p className="text-xs text-text-3">
-              El nombre y el aforo máximo se editan en <b>Espacio del evento → Accesos e ingresos</b>, que es
+              El nombre y el aforo máximo se editan en <b>Espacio del evento → Zonas de interés</b>, que es
               donde viven las zonas. Aquí sólo se decide dónde queda en el plano.
             </p>
             <div>
@@ -486,15 +487,15 @@ function Paleta({ pestana, setPestana, expositores, sinExpo, sinSes, sinZona, si
         {pestana === 'zona' && (
           <div className="space-y-3">
             <p className="text-[11px] text-text-3">
-              Zonas de aforo: el marcador muestra cuánta gente hay dentro, en vivo. Las mismas de Accesos e ingresos.
+              Zonas de aforo: el marcador muestra cuánta gente hay dentro, en vivo. Las mismas de Zonas de interés.
             </p>
-            {/* Las zonas se crean en Espacio del evento → Accesos e ingresos, y
+            {/* Las zonas se crean en Espacio del evento → Zonas de interés, y
                sólo ahí: tener el alta también aquí eran dos formularios para la
                misma cosa, y uno de los dos siempre quedaba desactualizado. Este
                mapa sólo coloca zonas que ya existen — mismo trato que Puertas. */}
             {sinZona.length === 0 ? (
               <p className="text-xs text-text-3 px-1">
-                No hay zonas por colocar. Se crean en <b>Espacio del evento → Accesos e ingresos</b>.
+                No hay zonas por colocar. Se crean en <b>Espacio del evento → Zonas de interés</b>.
               </p>
             ) : (
               <div className="space-y-1.5">
