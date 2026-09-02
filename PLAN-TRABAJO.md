@@ -836,20 +836,39 @@ pantalla sobre datos que ya viajan.
 
 Verificado: `eslint` y `build` limpios, y las 7 pruebas del widget en verde.
 
-### Fase 1 · La sección, en sólo lectura
+### Fase 1 · La sección, en sólo lectura — ✅ Hecho el 2026-09-02
 
-Pestaña nueva **«Zonas de interés»** en *Espacio del evento*, alimentada por
-`mapa/vivo`. Maestro-detalle:
+Pestaña nueva **«Zonas de interés»** en *Espacio del evento*
+(`src/pages/events/workspace/espacio/ZonasSection.jsx`), entre «Accesos e
+ingresos» y «Aforo por zonas», con el mismo permiso que el aforo (`checkin`):
+se mira mientras se trabaja el evento, no es configuración.
 
-- **Lista:** cada zona con nombre, aforo, cuánta gente hay dentro ahora,
-  cuántas actividades tiene, cuántos stands, y si está colocada en el plano.
-  Una zona sin nada conectado se ve de un golpe — hoy no.
-- **Detalle (el centro de mando):** identidad, dónde está en el plano, qué pasa
-  aquí ahora y después, qué stands hay, ocupación viva, y el histórico
-  (curva del día, estancia media). Todo lo que hoy está repartido, junto.
+- **Lista:** cada zona con su aforo en vivo, barra de ocupación, cuántas
+  actividades y cuántos stands tiene, y un aviso si no está colocada en el
+  plano. **Una zona sin nada conectado se ve de un golpe** — que era lo que
+  no se podía ver sin recorrer tres pantallas.
+- **Detalle:** es **el mismo `DetalleMarcador`** del tablero de aforo, reusado
+  tal cual (`sel={\`zona:${id}\`}`). Ya traía ocupación, entradas, salidas,
+  programación y stands. Hacer una cuarta ficha de zona habría sido el
+  problema que este frente viene a resolver.
+- **La lista manda sobre el endpoint:** `mapa/vivo` sólo devuelve zonas con
+  movimiento, así que una zona recién creada no aparecería y parecería no
+  existir. Se cruza con `zonasDelEvento(evento)` y las que no tienen datos
+  salen en ceros.
 
-Nada de esto cambia datos todavía: es la pantalla que hoy no existe, sobre el
-endpoint que ya existe. Se puede soltar sola y ya vale.
+Sin backend nuevo: una sola llamada a `mapa/vivo`, que ya devolvía todo esto y
+hasta ahora sólo consumía el tablero de aforo.
+
+**Desviación respecto a lo planeado, a propósito:** este apartado decía que el
+detalle llevaría también el histórico (curva del día, estancia media). No se
+hizo: eso ya está pintado en el Reporte de «Aforo por zonas», y copiarlo aquí
+habría sido duplicar. La ficha enlaza a las cinco pantallas donde se actúa
+sobre la zona (editar, colocar, operar, programar una actividad, montar un
+stand) en vez de reimplementarlas.
+
+Verificado: `eslint` y `build` limpios. **No se probó en navegador con datos
+reales** — este entorno no tiene credenciales de Supabase, así que la app no
+arranca con datos. Queda pendiente mirarla contra un evento de verdad.
 
 ### Fase 2 · Mover el CRUD de zonas aquí
 

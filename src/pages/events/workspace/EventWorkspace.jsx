@@ -47,6 +47,7 @@ import WaitlistTab       from '../tabs/WaitlistTab.jsx';
 import NetworkingTab     from '../tabs/NetworkingTab.jsx';
 import TorneoTab         from '../tabs/TorneoTab.jsx';
 import MapaSection       from './MapaSection.jsx';
+import ZonasSection      from './espacio/ZonasSection.jsx';
 import ChatTab           from '../tabs/ChatTab.jsx';
 import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
@@ -103,6 +104,12 @@ const SECCIONES = [
        eso va con el permiso de check-in. Limpiar el contador sí queda
        reservado al owner, y eso lo decide el backend. */
     { id: 'accesos',    label: 'Accesos e ingresos', perm: '__solo_owner__' },
+    /* «Zonas de interés» es la zona vista entera: su aforo en vivo, lo que
+       ocurre dentro y los stands montados ahí. Va antes del aforo porque
+       contesta «qué es esta zona»; el aforo contesta «cómo va ahora mismo» y
+       es donde se opera. Mismo permiso que el aforo: se mira mientras se
+       trabaja el evento, no es una pantalla de configuración. */
+    { id: 'zonas',      label: 'Zonas de interés',  perm: 'checkin' },
     { id: 'aforo',      label: 'Aforo por zonas',   perm: 'checkin' },
     { id: 'stands',     label: 'Stands',            perm: 'checkin' },
     { id: 'ranking',    label: 'Ranking',           perm: null },
@@ -432,6 +439,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, onAnuncio, onEditar
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
+    case 'espacio/zonas'            : return <ZonasSection evento={evento} />;
     case 'espacio/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
     case 'espacio/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
