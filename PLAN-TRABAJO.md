@@ -1280,6 +1280,138 @@ indica, así que se pueden tomar en paralelo.
 
 ---
 
+---
+
+## FRENTE M · El flujo de registro visto de punta a punta — sin empezar
+
+**Pedido el 2026-09-02**, recorriendo el registro real de FESTECH 2026 con
+capturas. Nueve cosas de interfaz más el padrón, que es lo único con
+diagnóstico ya hecho. **Nada de esto está empezado.**
+
+### M0 · El padrón previo no reconoce a nadie — ✅ diagnosticado, sin arreglar
+
+«Se puso la base de datos grande y no sirve.» Medido contra producción, y la
+causa **no** es el tamaño.
+
+**Lo que hay subido:** 4.124 personas en `padron_previo` (una fila por persona
+— el `upsert` con `onConflict: evento_id,documento_hash` deduplica bien, así
+que subirlo dos veces actualiza en vez de duplicar). Origen:
+`reporte_evento_visitas_unicas.xlsx`.
+
+**Por qué no cruza.** `emparejar()` (`lib/padronPrevio.js`) compara el
+**encabezado de la columna del archivo** contra la **etiqueta de la pregunta
+del formulario**, normalizada, por igualdad exacta. Los encabezados del archivo
+son los nombres internos del sistema de origen, así que casi nada coincide:
+
+| Pregunta del formulario | Columna del archivo | ¿Cruza? |
+|---|---|---|
+| Comuna | `comuna` | ✅ |
+| Ciudad de residencia | `ciudad` | ❌ |
+| Barrio o vereda | `barrio_vereda` | ❌ — sobra la «o» |
+| Edad | `fecha_nacimiento` | ❌ y además es otro dato |
+| Documento de identidad | — | no se guarda, **y está bien**: sólo su hash |
+
+**Y hay un segundo problema, más grande:** de las 4.124 personas, **sólo 500
+traen esas columnas**. Las otras 3.624 traen únicamente `apellidos` y `nombre
+completo`. Otras 436 traen `visit_date`, `room`, `latitude`, `longitude` — datos
+de la visita, no de la persona. Así que **aun con los encabezados perfectos, el
+88 % del padrón no puede prellenar nada**, porque no hay nada que prellenar.
+
+**Cómo hacerlo eficiente, en orden de lo que cuesta:**
+
+1. **Hoy, sin tocar código:** renombrar los encabezados del archivo para que
+   digan **exactamente** lo que dicen las preguntas («Ciudad de residencia»,
+   «Barrio o vereda»), y subir **una fila por persona** con las columnas que el
+   formulario sí pregunta. Volver a subirlo es seguro. Esto funciona ya, pero
+   es frágil: depende de que alguien acierte el texto.
+2. **El arreglo de verdad — un paso de mapeo al subir.** Enseñar las columnas
+   del archivo al lado de las preguntas del evento y que el organizador las
+   conecte una vez. Es como importa cualquier herramienta seria, y **la mitad
+   del dato ya existe**: el endpoint de subida ya devuelve
+   `columnas_sin_pregunta`, que es justo «esta columna no la recoge ninguna
+   pregunta». Guardar el mapeo, no adivinarlo.
+3. **Guardar el mapeo por `id` de pregunta, no por etiqueta.** Hoy el cruce va
+   contra la etiqueta, así que **renombrar una pregunta rompe el padrón en
+   silencio**. Es una mina puesta.
+4. **Que la subida diga la verdad.** Ahora informa `guardadas` y
+   `sin_documento`, pero no cuántas filas traían documento y **cruzaron cero
+   preguntas** — que es el 88 % de este caso. Sin ese número, un padrón inútil
+   se ve igual que uno bueno.
+
+**Lo que NO hay que hacer:** cruce difuso por parecido. «Barrio» contra
+«Barrio o vereda» acierta, pero «ciudad» contra «Ciudad de nacimiento» mete el
+dato en la pregunta equivocada, y eso es peor que no prellenar.
+
+### M1 · El desplegable se corta dentro del modal
+
+En la captura de «Comuna», la lista de opciones se corta contra el borde del
+modal: se ven `10, 11, 12, 13, No sé` y no hay forma de llegar al resto. El
+selector buscable pinta su lista **dentro** del contenedor con `overflow`, así
+que la recorta. Es primo del fallo del botón de «Continuar» (§0-bis): el modal
+acota a sus hijos y un desplegable no es un hijo cualquiera.
+
+### M2 · El correo de contacto de las páginas legales
+
+El contacto es un **Gmail personal** (`medinapipe123@gmail.com`) y tiene que
+ser el corporativo. Está **hardcodeado en tres páginas públicas**:
+`TerminosPage.jsx:121`, `PrivacidadPage.jsx:103` y `FAQPage.jsx` — una
+aparición en cada una.
+
+Al arreglarlo, que sea **una sola constante** (por ejemplo en
+`lib/enlacesPublicos.js`, junto a lo demás que es «datos de la empresa») y no
+un reemplazo en tres archivos: repetido en tres sitios, el día que cambie
+volverá a quedar uno viejo. Es un dato público en páginas legales, así que va
+primero.
+
+### M3 · El «← Atrás» del modal
+
+Ya se pidió antes que ese botón no estuviera en ninguna parte. Sigue en el
+modal de registro. Fuera.
+
+### M4 · El modal de boletas nunca se cierra
+
+Al pulsar «Reservar» se abre el formulario **encima**, pero «BOLETAS
+DISPONIBLES · Registro · Gratis · Reservar» sigue detrás; y sigue ahí después
+de confirmar, cuando la persona **ya tiene su boleta**. Al pulsar «Listo»
+reaparece. Es el mismo modal que no se desmonta en ningún momento del flujo.
+
+### M5 · «Falta un paso» es mentira
+
+Lo dice cuando el registro ya está hecho. Lo que hay debajo —una actividad que
+se apunta aparte— no es un paso que falte, es algo que **se puede** hacer. En
+su sitio: «si quieres seguir explorando el evento», y de ahí desplegar los
+sub-eventos.
+
+### M6 · Tres descargas para lo mismo
+
+«Descargar boleta (PDF)», «Descargar QR» y «Descargar tarjeta» son tres
+botones para el mismo objeto. **Un solo «Descargar»**, y que la persona elija
+formato (PDF o imagen). Ya se había pedido unificar esto; se quedó en tres
+funciones distintas por costumbre, no por diseño.
+
+### M7 · «Actividades con inscripción» no dice nada
+
+Sólo sale `PijaoTech · 17 de sept, 10:43 a.m. · 16 cupos · Auditorio 02`. Ni
+descripción, ni de qué es, ni quién la da. Literalmente no hay información
+para decidir si apuntarse.
+
+### M8 · El flujo no termina
+
+Al pulsar «Listo» vuelve al modal de boletas. Tiene que **cerrar** con un
+cierre de verdad: «gracias por inscribirte, te esperamos el {fecha}», y salir.
+
+### M9 · Verificar en navegador lo que se construyó a ciegas
+
+Arrastrado de antes y sigue pendiente: **«Zonas de interés» y los dos mapas no
+se han visto contra un evento real.** Los componentes están medidos en
+aislamiento —el marcador con sus 12 combinaciones—, pero el cableado de cada
+pantalla no. El entorno donde se escribieron no tiene credenciales de Supabase.
+
+**Orden sugerido:** M2 y M3 son de un minuto y uno es un dato público. Luego M4
+y M8, que son el mismo bug de fondo —el modal no se desmonta— y son lo que hace
+que el flujo «no tenga sentido». Después M6 y M5 (texto y unificación), M7 y M1.
+M0 aparte, porque necesita decidir entre el apaño de hoy y el mapeo de verdad.
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
