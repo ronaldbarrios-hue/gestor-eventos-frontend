@@ -945,17 +945,33 @@ obligaría a exigir el permiso más alto de los tres para hacer lo más barato.
 
 Verificado: `eslint` y `build` limpios.
 
-### Fase 4 · Zona ↔ puerta, la relación que falta
+### Fase 4 · Zona ↔ puerta, la relación que falta — ✅ Hecho el 2026-09-02
 
-Hoy `page_json.accesos` y `page_json.zonas` son dos listas sin ningún campo
-cruzado (verificado en `AccesosSection.jsx:23-26`: `limpiarAccesos` no tiene
-`zona_id`), y las puertas cuentan ingresos por `tickets.acceso`, que es un
-nombre, no una zona.
+Era la única relación de la zona que **no existía**: `page_json.accesos` y
+`page_json.zonas` eran dos listas sin un solo campo cruzado, así que la
+pregunta de quien está delante del plano —«¿por dónde se entra a la tarima?»—
+no tenía respuesta en ninguna pantalla.
 
-- Una puerta declara **a qué zona da**. Sin migración: `page_json.accesos`
-  gana `zona_id`, y el `PATCH` ya mezcla `page_json` por clave (0064).
-- Con eso la zona contesta «por dónde se entra aquí», y el conteo por puerta
-  se puede leer junto al de la zona.
+- **Sin migración y sin backend.** `page_json.accesos` gana `zona_id`
+  (`limpiarAccesos` lo arrastra ahora), y el `PATCH` ya mezcla `page_json` por
+  clave desde la 0064.
+- **Se asigna desde la puerta**, en «Accesos e ingresos», y esta vez a
+  propósito: una puerta da a UNA zona, así que su dueño natural es la puerta.
+  Lo que faltaba no era otro formulario, era poder leerlo desde el otro lado.
+  El desplegable usa el `zonasDelEvento`/`etiquetaZona` de la fase 0 — cuarto
+  consumidor del helper, ninguna copia nueva del filtro.
+- **Es opcional**, y el valor por defecto lo dice: «Al recinto en general». La
+  mayoría de las puertas no dan a una zona concreta.
+- **La zona lo lee de la configuración, no de `mapa/vivo`.** Ese endpoint sólo
+  devuelve las puertas COLOCADAS en el plano —las necesita para dibujarlas— y
+  una puerta sin marcador sigue siendo la puerta por la que se entra. El
+  conteo de ingresos se pega desde lo vivo cuando lo hay, y cuando no hay se
+  omite: `null` no es `0`, y enseñar «0 ingresos» en una puerta que nadie ha
+  medido sería mentir.
+
+**Lo que NO se hizo:** el conteo por puerta no alimenta la ocupación de la
+zona. Es dato mostrado al lado, no aritmética nueva — cambiar cómo se calcula
+el aforo no lo pidió nadie y es la parte que no conviene tocar sin necesidad.
 
 ### Fase 5 · El marcador compartido
 

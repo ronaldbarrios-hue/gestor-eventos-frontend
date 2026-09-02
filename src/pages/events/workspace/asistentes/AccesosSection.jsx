@@ -7,6 +7,7 @@ import { equipoApi } from '../../../../api/equipo.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
+import { zonasDelEvento, etiquetaZona } from '../../../../lib/zonas.js';
 
 /* Asistentes · Accesos — control de ingresos por puerta.
    El organizador define cuántas entradas hay, qué tipos de boleta admite cada
@@ -20,8 +21,8 @@ function uid() { return 'acc_' + Math.random().toString(36).slice(2, 9); }
    persistir. Mismo recorte que hace `guardar*` antes de mandar al servidor:
    sin esto, un espacio de más en el nombre marcaría "sin guardar" para
    siempre. */
-const limpiarAccesos = (l) => (l || []).map(({ id, nombre, tipos, staff }) =>
-  ({ id, nombre: (nombre || '').trim(), tipos: tipos || [], staff: staff || [] }));
+const limpiarAccesos = (l) => (l || []).map(({ id, nombre, tipos, staff, zona_id }) =>
+  ({ id, nombre: (nombre || '').trim(), tipos: tipos || [], staff: staff || [], zona_id: zona_id || null }));
 export default function AccesosSection({ evento }) {
   const { success, error } = useToast();
   const [accesos, setAccesos] = useState(() => (evento.page_json?.accesos || []).map(a => ({ ...a, _k: a.id })));
@@ -30,6 +31,10 @@ export default function AccesosSection({ evento }) {
      por clave (migración 0064), así que mandar sólo `accesos` no toca las
      zonas ni el mapa. */
   const [accesosGuardados, setAccesosGuardados] = useState(() => limpiarAccesos(evento.page_json?.accesos));
+
+  /* Las zonas, para poder decir a cuál da cada puerta. Sólo se leen: se
+     administran en «Zonas de interés». */
+  const zonasEvento = useMemo(() => zonasDelEvento(evento), [evento]);
 
   const [alertas, setAlertas] = useState([]);
   const [nuevaAlerta, setNuevaAlerta] = useState('');
@@ -222,6 +227,30 @@ export default function AccesosSection({ evento }) {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* A qué zona da esta puerta.
+                Antes las puertas y las zonas eran dos listas sin un solo campo
+                que las cruzara, así que la pregunta de quien está delante del
+                plano —«¿por dónde se entra a la tarima?»— no tenía respuesta en
+                ninguna pantalla. Es opcional a propósito: la mayoría de las
+                puertas dan al recinto entero y no a una zona concreta. */}
+            {zonasEvento.length > 0 && (
+              <div>
+                <label className="label text-xs">
+                  A qué zona da <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>
+                </label>
+                <select value={a.zona_id || ''} onChange={e => set(a._k, { zona_id: e.target.value || null })}
+                  className="input">
+                  <option value="">Al recinto en general</option>
+                  {zonasEvento.map(z => (
+                    <option key={z.id} value={z.id}>{etiquetaZona(z)}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-text-3 mt-1">
+                  Se ve en <b>Zonas de interés</b>: la zona enseña por dónde se entra a ella.
+                </p>
               </div>
             )}
 

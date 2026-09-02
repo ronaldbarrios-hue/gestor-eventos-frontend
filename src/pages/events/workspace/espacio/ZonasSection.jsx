@@ -88,6 +88,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
 
   const { success, error } = useToast();
   const [zonas, setZonas] = useState(null);
+  const [puertas, setPuertas] = useState([]);
   const [sel, setSel] = useState(null);
   const [ultimo, setUltimo] = useState(null);
   const [fallo, setFallo] = useState('');
@@ -117,6 +118,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
       const d = await clientesApi.mapaVivo(evento.id);
       if (!vivoRef.current) return;
       setZonas(d.zonas || []);
+      setPuertas(d.accesos || []);
       setUltimo(d.at || new Date().toISOString());
       setFallo('');
     } catch (e) {
@@ -252,6 +254,21 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
     }));
   }, [configuradas, zonas, enElPlano]);
 
+  /* Las puertas que dan a cada zona (`page_json.accesos[].zona_id`).
+     Se leen de la configuración y no de `mapa/vivo`, porque ese endpoint sólo
+     devuelve las puertas COLOCADAS en el plano —para dibujarlas— y una puerta
+     sin marcador sigue siendo la puerta por la que se entra. El conteo de
+     ingresos, cuando lo hay, se pega desde lo vivo. */
+  const puertasPorZona = useMemo(() => {
+    const vivas = new Map((puertas || []).map(p => [p.id, p]));
+    const m = {};
+    for (const a of (evento.page_json?.accesos || [])) {
+      if (!a?.id || !a.zona_id) continue;
+      (m[a.zona_id] ||= []).push({ ...a, ingresos: vivas.get(a.id)?.ingresos ?? null });
+    }
+    return m;
+  }, [evento.page_json, puertas]);
+
   const seleccionada = filas.find(z => z.id === sel) || null;
   /* `DetalleMarcador` lee de `datos.zonas`, así que se le pasa la fila ya
      mezclada — es la que tiene el nombre y el aforo al día. */
@@ -334,6 +351,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
             {seleccionada ? (
               <>
                 <DetalleMarcador sel={`zona:${seleccionada.id}`} datos={datosDetalle} />
+                <Puertas evento={evento} lista={puertasPorZona[seleccionada.id] || []} />
                 {puedeAgenda && (
                   <Colgar titulo="Actividades aquí" vacio="Ninguna actividad programada en esta zona."
                     ocupando={asignando}
@@ -465,6 +483,51 @@ function Acciones({ evento, z, puedeAgenda, puedeStands }) {
       {!puedeStands && <Enlace to={`${base}&t=stands`} texto="Montar un stand" nota="Stands · campo «Zona del plano»" />}
       <Enlace to={`${base}&t=calendario`} texto="Crear una actividad nueva" nota="Calendario" />
       <Enlace to={`${base}&t=accesos`} texto="Puertas del recinto" nota="Accesos e ingresos" />
+    </div>
+  );
+}
+
+/* Por dónde se entra a esta zona.
+ *
+ * La relación puerta → zona no existía: `page_json.accesos` y
+ * `page_json.zonas` eran dos listas sin un solo campo que las cruzara, así que
+ * la pregunta de quien está delante del plano —«¿por dónde se entra a la
+ * tarima?»— no tenía respuesta en ninguna pantalla.
+ *
+ * Se asigna desde la puerta (en «Accesos e ingresos») y no desde aquí, y esta
+ * vez a propósito: una puerta da a UNA zona, así que su dueño natural es la
+ * puerta. Lo que faltaba no era otro formulario, era poder leerlo desde este
+ * lado. */
+function Puertas({ evento, lista }) {
+  if (lista.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface/40 p-3.5">
+        <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1.5">Por dónde se entra</p>
+        <p className="text-xs text-text-3">
+          Ninguna puerta apunta a esta zona.{' '}
+          <Link to={`/eventos/${evento.id}?s=espacio&t=accesos`} className="text-primary-light hover:underline">
+            Asignarla en Accesos e ingresos →
+          </Link>
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 p-3.5">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1.5">Por dónde se entra</p>
+      <ul className="space-y-1">
+        {lista.map(p => (
+          <li key={p.id} className="flex items-center gap-2 text-sm text-text-1">
+            <span className="flex-1 min-w-0 truncate">{p.nombre}</span>
+            {/* `null` no es 0: significa que esa puerta no está colocada en el
+                plano, así que `mapa/vivo` no trae su conteo. Enseñar «0
+                ingresos» ahí sería mentir. */}
+            {p.ingresos != null && (
+              <span className="text-[11px] text-text-3 tabular-nums flex-shrink-0">{p.ingresos} ingresos</span>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
