@@ -652,7 +652,7 @@ function AvisoCupo({ cupo, onTomar }) {
   );
 }
 
-export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess }) {
+export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess, embebido = false }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
@@ -875,7 +875,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
        utiles, o sea dos columnas de ~340px, que es donde un correo o una
        direccion se leen enteros. El organizador puede subirlo o bajarlo desde
        Proceso de compra (`checkout.modal_ancho` / `modal_alto`). */
-    <ModalShell onClose={onClose}
+    <ModalShell onClose={onClose} embebido={embebido}
       ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-3xl')}
       alto={altoModal(checkout.modal_alto)}>
       <form onSubmit={submit} className="grid-form">
@@ -1084,7 +1084,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   );
 }
 
-export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose }) {
+export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose, embebido = false }) {
   const qrValue = ticket.qr_token || ticket.codigo;
   const [bajando, setBajando] = useState(false);
 
@@ -1195,7 +1195,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
     }
   }, [redirectUrl, checkout.redirect_auto, vista]);
   return (
-    <ModalShell onClose={onClose}
+    <ModalShell onClose={onClose} embebido={embebido}
       ancho={anchoModal(checkout.modal_ancho, 'sm:max-w-md')}
       alto={altoModal(checkout.modal_alto)}>
       {vista === 'subeventos' ? (
@@ -1374,12 +1374,41 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
    · `ancho` es un parametro porque el mismo cascaron sirve para un formulario
      de dos campos y para uno de veinte. Fijarlo en `max-w-md` obligaba a que
      todo cupiera en 400px, que es de donde viene la columna larguisima. */
-function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[90vh]' }) {
+function ModalShell({ children, onClose, ancho = 'sm:max-w-md', alto = 'max-h-[90vh]', embebido = false }) {
   useEffect(() => {
+    /* Bloquear el scroll del fondo tiene sentido cuando el modal tapa TODA la
+       pantalla — dentro de un iframe embebido no la tapa (ver abajo), y
+       bloquear el scroll del documento del iframe no sirve de nada: quien
+       scrollea es la página del cliente, por fuera del iframe. */
+    if (embebido) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
-  }, []);
+  }, [embebido]);
+
+  /* Embebido: sin fondo oscuro ni tarjeta, en el flujo normal del documento
+     en vez de `fixed inset-0`. Es lo que pidió el cliente al incrustar el
+     registro en su web — que se vea como parte de su página, no como un
+     recuadro de software ajeno flotando encima. De paso, esto es lo que deja
+     que `EmbedPage` mida el alto con el mismo ResizeObserver de siempre: un
+     modal `fixed` no se puede medir (mide casi cero, fuera del flujo), que es
+     por lo que hoy existe el truco de pedir un alto fijo de 20000px mientras
+     hay un modal abierto. En flujo normal, ese truco deja de hacer falta. */
+  if (embebido) {
+    return (
+      <div className="relative w-full animate-[fadeIn_0.2s_ease_both]">
+        <div className="flex items-center justify-end mb-1">
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2/60 flex items-center justify-center transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/80 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onClose}>

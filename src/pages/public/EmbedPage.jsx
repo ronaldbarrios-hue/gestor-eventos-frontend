@@ -143,27 +143,19 @@ export default function EmbedPage() {
   }, [slug, seccion]);
 
   /* Alto automático: el anfitrión escucha este postMessage y redimensiona
-     el iframe. Sin esto quedaría cortado o con un hueco enorme debajo. */
-  const hayModal = Boolean(reservaTipo || reservaOk);
+     el iframe. Sin esto quedaría cortado o con un hueco enorme debajo.
 
+     El formulario de registro (`ReservaModal`/`ConfirmacionModal`) se monta
+     aquí con `embebido`: sin fondo oscuro ni `position: fixed`, en el flujo
+     normal del documento. Antes ModalShell era `fixed` -fuera del flujo, medía
+     casi cero- y hacía falta pedir un alto fijo de 20000px mientras hubiera
+     un modal abierto, para que el anfitrión no encogiera el iframe a nada. En
+     flujo normal, el mismo ResizeObserver de siempre ya mide el modal como
+     cualquier otro contenido: el truco del 20000 deja de hacer falta. */
   useEffect(() => {
     /* Nada mientras carga: si no, el anfitrión encoge el iframe a la altura
        del "Cargando…" y el contenido entra dando un salto feo. */
     if (estado === 'cargando') return;
-
-    /* Con un modal abierto NO se puede medir el contenido: `ModalShell` es
-       `position: fixed`, o sea que está fuera del flujo y el div de aquí mide
-       casi cero. Midiéndolo, el anfitrión encogería el iframe a nada y el
-       formulario quedaría recortado a una franja.
-
-       Se pide un número grande a propósito: el anfitrión lo recorta al 92% de
-       su ventana, y dentro del iframe el modal se centra sobre esa altura. Es
-       la forma de decir "todo lo alto que puedas" sin saber cuánto mide la
-       ventana de la web ajena, que desde aquí no se puede leer. */
-    if (hayModal) {
-      try { window.parent?.postMessage({ gestek: 'alto', fid, alto: 20000 }, '*'); } catch { /* cross-origin */ }
-      return;
-    }
 
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -178,7 +170,7 @@ export default function EmbedPage() {
     ro.observe(el);
     avisar();
     return () => ro.disconnect();
-  }, [fid, evento, estado, hayModal]);
+  }, [fid, evento, estado]);
 
   /* Antes esto abría GESTEK en otra pestaña, y era justo lo que había que
      evitar: quien está en la web del organizador se encontraba de golpe en
@@ -303,6 +295,7 @@ export default function EmbedPage() {
               if (soloUnaBoleta) avisarAlAnfitrion('cerrar', {}, fid);
             }}
             onSuccess={(t) => { setReservaTipo(null); setReservaOk(t); }}
+            embebido
           />
         )}
         {reservaOk && (
@@ -311,6 +304,7 @@ export default function EmbedPage() {
             evento={evento}
             slug={slug}
             checkout={evento.page_json?.checkout || {}}
+            embebido
             onClose={() => {
               setReservaOk(null);
               /* Terminado el registro, la ventana del anfitrión se cierra sola:
