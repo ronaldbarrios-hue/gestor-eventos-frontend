@@ -35,3 +35,16 @@ export function enlaceBoleta(evento, codigo) {
 export function enlaceEvento(evento) {
   return `${baseEnlaces(evento)}/explorar/${evento?.slug || ''}`;
 }
+
+/* El correo de contacto de GESTEK, el que aparece en las páginas legales.
+ *
+ * Vive aquí y no escrito en cada página por lo de siempre: estaba en tres
+ * —Términos, Privacidad y FAQ— y el día que cambiara habría quedado uno viejo.
+ * Y en una página legal un correo viejo no es un detalle: es la dirección a la
+ * que alguien manda un derecho de petición.
+ *
+ * Antes era un Gmail personal. Cambiarlo por un buzón genérico
+ * (`contacto@`, `hola@`) es cambiar esta línea — pero conviene comprobar antes
+ * que ese buzón existe y que alguien lo lee, porque si rebota, rebota un aviso
+ * legal. */
+export const CORREO_CONTACTO = 'juan.medina@hytrex.co';

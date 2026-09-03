@@ -1077,9 +1077,14 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         </>)}
 
         <div className="flex items-center justify-end gap-2 pt-2 flex-wrap">
+          {/* Sin la flecha. Se pidió quitar «← Atrás» porque se ve mal, y la
+              flecha era lo que se veía mal: el botón en sí es la navegación de
+              un formulario de cuatro pasos, y sin él alguien que va por el
+              tercero se queda encerrado. Así queda con el mismo peso visual
+              que «Cancelar», que es lo que es — una salida secundaria. */}
           {paginado && paso > 0
             ? <button type="button" onClick={() => { setErr(''); irAPaso(Math.max(0, paso - 1)); }}
-                className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">← Atrás</button>
+                className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">Atrás</button>
             : <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">Cancelar</button>}
           {!enUltimo ? (
             <button type="button" onClick={avanzar}

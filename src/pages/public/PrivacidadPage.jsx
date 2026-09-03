@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { LegalLayout, Seccion, Lista } from './legal.jsx';
+import { CORREO_CONTACTO } from '../../lib/enlacesPublicos.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Política de Privacidad y Tratamiento de Datos Personales
@@ -100,7 +101,7 @@ export default function PrivacidadPage() {
           'Acceder gratuitamente a tus datos, descargar tu información y eliminar tu cuenta desde Ajustes.',
         ]} />
         <p>
-          Canal de atención: <a className="text-primary-light hover:underline" href="mailto:medinapipe123@gmail.com">medinapipe123@gmail.com</a>.
+          Canal de atención: <a className="text-primary-light hover:underline" href={`mailto:${CORREO_CONTACTO}`}>{CORREO_CONTACTO}</a>.
           Responderemos las consultas en máximo diez (10) días hábiles y los reclamos en máximo
           quince (15) días hábiles, conforme a la ley.
         </p>
