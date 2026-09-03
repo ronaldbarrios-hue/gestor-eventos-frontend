@@ -5,7 +5,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { agendaApi } from '../../../api/agenda.js';
 import { torneosApi } from '../../../api/torneos.js';
 import GLoader from '../../../components/ui/GLoader.jsx';
-import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEstilo } from '../../../lib/espacio.js';
+import { TIPO_DEFECTO, tipoEstilo, tiposDelEvento } from '../../../lib/espacio.js';
 /* Este archivo tenía la versión buena del cálculo; ahora la comparte en vez de
    guardársela, que es lo que dejaba a la agenda pública y al torneo con la mala. */
 import { ymdLocal as ymd } from '../../../lib/fechaLocal.js';
@@ -17,6 +17,7 @@ import {
   PlusIcon, ChevL, ChevR, EmptyState,
 } from './agenda/agendaComun.jsx';
 import SessionForm from './agenda/SessionForm.jsx';
+import TipoPropioModal from './agenda/TipoPropioModal.jsx';
 import { networkingApi } from '../../../api/networking.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import SessionsList from './agenda/AgendaLista.jsx';
@@ -38,7 +39,7 @@ import SpeakersList, { SpeakerForm } from './agenda/AgendaSpeakers.jsx';
    conmutador dentro del Calendario y por eso no se encontraba: para ver los
    ponentes había que entrar a las sesiones primero. Sin `vistaFija` el
    conmutador sigue estando, que es lo que quiere quien ya está aquí dentro. */
-export default function AgendaTab({ evento, vistaFija = null }) {
+export default function AgendaTab({ evento, vistaFija = null, recargarEvento = null }) {
   const { usuario } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [speakers, setSpeakers] = useState([]);
@@ -54,6 +55,9 @@ export default function AgendaTab({ evento, vistaFija = null }) {
   const [subView,  setSubView]  = useState('lista');    // lista | dia | semana | mes | salas
   const [cursor,   setCursor]   = useState(() => startOfMonth(new Date()));
   const [creating, setCreating] = useState(false);
+  /* Los tipos propios viven en `page_json`, así que al crear uno hay que releer
+     el evento: sin eso, el tipo recién creado no aparece hasta recargar. */
+  const [tipoOpen, setTipoOpen] = useState(false);
   const [prefillDate, setPrefillDate] = useState(null);
   const [editing,  setEditing]  = useState(null);
   const [pedirOpen, setPedirOpen] = useState(false);
@@ -95,7 +99,9 @@ export default function AgendaTab({ evento, vistaFija = null }) {
   /* Qué tipos hay realmente cargados, para no mostrar filtros vacíos. */
   const tiposPresentes = useMemo(() => {
     const set = new Set(sessions.map(s => s.tipo || TIPO_DEFECTO));
-    return TIPOS_ESPACIO.filter(t => set.has(t.id));
+    /* Los once de GESTEK más los que este evento se haya creado: si no, un
+       sub-evento de un tipo propio no tendría con qué filtrarse. */
+    return tiposDelEvento(evento).filter(t => set.has(t.id));
   }, [sessions]);
 
   /* Index de sesiones por día para Mes/Semana (ya filtrado) */
@@ -355,6 +361,19 @@ export default function AgendaTab({ evento, vistaFija = null }) {
               ¿Falta tu tipo de sub-evento? Pídenoslo
             </button>
           )
+      )}
+      {view === 'sessions' && (
+        <button onClick={() => setTipoOpen(true)}
+          className="text-xs text-text-3 hover:text-primary-light transition-colors underline underline-offset-2 ml-3">
+          o créalo tú
+        </button>
+      )}
+      {tipoOpen && (
+        <TipoPropioModal
+          evento={evento}
+          onCerrar={() => setTipoOpen(false)}
+          onCreado={() => { setTipoOpen(false); recargarEvento?.(); }}
+        />
       )}
 
       {/* Sesiones — vistas */}

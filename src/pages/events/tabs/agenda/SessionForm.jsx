@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import Icono from '../../../../components/ui/Iconos.jsx';
 import Spinner from '../../../../components/ui/Spinner.jsx';
-import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo } from '../../../../lib/espacio.js';
+import { TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo, tiposDelEvento } from '../../../../lib/espacio.js';
 import { zonasDelEvento, etiquetaZona } from '../../../../lib/zonas.js';
 import PreguntasSubEvento from '../PreguntasSubEvento.jsx';
 import { toLocalInput, withDefaultTime } from './agendaComun.jsx';
@@ -111,9 +111,9 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
       <div className="field">
         <label className="label">Tipo</label>
         <div className="flex flex-wrap gap-1.5">
-          {TIPOS_ESPACIO.map(t => (
+          {tiposDelEvento(evento).map(t => (
             <button type="button" key={t.id} onClick={() => setForm(f => ({...f, tipo: t.id}))}
-              style={form.tipo === t.id ? tipoEstilo(t.id) : undefined}
+              style={form.tipo === t.id ? tipoEstilo(t.id, evento) : undefined}
               className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
                 ${form.tipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
               <Icono nombre={t.icono} className="w-3.5 h-3.5" />{t.label}
@@ -133,7 +133,7 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
           inventar uno nuevo sin tener que crearlo antes en ningun sitio. */}
       <div className="field">
         <label className="label">
-          Grupo <span className="lowercase tracking-normal font-normal text-text-3">(opcional, dentro de «{tipoEspacio(form.tipo).label}»)</span>
+          Grupo <span className="lowercase tracking-normal font-normal text-text-3">(opcional, dentro de «{tipoEspacio(form.tipo, evento).label}»)</span>
         </label>
         <input list="gestek-subcategorias" value={form.subcategoria}
           onChange={e => setForm(f => ({ ...f, subcategoria: e.target.value }))}

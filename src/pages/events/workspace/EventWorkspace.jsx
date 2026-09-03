@@ -503,8 +503,8 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'resumen/reporte'     : return <ReporteTab evento={evento} />;
 
     /* Espacio del evento: las cuatro vistas de lo mismo. */
-    case 'actividades/calendario'   : return <AgendaTab evento={evento} />;
-    case 'actividades/speakers'     : return <AgendaTab evento={evento} vistaFija="speakers" />;
+    case 'actividades/calendario'   : return <AgendaTab evento={evento} recargarEvento={reload} />;
+    case 'actividades/speakers'     : return <AgendaTab evento={evento} vistaFija="speakers" recargarEvento={reload} />;
     case 'actividades/torneos'          : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
     case 'actividades/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
     case 'zonas/mapa'             : return <MapaSection evento={evento} />;
