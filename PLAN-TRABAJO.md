@@ -2949,10 +2949,21 @@ Tres pruebas lo sostienen, porque estas vueltas no aparecieron de golpe:
 aparecieron de una en una, cada vez que alguien añadió una pantalla y escribió la
 suya porque era más rápido que mirar cómo lo hacían las demás.
 
-**Lo que queda, que es lo de decidir y no lo de teclear:**
+**Y la cabecera del panel, que era el caso peor.** Tenía un cuadrado con una
+flecha cuyo destino vivía sólo en el `title` —que en un móvil no existe— y, al
+lado, el nombre del evento pintado en gris muerto: **uno llevaba a algún sitio
+sin decir a cuál y el otro decía dónde estabas sin llevar a ninguna parte**.
+Ahora es una sola línea —«Mis eventos › TechNova Summit»— donde el primer tramo
+es la salida.
 
-- La miga de pan de arriba —«Eventos › Detalle»— sigue sin hacer nada.
-- «Salir del evento» sigue sin distinguir salir de **cambiar de evento**.
+Y era **la tercera salida al mismo sitio**: quedaban la flecha, «Salir del
+evento» en el menú y el selector de eventos. La flecha se fue y «Salir del
+evento» pasó a «Mis eventos», porque decía lo que dejas y no a dónde vas, que es
+lo que hace falta para decidir si pulsarlo.
+
+**Lo que queda:** el selector de eventos del menú lateral sigue siendo la tercera
+puerta, y esa sí tiene sentido propio —cambiar de evento sin pasar por la
+lista—. Falta mirar si se entiende que hace eso.
 
 #### Lo que decía la ficha original
 

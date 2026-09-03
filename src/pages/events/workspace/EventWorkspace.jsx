@@ -387,8 +387,12 @@ export default function EventWorkspace() {
       {/* Gestbot + salir */}
       <div className="p-3 space-y-2">
         <GestbotSidebar evento={evento} />
+        {/* «Salir del evento» decía lo que dejas y no a dónde vas, que es lo
+            que hace falta saber para decidir si pulsarlo. Y era la tercera
+            salida al mismo sitio, junto con la flecha de la cabecera —que ya no
+            está— y el selector de eventos del menú. */}
         <Link to="/eventos" className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] text-slate-400 hover:text-white hover:bg-sidebar-2 transition-colors">
-          <BackIcon className="w-4 h-4" /> Salir del evento
+          <BackIcon className="w-4 h-4" /> Mis eventos
         </Link>
       </div>
     </aside>
@@ -414,15 +418,28 @@ export default function EventWorkspace() {
 
             {/* Header de sección */}
             <header className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3 min-w-0">
-                <button onClick={() => navigate('/eventos')} title="Volver a Eventos"
-                  className="flex-shrink-0 w-9 h-9 rounded-xl border border-border text-text-2 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" /></svg>
-                </button>
-                <div className="min-w-0">
-                  <p className="text-xs text-text-3 mb-0.5 truncate">{evento.titulo}</p>
-                  <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{seccion?.label ? t(seccion.label) : ''}</h1>
-                </div>
+              {/* Dónde estás, y la salida dentro de eso.
+
+                  Aquí había un cuadrado con una flecha y nada más —el destino
+                  sólo en el `title`, que en un móvil no existe—, y justo al lado
+                  el nombre del evento pintado en gris muerto. Dos elementos: uno
+                  que lleva a algún sitio sin decir a cuál y otro que dice dónde
+                  estás sin llevar a ninguna parte.
+
+                  Es una sola cosa: la línea dice dónde estás y su primer tramo
+                  es la salida. La misma idea que `Volver` —el texto es el
+                  destino—, con la ventaja de que aquí además sitúa. */}
+              <div className="min-w-0">
+                <nav aria-label="Dónde estás"
+                  className="text-xs mb-0.5 flex items-center gap-1.5 min-w-0">
+                  <Link to="/eventos"
+                    className="text-text-3 hover:text-text-1 transition-colors flex-shrink-0">
+                    Mis eventos
+                  </Link>
+                  <span className="text-text-3 flex-shrink-0" aria-hidden="true">›</span>
+                  <span className="text-text-2 truncate">{evento.titulo}</span>
+                </nav>
+                <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{seccion?.label ? t(seccion.label) : ''}</h1>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <a href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm">

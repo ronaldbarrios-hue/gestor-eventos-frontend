@@ -104,3 +104,18 @@ test('la pantalla de «evento no encontrado» es una sola', () => {
   assert.deepEqual(copias.map(([r]) => r), [],
     'Usa <EventoNoEncontrado /> en vez de repetir la pantalla');
 });
+
+test('la salida del panel dice a dónde va, y es una sola', () => {
+  /* En la cabecera del panel había un cuadrado con una flecha cuyo destino
+     vivía sólo en el `title` —que en un móvil no existe—, con el nombre del
+     evento al lado en gris muerto: uno llevaba a algún sitio sin decir a cuál,
+     el otro decía dónde estabas sin llevar a ninguna parte.
+
+     Y era la tercera salida al mismo sitio, contando la del menú lateral y el
+     selector de eventos. */
+  const src = readFileSync(join(SRC, 'pages/events/workspace/EventWorkspace.jsx'), 'utf8');
+  assert.ok(!/title="Volver a Eventos"/.test(src),
+    'volvió el botón de flecha sin texto en la cabecera del panel');
+  assert.match(sinComentarios(src), /Mis eventos/,
+    'la salida del panel ya no dice a dónde lleva');
+});
