@@ -1,12 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Icono from '../../../components/ui/Iconos.jsx';
-import { leerQr } from '../../../lib/qrEscaneado.js';
 import { interaccionesApi } from '../../../api/interacciones.js';
 import { networkingApi } from '../../../api/networking.js';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
-import QrScanner from '../../../components/ui/QrScanner.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import { zonasDelEvento, etiquetaZona } from '../../../lib/zonas.js';
 import GalleryUploader from '../../../components/ui/GalleryUploader.jsx';

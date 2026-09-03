@@ -1,11 +1,9 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import Icono from '../../../components/ui/Iconos.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import { clientesApi } from '../../../api/clientes.js';
 import { agendaApi } from '../../../api/agenda.js';
 import { interaccionesApi } from '../../../api/interacciones.js';
 import { useToast } from '../../../context/ToastContext.jsx';
-import Spinner from '../../../components/ui/Spinner.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 import { zonasDelEvento, etiquetaZona } from '../../../lib/zonas.js';

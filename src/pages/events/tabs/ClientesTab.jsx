@@ -4,7 +4,6 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { QRCodeCanvas } from 'qrcode.react';
 import { clientesApi } from '../../../api/clientes.js';
-import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import ImportarAsistentes from '../workspace/asistentes/ImportarAsistentes.jsx';
 import RepartoSinCorreo from '../workspace/asistentes/RepartoSinCorreo.jsx';

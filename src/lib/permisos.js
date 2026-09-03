@@ -1,7 +1,12 @@
 /* Catálogo central de permisos por rol dentro de un evento.
    Cada permiso tiene id, label, descripción y grupo.
 
-   `aplicado` dice si el servidor lo VERIFICA de verdad hoy.
+   `aplicado` dice si el servidor lo VERIFICA de verdad hoy. Los que están en
+   `false` **no cambian nada al concederlos**, y ninguna pantalla se guarda ya
+   con ellos: eso se corrigió en el menú el 2-sep, porque «Pagos» pedía
+   `ver_pagos` —que nadie comprueba— y «Promociones» pedía `gestionar_tickets`
+   cuando esa ruta es sólo del dueño. Una pestaña que se abre y devuelve 403 es
+   peor que una pestaña que no se ve.
 
    **Corregido el 2-sep:** `crear_canales` y `borrar_mensajes` estaban marcados
    como no aplicados y `routes/chat.js` los comprueba en cinco sitios. La marca

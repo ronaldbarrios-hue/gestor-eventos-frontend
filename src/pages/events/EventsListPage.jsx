@@ -7,7 +7,7 @@ import { eventosApi } from '../../api/eventos.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useEventosPrefs } from '../../hooks/useEventosPrefs.js';
-import { EstadoBadge, ModalidadBadge } from '../../components/ui/Badge.jsx';
+import { EstadoBadge } from '../../components/ui/Badge.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 
