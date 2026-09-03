@@ -3,6 +3,7 @@ import { analyticsApi } from '../../../api/analytics.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import BarraProgreso from '../../../components/ui/BarraProgreso.jsx';
+import Kpi from '../../../components/ui/Kpi.jsx';
 
 const RANGOS = [
   { dias: 7,   label: '7 días' },
@@ -66,10 +67,10 @@ export default function AnalyticsTab({ evento }) {
 
       {/* Cards principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Visitas"            value={r.visitas} hint={`${r.visitantes_unicos} únicos`} />
-        <KpiCard label="Conversión"         value={`${r.conversion}%`} hint={`${r.tickets_total} tickets / ${r.visitantes_unicos} visitantes`} />
-        <KpiCard label="Ingresos"           value={`$${Math.round(r.ingresos).toLocaleString('es-CO')}`} hint={currency} accent="success" />
-        <KpiCard label="Tasa de asistencia" value={`${r.tasa_asistencia}%`} hint={`${r.asistencias} de ${r.tickets_pagados} pagados`} />
+        <Kpi orden="label-primero" label="Visitas" valor={r.visitas} nota={`${r.visitantes_unicos} únicos`} />
+        <Kpi orden="label-primero" label="Conversión" valor={`${r.conversion}%`} nota={`${r.tickets_total} tickets / ${r.visitantes_unicos} visitantes`} />
+        <Kpi orden="label-primero" label="Ingresos" valor={`$${Math.round(r.ingresos).toLocaleString('es-CO')}`} nota={currency} tono="exito" />
+        <Kpi orden="label-primero" label="Tasa de asistencia" valor={`${r.tasa_asistencia}%`} nota={`${r.asistencias} de ${r.tickets_pagados} pagados`} />
       </div>
 
       {/* Time series */}
@@ -142,17 +143,6 @@ export default function AnalyticsTab({ evento }) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function KpiCard({ label, value, hint, accent }) {
-  return (
-    <div className={`rounded-2xl border px-4 py-3.5 transition-all
-      ${accent === 'success' ? 'border-success/30 bg-success/5' : 'border-border bg-surface/40'}`}>
-      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">{label}</p>
-      <p className={`text-2xl font-bold font-display tabular-nums mt-1 leading-none ${accent === 'success' ? 'text-success-light' : 'text-text-1'}`}>{value}</p>
-      {hint && <p className="text-[11px] text-text-3 mt-1.5">{hint}</p>}
     </div>
   );
 }

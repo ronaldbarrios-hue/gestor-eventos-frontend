@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEspacioData } from '../widgets/espacio/EspacioData.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { EstadoBadge } from '../ui/Badge.jsx';
+import Kpi from '../ui/Kpi.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Inicio · Vista Colaborador — panorama generalizado de TODO en lo
@@ -70,7 +71,7 @@ export default function VistaColaborador() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Kpi valor={colaborando.length} label="Eventos donde colaboro" />
         <Kpi valor={pendientes.length} label="Tareas para mí" />
-        <Kpi valor={vencidas.length} label="Vencidas" alerta={vencidas.length > 0} />
+        <Kpi valor={vencidas.length} label="Vencidas" tono={vencidas.length > 0 ? 'alerta' : 'neutro'} />
         <Kpi valor={misSolicitudesAbiertas.length} label="Solicitudes mías sin responder" />
       </div>
 
@@ -184,11 +185,3 @@ export default function VistaColaborador() {
   );
 }
 
-function Kpi({ valor, label, alerta }) {
-  return (
-    <div className={`rounded-2xl border px-5 py-4 ${alerta ? 'border-danger/30 bg-danger/5' : 'border-border bg-surface/60'}`}>
-      <p className={`text-2xl font-bold font-display tabular-nums ${alerta ? 'text-danger' : 'text-text-1'}`}>{valor}</p>
-      <p className="text-xs text-text-3 mt-0.5">{label}</p>
-    </div>
-  );
-}
