@@ -1,5 +1,47 @@
 # GESTEK · Qué falta, repartido en frentes que no se pisan
 
+## Estado al 2026-09-03, al cerrar el día
+
+**Migraciones: no queda ninguna pendiente.** 0092, 0093, 0094, 0095 y 0096
+aplicadas en producción.
+
+**Ojo con esto, que ya mordió una vez:** fusionar no es desplegar. El despliegue
+de cPanel va por detrás del merge, y la 0092 se corrió con el código viejo
+sirviendo: cuatro pantallas de zonas en blanco durante horas, sin un solo error.
+Antes de correr una migración con condición previa, comprobar contra la API
+desplegada —no contra `main`—.
+
+### Lo que queda, en orden
+
+1. **R2 · el diseño de los bloques por dentro.** Lo hecho hasta ahora es lo
+   medible: un ritmo en vez de cuatro, un color en vez de cinco, una lista de
+   secciones en vez de dos, los bloques que faltaban. Elegir cómo se ve una
+   tarjeta de expositor o una portada es otra conversación —y conviene mirar
+   juntos una landing que le guste, porque él dice que no tiene referencia—.
+2. **La impresora**, parada por dos medidas del rollo. Ver
+   `Vault → 09 — Impresora de escarapelas (traspaso)`. Y lo urgente de ahí no es
+   de código: **la cinta usada es una copia legible de todo lo impreso**, QR
+   incluido, y se destruye, no se tira.
+3. **Q6, lo que falta:** las reglas de la puerta —qué boletas admite, qué staff
+   la atiende— siguen en `page_json.accesos`. La 0096 movió el sitio, no las
+   reglas. Mudarlas es el paso siguiente, y hasta entonces `sincronizarPuertas`
+   mantiene el espejo.
+4. **La 0081 y la 0083**, que llevan desde el 2-sep esperando una decisión: la
+   primera **destruye datos** (`DROP COLUMN` sobre `perfil_talento`) y la segunda
+   toca los 33 eventos. Ninguna es automática.
+5. **El respaldo `page_json.zonas_respaldo`** se borra en una migración futura,
+   cuando lleve semanas sin hacer falta. Mientras exista, la 0092 es reversible.
+
+### Lo que se cerró hoy
+
+Frente Q entero (Q0–Q9), Frente R1 (la navegación) y la primera mitad de R2. Los
+seis endpoints de correo conectados, el portal del capitán, y tres piezas
+grandes que llevaban meses construidas sin puerta de entrada —la escarapela
+térmica, el editor de plantillas y `PageBuilder`—.
+
+---
+
+
 Escrito el 29 de agosto de 2026, después de repasar la hoja de requisitos
 actualizada y de comprobar **en el código** qué existe ya. Varias cosas de la
 lista estaban hechas; están marcadas abajo para no volver a pagarlas.
