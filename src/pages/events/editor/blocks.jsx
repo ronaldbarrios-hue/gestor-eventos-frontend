@@ -1412,9 +1412,9 @@ function MapaEventoPreview({ data, evento }) {
               </div>
               {sel.data.descripcion && <p className="text-sm text-text-2 mt-3 leading-relaxed">{sel.data.descripcion}</p>}
               {Array.isArray(sel.data.galeria) && sel.data.galeria.length > 0 && (
-                <div className="flex gap-2 mt-3">
+                <div className="grid grid-cols-3 gap-2 mt-3">
                   {sel.data.galeria.slice(0, 3).map((url, i) => (
-                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-lg object-cover" />
+                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-lg object-cover min-w-0" />
                   ))}
                 </div>
               )}
@@ -1572,7 +1572,9 @@ function ExpositoresPreview({ data, evento }) {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {items.map(x => (
-            <div key={x.id} className="rounded-2xl border border-border bg-surface/40 p-4">
+            /* `overflow-hidden` como cinturón además de los tirantes: un nombre
+               larguisimo o una foto futura no pueden volver a pintar fuera. */
+            <div key={x.id} className="rounded-2xl border border-border bg-surface/40 p-4 overflow-hidden min-w-0">
               <div className="flex items-start gap-3">
                 {x.logo_url
                   ? <img src={x.logo_url} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
@@ -1584,10 +1586,18 @@ function ExpositoresPreview({ data, evento }) {
                 </div>
               </div>
               {x.descripcion && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{x.descripcion}</p>}
+              {/* Rejilla de tres y no `flex` con `w-full`.
+
+                  Cada foto pedía el 100 % del ancho de la tarjeta y había hasta
+                  tres: 300 % más los huecos. Como la tarjeta no recorta, la
+                  galería se salía por la derecha y se pintaba ENCIMA de las
+                  tarjetas vecinas —se ve en el directorio del evento real, donde
+                  un expositor tapa al de al lado—. Con `grid-cols-3` cada foto
+                  ocupa un tercio, que es lo que se quería desde el principio. */}
               {Array.isArray(x.galeria) && x.galeria.length > 0 && (
-                <div className="flex gap-1.5 mt-2">
+                <div className="grid grid-cols-3 gap-1.5 mt-2">
                   {x.galeria.slice(0, 3).map((url, i) => (
-                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-md object-cover" />
+                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-md object-cover min-w-0" />
                   ))}
                 </div>
               )}

@@ -2953,6 +2953,22 @@ a otro sitio concreto.
 
 ### R2 · La landing pública
 
+**Dos de los defectos ya están arreglados** (2026-09-03), porque eran fallos y no
+decisiones de diseño:
+
+- **La galería que se salía de la tarjeta.** Cada foto pedía el 100 % del ancho y
+  había hasta tres: 300 % más los huecos, y la tarjeta no recorta, así que se
+  pintaba encima de las vecinas. Era `flex` con `w-full` donde tenía que haber
+  una rejilla de tres.
+- **La página del torneo que no contestaba nada.** El dato existía: la N-Fase 2
+  guardó el «¿cuándo se juega?» en `agenda_sessions.torneo_id` y la consulta
+  pública nunca lo miró. Ahora salen fecha, sede y número de equipos; y sin
+  fixture se enseñan **los equipos inscritos** en vez de una sola frase: lo que
+  falta es el cruce, no los participantes.
+
+Queda el rest del frente —qué enseña cada bloque, qué pasa cuando va casi vacío,
+y el diseño entero—, que es lo que va después de conectar la plataforma.
+
 Lo visto en las capturas del evento real:
 
 - **El directorio de expositores está roto de layout.** La galería de un
