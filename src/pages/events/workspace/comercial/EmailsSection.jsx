@@ -59,6 +59,11 @@ export default function EmailsSection({ evento, reload }) {
   /* `null` mientras no se sepa; `false` avisa de que la 0052 no está aplicada
      y de que lo que se guarde se queda en el sitio viejo. */
   const [almacenListo, setAlmacenListo] = useState(null);
+  /* El diagnóstico del proveedor viaja en la MISMA respuesta y nadie lo
+     pintaba. Sin proveedor configurado no se envía nada —y no falla: se
+     descarta—, así que el organizador escribe plantillas, le da a enviar y no
+     pasa nada, sin un solo aviso. */
+  const [diagnostico, setDiagnostico] = useState(null);
 
   useEffect(() => {
     /* De la TABLA, no de `page_json`. El GET hereda lo que quedara en el sitio
@@ -67,6 +72,7 @@ export default function EmailsSection({ evento, reload }) {
       .then((d) => {
         setData(d.plantillas || {});
         setAlmacenListo(d.almacenamiento_listo !== false);
+        setDiagnostico(d.diagnostico || null);
       })
       .catch(() => {
         /* Si la petición falla del todo, se vuelve a lo que trae el evento:
@@ -155,6 +161,31 @@ export default function EmailsSection({ evento, reload }) {
     <div className="space-y-5">
     {/* Desde que correo salen: va arriba porque decide si los correos de este
         evento llevan la direccion del organizador o la de la plataforma. */}
+    {/* Antes que nada: si no hay por dónde salir, el resto de esta pantalla es
+        decoración. */}
+    {diagnostico && !diagnostico.configurado && (
+      <div className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3">
+        <p className="text-sm text-text-1 font-medium">Ahora mismo no sale ningún correo.</p>
+        <p className="text-xs text-text-2 mt-1 leading-relaxed">
+          No hay servidor de correo configurado en la plataforma. Las plantillas se guardan, pero
+          los envíos se descartan —sin error—, así que nadie recibe su boleta. Configura el buzón
+          del evento aquí abajo, o pídele al administrador que conecte el de la plataforma.
+        </p>
+      </div>
+    )}
+
+    {diagnostico?.configurado && !diagnostico.frontend_url && (
+      /* El fallo más difícil de ver: el correo sale bien y sus enlaces llevan a
+         otro sitio. Nadie se entera hasta que un asistente hace clic. */
+      <div className="rounded-2xl border border-warning/30 bg-warning/5 px-4 py-3">
+        <p className="text-xs text-text-2 leading-relaxed">
+          Los correos salen, pero la plataforma no sabe cuál es su propia dirección
+          (<code>FRONTEND_URL</code>), así que los enlaces del correo —ver la boleta, el QR—
+          pueden apuntar a un dominio que no es el tuyo.
+        </p>
+      </div>
+    )}
+
     <BuzonPropio evento={evento} />
 
     {/* Justo debajo del buzón: quien viene aquí porque «a fulano no le llegó»

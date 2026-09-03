@@ -408,13 +408,30 @@ porque uno estaba roto.
 | Qué | Dónde | Estado |
 |---|---|---|
 | `components/ui/StatCard.jsx` | existe, con su clase `stat-card` en `index.css` | **Cero consumidores.** Mientras tanto, 18 pantallas reinventan su propia tarjeta de número (`ReporteTab`, `AnalyticsTab`, `ClientesTab`, `EquipoTab`, `TicketsTab`, `VacantesTab`, `ChatTab`, `NetworkingTab`, `CheckoutSection`…). |
-| Editor de plantillas de correo | `routes/emails.js:160,198,226,243,266,347` (GET/PUT/DELETE catálogo, previsualizar, diagnóstico, envíos) | Seis endpoints sin una sola pantalla que los llame. El frontend sólo usa `prueba`, `enviar`, `cola`, `reintentarCola`. Decidir: conectar o borrar. |
+| Editor de plantillas de correo | `routes/emails.js:160,198,226,243,266,347` | ✅ **conectados los seis** (2026-09-03). El catálogo ya se usaba; faltaban `previsualizar`, `diagnostico` y `envios`. Ver abajo. |
 | Bolsa y cuotas de expositores | `routes/networking.js:341,361,392` | Sin UI. Relacionado con la migración 0057. |
 | `public.oauth_barrer()` | `db/migrations/0073:92-98` | **Nadie la llama.** La propia migración dice que el backend debería invocarla «en el mismo ciclo que ya corre cada quince minutos», y ningún `cron-*.js` la incluye: `oauth_codes`/`oauth_tokens` crecen sin límite. |
 | Editar franja de expositor | `routes/expositor.js:328` (`PATCH`) | El frontend sólo crea y borra franjas. ¿Falta el botón «editar horario»? |
 | `modules/aforo/consultas.js` | backend | Muerto **a propósito**: es la traducción a MySQL para el corte del Frente A. Su comentario ya lo dice. No tocar. |
 | `ARCHIVOS_PROPIOS` | `core/config/index.js:108` | Apagada, y a diferencia de `AUTH_PROPIA` **no tiene ningún consumidor en el frontend**: encenderla hoy no cambiaría nada visible. Ninguna de las dos banderas está en los `.env.example`. |
-| `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | El comentario del archivo dice que se extrajeron de `DocumentosSection.jsx` para reusarlas — y `DocumentosSection.jsx` nunca importa el módulo. Refactor a medias. |
+| `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | ✅ **conectado** (2026-09-03). Y no era cosmético: la copia de `DocumentosSection` aceptaba **.doc, .xls y .ppt** —que sí llevan macros— y no cruzaba el MIME con la extensión. |
+
+#### Los tres que faltaban, y lo que se destapó al conectarlos
+
+- **`previsualizar`.** El panel tenía una **imitación en JSX del correo** —su
+  propio maquetado, su propia sustitución de variables, su propia copia de
+  `esClaro`—. Dos renderizadores del mismo correo, y el que el organizador
+  aprobaba no era el que salía: aprobaba una maqueta. Ahora la previa es el HTML
+  del servidor en un `iframe` aislado.
+- **`envios`.** Los contadores de la cola dicen CUÁNTOS no salieron; quien entra
+  ahí entra porque UNA persona dice que no le llegó, y eso no se contesta con un
+  número. Es una lista plegada con destinatario, motivo y hora.
+- **`diagnostico`.** Venía **en la misma respuesta** que las plantillas y nadie
+  lo pintaba. Sin proveedor configurado no se envía nada —y no falla: se
+  descarta—, así que se podían escribir plantillas, darle a enviar y no pasar
+  nada, sin un solo aviso. Ahora eso es lo primero que se lee. Y con
+  `FRONTEND_URL` sin poner, los enlaces del correo apuntan a otro dominio: eso
+  también se avisa, porque es el fallo que nadie ve hasta que alguien hace clic.
 
 ### 3.5 · Cinco migraciones mentían en su cabecera — ✅ arreglado el 2026-09-02
 
