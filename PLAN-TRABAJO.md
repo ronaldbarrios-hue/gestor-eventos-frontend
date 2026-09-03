@@ -11,6 +11,31 @@ sirviendo: cuatro pantallas de zonas en blanco durante horas, sin un solo error.
 Antes de correr una migración con condición previa, comprobar contra la API
 desplegada —no contra `main`—.
 
+### Pedido el 2026-09-03 · enviar la entrada — ✅ hecho
+
+En el detalle del asistente sólo se podía bajar el QR —una imagen suelta, sin
+nombre ni evento—, y escrito a mano por **cuarta vez**, mientras el asistente
+tiene su tarjeta, su PDF y su QR desde hace tiempo en `/mi-ticket`. El panel se
+había quedado con la mitad más pobre de lo que ya existía.
+
+Que use los mismos componentes que el público no es aseo: es lo que garantiza
+que el QR que manda el organizador sea el mismo que valida el escáner. Cuando
+eso se escribió dos veces, una de las dos metió la URL en vez del token firmado
+y el papel no abría ninguna puerta.
+
+**Las dos decisiones que hay que sostener:**
+
+- **El destinatario no viaja en la petición.** Va al correo registrado en la
+  boleta. Un endpoint del panel que acepta correo libre es un formulario de
+  envío masivo con la marca del evento.
+- **Por WhatsApp va el enlace, no una captura.** `wa.me` sólo lleva texto, y
+  adjuntar la imagen a mano dejaría circulando un PNG que no se revalida si
+  cambia el token ni corrige la fecha si el evento se mueve.
+
+Y por WhatsApp **no lo manda el servidor**, ni se finge que sí: no hay API
+conectada —número verificado y plantillas aprobadas por Meta son otro frente—.
+Se prepara el mensaje y lo manda la persona.
+
 ### Lo que queda, en orden
 
 1. **R2 · el diseño de los bloques por dentro.** Lo hecho hasta ahora es lo
