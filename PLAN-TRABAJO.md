@@ -1517,10 +1517,269 @@ y M8, que son el mismo bug de fondo —el modal no se desmonta— y son lo que h
 que el flujo «no tenga sentido». Después M6 y M5 (texto y unificación), M7 y M1.
 M0 aparte, porque necesita decidir entre el apaño de hoy y el mapeo de verdad.
 
+## FRENTE N · Dos secciones, y que todo se relacione con todo — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-02**, con estas palabras: «tener una sola
+zona para crear las zonas de interés, y ahí mismo manejar el aforo, etc. No
+tener todo separado por secciones porque la experiencia de usuario sería más
+compleja. Una sección *Actividades del evento* con Torneos, ruedas de negocio y
+las actividades que se vayan colocando; otra *Zonas del evento* con Zonas de
+interés, aforo por zonas, stands y mapa del evento, y que todo esté conectado
+para poder relacionar todo entre sí: asignar actividades a las zonas, también
+speakers, etc.»
+
+Continúa el **Frente I**, que hizo esto para una zona sola. Aquí se cierra: la
+agrupación de las nueve pestañas, y las relaciones que hoy existen y no se usan.
+
+---
+
+### El hallazgo, y cambia por dónde se empieza
+
+**Casi todo lo que se pide ya existe en la base de datos. Lo que no existe es en
+la pantalla, y las relaciones que hay están vacías.**
+
+`agenda_sessions` —la tabla de los sub-eventos— ya es la tabla de unión de todo
+esto. Medido contra producción el 2-sep, sobre **11 sesiones**:
+
+| Columna | Con qué relaciona | Filas que la usan |
+|---|---|---|
+| `speaker_id` | el ponente | **5 de 11** |
+| `zona_id` | la zona del recinto | **2 de 11** |
+| `torneo_id` | las llaves del torneo | **0 de 11** — y hay **4 torneos** |
+| `expositor_id` | el stand / expositor | **0 de 11** |
+| `ticket_type_id` | qué boleta da derecho | **0 de 11** |
+| `tipo`, `subcategoria` | qué clase de actividad es | 3 tipos de 11 posibles |
+
+Y en paralelo: **4 sesiones tienen `ubicacion` escrita a mano**, más que las 2
+que tienen zona. De **3 expositores, ninguno tiene zona**.
+
+**No hace falta inventar el modelo. Hace falta que se use.**
+
+### Por qué está vacío: la relación es opcional y compite con un atajo
+
+Las tres relaciones muertas fallan por la misma razón, y no es que falte
+código:
+
+- **Zona.** El formulario ofrece dos maneras de decir dónde pasa algo: elegir
+  una zona, o escribir un texto. Gana el texto, porque el texto siempre está y
+  la zona sólo aparece si alguien creó zonas antes. Peor: `SessionForm.jsx:189`
+  **copia el nombre de la zona al campo de texto** al elegirla, así que el dato
+  bueno y el dato suelto conviven y nadie sabe cuál manda.
+- **Torneo.** El camino existe y funciona: `HuecoEnCalendario` en
+  `TorneoCrear.jsx:156` pregunta si el torneo tiene hueco en el calendario y lo
+  crea. Es **opcional**, y el resultado es 4 torneos y 0 enlaces. Su propio
+  comentario dice qué pasa cuando nadie se acuerda: «un torneo invisible para
+  el público».
+- **Expositor y boleta.** Las columnas están y ningún formulario las ofrece.
+
+**Ésta es la causa de fondo de lo que se siente como «todo separado».** Un plan
+que sólo reordene el menú dejaría esto exactamente igual: las pestañas juntas y
+los datos igual de sueltos.
+
+### La otra causa: una zona no es una fila
+
+Una zona vive en `eventos.page_json.zonas`. No hay tabla `zonas`. Lo que ya se
+paga por eso:
+
+1. **No hay integridad.** Un `zona_id` que apunta a una zona borrada se guarda
+   igual. Tanto es así que `routes/networking.js` tiene `zonaInvalida()`, una
+   validación **a mano** que lee `page_json` en cada escritura para hacer el
+   trabajo de una clave foránea. La 0079 y la 0080 no la hacen, y por eso
+   acumulan huérfanos.
+2. **No se puede preguntar «qué hay en esta zona» con un join.** Hay que leer
+   `page_json`, leer las sesiones, leer los stands y cruzar en memoria. Eso es
+   lo que hace `GET /:eventoId/mapa/vivo`, y funciona — pero es la única
+   puerta, y cada relación nueva tiene que pasar por ahí o repetir el cruce.
+
+**Convertir la zona en tabla es lo que hace barato «relacionar todo con todo».**
+Sin eso, cada relación nueva es otro cruce a mano.
+
+### Lo que ya está hecho y conviene no volver a planificar
+
+El Frente I dejó más cerrado de lo que dicen sus propios comentarios:
+
+- **La administración de zonas ya vive en «Zonas de interés»**
+  (`ZonasSection.jsx:150` crea, edita, borra y guarda). Ya **no** hay dos
+  caminos de escritura: `MapaSection` sólo coloca (`:145`, «esta pantalla no es
+  dueña de zonas ni de accesos») y `AccesosSection` sólo escribe `accesos`.
+- **La cabecera de `ZonasSection` está vieja**: dice «la administración se muda
+  aquí en la fase siguiente» y ya se mudó. Corregirla entra en la Fase 1.
+- **`MapaSection.jsx:387` apunta a una pestaña que se movió**: dice «Se opera en
+  Asistentes → Aforo por zonas» y el aforo está hoy en Espacio del evento. Un
+  renglón, pero manda a la gente a un sitio donde no está.
+
+---
+
+### La agrupación que se pide
+
+Nueve pestañas hoy, todas bajo «Espacio del evento»:
+
+> Calendario · Torneos · Rueda de negocios · Mapa del evento · Accesos e
+> ingresos · Zonas de interés · Aforo por zonas · Stands · Ranking
+
+Propuesta, dos secciones de cinco:
+
+**Actividades del evento** — *qué pasa*
+
+| Pestaña | Qué contesta | Viene de |
+|---|---|---|
+| Calendario | cuándo pasa cada cosa | `calendario` |
+| Torneos | cómo van las llaves | `torneos` |
+| Rueda de negocios | las citas con expositores | `networking` |
+| Speakers | quién habla | hoy es un interruptor dentro del Calendario |
+| Ranking | qué puntos reparten las actividades | `ranking` |
+
+**Zonas del evento** — *dónde pasa*
+
+| Pestaña | Qué contesta | Viene de |
+|---|---|---|
+| Zonas de interés | qué es esta zona (y se administra aquí) | `zonas` |
+| Mapa del evento | dónde queda en el plano | `mapa` |
+| Aforo por zonas | cómo va ahora mismo | `aforo` |
+| Stands | quién está montado ahí | `stands` |
+| Accesos e ingresos | por dónde se entra | `accesos` |
+
+La regla que las separa, para que no haya que discutirla cada vez: **una
+actividad ocurre en el tiempo; una zona existe en el espacio.** Un torneo es
+actividad aunque tenga sitio; un stand es sitio aunque tenga horario.
+
+### Qué NO fusionar, y por qué
+
+Decidido en el Frente I, sigue valiendo:
+
+- **Los tres mapas no se fusionan.** Editor del plano, tablero en vivo y mapa
+  público son tres contextos de permisos distintos (organizador editando,
+  organizador operando, público mirando). Se comparten los datos y el marcador,
+  no la pantalla.
+- **Aforo no entra dentro de Zonas de interés.** Zonas contesta «qué es esta
+  zona» y se mira; Aforo contesta «cómo va» y se opera de pie, con el móvil,
+  con cola en la puerta. Se enlazan, no se funden.
+- **`ticket_types.zonas_acceso` no es esto.** Pese al nombre, no tiene que ver
+  con las zonas del recinto (§3.7).
+
+---
+
+### Fase 1 · La agrupación · barato, sin backend
+
+Partir `espacio` en `actividades` y `zonas` en la lista de secciones
+(`EventWorkspace.jsx:94`). Es una estructura de datos; el `switch` de render
+(`:439`) cambia sólo de prefijo.
+
+**Lo que no se puede olvidar:** el mapa de rutas viejas (`:190-199`) ya traduce
+seis rutas heredadas a `['espacio', …]`. Hay que **ampliarlo, no
+reemplazarlo**, y añadir las nueve `espacio/*`. Hay enlaces internos que
+apuntan a `?s=espacio&t=…` —`CheckinTab.jsx:400,425`, `AforoSection.jsx:141`,
+`AccesosSection.jsx:285`, `MapaSection.jsx:474`— y quedarían rotos.
+
+Aprovechar para: sacar **Speakers** a su propia pestaña (hoy es un interruptor
+dentro del Calendario y por eso no se encuentra), corregir la cabecera vieja de
+`ZonasSection` y el puntero muerto de `MapaSection.jsx:387`.
+
+**Prueba que conviene dejar escrita:** que toda ruta vieja resuelva a una
+sección y pestaña que existan, y que ningún enlace interno del código apunte a
+un par que no está en la lista. Es el tipo de fallo que no da error y deja la
+pantalla en blanco — el mismo espíritu que `montaje.test.js`.
+
+### Fase 2 · Que la relación deje de ser opcional · lo que de verdad cambia el uso
+
+Sin esto, lo demás es mudar muebles.
+
+1. **Si el evento tiene zonas, el sitio se elige — no se escribe.** El texto
+   libre queda como salida para eventos sin plano, no como camino por defecto.
+   Y deja de copiarse el nombre de la zona al campo de texto: hoy eso crea dos
+   verdades.
+2. **`ubicacion` se rellena desde la zona al leer**, no al escribir. Lo ya
+   escrito a mano se sigue viendo, y lo nuevo queda relacionado.
+3. **Crear un torneo ofrece su hueco en el calendario en el mismo paso**, en
+   vez de dejarlo para una tarjeta que hay que ir a buscar. 4 de 4 torneos sin
+   enlazar dicen que la tarjeta no basta.
+4. **El expositor y la boleta, en el formulario de sub-evento.** Las columnas
+   están; falta el campo. «Este taller lo da tal stand» y «hace falta boleta
+   VIP» son dos preguntas que hoy no se pueden contestar.
+5. **Avisos donde se arreglan**, como el de M7-bis: una actividad sin zona
+   teniendo el evento zonas, y un torneo sin hueco en el calendario, se
+   señalan en su propia pantalla.
+
+### Fase 3 · Que la zona sea una fila · el trabajo de fondo
+
+Migración: tabla `zonas` (`id`, `evento_id`, `nombre`, `aforo_max`, `color`,
+`x`, `y`, `orden`), con FK desde `agenda_sessions.zona_id`,
+`networking_expositores.zona_id` y `zona_cortes.zona_id`.
+
+**Expand/contract, y `page_json.zonas` NO se borra en el mismo paso.** Es DDL
+sobre datos de eventos en producción; la regla del repo es escribir el rollback
+antes (§3.5 ya tiene dos migraciones paradas por esto). Orden: crear tabla y
+copiar → escribir en las dos → leer de la tabla → dejar de escribir el JSON →
+borrar el JSON, **en una migración aparte y más tarde**.
+
+Lo que se gana: `zonaInvalida()` desaparece —lo hace la FK—, y «qué hay en esta
+zona» pasa a ser un join.
+
+Va **después** de la Fase 2 a propósito: hacer que la relación se use no
+necesita la tabla, y al revés la tabla nacería con 2 de 11 filas apuntando a
+algo. Primero que el dato exista, después que la base lo sostenga.
+
+### Fase 4 · La ficha de zona, completada
+
+**Ojo con no replanificar lo hecho:** «asignar actividades a las zonas» —colgar
+y descolgar una actividad o un stand **desde la zona**— ya está, es la Fase 3
+del Frente I, con el componente `<Colgar>` y sus tres permisos por separado.
+Lo que se pidió como «desde la zona» en su parte gruesa está resuelto.
+
+Lo que falta es lo que las relaciones nuevas de la Fase 2 hacen posible:
+
+- **Quién habla en esta zona.** `speaker_id` ya existe y `mapa/vivo` ya trae la
+  agenda de la zona; es juntar dos cosas que están, no una función nueva.
+- **Qué boleta hace falta para lo que pasa aquí**, en cuanto la Fase 2 llene
+  `ticket_type_id`. Es la pregunta que hoy se contesta mirando tres pantallas.
+- **El expositor que da la actividad**, distinto del stand que está montado en
+  la zona: hoy se confunden porque sólo existe el segundo.
+
+Barato después de la Fase 3; con `page_json` cada uno es otro cruce en memoria.
+
+### Fase 5 · Que un tipo de actividad sea un dato
+
+«Las diferentes actividades que se irán colocando» hoy son una constante:
+`lib/espacio.js` → `TIPOS_ESPACIO`, once tipos fijos. Añadir uno es **publicar
+código**, y por eso existe el «¿Falta tu tipo de sub-evento? Pídenoslo» del
+Calendario, que es un buzón (J1) — sirve para decirlo, no para ponerlo.
+
+Que el catálogo sea una tabla por organizador, con los once actuales de semilla.
+Cuidado con lo que la constante ya protege: `competitivo: true` es lo que
+engancha un tipo con las llaves del torneo, y el color y el icono los leen el
+panel, la página pública y el embed. Un tipo creado por el organizador tiene que
+traer las tres cosas o se verá roto en dos de los tres sitios. Y el icono es un
+trazo de `Iconos.jsx`, no un emoji — eso se decidió a propósito.
+
+**Va la última.** Es la más vistosa y la que menos arregla: no sirve de nada
+inventar tipos de actividad si la actividad sigue sin saber en qué zona ocurre.
+
+---
+
+### Orden
+
+**1 → 2 → 3 → 4 → 5.** La 1 es barata y es la que se ve. La 2 es la que cambia
+los números de arriba. La 3 es la cara y la que no conviene tocar con prisa.
+
+### Lo que este frente no arregla
+
+Que `mapa/vivo` sea la única puerta a los datos cruzados. Funciona y da la
+pantalla entera en una llamada; partirlo en consultas pequeñas «porque ahora hay
+joins» sería cambiar algo que anda por algo que se lee mejor. Se mira cuando la
+Fase 3 esté, no antes.
+
+---
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
 sesiones distintas sin que el merge duela.
+
+El **Frente N** es la continuación del I y **no se puede correr en paralelo con
+él ni con el Frente C**: toca `EventWorkspace.jsx`, `SessionForm.jsx`,
+`StandsTab.jsx`, `MapaSection.jsx`, `ZonasSection.jsx` y `lib/espacio.js`. Su
+Fase 1 es de un rato y no toca backend; la Fase 3 es DDL sobre datos de
+producción y va con [[db-guardian]].
 
 El **Camino unitario** (sección 2) es el tercer cubo: tareas que no dependen
 de cPanel ni se pisan entre sí, así que las toma quien esté libre —no hay
