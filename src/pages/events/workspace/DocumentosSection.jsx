@@ -4,6 +4,9 @@ import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { auth } from '../../../lib/sesion.js';
+import {
+  validarArchivo, sanitizarNombre, TIPOS_DOCUMENTO, ACCEPT_DOCUMENTO, MAX_DOCUMENTO,
+} from '../../../lib/archivos.js';
 
 /* Asistentes/Organización · Documentos del evento — sube y guarda archivos
    (PDF, imágenes, ofimática) asociados al evento, dentro de la plataforma.
@@ -17,25 +20,21 @@ import { auth } from '../../../lib/sesion.js';
      como paso de backend/infra. Los archivos van a un bucket; para documentos
      sensibles conviene un bucket privado con URLs firmadas (infra pendiente). */
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
-const TIPOS_OK = {
-  'application/pdf': 'PDF',
-  'image/jpeg': 'Imagen', 'image/png': 'Imagen', 'image/webp': 'Imagen', 'image/gif': 'Imagen',
-  'application/msword': 'Word',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word',
-  'application/vnd.ms-excel': 'Excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Excel',
-  'application/vnd.ms-powerpoint': 'PPT',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PPT',
-  'text/plain': 'Texto', 'text/csv': 'CSV',
-};
-/* Extensiones que NUNCA se aceptan aunque el MIME diga otra cosa (anti-malware básico). */
-const EXT_BLOQUEADAS = ['exe','bat','cmd','com','msi','msix','sh','bash','js','mjs','cjs','jar','vbs','vbe','ps1','psm1','html','htm','xhtml','svg','php','phtml','apk','scr','dll','lnk','reg','wsf','hta','jse','pif'];
-const ACCEPT_ATTR = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv';
+/* Las reglas viven en `lib/archivos.js` y no aquí.
 
-function sanitizeName(name) {
-  return (name || 'archivo').replace(/[^\w.\- ]+/g, '_').slice(0, 120);
-}
+   El módulo se extrajo **de este mismo archivo** para poder reutilizarlo, y
+   luego nadie lo importó: quedaron dos listas, y con el tiempo se separaron. La
+   de aquí se quedó atrás en lo que importa:
+
+   · aceptaba **.doc, .xls y .ppt**, que SÍ admiten macros —el bloqueo de
+     ejecutables de esta pantalla no servía de nada frente a un .doc con una
+     macro dentro—;
+   · no cruzaba el MIME con la extensión, así que un ejecutable renombrado a
+     .pdf que declarara `application/pdf` entraba.
+
+   Al unificar, esos tres formatos dejan de aceptarse. Es un cambio de
+   comportamiento y es el que se quería: quien tenga un .doc lo guarda como
+   .docx, que es lo que la propia lista larga ya recomendaba. */
 
 export default function DocumentosSection({ evento }) {
   const { success, error } = useToast();
@@ -50,17 +49,9 @@ export default function DocumentosSection({ evento }) {
     catch (e) { error('No se pudo guardar la lista: ' + (e.response?.data?.error || e.message)); }
   };
 
-  const validar = (file) => {
-    const ext = (file.name.split('.').pop() || '').toLowerCase();
-    if (EXT_BLOQUEADAS.includes(ext)) return `Por seguridad no se permiten archivos .${ext} (ejecutables/scripts).`;
-    if (!TIPOS_OK[file.type]) return 'Tipo de archivo no permitido. Usa PDF, imágenes, Word, Excel, PPT, TXT o CSV.';
-    if (file.size > MAX_BYTES) return `El archivo pesa más de ${MAX_BYTES / 1024 / 1024} MB.`;
-    return null;
-  };
-
   const subir = async (file) => {
     if (!file) return;
-    const err = validar(file);
+    const err = validarArchivo(file, { queEs: 'los documentos del evento' });
     if (err) { error(err); return; }
     setSubiendo(true);
     try {
@@ -73,7 +64,7 @@ export default function DocumentosSection({ evento }) {
       const { error: upErr } = await supabase.storage.from('event-media').upload(path, file, { upsert: false, contentType: file.type });
       if (upErr) throw new Error(upErr.message);
       const { data } = supabase.storage.from('event-media').getPublicUrl(path);
-      const doc = { nombre: sanitizeName(file.name), url: data.publicUrl, path, tipo: TIPOS_OK[file.type], size: file.size, subido_at: new Date().toISOString() };
+      const doc = { nombre: sanitizarNombre(file.name), url: data.publicUrl, path, tipo: TIPOS_DOCUMENTO[file.type], size: file.size, subido_at: new Date().toISOString() };
       await persistir([doc, ...docs]);
       success('Documento subido.');
     } catch (e) { error('Error al subir: ' + e.message); }
@@ -104,8 +95,14 @@ export default function DocumentosSection({ evento }) {
           <svg className="w-5 h-5 text-text-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
         </div>
         <p className="text-sm font-medium text-text-1">{subiendo ? 'Subiendo…' : 'Sube o arrastra un documento'}</p>
-        <p className="text-xs text-text-3 mt-1">PDF · imágenes · Word · Excel · PPT · TXT/CSV · máx 25 MB</p>
-        <input ref={inputRef} type="file" accept={ACCEPT_ATTR} className="hidden" onChange={e => subir(e.target.files?.[0])} />
+        {/* El límite se lee del módulo: un texto con el número escrito a mano
+            miente el día que el límite cambie, y es justo el texto que la gente
+            usa para decidir si su archivo cabe. */}
+        <p className="text-xs text-text-3 mt-1">
+          PDF · imágenes · Word (.docx) · Excel (.xlsx) · PPT (.pptx) · TXT/CSV ·
+          máx {Math.round(MAX_DOCUMENTO / 1024 / 1024)} MB
+        </p>
+        <input ref={inputRef} type="file" accept={ACCEPT_DOCUMENTO} className="hidden" onChange={e => subir(e.target.files?.[0])} />
       </div>
 
       {/* Nota de seguridad */}
