@@ -312,7 +312,6 @@
   }
 
   /* ── Stat card ───────────────────────────────── */
-  .stat-card { @apply card-hover p-5 cursor-default; }
 
   /* ── Divider ─────────────────────────────────── */
   .divider { @apply border-t border-border; }
