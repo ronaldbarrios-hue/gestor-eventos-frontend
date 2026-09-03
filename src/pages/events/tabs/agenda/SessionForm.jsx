@@ -36,7 +36,7 @@ function sitiosDelEvento(evento, sessions, campo) {
   return [...vistos.values()].sort((a, b) => a.valor.localeCompare(b.valor, 'es'));
 }
 
-export default function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, sessions = [], onSave, onCancel }) {
+export default function SessionForm({ initial, speakers, prefillDate, torneos = [], evento, sessions = [], expositores = [], tiposBoleta = [], onSave, onCancel }) {
   /* Los grupos que este evento ya usa, para sugerirlos. Se ordenan para que la
      lista no baile entre aperturas, y se deduplica sin distinguir mayusculas
      —el servidor reutiliza la variante existente al guardar, asi que ofrecer
@@ -63,6 +63,8 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
     ubicacion  : initial?.ubicacion || '',
     zona_id    : initial?.zona_id || '',
     speaker_id : initial?.speaker_id || '',
+    expositor_id  : initial?.expositor_id || '',
+    ticket_type_id: initial?.ticket_type_id || '',
     tipo       : initial?.tipo || TIPO_DEFECTO,
     subcategoria: initial?.subcategoria || '',
     torneo_id  : initial?.torneo_id || '',
@@ -87,6 +89,8 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
       ubicacion  : form.ubicacion || null,
       zona_id    : form.zona_id || null,
       speaker_id : form.speaker_id || null,
+      expositor_id  : form.expositor_id || null,
+      ticket_type_id: form.ticket_type_id || null,
       tipo       : form.tipo,
       subcategoria: form.subcategoria.trim() || null,
       torneo_id  : competitivo ? (form.torneo_id || null) : null,
@@ -181,13 +185,7 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
         <div className="field">
           <label className="label">Zona del plano <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
           <select value={form.zona_id}
-            onChange={e => {
-              const z = zonasEvento.find(x => x.id === e.target.value);
-              /* Elegir la zona rellena la ubicación si estaba vacía: son la
-                 misma respuesta a "dónde es", y escribirla dos veces es lo que
-                 hace que acaben diciendo cosas distintas. */
-              setForm(f => ({ ...f, zona_id: e.target.value, ubicacion: f.ubicacion || (z?.nombre || '') }));
-            }}
+            onChange={e => setForm(f => ({ ...f, zona_id: e.target.value }))}
             className="input bg-surface-2 rounded-2xl py-3 text-base">
             <option value="">Sin zona</option>
             {zonasEvento.map(z => (
@@ -197,6 +195,54 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
           <p className="text-[11px] text-text-3 mt-1">
             Al tocar esa zona en el plano, este sub-evento aparece en su programación junto con el aforo del momento.
           </p>
+          {/* Antes, elegir la zona copiaba su nombre al campo «Ubicación» de
+              abajo si estaba vacío. La intención era buena —son la misma
+              respuesta a «dónde es»— pero el efecto era el contrario: dejaba
+              DOS verdades, y en cuanto alguien renombraba la zona el texto
+              copiado se quedaba viejo sin que nada avisara. Medido en
+              producción: 2 de 11 sesiones tenían zona y 4 tenían ubicación
+              escrita a mano. Ahora la zona es la respuesta y la ubicación es el
+              detalle. */}
+          {!form.zona_id && (
+            <p className="text-[11px] text-warning mt-1">
+              Sin zona, esta actividad no sale en el plano ni en la ficha de ninguna zona.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Quién la da y con qué boleta se entra.
+          Las dos columnas viven en `agenda_sessions` desde hace tiempo y NINGUNA
+          pantalla las escribía: medido en producción, 0 de 11 sesiones tenían
+          una u otra. No faltaba modelo, faltaba el campo. */}
+      {(expositores.length > 0 || tiposBoleta.length > 0) && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {expositores.length > 0 && (
+            <div className="field">
+              <label className="label">La da <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <select value={form.expositor_id} onChange={e => setForm(f => ({...f, expositor_id: e.target.value}))}
+                className="input bg-surface-2 rounded-2xl py-3 text-base">
+                <option value="">Nadie en concreto</option>
+                {expositores.map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+              </select>
+              <p className="text-[11px] text-text-3 mt-1">
+                Un expositor del evento. Distinto del speaker: aquí va la empresa, arriba la persona.
+              </p>
+            </div>
+          )}
+          {tiposBoleta.length > 0 && (
+            <div className="field">
+              <label className="label">Hace falta boleta <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              <select value={form.ticket_type_id} onChange={e => setForm(f => ({...f, ticket_type_id: e.target.value}))}
+                className="input bg-surface-2 rounded-2xl py-3 text-base">
+                <option value="">Cualquiera</option>
+                {tiposBoleta.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+              </select>
+              <p className="text-[11px] text-text-3 mt-1">
+                Para las actividades que sólo entran con un tipo de boleta (VIP, por ejemplo).
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -215,15 +261,21 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
           </p>
         </div>
         <div className="field">
-          <label className="label">Ubicación</label>
+          <label className="label">
+            {zonasEvento.length > 0 ? 'Detalle del sitio' : 'Ubicación'}
+          </label>
           <input list="gestek-ubicaciones" value={form.ubicacion} onChange={e => setForm(f => ({...f, ubicacion: e.target.value}))}
-            placeholder="Piso 2" className="input-form" />
+            placeholder={zonasEvento.length > 0 ? 'Piso 2, al fondo…' : 'Piso 2'} className="input-form" />
           <datalist id="gestek-ubicaciones">
             {ubicaciones.map(o => <option key={o.valor} value={o.valor}>{o.origen}</option>)}
           </datalist>
-          {ubicaciones.length > 0 && (
-            <p className="text-[11px] text-text-3 mt-1">Salen las zonas, los puntos del plano y las puertas ya creadas.</p>
-          )}
+          <p className="text-[11px] text-text-3 mt-1">
+            {zonasEvento.length > 0
+              ? 'Sólo si hace falta precisar algo dentro de la zona. El sitio lo dice la zona de arriba.'
+              : ubicaciones.length > 0
+                ? 'Salen las zonas, los puntos del plano y las puertas ya creadas.'
+                : 'Ej. «Auditorio A», «Piso 2».'}
+          </p>
         </div>
         <div className="field">
           <label className="label">Speaker</label>

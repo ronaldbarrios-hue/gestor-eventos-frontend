@@ -22,6 +22,15 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
   const [numGrupos, setNumGrupos] = useState(2);
   const [avanzanPorGrupo, setAvanzanPorGrupo] = useState(2);
   const [working, setWorking] = useState(false);
+  /* Cuándo se juega, en el mismo paso.
+     Ya había una forma de darle hueco en el calendario —la tarjeta
+     `HuecoEnCalendario`, más abajo— y era opcional: había que verla, entenderla
+     y volver. Medido en producción: **4 torneos, 0 enlazados**. Una relación
+     opcional al lado de un camino que no la pide es una relación vacía.
+     Se pregunta aquí, donde ya se está escribiendo el torneo. Sigue pudiendo
+     dejarse en blanco —a veces la fecha no se sabe todavía— y entonces la
+     tarjeta de abajo sigue estando para cuando se sepa. */
+  const [cuando, setCuando] = useState('');
   const { error: toastErr } = useToast();
 
   const submit = async (e) => {
@@ -39,6 +48,24 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
         body.avanzan_por_grupo = Number(avanzanPorGrupo);
       }
       const { torneo } = await torneosApi.crear(eventoId, body);
+
+      /* El hueco en el calendario, si dijeron cuándo.
+         Va DESPUÉS y en su propio `try`: si esto falla, el torneo ya está
+         creado y perderlo por no haber podido escribir la franja sería absurdo.
+         Se avisa y se sigue — la tarjeta de abajo deja ponerle hora luego. */
+      if (cuando) {
+        try {
+          await agendaApi.crearSession(eventoId, {
+            titulo: nombre.trim(),
+            inicio: new Date(cuando).toISOString(),
+            tipo: 'competencia',
+            torneo_id: torneo.id,
+            descripcion: disciplina.trim() || null,
+          });
+        } catch {
+          toastErr('El torneo se creó, pero no se pudo ponerle hora en el calendario. Puedes hacerlo desde su tarjeta.');
+        }
+      }
       onCreado?.(torneo);
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
@@ -55,6 +82,20 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
           Un evento puede tener varios torneos (por ejemplo un torneo por videojuego). Elige un formato; luego agregas los equipos participantes.
         </p>
         <form onSubmit={submit} className="space-y-5">
+          {/* Va arriba del todo y no al final: es la pregunta que hace que el
+              torneo exista para el público, no un detalle de configuración. */}
+          <div className="field">
+            <label className="label">
+              ¿Cuándo se juega? <span className="lowercase tracking-normal font-normal text-text-3">(puedes dejarlo para luego)</span>
+            </label>
+            <input type="datetime-local" value={cuando} onChange={e => setCuando(e.target.value)}
+              className="input bg-surface-2 rounded-2xl py-3 text-base" />
+            <p className="text-[11px] text-text-3 mt-1">
+              {cuando
+                ? 'Se crea también como sub-evento, así que aparece en el Espacio del evento y en la agenda pública.'
+                : 'Sin hora, el torneo existe en el panel pero el público no lo ve en la agenda.'}
+            </p>
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="field">
               <label className="label">Nombre del torneo</label>

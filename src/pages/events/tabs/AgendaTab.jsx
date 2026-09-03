@@ -17,6 +17,8 @@ import {
   PlusIcon, ChevL, ChevR, EmptyState,
 } from './agenda/agendaComun.jsx';
 import SessionForm from './agenda/SessionForm.jsx';
+import { networkingApi } from '../../../api/networking.js';
+import { ticketsApi } from '../../../api/tickets.js';
 import SessionsList from './agenda/AgendaLista.jsx';
 import SalasGrid from './agenda/SalasGrid.jsx';
 import { MesGrid, SemanaGrid, DiaTimeline } from './agenda/AgendaVistas.jsx';
@@ -41,6 +43,12 @@ export default function AgendaTab({ evento, vistaFija = null }) {
   const [sessions, setSessions] = useState([]);
   const [speakers, setSpeakers] = useState([]);
   const [torneos,  setTorneos]  = useState([]);
+  /* Para poder decir QUIÉN da cada actividad y CON QUÉ boleta se entra.
+     Las dos relaciones ya estaban en la tabla y ninguna pantalla las
+     rellenaba. Si alguna de las dos peticiones falla —falta de permiso,
+     por ejemplo— el formulario simplemente no ofrece ese campo. */
+  const [expositores, setExpositores] = useState([]);
+  const [tiposBoleta, setTiposBoleta] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [view,     setView]     = useState(vistaFija || 'sessions'); // sessions | speakers
   const [subView,  setSubView]  = useState('lista');    // lista | dia | semana | mes | salas
@@ -60,14 +68,18 @@ export default function AgendaTab({ evento, vistaFija = null }) {
   const reload = async () => {
     setLoading(true);
     try {
-      const [s, sp, tr] = await Promise.all([
+      const [s, sp, tr, ex, tt] = await Promise.all([
         agendaApi.sessions(evento.id),
         agendaApi.speakers(evento.id),
         torneosApi.list(evento.id).catch(() => ({ torneos: [] })),
+        networkingApi.expositoresAdmin(evento.id).catch(() => ({ expositores: [] })),
+        ticketsApi.list(evento.id).catch(() => ({ tickets: [] })),
       ]);
       setSessions(s.sessions || []);
       setSpeakers(sp.speakers || []);
       setTorneos((tr.torneos || []).filter(Boolean));
+      setExpositores(ex.expositores || []);
+      setTiposBoleta(tt.tickets || tt.ticket_types || []);
     } catch (e) { toastErr(e.message); }
     finally    { setLoading(false); }
   };
@@ -282,6 +294,8 @@ export default function AgendaTab({ evento, vistaFija = null }) {
           torneos={torneos}
           evento={evento}
           sessions={sessions}
+          expositores={expositores}
+          tiposBoleta={tiposBoleta}
           prefillDate={prefillDate}
           onCancel={() => { setCreating(false); setPrefillDate(null); }}
           onSave={async (payload) => {
@@ -353,6 +367,8 @@ export default function AgendaTab({ evento, vistaFija = null }) {
               speakers={speakers}
               torneos={torneos}
               evento={evento}
+              expositores={expositores}
+              tiposBoleta={tiposBoleta}
               onEdit={setEditing}
               onSave={async (id, payload) => {
                 try { await agendaApi.editarSession(evento.id, id, payload); success('Sub-evento actualizado.'); setEditing(null); reload(); }
