@@ -1807,6 +1807,95 @@ function TorneosPreview({ data = {}, evento, isEditor }) {
   );
 }
 
+
+/* ─────────── Código propio ───────────
+ *
+ * ── El único bloque que acepta HTML libre, y por qué se puede ────────────
+ *
+ * Todo el catálogo es un contrato en JSON justamente para que no haya HTML
+ * suelto: un `<script>` en la landing correría con el origen del evento y lo ve
+ * todo el público. Este bloque es la excepción, y sólo lo es por dónde se
+ * pinta.
+ *
+ * Va dentro de un `iframe` con `sandbox` y **sin `allow-same-origin`**. Eso lo
+ * mete en un origen opaco: ahí dentro el código no puede leer las cookies del
+ * visitante, ni el token de sesión del organizador que lo está editando, ni
+ * tocar la página de alrededor, ni llamar a la API en nombre de nadie. Lo peor
+ * que puede hacer es estropear su propio recuadro.
+ *
+ * `allow-scripts` sí, porque sin eso el bloque no sirve para nada. Las dos
+ * juntas —`allow-scripts allow-same-origin`— serían exactamente lo que hay que
+ * evitar: el sandbox dejaría de aislar y volveríamos al `<script>` con el origen
+ * del evento.
+ *
+ * ── Y por qué no se sanea el HTML ────────────────────────────────────────
+ *
+ * Porque sanear invita a creer que el contenido es seguro, y el día que alguien
+ * quite el sandbox «total, ya está saneado», la puerta queda abierta. Lo que se
+ * guarda es texto; lo que lo hace inofensivo es el iframe.
+ */
+function CodigoEditor({ data = {}, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })}
+        placeholder="Título (opcional)" className="input" />
+      <div className="field">
+        <label className="label">Tu HTML</label>
+        <textarea
+          value={data.html || ''}
+          onChange={e => onChange({ ...data, html: e.target.value })}
+          spellCheck={false} rows={14}
+          placeholder={'<div style="font-family: sans-serif"><h2>Hola</h2></div>'}
+          className="input w-full font-mono text-[11px] leading-relaxed resize-y" />
+        <p className="text-[11px] text-text-3 mt-1.5 leading-relaxed">
+          Se pinta dentro de un marco aislado: tu código no puede leer la sesión de nadie ni tocar el
+          resto de la página, y el resto de la página tampoco lo toca a él. Los estilos de GESTEK no
+          llegan ahí dentro — lo que escribas se ve tal cual.
+        </p>
+      </div>
+      <div className="field">
+        <label className="label">Alto (píxeles)</label>
+        <input type="number" min={80} max={2000} value={data.alto ?? 320}
+          onChange={e => onChange({ ...data, alto: Math.max(80, Math.min(2000, Number(e.target.value) || 320)) })}
+          className="input" />
+        <p className="text-[11px] text-text-3 mt-1">
+          Un marco aislado no puede crecer solo con su contenido: el alto lo pones tú.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CodigoPreview({ data = {}, isEditor }) {
+  const html = String(data.html || '').trim();
+  if (!html) {
+    if (!isEditor) return null;
+    return (
+      <section>
+        <CabeceraSeccion titulo={data.titulo} />
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">Bloque de código vacío. Escribe tu HTML en el panel de la derecha.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section>
+      <CabeceraSeccion titulo={data.titulo} />
+      <iframe
+        title={data.titulo || 'Código propio'}
+        srcDoc={html}
+        /* Sin `allow-same-origin`: es lo único que hace que esto sea seguro. */
+        sandbox="allow-scripts allow-popups allow-forms"
+        loading="lazy"
+        className="w-full rounded-2xl border border-border bg-white"
+        style={{ height: `${Math.max(80, Math.min(2000, Number(data.alto) || 320))}px` }}
+      />
+    </section>
+  );
+}
+
 function CTAPreview({ data }) {
   if (!data.texto || !data.url) return null;
   const cls = data.estilo === 'secondary'
@@ -2071,6 +2160,11 @@ export const BLOCKS = {
     label: 'Torneos', category: 'custom', icon: IconRecompensas,
     defaults: { titulo: 'Torneos', subtitulo: 'Compite o ven a mirar.' },
     Editor: TorneosEditor, Preview: TorneosPreview,
+  },
+  codigo: {
+    label: 'Código propio', category: 'custom', icon: IconTexto,
+    defaults: { titulo: '', html: '', alto: 320 },
+    Editor: CodigoEditor, Preview: CodigoPreview,
   },
   mapa_evento: {
     label: 'Mapa del evento', category: 'custom', icon: IconMapa,

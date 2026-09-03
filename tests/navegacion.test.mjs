@@ -309,3 +309,24 @@ test('todas las páginas del evento tienen la misma anchura de columna', () => {
   assert.deepEqual(malas, [],
     'Alguna página del evento volvió a elegir su propia anchura');
 });
+
+test('el bloque de código va aislado, y sin `allow-same-origin`', () => {
+  /* Todo el catálogo es un contrato en JSON para que no haya HTML suelto: un
+     <script> en la landing correría con el origen del evento y lo ve todo el
+     público. Este bloque es la excepción, y sólo lo es por DÓNDE se pinta.
+
+     `sandbox` sin `allow-same-origin` mete el código en un origen opaco: no
+     puede leer cookies, ni el token del organizador que lo está editando, ni
+     tocar la página de alrededor. Las dos banderas juntas —scripts y
+     same-origin— anulan el sandbox y devuelven el problema entero.
+
+     Por eso esto se comprueba: es una línea que alguien puede «arreglar» un día
+     para que su widget acceda al padre, y a partir de ahí no protege nada. */
+  const src = readFileSync(join(SRC, 'pages/events/editor/blocks.jsx'), 'utf8');
+  const sandboxes = [...src.matchAll(/sandbox="([^"]*)"/g)].map(m => m[1]);
+  assert.ok(sandboxes.length > 0, 'el bloque de código dejó de pintarse en un iframe con sandbox');
+  for (const s of sandboxes) {
+    assert.ok(!/allow-same-origin/.test(s),
+      `un sandbox de la landing lleva allow-same-origin: «${s}»`);
+  }
+});
