@@ -56,6 +56,49 @@ function PreviewSortable({ id, children }) {
 
 /* ─────────── helpers ─────────── */
 
+/* La cabecera de una sección pública, una sola vez.
+ *
+ * ── Lo que había ─────────────────────────────────────────────────
+ *
+ * Doce bloques escribían su propio título, con **cuatro tamaños distintos**
+ * (`text-2xl`, `text-2xl sm:text-3xl`, uno centrado, uno enorme) y **tres
+ * separaciones distintas** debajo (`mb-2`, `mb-4`, `mb-5`). Nadie decidió eso:
+ * se fue acumulando, un bloque cada vez, copiando el de al lado y ajustando a
+ * ojo. El resultado es una página donde cada sección empieza con un ritmo
+ * distinto —y eso es la mitad de lo que hace que una página «se vea mal» sin
+ * que se pueda señalar qué está mal.
+ *
+ * Aquí hay un tamaño y un ritmo. Lo único que varía es lo que tenía motivo:
+ * centrar —una llamada a la acción se centra, un directorio no—.
+ *
+ * El subtítulo va con el título y no suelto: separarlos era lo que producía
+ * `mb-2` en unos sitios y `mb-5` en otros según si había subtítulo o no. */
+/* Y el hueco ENTRE secciones lo pone la página, no el bloque.
+ *
+ * Cuatro de los doce se envolvían en `<section className="py-4">`, encima del
+ * `space-y-8` que ya pone la página pública. Así que esos cuatro —premios,
+ * expositores, mapa y torneos— quedaban separados 2 rem más que los demás. Son
+ * los huecos grandes que se venían en el evento real, y no eran de diseño:
+ * eran dos capas sumando margen sin saber la una de la otra.
+ *
+ * El elemento `<section>` se queda, que eso sí dice algo; lo que se va es el
+ * relleno. */
+function CabeceraSeccion({ titulo, subtitulo, centrado = false }) {
+  if (!titulo && !subtitulo) return null;
+  return (
+    <div className={`${subtitulo ? 'mb-5' : 'mb-4'} ${centrado ? 'text-center' : ''}`}>
+      {titulo && (
+        <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">{titulo}</h2>
+      )}
+      {subtitulo && (
+        <p className={`text-sm text-text-2 leading-relaxed mt-2 ${centrado ? 'mx-auto' : ''} max-w-2xl`}>
+          {subtitulo}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Section({ title, children }) {
   return <div className="text-text-3 text-xs italic">[{title}]</div>;
 }
@@ -661,7 +704,7 @@ function TextoPreview({ data }) {
   const ps = (data.texto || '').split(/\n\s*\n/).filter(Boolean);
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {ps.map((p, i) => <p key={i} className="text-base text-text-2 leading-relaxed mb-3">{p}</p>)}
     </div>
   );
@@ -706,7 +749,7 @@ function GaleriaPreview({ data, reorder }) {
   );
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
           onMove={(from, to) => reorder.onChange({ ...data, urls: arrayMove(all, from, to) })}
@@ -736,7 +779,7 @@ function VideoPreview({ data }) {
   if (!embed) return null;
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       <div className="aspect-video rounded-3xl overflow-hidden border border-border"><iframe src={embed} className="w-full h-full" allowFullScreen /></div>
     </div>
   );
@@ -781,7 +824,7 @@ function FAQPreview({ data, reorder }) {
   const item = (i) => <FAQItem key={i} q={all[i].q} a={all[i].a} />;
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={verticalListSortingStrategy} className="space-y-2"
           onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
@@ -959,7 +1002,7 @@ function SpeakersPreview({ data, reorder }) {
   const grid = 'grid sm:grid-cols-2 gap-3';
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
           onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
@@ -1014,7 +1057,7 @@ function SponsorsPreview({ data }) {
   const grouped = TIERS.map(t => ({ ...t, items: items.filter(it => (it.tier || 'silver') === t.id) })).filter(g => g.items.length > 0);
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5 text-center">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} centrado />
       <div className="space-y-6">
         {grouped.map(g => (
           <div key={g.id}>
@@ -1063,7 +1106,7 @@ function MapaPreview({ data, evento }) {
   const linkSrc  = `https://www.google.com/maps?q=${encodeURIComponent(direccion)}`;
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       <div className="rounded-3xl overflow-hidden border border-border mb-3 aspect-video">
         <iframe src={embedSrc} className="w-full h-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Mapa" />
       </div>
@@ -1194,7 +1237,7 @@ function RedesPreview({ data, reorder }) {
   const wrap = 'flex flex-wrap justify-center gap-2';
   return (
     <div className="text-center">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={wrap}
           onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
@@ -1255,9 +1298,8 @@ function RecompensasPreview({ data, evento, isEditor }) {
      entre secciones. */
   if (items.length === 0 && !isEditor) return null;
   return (
-    <section className="py-4">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
-      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-5 max-w-2xl">{data.subtitulo}</p>}
+    <section>
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm text-text-3">Aún no hay premios publicados.</p>
@@ -1328,8 +1370,8 @@ function MapaEventoPreview({ data, evento, isEditor }) {
        organizador no lo ha subido: eso es un recado interno. */
     if (!isEditor) return null;
     return (
-      <section className="py-4">
-        {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
+      <section>
+        <CabeceraSeccion titulo={data.titulo} />
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm text-text-3">El mapa aún no está configurado.</p>
         </div>
@@ -1338,9 +1380,8 @@ function MapaEventoPreview({ data, evento, isEditor }) {
   }
 
   return (
-    <section className="py-4">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
-      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-4 max-w-2xl">{data.subtitulo}</p>}
+    <section>
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       <div className="rounded-2xl overflow-auto border border-border bg-surface-2 flex justify-center">
         <div className="relative">
           <img src={mapa.imagen_url} alt="Mapa del evento" className="block max-h-[75vh] w-auto max-w-full" />
@@ -1578,9 +1619,8 @@ function ExpositoresPreview({ data, evento, isEditor }) {
   if (items.length === 0 && !isEditor) return null;
   const hora = (s) => new Date(s).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   return (
-    <section className="py-4">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
-      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-5 max-w-2xl">{data.subtitulo}</p>}
+    <section>
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm text-text-3">Aún no hay expositores publicados.</p>
@@ -1631,6 +1671,138 @@ function ExpositoresPreview({ data, evento, isEditor }) {
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+
+/* ─────────── Agenda del evento ───────────
+ *
+ * El catálogo tenía veinticinco bloques y ninguno para el PROGRAMA. Se podían
+ * poner patrocinadores, galería y testimonios; lo que el evento hace, no. La
+ * información existía y vivía sólo en una página hermana a la que hay que
+ * saber ir.
+ *
+ * Enseña lo que viene y enlaza al resto: una landing no es un listado, es una
+ * portada. Por eso el tope, y por eso el enlace. */
+function AgendaEditor({ data = {}, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })}
+        placeholder="Título" className="input" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })}
+        placeholder="Subtítulo" rows={2} className="input resize-none" />
+      <div className="field">
+        <label className="label">Cuántas actividades se enseñan</label>
+        <input type="number" min={1} max={24} value={data.limite ?? 6}
+          onChange={e => onChange({ ...data, limite: Math.max(1, Math.min(24, Number(e.target.value) || 6)) })}
+          className="input" />
+        <p className="text-[11px] text-text-3 mt-1">
+          Las siguientes por hora. El resto se ve en la página del programa, que se enlaza abajo.
+        </p>
+      </div>
+      <p className="text-[11px] text-text-3">
+        Las actividades se crean en «Actividades del evento → Calendario». Aquí sólo se muestran.
+      </p>
+    </div>
+  );
+}
+
+function AgendaPreview({ data = {}, evento, isEditor }) {
+  const items = (evento?.agenda || []).slice(0, data.limite || 6);
+  if (items.length === 0 && !isEditor) return null;
+
+  const cuando = (s) => (s
+    ? new Date(s).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null);
+
+  return (
+    <section>
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">Todavía no hay actividades programadas.</p>
+        </div>
+      ) : (<>
+        <ul className="space-y-2">
+          {items.map(s => (
+            <li key={s.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-text-1">{s.titulo}</p>
+                <p className="text-[11px] text-text-3 mt-0.5">
+                  {cuando(s.inicio) || 'Sin fecha'}{s.ubicacion ? ` · ${s.ubicacion}` : ''}
+                </p>
+              </div>
+              {/* Sólo se marca lo que cambia lo que la persona tiene que hacer:
+                  si hay que apuntarse, el resto es ruido. */}
+              {s.requiere_inscripcion && (
+                <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded flex-shrink-0">
+                  Con inscripción
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {evento?.slug && (
+          <a href={`/explorar/${evento.slug}/agenda`} className="inline-block mt-3 text-sm text-primary-light hover:underline">
+            Ver el programa completo
+          </a>
+        )}
+      </>)}
+    </section>
+  );
+}
+
+/* ─────────── Torneos ─────────── */
+function TorneosEditor({ data = {}, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })}
+        placeholder="Título" className="input" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })}
+        placeholder="Subtítulo" rows={2} className="input resize-none" />
+      <p className="text-[11px] text-text-3">
+        Los torneos se crean en «Actividades del evento». Aquí se muestran con su disciplina y
+        cuántos equipos llevan inscritos.
+      </p>
+    </div>
+  );
+}
+
+function TorneosPreview({ data = {}, evento, isEditor }) {
+  const items = evento?.torneos || [];
+  if (items.length === 0 && !isEditor) return null;
+
+  const ESTADO = { armando: 'Inscripciones abiertas', en_curso: 'En juego', finalizado: 'Terminado' };
+
+  return (
+    <section>
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">Todavía no hay torneos.</p>
+        </div>
+      ) : (<>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {items.map(t => (
+            <div key={t.id} className="rounded-2xl border border-border bg-surface/40 p-4 min-w-0">
+              <p className="text-sm font-semibold text-text-1 truncate">{t.nombre}</p>
+              {t.disciplina && <p className="text-[11px] text-text-3 mt-0.5">{t.disciplina}</p>}
+              <p className="text-[11px] text-text-2 mt-2">
+                {/* El número de equipos es lo que dice si el torneo está vivo o
+                    es un nombre puesto hace un mes. */}
+                {t.equipos || 0} equipo{t.equipos === 1 ? '' : 's'}
+                {ESTADO[t.estado] ? ` · ${ESTADO[t.estado]}` : ''}
+              </p>
+            </div>
+          ))}
+        </div>
+        {evento?.slug && (
+          <a href={`/explorar/${evento.slug}/torneo`} className="inline-block mt-3 text-sm text-primary-light hover:underline">
+            Ver llaves y resultados
+          </a>
+        )}
+      </>)}
     </section>
   );
 }
@@ -1889,6 +2061,16 @@ export const BLOCKS = {
       texto_boton: 'Registrar mi stand', url: '',
     },
     Editor: RegistrarStandEditor, Preview: RegistrarStandPreview,
+  },
+  agenda: {
+    label: 'Programa / agenda', category: 'custom', icon: IconInfo,
+    defaults: { titulo: 'Qué pasa en el evento', subtitulo: 'Las próximas actividades del programa.', limite: 6 },
+    Editor: AgendaEditor, Preview: AgendaPreview,
+  },
+  torneos: {
+    label: 'Torneos', category: 'custom', icon: IconRecompensas,
+    defaults: { titulo: 'Torneos', subtitulo: 'Compite o ven a mirar.' },
+    Editor: TorneosEditor, Preview: TorneosPreview,
   },
   mapa_evento: {
     label: 'Mapa del evento', category: 'custom', icon: IconMapa,

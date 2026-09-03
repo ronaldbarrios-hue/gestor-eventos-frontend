@@ -1,8 +1,22 @@
 import { useState } from 'react';
 import ExperienceBuilder from '../editor/ExperienceBuilder.jsx';
 
-/* Tab Página pública — alterna entre Preview (vista cliente con iframe)
-   y Editor (constructor visual de bloques). */
+/* Tab Página pública — las tres formas de mirar lo mismo.
+ *
+ * ── Por qué son tres y no dos ──────────────────────────────────────
+ *
+ *   · **Página de GESTEK** — lo que ve el visitante, en un iframe de la página
+ *     de verdad y no de una imitación. Con `?gestek=1` cuando el evento publica
+ *     hacia fuera: si no, el editor de su propia página se iría a la web del
+ *     organizador y no habría manera de ver lo que se está editando.
+ *   · **Editor** — las secciones, o el lienzo libre.
+ *   · **Datos** — la misma página escrita en el formato que valida el servidor,
+ *     de donde se copia la página entera o un bloque suelto.
+ *
+ * Las tres estaban, y estaban escondidas una dentro de otra: al preview se
+ * llegaba por defecto, al editor por un botón de la esquina y a los datos por
+ * ningún sitio —vivían en un editor entero que no abría nadie—. Son tres formas
+ * de mirar la misma página, así que se eligen en el mismo sitio. */
 
 const DEVICES = [
   { id: 'desktop', label: 'Desktop', w: '100%', icon: DesktopIcon },
@@ -11,7 +25,7 @@ const DEVICES = [
 ];
 
 export default function PaginaPublicaTab({ evento }) {
-  const [mode, setMode] = useState('preview'); // preview | edit
+  const [mode, setMode] = useState('preview'); // preview | edit | datos
   const [device, setDevice] = useState('desktop');
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -24,8 +38,16 @@ export default function PaginaPublicaTab({ evento }) {
   const url = `/explorar/${evento.slug}${publicaFuera ? '?gestek=1' : ''}`;
   const previewWidth = DEVICES.find(d => d.id === device)?.w || '100%';
 
-  if (mode === 'edit') {
-    return <ExperienceBuilder evento={evento} onClose={() => { setMode('preview'); setReloadKey(k => k + 1); }} />;
+  if (mode === 'edit' || mode === 'datos') {
+    return (
+      <ExperienceBuilder
+        evento={evento}
+        abrirEnDatos={mode === 'datos'}
+        /* Al volver se recarga el iframe: si no, la página recién guardada se
+           sigue viendo como estaba y parece que no se guardó. */
+        onClose={() => { setMode('preview'); setReloadKey(k => k + 1); }}
+      />
+    );
   }
 
   return (
@@ -83,6 +105,12 @@ export default function PaginaPublicaTab({ evento }) {
             Abrir
           </a>
 
+          <button onClick={() => setMode('datos')} className="btn-secondary btn-sm"
+            title="La misma página como datos: copiar la página entera o un bloque suelto">
+            <span className="font-mono text-[11px]">{'{ }'}</span>
+            <span className="hidden sm:inline">Datos</span>
+          </button>
+
           <button onClick={() => setMode('edit')} className="btn-gradient btn-sm">
             <EditIcon className="w-3.5 h-3.5" />
             Editar página pública
@@ -109,9 +137,11 @@ export default function PaginaPublicaTab({ evento }) {
           arriba. Aquí antes decía "Próximamente: editor visual drag & drop",
           anunciando como futuro algo construido y a diez centímetros. */}
       <div className="rounded-2xl border border-border bg-surface/40 px-5 py-3 text-xs text-text-3 leading-relaxed">
-        Esto es lo que ve tu público. Para cambiarlo, entra al{' '}
-        <strong className="text-text-2">Editor</strong>: arrastras secciones, editas cada
-        una y puedes exportar cualquiera como iframe para tu propia web.
+        Esto es <strong className="text-text-2">la página de GESTEK</strong>, tal cual la ve tu público
+        —no una imitación: es la página de verdad dentro de un marco—. Para cambiarla, el{' '}
+        <strong className="text-text-2">Editor</strong>: arrastras secciones y editas cada una. Y en{' '}
+        <strong className="text-text-2">Datos</strong> la tienes escrita en el formato que valida el
+        servidor, para copiar la página entera o un solo bloque y llevarlo a otra parte.
       </div>
     </div>
   );

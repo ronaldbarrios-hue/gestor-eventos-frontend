@@ -141,3 +141,42 @@ export function EventNavbar({ evento, pages, activeIdx = 0, onNav }) {
     </div>
   );
 }
+
+/* ─────────── Las secciones del evento, una sola lista ───────────
+ *
+ * ── El problema, dicho por quien lo usa ──────────────────────────────────
+ *
+ * «Al seleccionar Mapa del evento, y al darle en Rueda de negocios, es como si
+ * redirigiera a otra página». Y es exactamente lo que pasa, aunque el enlace
+ * sea correcto: **la sub-página no lleva la ropa del evento**. La portada tiene
+ * navbar, logo y marca; la agenda, el torneo, el mapa y el ranking tenían otra
+ * cosa —una fila de píldoras distinta— sin logo y sin marca. El navegador no
+ * cambia de sitio; el que cambia de sitio es lo que se ve.
+ *
+ * Y encima los cinco botones estaban pintados de cinco colores distintos
+ * —primary, warning, success y dos grises—, sin que el color significara nada:
+ * la rueda no es más importante que el mapa. Cinco cosas del mismo tipo
+ * pintadas de cinco maneras es lo que hace que algo se vea «hecho a medias».
+ *
+ * Así que la lista de secciones se declara UNA vez, con su ruta, su icono y su
+ * condición, y la usan tanto la portada como todas las sub-páginas. Cambiar el
+ * conjunto es cambiar este array.
+ */
+export const SECCIONES_PUBLICAS = [
+  { id: 'inicio',     ruta: '',           label: 'Inicio',              icono: 'estrella',   hay: () => true },
+  { id: 'espacio',    ruta: 'agenda',     label: 'Espacio del evento',  icono: 'calendario', hay: (e) => e.tiene_espacio ?? e.tiene_agenda },
+  { id: 'networking', ruta: 'networking', label: 'Rueda de negocios',   icono: 'manos',      hay: (e) => e.tiene_networking },
+  { id: 'torneo',     ruta: 'torneo',     label: 'Torneo',              icono: 'trofeo',     hay: (e) => e.tiene_torneo },
+  { id: 'ranking',    ruta: 'ranking',    label: 'Ranking',             icono: 'estrella',   hay: (e) => e.tiene_expositores },
+  { id: 'mapa',       ruta: 'mapa',       label: 'Mapa del evento',     icono: 'pin',        hay: (e) => Boolean(e.page_json?.mapa) },
+];
+
+/* Las que se enseñan de un evento: las que tienen contenido, más las que el
+   organizador forzó a mano. «Inicio» sale siempre que haya alguna otra: una
+   píldora sola no es una navegación. */
+export function seccionesDe(evento, nav) {
+  const con = SECCIONES_PUBLICAS.filter(s => s.id === 'inicio'
+    ? true
+    : muestraSeccion(nav, s.id, s.hay(evento || {})));
+  return con.length > 1 ? con : [];
+}

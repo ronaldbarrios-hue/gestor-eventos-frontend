@@ -22,6 +22,7 @@ import { BrandHeader } from '../../../components/public/Branding.jsx';
 import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
 import PublicacionSection from '../workspace/PublicacionSection.jsx';
 import ExportIframeModal from './ExportIframeModal.jsx';
+import VistaDesarrollador from './VistaDesarrollador.jsx';
 import Volver from '../../../components/ui/Volver.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ function canvasDesdeBlocks(blocks, hasCover) {
   return { alto: Math.max(900, y + 60), elementos };
 }
 
-export default function ExperienceBuilder({ evento, onClose }) {
+export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = false }) {
   const initialPages = useMemo(() => {
     const pj = evento.page_json;
     if (pj?.pages?.length > 0) return pj.pages;
@@ -85,6 +86,9 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const [marcaOpen, setMarcaOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [embedId, setEmbedId] = useState(null);   // sección que se está exportando como iframe
+  /* La página vista como datos. No es otro editor: es la misma página y el
+     mismo estado, escritos en el formato que el servidor valida. */
+  const [verDatos, setVerDatos] = useState(Boolean(abrirEnDatos));
   const [navbar, setNavbar] = useState(() => navbarConfig(evento.page_json));
   const initialNavbar = useMemo(() => navbarConfig(evento.page_json), []); // eslint-disable-line
 
@@ -385,6 +389,22 @@ export default function ExperienceBuilder({ evento, onClose }) {
             <span className="text-base leading-none -mt-px">+</span> Página
           </button>
 
+          {/* Tres formas de mirar la misma página, y ahora se ven las tres:
+              secciones, lienzo libre y datos. La tercera estaba construida
+              entera en `PageBuilder.jsx` —470 líneas— y no la abría nadie. */}
+          <button
+            onClick={() => setVerDatos(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
+                        border transition-colors ${
+              verDatos
+                ? 'border-accent bg-accent/20 text-text-1'
+                : 'border-border bg-surface-2 text-text-2 hover:text-text-1 hover:border-accent/50'
+            }`}
+            title="Ver y editar esta página como datos, y copiar la página entera o un bloque suelto"
+          >
+            <span className="font-mono">{'{ }'}</span> Datos
+          </button>
+
           <button
             onClick={toggleModo}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
@@ -402,6 +422,18 @@ export default function ExperienceBuilder({ evento, onClose }) {
           </button>
         </div>
       </div>
+
+      {verDatos && (
+        <VistaDesarrollador
+          pages={pages}
+          pageId={pageId}
+          onAplicar={(idPagina, updater) =>
+            setPages(prev => prev.map(p => (p.id === idPagina
+              ? { ...p, blocks: typeof updater === 'function' ? updater(p.blocks || []) : updater }
+              : p)))}
+          onExportar={(idBloque) => setEmbedId(idBloque)}
+        />
+      )}
 
       {/* ── Editor unificado ── */}
       <div className="flex gap-3 items-start">

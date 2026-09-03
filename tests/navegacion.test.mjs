@@ -154,3 +154,81 @@ test('el correo se previsualiza con el renderizador que lo envía', () => {
   assert.ok(!/\.replace\(\/\\{\\{/.test(sinComentarios(src)),
     'el panel volvió a sustituir variables por su cuenta: eso lo hace renderEmail');
 });
+
+test('hay UN editor de la página, no dos', () => {
+  /* `PageBuilder.jsx` eran 470 líneas —páginas, bloques, plantillas— sin un
+     solo consumidor: un segundo editor de lo mismo que hace ExperienceBuilder,
+     construido y nunca enchufado. Resucitarlo habría dejado dos editores de la
+     misma página; se rescató lo único que tenía y el otro no —ver la página
+     como datos— y el resto se borró.
+
+     Si vuelve a aparecer un segundo editor, esto lo dice antes de que alguien
+     empiece a arreglar cosas en el que no se usa. */
+  const editores = ARCHIVOS.filter(([ruta, src]) =>
+    ruta.startsWith('src/pages/events/editor/')
+    && /export default function \w*(PageBuilder|Builder)\b/.test(src));
+  assert.deepEqual(editores.map(([r]) => r), ['src/pages/events/editor/ExperienceBuilder.jsx']);
+});
+
+test('la vista de datos edita el mismo contrato que valida el servidor', () => {
+  /* No es una consola de HTML, y no por falta de tiempo: un <script> en la
+     landing corre con el origen del evento y lo ve todo el público. El
+     contrato en JSON es además lo que permite que un asistente escriba la
+     página por MCP y que el servidor pueda decir que no. */
+  const src = readFileSync(join(SRC, 'pages/events/editor/VistaDesarrollador.jsx'), 'utf8');
+  const codigo = sinComentarios(src);
+  assert.match(codigo, /BLOCKS\[/, 'la vista de datos ya no comprueba el tipo contra el catálogo');
+  assert.ok(!/dangerouslySetInnerHTML/.test(codigo), 'la vista de datos pinta HTML crudo');
+  /* El alcance: la página entera o un bloque suelto. Es lo que se pidió. */
+  assert.match(codigo, /Toda la página/, 'ya no se puede mirar la página entera');
+});
+
+test('las secciones públicas empiezan todas con el mismo ritmo', () => {
+  /* Doce bloques escribían su propio título, con cuatro tamaños distintos y
+     tres separaciones distintas debajo. Nadie decidió eso: se fue acumulando,
+     un bloque cada vez, copiando el de al lado y ajustando a ojo. Es la mitad
+     de lo que hace que una página «se vea mal» sin que se pueda señalar qué
+     está mal.
+
+     El siguiente bloque que alguien añada volverá a copiar el de al lado, así
+     que esto lo dice antes. */
+  const src = sinComentarios(readFileSync(join(SRC, 'pages/events/editor/blocks.jsx'), 'utf8'));
+  const sueltos = [...src.matchAll(/\{data\.titulo && <h2[^>]*>/g)];
+  assert.deepEqual(sueltos.map(m => m[0].slice(0, 60)), [],
+    'Usa <CabeceraSeccion> en vez de escribir el título de la sección a mano');
+});
+
+test('el panel y el servidor conocen los mismos bloques', () => {
+  /* El catálogo del panel pinta y el del servidor valida. Si se separan, el
+     organizador arrastra un bloque que existe en pantalla y el guardado lo
+     rechaza —o peor: un bloque que el servidor acepta no se pinta y la página
+     pública sale con un hueco. Los dos nuevos, agenda y torneos, tienen que
+     estar en los dos sitios. */
+  const panel = readFileSync(join(SRC, 'pages/events/editor/blocks.jsx'), 'utf8');
+  for (const tipo of ['agenda', 'torneos']) {
+    assert.match(panel, new RegExp(`\n  ${tipo}: \{`), `el panel no conoce el bloque «${tipo}»`);
+  }
+});
+
+test('las secciones del evento se declaran una sola vez', () => {
+  /* «Al seleccionar Mapa del evento, y al darle en Rueda de negocios, es como
+     si redirigiera a otra página». El enlace era correcto: lo que cambiaba era
+     la ropa. La portada tenía su fila de cinco enlaces escritos a mano —y
+     pintados de cinco colores, sin que el color significara nada— y las
+     sub-páginas tenían otra lista, con otras etiquetas: «Ver Torneo» en una,
+     «Torneo» en la otra.
+
+     Dos listas del mismo conjunto siempre acaban diciendo cosas distintas. */
+  const chrome = readFileSync(join(SRC, 'components/public/EventChrome.jsx'), 'utf8');
+  assert.match(chrome, /export const SECCIONES_PUBLICAS/, 'ya no hay una lista única de secciones');
+
+  const landing = sinComentarios(readFileSync(join(SRC, 'pages/public/EventoPublicoPage.jsx'), 'utf8'));
+  assert.match(landing, /seccionesDe\(evento, nav\)/, 'la portada volvió a escribir su propia lista');
+  /* Los colores sueltos eran el síntoma visible: si vuelven, es que alguien
+     escribió otra vez los enlaces a mano. */
+  assert.ok(!/Ver Torneo/.test(landing), 'la portada volvió a tener su propia etiqueta para el torneo');
+
+  const barra = sinComentarios(readFileSync(join(SRC, 'components/public/BarraEvento.jsx'), 'utf8'));
+  assert.match(barra, /seccionesDe\(evento/, 'las sub-páginas ya no usan la lista compartida');
+  assert.match(barra, /aria-current/, 'la sección actual ya no se marca');
+});
