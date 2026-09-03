@@ -66,6 +66,18 @@ function SessionRow({ session, onEdit, onDelete, isLast }) {
           )}
         </div>
         {session.descripcion && <p className="text-sm text-text-2 mt-1 leading-relaxed">{session.descripcion}</p>}
+        {/* Una actividad que pide inscripción y no tiene descripción sale en la
+            confirmación del registro como un título suelto: nadie puede decidir
+            si apuntarse. Medido contra Festech, donde la única actividad con
+            inscripción viene sin descripción ni ponente. Se avisa aquí, que es
+            donde se arregla, y no en la pantalla del público, que ya no tiene
+            nada que enseñar. */}
+        {session.requiere_inscripcion && !session.descripcion?.trim() && !session.speaker && (
+          <p className="text-xs text-warning mt-1.5 leading-relaxed">
+            Pide inscripción pero no dice de qué es. Al público le sale sólo el título, la hora y
+            el cupo — añade una descripción o un ponente para que pueda decidir.
+          </p>
+        )}
         <div className="flex items-center gap-3 mt-2 text-sm text-text-3 flex-wrap">
           {session.ubicacion && <span className="inline-flex items-center gap-1"><Icono nombre="pin" className="w-3.5 h-3.5" />{session.ubicacion}</span>}
           {session.speaker && (

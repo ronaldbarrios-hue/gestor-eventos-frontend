@@ -139,7 +139,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
           {/* Equipo del evento — quién trabaja y su rol */}
           {miembros.length > 0 && (
             <Card titulo={t('Equipo del evento')}
-              accion={<Link to="?s=organizacion&t=equipo" className="text-xs text-accent hover:underline">{t('Gestionar equipo →')}</Link>}>
+              accion={<Link to="?s=equipo&t=equipo" className="text-xs text-accent hover:underline">{t('Gestionar equipo →')}</Link>}>
               <ul className="divide-y divide-border -mx-5">
                 {miembros.map(m => (
                   <li key={m.id} className="flex items-center gap-3 px-5 py-2.5">
@@ -156,7 +156,7 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
                   </li>
                 ))}
               </ul>
-              <Link to="?s=comunicacion&t=chat" className="block mt-3 text-xs text-accent hover:underline">{t('Escribir al equipo en los chats →')}</Link>
+              <Link to="?s=mensajes&t=chat" className="block mt-3 text-xs text-accent hover:underline">{t('Escribir al equipo en los chats →')}</Link>
             </Card>
           )}
 

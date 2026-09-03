@@ -340,7 +340,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
               <p className="text-[11px] text-text-3 px-1 pt-1">
                 {sinColocar === 1 ? 'Una zona no está' : `${sinColocar} zonas no están`} en el plano: sin colocarlas
                 no salen en el mapa ni en el tablero en vivo.{' '}
-                <Link to={`/eventos/${evento.id}?s=espacio&t=mapa`} className="text-primary-light hover:underline">
+                <Link to={`/eventos/${evento.id}?s=zonas&t=mapa`} className="text-primary-light hover:underline">
                   Colocarlas →
                 </Link>
               </p>
@@ -469,20 +469,24 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
  * viviendo en Accesos e ingresos, duplicarla aquí sería volver a tener dos
  * dueños del mismo dato — que es justo lo que se acaba de quitar del mapa. */
 function Acciones({ evento, z, puedeAgenda, puedeStands }) {
-  const base = `/eventos/${evento.id}?s=espacio`;
+  /* Dos bases y no una: al partir «Espacio del evento» en «Actividades»
+     (qué pasa) y «Zonas» (dónde pasa), estos enlaces dejaron de vivir todos
+     bajo la misma sección. */
+  const enZonas = `/eventos/${evento.id}?s=zonas`;
+  const enActividades = `/eventos/${evento.id}?s=actividades`;
   return (
     <div className="rounded-2xl border border-border bg-surface/40 p-3.5 space-y-2">
       <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ir a</p>
-      <Enlace to={`${base}&t=mapa`} texto={z._enPlano ? 'Mover en el plano' : 'Colocar en el plano'} nota="Mapa del evento" />
-      <Enlace to={`${base}&t=aforo`} texto="Operar y tomar reporte" nota="Aforo por zonas" />
+      <Enlace to={`${enZonas}&t=mapa`} texto={z._enPlano ? 'Mover en el plano' : 'Colocar en el plano'} nota="Mapa del evento" />
+      <Enlace to={`${enZonas}&t=aforo`} texto="Operar y tomar reporte" nota="Aforo por zonas" />
       {/* Asignar ya se hace arriba, desde la zona. Estos dos enlaces se quedan
           para lo que aquí NO se puede hacer: crear la actividad o el stand que
           todavía no existe. Sólo se ofrecen a quien no puede asignar desde
           aquí; a quien sí, serían dos caminos al mismo sitio. */}
-      {!puedeAgenda && <Enlace to={`${base}&t=calendario`} texto="Programar una actividad" nota="Calendario · campo «Zona del plano»" />}
-      {!puedeStands && <Enlace to={`${base}&t=stands`} texto="Montar un stand" nota="Stands · campo «Zona del plano»" />}
-      <Enlace to={`${base}&t=calendario`} texto="Crear una actividad nueva" nota="Calendario" />
-      <Enlace to={`${base}&t=accesos`} texto="Puertas del recinto" nota="Accesos e ingresos" />
+      {!puedeAgenda && <Enlace to={`${enActividades}&t=calendario`} texto="Programar una actividad" nota="Calendario · campo «Zona del plano»" />}
+      {!puedeStands && <Enlace to={`${enZonas}&t=stands`} texto="Montar un stand" nota="Stands · campo «Zona del plano»" />}
+      <Enlace to={`${enActividades}&t=calendario`} texto="Crear una actividad nueva" nota="Calendario" />
+      <Enlace to={`${enZonas}&t=accesos`} texto="Puertas del recinto" nota="Accesos e ingresos" />
     </div>
   );
 }
@@ -505,7 +509,7 @@ function Puertas({ evento, lista }) {
         <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1.5">Por dónde se entra</p>
         <p className="text-xs text-text-3">
           Ninguna puerta apunta a esta zona.{' '}
-          <Link to={`/eventos/${evento.id}?s=espacio&t=accesos`} className="text-primary-light hover:underline">
+          <Link to={`/eventos/${evento.id}?s=zonas&t=accesos`} className="text-primary-light hover:underline">
             Asignarla en Accesos e ingresos →
           </Link>
         </p>

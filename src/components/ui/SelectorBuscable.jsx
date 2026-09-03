@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Flotante, usePosicionFlotante } from './Flotante.jsx';
 
 /* GESTEK — Elegir de una lista larga escribiendo.
 
@@ -52,6 +53,15 @@ export default function SelectorBuscable({
   const [abierto, setAbierto] = useState(false);
   const [resaltada, setResaltada] = useState(0);
   const caja = useRef(null);
+  const campo = useRef(null);
+  const lista = useRef(null);
+
+  /* M1 · La lista se pintaba `absolute` dentro del contenedor del modal, que
+     recorta a sus hijos con `overflow`: en «Comuna» se veían cinco opciones de
+     cuarenta y ocho y al resto no había forma de llegar. La colocación vive en
+     [[Flotante]], compartida con el menú de descarga de la boleta, que nació
+     con este mismo fallo el mismo día. */
+  const pos = usePosicionFlotante(abierto, campo);
 
   const filtradas = useMemo(
     () => filtrarOpciones(opciones, abierto ? texto : ''),
@@ -62,7 +72,12 @@ export default function SelectorBuscable({
      resto del formulario y tapa la pregunta siguiente. */
   useEffect(() => {
     if (!abierto) return;
-    const fuera = (e) => { if (caja.current && !caja.current.contains(e.target)) cerrar(); };
+    /* La lista ya no es hija de `caja` —vive en el portal—, así que pinchar una
+       opción contaba como «fuera» y cerraba antes de que llegara el clic. */
+    const fuera = (e) => {
+      if (lista.current?.contains(e.target)) return;
+      if (caja.current && !caja.current.contains(e.target)) cerrar();
+    };
     document.addEventListener('mousedown', fuera);
     return () => document.removeEventListener('mousedown', fuera);
   });
@@ -106,6 +121,7 @@ export default function SelectorBuscable({
         onChange={(e) => { setTexto(e.target.value); setAbierto(true); setResaltada(0); }}
         onFocus={() => setAbierto(true)}
         onKeyDown={teclado}
+        ref={campo}
         className="input-form bg-surface-2 w-full"
       />
 
@@ -126,9 +142,8 @@ export default function SelectorBuscable({
       )}
 
       {abierto && (
-        <ul role="listbox"
-          className="absolute z-30 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-2xl
-                     border border-border-2 bg-surface shadow-2xl py-1">
+        <Flotante pos={pos} as="ul" role="listbox" ref={lista}
+          className="rounded-2xl border border-border-2 bg-surface shadow-2xl py-1">
           {filtradas.length === 0 ? (
             <li className="px-4 py-3 text-sm text-text-3">
               Nada coincide con «{texto}».
@@ -145,7 +160,7 @@ export default function SelectorBuscable({
               </button>
             </li>
           ))}
-        </ul>
+        </Flotante>
       )}
 
       {/* Cuántas hay: sin esto, una lista filtrada a tres resultados parece la

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import Icono from '../../../components/ui/Iconos.jsx';
 import QrScanner from '../../../components/ui/QrScanner.jsx';
 import { clientesApi } from '../../../api/clientes.js';
@@ -38,7 +38,7 @@ import { leerQr } from '../../../lib/qrEscaneado.js';
    Quien no esté inscrito no se marca a la fuerza: se registra primero y se
    vuelve a escanear. */
 
-export default function CheckinTab({ evento }) {
+export default function CheckinTab({ evento, miRolId = null, miUserId = null }) {
   const [mode, setMode]       = useState('manual'); // manual | camara
   const [accion, setAccion]   = useState('checkin'); // checkin | reingreso | subevento | puntos | canjear
   const [working, setWorking] = useState(false);
@@ -52,6 +52,30 @@ export default function CheckinTab({ evento }) {
   const [puertaId, setPuertaId] = useState(() => {
     try { return localStorage.getItem(`gestek-puerta:${evento.id}`) || ''; } catch { return ''; }
   });
+  /* Cuáles son TUS puertas.
+     «Quién registra aquí» se configura en Accesos e ingresos y hasta ahora no
+     lo leía nadie: se guardaba la intención y el escáner seguía enseñando las
+     ocho puertas iguales. Una asignación que no cambia nada en ninguna pantalla
+     es decoración.
+     Se mira por persona y por rol: asignar «quien esté en puerta» es lo que
+     aguanta un cambio de turno. */
+  const misPuertas = useMemo(() => {
+    const ids = new Set();
+    for (const a of accesos) {
+      const porPersona = miUserId && (a.staff || []).includes(miUserId);
+      const porRol     = miRolId && (a.roles || []).includes(miRolId);
+      if (porPersona || porRol) ids.add(a.id);
+    }
+    return ids;
+  }, [accesos, miUserId, miRolId]);
+
+  /* Si sólo tienes una y todavía no elegiste ninguna, se elige sola. Quien está
+     en la puerta abre esto con cola delante; un desplegable menos que tocar. */
+  useEffect(() => {
+    if (puertaId || misPuertas.size !== 1) return;
+    elegirPuerta([...misPuertas][0]);
+  }, [misPuertas, puertaId]);
+
   const puertaRef = useRef(puertaId);
   const elegirPuerta = (id) => {
     setPuertaId(id); puertaRef.current = id;
@@ -317,7 +341,16 @@ export default function CheckinTab({ evento }) {
               <select value={puertaId} onChange={e => elegirPuerta(e.target.value)}
                 className="input !h-8 !py-1 text-sm w-auto">
                 <option value="">Sin especificar</option>
-                {accesos.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                {misPuertas.size > 0 && (
+                  <optgroup label="Asignadas a ti">
+                    {accesos.filter(a => misPuertas.has(a.id))
+                      .map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </optgroup>
+                )}
+                <optgroup label={misPuertas.size > 0 ? 'Las demás' : 'Puertas'}>
+                  {accesos.filter(a => !misPuertas.has(a.id))
+                    .map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                </optgroup>
               </select>
             </div>
           )}

@@ -126,7 +126,7 @@ export default function MiEventoWidget() {
 
       {evento && (
         <Link
-          to={`/eventos/${evento.id}${vista === 'equipo' ? '?s=comunicacion&t=chat' : ''}`}
+          to={`/eventos/${evento.id}${vista === 'equipo' ? '?s=mensajes&t=chat' : ''}`}
           className="block text-center text-sm text-accent hover:underline py-3 border-t border-border"
         >
           {vista === 'equipo' ? 'Abrir chat del evento →' : 'Abrir el evento →'}

@@ -240,6 +240,10 @@ export default function EmbedPage() {
 
   const Preview = (Especial || bloque.type === 'lienzo') ? null : BLOCKS[bloque.type].Preview;
 
+  /* Mientras se está registrando —formulario o confirmación—, lo de debajo
+     sobra: ya eligió. */
+  const registroAbierto = !!(reservaTipo || reservaOk);
+
   return (
     <BrandingProvider organizador={organizador}>
       <div ref={rootRef} data-gestek-embed className="p-4">
@@ -254,46 +258,42 @@ export default function EmbedPage() {
             [data-gestek-embed] .font-display { font-family: ${fuente} !important; }
           `}</style>
         )}
-        {/* Mientras hay formulario o confirmación, la sección NO se pinta.
-         *
-         * Esto es una consecuencia directa de haber hecho el modal `embebido`
-         * —sin fondo oscuro y en el flujo del documento— para que el botón de
-         * «Continuar» fuera alcanzable en móvil. Aquel fondo oscuro tapaba la
-         * lista de boletas; al quitarlo, la lista se quedó ARRIBA del
-         * formulario. El resultado era que alguien rellenaba sus datos con un
-         * «Reservar» todavía a la vista, y después de confirmar seguía viendo
-         * «Boletas disponibles · Gratis · Reservar» como si no hubiera hecho
-         * nada.
-         *
-         * Dentro de un iframe no hay sitio para dos cosas a la vez: lo que se
-         * está haciendo es el formulario, así que es lo único que se enseña. */}
-        {!reservaTipo && !reservaOk && (<>
-          {Especial ? (
-            <Especial evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />
-          ) : bloque.type === 'lienzo' ? (
-            <CanvasPublico
-              canvas={bloque.data?.canvas}
-              evento={evento}
-              boletasRender={<BloqueBoletas evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />}
-            />
-          ) : (
-            <Preview
-              data={bloque.data || {}}
-              evento={evento}
-              onReservar={abrirCompra}
-              onWaitlist={abrirPaginaCompleta}
-            />
-          )}
-          {/* Sin "Eventos gestionados con GESTEK".
+        {/* M4 · «BOLETAS DISPONIBLES · Reservar» se quedaba debajo del
+            formulario y seguía ahí después de confirmar, delante de alguien que
+            ya tenía su boleta. Embebido no hay fondo oscuro que lo tape —el
+            modal va en el flujo del documento—, así que hay que apartarlo.
 
-              Esto se incrusta en la web de otro. Ahí nuestra marca no pinta
-              nada: el visitante está en la página del organizador y lo que ve
-              tiene que ser suya. El footer propio del organizador sí se
-              respeta, porque ése lo puso él. */}
-          {organizador?.branding?.footer && (
-            <p className="text-xs text-text-3 mt-4 text-center">{organizador.branding.footer}</p>
-          )}
-        </>)}
+            `hidden` y no desmontar: `RegistroEmbed` lleva un pestillo en un
+            `useRef` para abrir el formulario una sola vez cuando hay una única
+            boleta. Desmontarlo reiniciaría ese pestillo y cerrar el formulario
+            volvería a abrirlo, para siempre. */}
+        <div hidden={registroAbierto}>
+        {Especial ? (
+          <Especial evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />
+        ) : bloque.type === 'lienzo' ? (
+          <CanvasPublico
+            canvas={bloque.data?.canvas}
+            evento={evento}
+            boletasRender={<BloqueBoletas evento={evento} onReservar={abrirCompra} onWaitlist={abrirPaginaCompleta} />}
+          />
+        ) : (
+          <Preview
+            data={bloque.data || {}}
+            evento={evento}
+            onReservar={abrirCompra}
+            onWaitlist={abrirPaginaCompleta}
+          />
+        )}
+        </div>
+        {/* Sin "Eventos gestionados con GESTEK".
+
+            Esto se incrusta en la web de otro. Ahí nuestra marca no pinta
+            nada: el visitante está en la página del organizador y lo que ve
+            tiene que ser suya. El footer propio del organizador sí se
+            respeta, porque ése lo puso él. */}
+        {organizador?.branding?.footer && (
+          <p className="text-xs text-text-3 mt-4 text-center">{organizador.branding.footer}</p>
+        )}
 
         {reservaTipo && (
           <ReservaModal

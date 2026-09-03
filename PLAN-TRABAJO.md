@@ -1242,12 +1242,27 @@ indica, así que se pueden tomar en paralelo.
 
 ### Barato y con valor claro
 
-3. **Un solo alta de expositor.** El caso más grave de la auditoría: dos
-   pantallas, dos endpoints, la misma tabla, y desde «Rueda de negocios» el
-   expositor **no se puede editar** porque esa ruta no tiene `PATCH` (§3.1).
-   Que `NetworkingTab` use el endpoint de Stands, o que el suyo gane los
-   campos y el `PATCH` que le faltan. **Toca `routes/networking.js`, igual que
-   el Frente I fase 3 — coordinar.**
+3. ~~**Un solo alta de expositor.**~~ — ✅ **hecho el 2026-09-02.** Los tres
+   manejadores (crear, editar, borrar) viven una sola vez y se montan en las
+   dos rutas; las dos URL siguen existiendo porque las usan dos pantallas
+   distintas. El gate de categoría de la Rueda de Negocios pasó a middleware,
+   porque los stands funcionan para cualquier evento y ponérselo los rompería.
+
+   **Y apareció un agujero al juntarlas:** el `DELETE` de la Rueda borraba por
+   `id` a secas. `assertOwner` comprueba que quien pide manda en ESTE evento,
+   no que el expositor sea de este evento — así que quien organizara un evento
+   cualquiera podía borrar la ficha de otro evento ajeno pasándole su id, y ese
+   id sale en el directorio público. El borrado unificado filtra por
+   `evento_id`.
+
+   En el frontend, `NetworkingTab` gana el botón de editar y el modal sirve
+   para alta y edición. Antes, corregir una letra del nombre obligaba a borrar
+   al expositor —con sus horarios y las citas ya reservadas— y crearlo de
+   nuevo.
+
+   Backend PR #30, con `test/expositoresRutas.test.js` (424 en verde).
+   **Sin ver en navegador:** el panel exige cuenta y este entorno no tiene
+   credenciales de sesión.
 4. **Conectar `oauth_barrer()`** a alguno de los `cron-*.js` que ya corren, o
    documentar que sigue pendiente. Hoy `oauth_codes`/`oauth_tokens` crecen sin
    límite (§3.4).
@@ -1355,7 +1370,97 @@ peor que no prellenar. El mapeo explícito es justo lo que evita adivinar.
 «Barrio o vereda» acierta, pero «ciudad» contra «Ciudad de nacimiento» mete el
 dato en la pregunta equivocada, y eso es peor que no prellenar.
 
-### M1 · El desplegable se corta dentro del modal
+### M0-bis · El mapeo, medido contra producción (2-sep)
+
+Con la conexión a Supabase ya disponible, medido contra **FESTECH IBAGUÉ**
+(`festech2026`), que es el evento que tiene padrón:
+
+- `page_json->padron` está **en NULL**: nadie ha guardado todavía el mapeo. Con
+  lo que hay hoy, `emparejar()` cae al cruce por nombre y **de las 11 preguntas
+  del formulario sólo cruza una**, «Comuna».
+- Las 4.124 filas confirman lo diagnosticado: `apellidos` en las 4.124,
+  `nombre completo` en 3.624, y **las columnas que el formulario sí pregunta
+  —`ciudad`, `barrio_vereda`, `zona_residencia`, `corregimiento`, `genero`,
+  `poblaciones`, `discapacidad`, `situacion_actual`— sólo en 500**. Otras 436
+  traen `visit_date`, `room`, `latitude`, `longitude`.
+
+Es decir: **guardar el mapeo sube el cruce de 1 pregunta a 10, pero sólo para
+esas 500 personas.** Para las otras 3.624 no hay nada que prellenar, y ningún
+mapeo lo arregla — eso se arregla subiendo un archivo con los datos, no tocando
+código. El mapeo que corresponde, columna por columna:
+
+| Pregunta | Columna |
+|---|---|
+| Barrio o Vereda | `barrio_vereda` |
+| Comuna | `comuna` |
+| Ciudad de residencia | `ciudad` |
+| Zona | `zona_residencia` |
+| Corregimiento | `corregimiento` |
+| Identidad de Género | `genero` |
+| Autorreconocimiento Étnico | `poblaciones` |
+| Discapacidad | `discapacidad` |
+| Situación Actual / Enfoque Diferencial | `situacion_actual` |
+| Edad | *(sin mapear: el archivo trae `fecha_nacimiento`, que es otro dato)* |
+| Documento de Identidad | *(sin mapear: sólo se guarda su hash, y está bien)* |
+
+Falta **guardarlo desde la pantalla de mapeo**, que es lo que sigue sin verse
+contra el evento real (M9).
+
+### M-bis · Recorrido en navegador contra eventos reales (2-sep)
+
+Ya no está construido a ciegas. Con el front local apuntando al backend
+desplegado, la página pública no pide cuenta, así que el registro se recorrió
+entero.
+
+**Contra FESTECH IBAGUÉ (sólo lectura, sin registrar a nadie):** M1 medido en
+el sitio donde fallaba. La lista de «Comuna» sale a `document.body`, en
+`position: fixed`, con **las 48 opciones** y entera dentro de la pantalla
+(526–782 de 800). En móvil (375×812), con el campo pegado al borde inferior
+(759–812), **se abre hacia arriba** (499–755) y tampoco se recorta. Elegir una
+opción la selecciona y cierra: el clic-fuera aprendió que la lista ya no es hija
+del campo.
+
+**Contra TechNova Summit 2026 (el evento de pruebas):** una reserva de prueba de
+punta a punta, 14 pasos, **anulada después** (boleta `5TBVH3AV`). En la
+confirmación se vio M5 («SI QUIERES SEGUIR EXPLORANDO EL EVENTO», ya no «Falta
+un paso»), la tarjeta de sub-eventos con su «Ver →», y M6 como **un solo
+«Descargar ▾»** con los tres formatos y su línea de para qué sirve cada uno.
+
+**Y el recorrido encontró un fallo que la lectura no vio:** el menú de descarga
+recién escrito **nacía con el mismo problema que M1**. Iba `absolute` dentro del
+modal, medía 653–921, y el modal acaba en 769: **la tercera opción, «Sólo el
+QR», quedaba fuera del recorte y no se podía pulsar.** Es exactamente el fallo
+que se acababa de arreglar al lado.
+
+Por eso la colocación dejó de estar escrita dos veces y vive en
+`components/ui/Flotante.jsx` (`usePosicionFlotante` + `Flotante`): portal a
+`body`, coordenadas de pantalla, vuelta hacia arriba si abajo no cabe, y remedida
+en cada scroll con captura. Lo usan el selector buscable y el menú de descarga.
+**Suelto, este fallo vuelve cada vez que alguien añada un desplegable dentro de
+un modal.**
+
+**Lo que queda sin ver en navegador:** el menú de descarga después del arreglo
+(exigía una segunda reserva de prueba y no se hizo), la lista de sub-eventos por
+dentro, el cierre de M8, los dos mapas y «Zonas de interés», y la pantalla de
+mapeo del padrón.
+
+### M7-bis · La descripción no existe, y ése es el problema
+
+Medido contra los dos eventos: la única actividad con inscripción de Festech
+(`PijaoTech`) **no tiene descripción ni ponente**, sólo `track: "principal"`,
+que es el valor por defecto de la agenda. Es decir, pintar lo que venga no
+arregla M7 para Festech: no hay nada que pintar.
+
+Dos consecuencias en el código:
+
+1. El `track` por defecto (`principal`, `general`, `default`, `main`) **no se
+   enseña**. Llenaba el hueco de la descripción con algo que parece información
+   y no lo es.
+2. **El aviso se pone donde se arregla**, no donde se sufre: en la agenda del
+   panel, un sub-evento que pide inscripción y no tiene ni descripción ni
+   ponente lo dice — «al público le sale sólo el título, la hora y el cupo».
+
+### M1 · El desplegable se corta dentro del modal — ✅ hecho
 
 En la captura de «Comuna», la lista de opciones se corta contra el borde del
 modal: se ven `10, 11, 12, 13, No sé` y no hay forma de llegar al resto. El
@@ -1382,10 +1487,7 @@ rebota un aviso legal.
 
 ### M3 · El «← Atrás» del modal — ✅ HECHO
 
-Se quitó **la flecha**, que es lo que se veía mal, y se conservó el botón:
-es la navegación de un formulario de **cuatro pasos**, y sin él alguien que va
-por el tercero se queda encerrado. Ahora dice «Atrás» con el mismo peso visual
-que «Cancelar», que es lo que es — una salida secundaria.
+### M4 · El modal de boletas nunca se cierra — ✅ hecho
 
 Si de verdad tiene que desaparecer, hay que dar otra forma de volver (los pasos
 de la barra de progreso, por ejemplo) antes de quitarlo.
@@ -1406,27 +1508,27 @@ sección no se pinta. Dentro de un iframe no hay sitio para dos cosas a la vez.
 **Queda M8**, que es la otra mitad: al pulsar «Listo» el flujo tiene que
 despedirse, no volver al principio.
 
-### M5 · «Falta un paso» es mentira
+### M5 · «Falta un paso» es mentira — ✅ hecho
 
 Lo dice cuando el registro ya está hecho. Lo que hay debajo —una actividad que
 se apunta aparte— no es un paso que falte, es algo que **se puede** hacer. En
 su sitio: «si quieres seguir explorando el evento», y de ahí desplegar los
 sub-eventos.
 
-### M6 · Tres descargas para lo mismo
+### M6 · Tres descargas para lo mismo — ✅ hecho
 
 «Descargar boleta (PDF)», «Descargar QR» y «Descargar tarjeta» son tres
 botones para el mismo objeto. **Un solo «Descargar»**, y que la persona elija
 formato (PDF o imagen). Ya se había pedido unificar esto; se quedó en tres
 funciones distintas por costumbre, no por diseño.
 
-### M7 · «Actividades con inscripción» no dice nada
+### M7 · «Actividades con inscripción» no dice nada — ✅ hecho
 
 Sólo sale `PijaoTech · 17 de sept, 10:43 a.m. · 16 cupos · Auditorio 02`. Ni
 descripción, ni de qué es, ni quién la da. Literalmente no hay información
 para decidir si apuntarse.
 
-### M8 · El flujo no termina
+### M8 · El flujo no termina — ✅ hecho
 
 Al pulsar «Listo» vuelve al modal de boletas. Tiene que **cerrar** con un
 cierre de verdad: «gracias por inscribirte, te esperamos el {fecha}», y salir.
@@ -1443,10 +1545,711 @@ y M8, que son el mismo bug de fondo —el modal no se desmonta— y son lo que h
 que el flujo «no tenga sentido». Después M6 y M5 (texto y unificación), M7 y M1.
 M0 aparte, porque necesita decidir entre el apaño de hoy y el mapeo de verdad.
 
+## FRENTE N · Dos secciones, y que todo se relacione con todo — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-02**, con estas palabras: «tener una sola
+zona para crear las zonas de interés, y ahí mismo manejar el aforo, etc. No
+tener todo separado por secciones porque la experiencia de usuario sería más
+compleja. Una sección *Actividades del evento* con Torneos, ruedas de negocio y
+las actividades que se vayan colocando; otra *Zonas del evento* con Zonas de
+interés, aforo por zonas, stands y mapa del evento, y que todo esté conectado
+para poder relacionar todo entre sí: asignar actividades a las zonas, también
+speakers, etc.»
+
+Continúa el **Frente I**, que hizo esto para una zona sola. Aquí se cierra: la
+agrupación de las nueve pestañas, y las relaciones que hoy existen y no se usan.
+
+---
+
+### El hallazgo, y cambia por dónde se empieza
+
+**Casi todo lo que se pide ya existe en la base de datos. Lo que no existe es en
+la pantalla, y las relaciones que hay están vacías.**
+
+`agenda_sessions` —la tabla de los sub-eventos— ya es la tabla de unión de todo
+esto. Medido contra producción el 2-sep, sobre **11 sesiones**:
+
+| Columna | Con qué relaciona | Filas que la usan |
+|---|---|---|
+| `speaker_id` | el ponente | **5 de 11** |
+| `zona_id` | la zona del recinto | **2 de 11** |
+| `torneo_id` | las llaves del torneo | **0 de 11** — y hay **4 torneos** |
+| `expositor_id` | el stand / expositor | **0 de 11** |
+| `ticket_type_id` | qué boleta da derecho | **0 de 11** |
+| `tipo`, `subcategoria` | qué clase de actividad es | 3 tipos de 11 posibles |
+
+Y en paralelo: **4 sesiones tienen `ubicacion` escrita a mano**, más que las 2
+que tienen zona. De **3 expositores, ninguno tiene zona**.
+
+**No hace falta inventar el modelo. Hace falta que se use.**
+
+### Por qué está vacío: la relación es opcional y compite con un atajo
+
+Las tres relaciones muertas fallan por la misma razón, y no es que falte
+código:
+
+- **Zona.** El formulario ofrece dos maneras de decir dónde pasa algo: elegir
+  una zona, o escribir un texto. Gana el texto, porque el texto siempre está y
+  la zona sólo aparece si alguien creó zonas antes. Peor: `SessionForm.jsx:189`
+  **copia el nombre de la zona al campo de texto** al elegirla, así que el dato
+  bueno y el dato suelto conviven y nadie sabe cuál manda.
+- **Torneo.** El camino existe y funciona: `HuecoEnCalendario` en
+  `TorneoCrear.jsx:156` pregunta si el torneo tiene hueco en el calendario y lo
+  crea. Es **opcional**, y el resultado es 4 torneos y 0 enlaces. Su propio
+  comentario dice qué pasa cuando nadie se acuerda: «un torneo invisible para
+  el público».
+- **Expositor y boleta.** Las columnas están y ningún formulario las ofrece.
+
+**Ésta es la causa de fondo de lo que se siente como «todo separado».** Un plan
+que sólo reordene el menú dejaría esto exactamente igual: las pestañas juntas y
+los datos igual de sueltos.
+
+### La otra causa: una zona no es una fila
+
+Una zona vive en `eventos.page_json.zonas`. No hay tabla `zonas`. Lo que ya se
+paga por eso:
+
+1. **No hay integridad.** Un `zona_id` que apunta a una zona borrada se guarda
+   igual. Tanto es así que `routes/networking.js` tiene `zonaInvalida()`, una
+   validación **a mano** que lee `page_json` en cada escritura para hacer el
+   trabajo de una clave foránea. La 0079 y la 0080 no la hacen, y por eso
+   acumulan huérfanos.
+2. **No se puede preguntar «qué hay en esta zona» con un join.** Hay que leer
+   `page_json`, leer las sesiones, leer los stands y cruzar en memoria. Eso es
+   lo que hace `GET /:eventoId/mapa/vivo`, y funciona — pero es la única
+   puerta, y cada relación nueva tiene que pasar por ahí o repetir el cruce.
+
+**Convertir la zona en tabla es lo que hace barato «relacionar todo con todo».**
+Sin eso, cada relación nueva es otro cruce a mano.
+
+### Lo que ya está hecho y conviene no volver a planificar
+
+El Frente I dejó más cerrado de lo que dicen sus propios comentarios:
+
+- **La administración de zonas ya vive en «Zonas de interés»**
+  (`ZonasSection.jsx:150` crea, edita, borra y guarda). Ya **no** hay dos
+  caminos de escritura: `MapaSection` sólo coloca (`:145`, «esta pantalla no es
+  dueña de zonas ni de accesos») y `AccesosSection` sólo escribe `accesos`.
+- **La cabecera de `ZonasSection` está vieja**: dice «la administración se muda
+  aquí en la fase siguiente» y ya se mudó. Corregirla entra en la Fase 1.
+- **`MapaSection.jsx:387` apunta a una pestaña que se movió**: dice «Se opera en
+  Asistentes → Aforo por zonas» y el aforo está hoy en Espacio del evento. Un
+  renglón, pero manda a la gente a un sitio donde no está.
+
+---
+
+### La agrupación que se pide
+
+Nueve pestañas hoy, todas bajo «Espacio del evento»:
+
+> Calendario · Torneos · Rueda de negocios · Mapa del evento · Accesos e
+> ingresos · Zonas de interés · Aforo por zonas · Stands · Ranking
+
+Propuesta, dos secciones de cinco:
+
+**Actividades del evento** — *qué pasa*
+
+| Pestaña | Qué contesta | Viene de |
+|---|---|---|
+| Calendario | cuándo pasa cada cosa | `calendario` |
+| Torneos | cómo van las llaves | `torneos` |
+| Rueda de negocios | las citas con expositores | `networking` |
+| Speakers | quién habla | hoy es un interruptor dentro del Calendario |
+| Ranking | qué puntos reparten las actividades | `ranking` |
+
+**Zonas del evento** — *dónde pasa*
+
+| Pestaña | Qué contesta | Viene de |
+|---|---|---|
+| Zonas de interés | qué es esta zona (y se administra aquí) | `zonas` |
+| Mapa del evento | dónde queda en el plano | `mapa` |
+| Aforo por zonas | cómo va ahora mismo | `aforo` |
+| Stands | quién está montado ahí | `stands` |
+| Accesos e ingresos | por dónde se entra | `accesos` |
+
+La regla que las separa, para que no haya que discutirla cada vez: **una
+actividad ocurre en el tiempo; una zona existe en el espacio.** Un torneo es
+actividad aunque tenga sitio; un stand es sitio aunque tenga horario.
+
+### Qué NO fusionar, y por qué
+
+Decidido en el Frente I, sigue valiendo:
+
+- **Los tres mapas no se fusionan.** Editor del plano, tablero en vivo y mapa
+  público son tres contextos de permisos distintos (organizador editando,
+  organizador operando, público mirando). Se comparten los datos y el marcador,
+  no la pantalla.
+- **Aforo no entra dentro de Zonas de interés.** Zonas contesta «qué es esta
+  zona» y se mira; Aforo contesta «cómo va» y se opera de pie, con el móvil,
+  con cola en la puerta. Se enlazan, no se funden.
+- **`ticket_types.zonas_acceso` no es esto.** Pese al nombre, no tiene que ver
+  con las zonas del recinto (§3.7).
+
+---
+
+### Fase 1 · La agrupación · barato, sin backend
+
+> **Se hace en la misma pasada que el FRENTE O2**, que reagrupa el menú entero.
+> Es la misma estructura y el mismo mapa de rutas viejas: partirlo en dos
+> sesiones es tocar `EventWorkspace.jsx` dos veces y migrar los enlaces dos
+> veces.
+
+Partir `espacio` en `actividades` y `zonas` en la lista de secciones
+(`EventWorkspace.jsx:94`). Es una estructura de datos; el `switch` de render
+(`:439`) cambia sólo de prefijo.
+
+**Lo que no se puede olvidar:** el mapa de rutas viejas (`:190-199`) ya traduce
+seis rutas heredadas a `['espacio', …]`. Hay que **ampliarlo, no
+reemplazarlo**, y añadir las nueve `espacio/*`. Hay enlaces internos que
+apuntan a `?s=espacio&t=…` —`CheckinTab.jsx:400,425`, `AforoSection.jsx:141`,
+`AccesosSection.jsx:285`, `MapaSection.jsx:474`— y quedarían rotos.
+
+Aprovechar para: sacar **Speakers** a su propia pestaña (hoy es un interruptor
+dentro del Calendario y por eso no se encuentra), corregir la cabecera vieja de
+`ZonasSection` y el puntero muerto de `MapaSection.jsx:387`.
+
+**Prueba que conviene dejar escrita:** que toda ruta vieja resuelva a una
+sección y pestaña que existan, y que ningún enlace interno del código apunte a
+un par que no está en la lista. Es el tipo de fallo que no da error y deja la
+pantalla en blanco — el mismo espíritu que `montaje.test.js`.
+
+### Fase 2 · Que la relación deje de ser opcional · lo que de verdad cambia el uso
+
+Sin esto, lo demás es mudar muebles.
+
+1. **Si el evento tiene zonas, el sitio se elige — no se escribe.** El texto
+   libre queda como salida para eventos sin plano, no como camino por defecto.
+   Y deja de copiarse el nombre de la zona al campo de texto: hoy eso crea dos
+   verdades.
+2. **`ubicacion` se rellena desde la zona al leer**, no al escribir. Lo ya
+   escrito a mano se sigue viendo, y lo nuevo queda relacionado.
+3. **Crear un torneo ofrece su hueco en el calendario en el mismo paso**, en
+   vez de dejarlo para una tarjeta que hay que ir a buscar. 4 de 4 torneos sin
+   enlazar dicen que la tarjeta no basta.
+4. **El expositor y la boleta, en el formulario de sub-evento.** Las columnas
+   están; falta el campo. «Este taller lo da tal stand» y «hace falta boleta
+   VIP» son dos preguntas que hoy no se pueden contestar.
+5. **Avisos donde se arreglan**, como el de M7-bis: una actividad sin zona
+   teniendo el evento zonas, y un torneo sin hueco en el calendario, se
+   señalan en su propia pantalla.
+
+### Fase 3 · Que la zona sea una fila · el trabajo de fondo
+
+Migración: tabla `zonas` (`id`, `evento_id`, `nombre`, `aforo_max`, `color`,
+`x`, `y`, `orden`), con FK desde `agenda_sessions.zona_id`,
+`networking_expositores.zona_id` y `zona_cortes.zona_id`.
+
+**Expand/contract, y `page_json.zonas` NO se borra en el mismo paso.** Es DDL
+sobre datos de eventos en producción; la regla del repo es escribir el rollback
+antes (§3.5 ya tiene dos migraciones paradas por esto). Orden: crear tabla y
+copiar → escribir en las dos → leer de la tabla → dejar de escribir el JSON →
+borrar el JSON, **en una migración aparte y más tarde**.
+
+Lo que se gana: `zonaInvalida()` desaparece —lo hace la FK—, y «qué hay en esta
+zona» pasa a ser un join.
+
+Va **después** de la Fase 2 a propósito: hacer que la relación se use no
+necesita la tabla, y al revés la tabla nacería con 2 de 11 filas apuntando a
+algo. Primero que el dato exista, después que la base lo sostenga.
+
+### Fase 4 · La ficha de zona, completada
+
+**Ojo con no replanificar lo hecho:** «asignar actividades a las zonas» —colgar
+y descolgar una actividad o un stand **desde la zona**— ya está, es la Fase 3
+del Frente I, con el componente `<Colgar>` y sus tres permisos por separado.
+Lo que se pidió como «desde la zona» en su parte gruesa está resuelto.
+
+Lo que falta es lo que las relaciones nuevas de la Fase 2 hacen posible:
+
+- **Quién habla en esta zona.** `speaker_id` ya existe y `mapa/vivo` ya trae la
+  agenda de la zona; es juntar dos cosas que están, no una función nueva.
+- **Qué boleta hace falta para lo que pasa aquí**, en cuanto la Fase 2 llene
+  `ticket_type_id`. Es la pregunta que hoy se contesta mirando tres pantallas.
+- **El expositor que da la actividad**, distinto del stand que está montado en
+  la zona: hoy se confunden porque sólo existe el segundo.
+
+Barato después de la Fase 3; con `page_json` cada uno es otro cruce en memoria.
+
+### Fase 5 · Que un tipo de actividad sea un dato
+
+«Las diferentes actividades que se irán colocando» hoy son una constante:
+`lib/espacio.js` → `TIPOS_ESPACIO`, once tipos fijos. Añadir uno es **publicar
+código**, y por eso existe el «¿Falta tu tipo de sub-evento? Pídenoslo» del
+Calendario, que es un buzón (J1) — sirve para decirlo, no para ponerlo.
+
+Que el catálogo sea una tabla por organizador, con los once actuales de semilla.
+Cuidado con lo que la constante ya protege: `competitivo: true` es lo que
+engancha un tipo con las llaves del torneo, y el color y el icono los leen el
+panel, la página pública y el embed. Un tipo creado por el organizador tiene que
+traer las tres cosas o se verá roto en dos de los tres sitios. Y el icono es un
+trazo de `Iconos.jsx`, no un emoji — eso se decidió a propósito.
+
+**Va la última.** Es la más vistosa y la que menos arregla: no sirve de nada
+inventar tipos de actividad si la actividad sigue sin saber en qué zona ocurre.
+
+---
+
+### Orden
+
+**1 → 2 → 3 → 4 → 5.** La 1 es barata y es la que se ve. La 2 es la que cambia
+los números de arriba. La 3 es la cara y la que no conviene tocar con prisa.
+
+### Lo que este frente no arregla
+
+Que `mapa/vivo` sea la única puerta a los datos cruzados. Funciona y da la
+pantalla entera en una llamada; partirlo en consultas pequeñas «porque ahora hay
+joins» sería cambiar algo que anda por algo que se lee mejor. Se mira cuando la
+Fase 3 esté, no antes.
+
+---
+
+## FRENTE O · El menú entero, los roles y a quién se le asigna — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-02**, tres cosas en una: «agrupar la mayoría
+de funciones, porque hay varias cosas que están separadas por secciones que al
+final son para la misma sección»; «mejorar la asignación de tareas, que se pueda
+seleccionar por roles — al asignar una puerta de ingreso sólo se puede
+seleccionar por nombres, y en un evento con mucha gente es poco eficiente»; y
+«volver a crear los roles, uno que tenga todos los permisos y el resto
+refactorizados según el nombre».
+
+El **Frente N** parte «Espacio del evento» en dos. Éste mira el menú completo,
+y las dos cosas que lo cruzan: quién puede hacer qué, y a quién se le asigna.
+
+---
+
+# Parte 1 · El menú entero
+
+Hoy: **8 secciones, 39 pestañas.**
+
+| Sección | Pestañas |
+|---|---|
+| Resumen | Resumen |
+| Event Experience | Landing · Publicación · Proceso de compra · Emails · SEO |
+| Espacio del evento | Calendario · Torneos · Rueda de negocios · Mapa · Accesos · Zonas de interés · Aforo · Stands · Ranking |
+| Organización | Equipo y roles · Vacantes · Tareas · Sugerencias · Documentos · **Reporte** |
+| Comercial | Boletas · Pagos · **Analytics** · Promociones · Facturación |
+| Asistentes | Clientes · Escanear · Lista de espera · Invitaciones · **Credenciales** · **Tarjeta** |
+| Comunicación | Chats · **Anuncios** |
+| Configuración | General · Integraciones · Automatizaciones · API\* · Seguridad\* |
+
+\* placeholders: dos pestañas que no hacen nada ocupando sitio en el menú.
+
+### El diagnóstico: el menú mezcla tres criterios
+
+No están mal agrupadas por descuido. Están agrupadas por **tres ejes a la vez**,
+y por eso una misma cosa cae en dos sitios según con qué eje se mire:
+
+- por **objeto** — Espacio del evento, Asistentes;
+- por **momento** — Event Experience es *antes*, Comercial es *la venta*;
+- por **quién mira** — Organización es papeleo del organizador.
+
+Cuando hay tres ejes, la respuesta a «¿dónde está X?» es «depende», y eso es
+exactamente lo que se siente. Es el mismo error que ya se corrigió una vez: la
+Agenda colgaba de Organización —junto a Vacantes y Documentos— y los torneos
+vivían en «Dinámicas», siendo las dos cosas sub-eventos de la misma tabla.
+
+### Lo que está partido y es lo mismo, con la evidencia
+
+1. **Credenciales + Tarjeta** (Asistentes). Una diseña la **escarapela
+   imprimible**, la otra el **carné digital**. Es la misma pregunta —qué lleva
+   encima el asistente— en dos pantallas que no se hablan. → una pestaña,
+   **Acreditación**, con las dos vistas.
+2. **Reporte (Organización) + Analytics (Comercial).** El propio encabezado de
+   `ReporteTab` dice que «consolida en una sola hoja lo que quedó repartido por
+   el workspace: ventas, asistencia, gamificación, expositores, tareas y
+   contrataciones». Analytics son las mismas métricas por rango de fechas. Las
+   dos contestan «cómo va / cómo fue», y están en secciones distintas — y
+   Reporte, además, junto a Vacantes y Documentos, que es papeleo.
+3. **Lista de espera + Invitaciones** (Asistentes). Las dos son **gente que
+   todavía no tiene boleta**. Se operan juntas y están separadas.
+4. **Emails (Event Experience) + Anuncios (Comunicación).** Las dos mandan
+   mensajes a los asistentes. Emails está en Event Experience porque son
+   plantillas; Anuncios en Comunicación porque es un envío. Quien quiere «avisar
+   algo» tiene que saber de antemano cuál de las dos es.
+5. **Proceso de compra (Event Experience) + Boletas + Promociones (Comercial).**
+   Qué se vende, cómo se vende y con qué descuento, en dos secciones.
+6. **Resumen es una sección con una sola pestaña.** Una sección entera del menú
+   para una pantalla.
+
+### La propuesta: un solo eje, el objeto
+
+**Nueve secciones, ~33 pestañas.** La regla, escrita para no discutirla cada
+vez: **cada sección es una cosa del evento, no un momento ni un departamento.**
+
+| Sección | Pestañas | Qué cambia |
+|---|---|---|
+| **Resumen** | Resumen · Analytics · Reporte | deja de ser una sección de una pestaña; la medición vive junta |
+| **Tu página** | Landing · Publicación · SEO · Proceso de compra | era Event Experience; se va Emails |
+| **Actividades del evento** | Calendario · Torneos · Rueda de negocios · Speakers · Ranking | Frente N |
+| **Zonas del evento** | Zonas de interés · Mapa · Aforo · Stands · Accesos | Frente N |
+| **Entradas y dinero** | Boletas · Promociones · Pagos · Facturación | era Comercial; se va Analytics |
+| **Asistentes** | Clientes · Escanear · Acreditación · Antes de la boleta | Credenciales+Tarjeta juntas; Lista de espera+Invitaciones juntas |
+| **Equipo y tareas** | Equipo y roles · Tareas · Vacantes · Sugerencias · Documentos | era Organización; se va Reporte |
+| **Mensajes** | Chats · Anuncios · Emails | las tres formas de decir algo, juntas |
+| **Configuración** | General · Integraciones · Automatizaciones | fuera los dos placeholders |
+
+**Dónde no tocar:** «Escanear» se queda como está y con su nombre. Ya se
+renombró a propósito —«ya no sólo controla el ingreso»— y es la pantalla que se
+usa de pie, con cola delante. Cambiarle el sitio a esa cuesta caro.
+
+---
+
+# Parte 2 · Los roles
+
+### Lo medido, y es peor que «hay que refactorizarlos»
+
+10 roles de sistema por evento, **273 filas** en `event_roles`, y **29
+miembros, todos con rol asignado**. El catálogo de permisos tiene **21
+permisos** (`src/lib/permisos.js`).
+
+**a) No existe el rol que se pide. Sólo el dueño puede todo, y el dueño no es
+un rol.** Las pantallas más sensibles se guardan con `__solo_owner__`
+(Accesos, Anuncios, Lista de espera, toda Configuración). No hay forma de
+delegar «todo» a una segunda persona: hay que darle el evento.
+
+**b) 6 de los 21 permisos no los comprueba nadie.** El propio catálogo lo marca
+con `aplicado: false`: `gestionar_descuentos`, `vip_zone`, `crear_canales`,
+`borrar_mensajes`, `ver_pagos`, `reembolsar`. Consecuencia directa:
+
+- **«VIP host»** concede `vip_zone` — y `vip_zone` no aparece en ninguna ruta
+  del backend. El rol no da nada.
+- **«Finanzas»** concede `ver_pagos` y `reembolsar`; ninguno se comprueba. Lo
+  único suyo que surte efecto es `ver_analytics`.
+- **«Moderación»** concede `borrar_mensajes` y `crear_canales`, ninguno
+  aplicado. Lo único que le funciona es `gestionar_agenda`, que no tiene nada
+  que ver con moderar.
+
+**c) Nombres que no dicen lo que dan.**
+
+| Rol | Lo que concede | El problema |
+|---|---|---|
+| **Speaker** | `gestionar_agenda` | un ponente puede editar la agenda **entera** |
+| **Expositor** | `gestionar_expositores` | un expositor puede administrar a **todos** los expositores — y el expositor de verdad ya tiene su propio camino público, `/expositor/:codigo`, con su lista corta de campos |
+| **Staff · Logística** | `ver_clientes` y nada más | no puede hacer nada logístico |
+
+**d) CORRECCIÓN (2-sep, al ir a arreglarlo): las dos semillas SÍ coinciden.**
+`private.fn_roles_semilla()` y `modules/eventos/semillas.js` dicen exactamente
+lo mismo. Lo que diverge es **lo guardado**, y el hallazgo real es peor: **el
+mismo rol da permisos distintos según cuándo se creó el evento.** Medido sobre
+los 33 de producción — 31 creados antes del 11-ago llevan la lista traducida
+del inglés de la 0007, y sólo 2 (del 16-ago en adelante) llevan la buena:
+
+| Rol | En `semillas.js` | En producción |
+|---|---|---|
+| Editor | + `gestionar_imagenes`, `gestionar_agenda` | + `ver_clientes`, `crear_canales` |
+| Coordinador | + `gestionar_agenda`, `ver_analytics` | + `gestionar_tickets`, `ver_pagos` |
+| Staff · Logística | `crear_canales`, `gestionar_agenda` | `ver_clientes` |
+| Staff · Atención | `ver_clientes`, `checkin` | `ver_clientes`, `gestionar_clientes` |
+
+La 0054 arregló la función; los datos ya escritos se quedaron. Traducir
+«view_analytics» da «ver_analytics», pero no puede inventar los permisos que
+aquella lista en inglés no tenía. Resultado hoy: en 31 de 33 eventos,
+«Staff · Logística» **no puede hacer nada logístico** — sólo `ver_clientes`.
+
+Lo arregla la **0089** (O3), que realinea ÚNICAMENTE las filas cuyo contenido es
+exactamente el de la traducción vieja: si alguien editó el rol a mano, esa
+decisión es suya y se respeta.
+
+**e) La unión de permisos está escrita tres veces.** `role.permissions ∪
+custom_permissions` se resuelve en `core/permisos/index.js:168`,
+`routes/eventos.js:133` y `routes/eventos.js:289`. Es el patrón que este repo
+ya pagó dos veces esta semana.
+
+### Los roles propuestos
+
+Regla: **el nombre dice quién es la persona; los permisos dicen qué puede.** Y
+un rol no concede permisos que el servidor no comprueba.
+
+| Rol | Permisos | Nota |
+|---|---|---|
+| **Administrador** | todos los `aplicado: true` | **el que falta.** Delegar sin regalar el evento |
+| **Editor** | `editar_evento`, `editar_pagina_publica`, `gestionar_imagenes` | la página, no la gente |
+| **Coordinador** | Editor + `gestionar_agenda`, `gestionar_torneo`, `gestionar_expositores`, `invitar_staff` | arma el evento por dentro |
+| **Programación** | `gestionar_agenda`, `gestionar_torneo` | era **Speaker** |
+| **Coordinación de expositores** | `gestionar_expositores` | era **Expositor** |
+| **Puerta** | `checkin`, `ver_clientes` | era **Staff · Acceso** |
+| **Atención** | `ver_clientes`, `gestionar_clientes` | era **Staff · Atención** |
+| **Taquilla** | `gestionar_tickets`, `ver_clientes`, `gestionar_clientes` | nuevo: hoy vender boletas exige `editar_evento` |
+| **Finanzas** | `ver_analytics` (+ `ver_pagos`, `reembolsar` cuando se apliquen) | |
+| **Moderación** | (`borrar_mensajes`, `crear_canales` cuando se apliquen) | sin `gestionar_agenda` |
+
+**Se van:** «Speaker» y «Expositor» como roles de staff. Un ponente y un
+expositor **no son personal del evento**: sus fichas ya viven en `speakers` y
+en `networking_expositores`, y el expositor ya tiene su enlace propio. Tener
+además un rol con su nombre es lo que hace que conceda de más.
+
+**«Staff · Logística» desaparece** hasta que haya un permiso que signifique
+algo para logística. Un rol que sólo deja ver la lista de clientes no es un rol.
+
+### El riesgo, y cómo se toca
+
+**29 miembros apuntan a un `rol_id`.** Borrar y recrear roles deja gente sin
+permisos en 27 eventos. Va con expand/contract:
+
+1. Crear **Administrador** (nuevo, no toca a nadie) y arreglar la semilla para
+   que las dos coincidan.
+2. **Renombrar** in situ los que cambian de nombre — el `id` no se toca, así
+   que nadie pierde su rol.
+3. **Ajustar permisos** de los que conceden de más, uno por uno y anotado.
+4. **No borrar** un rol que tenga miembros: primero mover a la gente, y eso lo
+   decide el organizador, no la migración.
+
+Y una regla nueva que conviene dejar escrita: **un rol no puede conceder un
+permiso con `aplicado: false`.** Una prueba que compare la semilla contra el
+catálogo lo caza solo, en el estilo de `montaje.test.js`.
+
+---
+
+# Parte 3 · A quién se le asigna
+
+### Lo medido
+
+`tareas` **ya asigna por persona o por rol** (`asignado_user_id`,
+`asignado_rol_id`), y `TareasTab` ya lo ofrece. Eso no hay que rehacerlo — de
+5 tareas, 1 está asignada a un rol.
+
+**El problema está en la puerta, y es exactamente el que se describe.**
+`AccesosSection.jsx:257-268` pinta «Quién registra aquí» como **un botón por
+cada miembro del equipo**, con el nombre y nada más: sin rol, sin buscador, sin
+agrupar. Con 40 personas son 40 fichas seguidas, y no hay forma de saber cuál
+de los cuatro «Juan» es el de puerta.
+
+Y hay **siete sitios** que piden el equipo y arman su propia lista:
+`AccesosSection`, `TareasTab`, `ChatTab`, `EquipoTab`, `ResumenSection`,
+`MiEventoWidget` y `AjustesPage`. Cada uno decide por su cuenta qué enseña de
+cada persona. Por eso uno sabe de roles y otro no.
+
+### La propuesta
+
+**Un solo `<SelectorDePersonas>`**, y que los siete lo usen:
+
+- **Busca** por nombre y por correo (el mismo `sinTildes` de
+  `SelectorBuscable`: nadie escribe «Muñoz» con eñe en un buscador).
+- **Agrupa por rol** y enseña el rol al lado del nombre. Es el dato que
+  distingue a los cuatro «Juan».
+- **Deja elegir un rol entero**: «todos los de Puerta». Es lo que se pide de
+  verdad —no se asigna a Juan, se asigna a quien esté en la puerta— y es lo que
+  hace que el evento con mucha gente sea manejable.
+- **Muestra a los que ya están seleccionados arriba**, como `MultiBuscable`, en
+  vez de obligar a buscarlos entre cuarenta para quitarlos.
+
+En datos: `page_json.accesos[].staff` guarda ids de persona; se le añade
+`roles: [rolId]`, igual que `tareas` ya distingue las dos. Al resolver quién
+atiende una puerta se unen las dos listas.
+
+**Sin backend nuevo:** `equipoApi.list` ya devuelve `rol` y `rol_id` por
+miembro (`routes/equipo.js:26`), y `rolesApi.list` ya da el catálogo. Lo que
+falta es una pantalla que los junte.
+
+---
+
+# Orden
+
+**O1** · El selector de personas compartido, y la puerta usándolo. Frontend
+solo, sin migración, y arregla hoy lo que se pidió. → *empezar por aquí*
+
+**O2** · ~~El menú: las nueve secciones~~ — ✅ **hecho el 2026-09-02**, junto con
+la Fase 1 del Frente N. **9 secciones, 36 pestañas** (eran 8 y 39).
+
+- «Espacio del evento» partido en **Actividades del evento** (qué pasa) y
+  **Zonas del evento** (dónde pasa). **Speakers** sale a su propia pestaña: era
+  un conmutador dentro del Calendario y por eso no se encontraba.
+- Fusionadas: **Acreditación** (Credenciales+Tarjeta), **Antes de la boleta**
+  (Lista de espera+Invitaciones), **Analytics y Reporte** dentro de Resumen
+  —que era una sección de una sola pestaña— y **Mensajes** (Chats, Anuncios,
+  Emails). Fuera los dos placeholders de Configuración.
+- **Las dos fusiones de Asistentes cambiaban permisos y no se hicieron a
+  secas.** La escarapela la imprime quien está en la puerta (`checkin`) y el
+  carné lo diseña quien lleva los clientes (`ver_clientes`); la lista de espera
+  es del dueño y las invitaciones no. Cada pantalla fusionada comprueba dentro
+  el permiso de su vista, así que nadie ganó ni perdió acceso.
+- `REUBICADAS` pasó de 8 a 37 entradas: **ningún enlace guardado cae en el
+  Resumen**. Las de la primera mudanza (Dinámicas → Espacio) siguen ahí y ahora
+  apuntan dos saltos más allá, a su destino de hoy.
+- `tests/menu.test.mjs`: que toda pestaña tenga pantalla, que toda ruta vieja
+  lleve a una que existe, y que **todo `?s=…&t=…` escrito en el código** lleve
+  a alguna parte. Comprobado que muerde: renombrando un `case` a mano, falla.
+- Actualizados los 16 atajos del buscador y los enlaces internos. Uno de ellos
+  construía la ruta por partes (`base` + `&t=…`) y **se escapaba de la prueba**:
+  sus cinco destinos ahora viven en dos secciones distintas.
+
+**O3** · ~~El rol **Administrador** y la semilla arreglada~~ — ✅ **escrito el
+2026-09-02, SIN APLICAR**. Migración `0089_rol_administrador_y_realineo.sql`:
+crea el rol que puede todo (con `orden = 0`), lo mete en los 33 eventos que ya
+existen, y realinea los roles viejos **sólo donde nadie los tocó**. Reversible,
+idempotente, sin un solo `DROP`, con el rollback escrito al final.
+
+Un detalle que casi la rompe: la 0056 movió `fn_roles_semilla` de `public` a
+`private`. Escribirla en `public` no habría dado error — habría creado una
+función **fantasma** que nadie llama, y el rol nuevo no habría aparecido en
+ningún evento nuevo. Comprobado contra la base antes de escribirla.
+
+Pruebas: `test/rolesSemilla.test.js` — que las dos semillas repartan lo mismo,
+que exista un rol que puede todo (y que ningún otro pueda algo que él no), y que
+ninguna siembre un permiso que la pantalla de roles no conoce. **427 en verde.**
+
+**Falta aplicarla**: es DDL sobre producción y va con permiso.
+
+**O4** · Renombrar roles y ajustar los que conceden de más, in situ, sin borrar.
+
+**O5** · La unión de permisos, en un solo sitio; y la prueba de que ningún rol
+concede un permiso con `aplicado: false`.
+
+**O6** · Aplicar de verdad los seis permisos decorativos, o quitarlos del
+catálogo. Es una decisión de producto, no de código: hoy `ver_pagos` esconde una
+pestaña en el navegador y no protege nada en el servidor. Esconder una pestaña
+no es control de acceso — en este caso lo que sí protege esas pantallas es
+`editar_evento`, así que no hay un agujero abierto, pero el rol promete algo que
+no cumple.
+
+---
+
+## FRENTE P · Una entrada, tres salidas — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-02**: «plantea la relación de la tarjeta con
+la entrada de la persona y demás, ya que, como dije en su momento, se estaba
+dándole manejo como si fueran diferentes modalidades, cuando literalmente
+sirven para lo mismo».
+
+Tiene razón, y ya se pagó una vez.
+
+---
+
+### La prueba de que no son modalidades distintas
+
+Está escrita en `lib/qrEscaneado.js`, y es el mejor argumento del frente:
+
+> El diseñador de credenciales imprimía la URL `https://…/mi-ticket/ABCD1234`,
+> mientras la boleta digital imprimía el **token firmado**. Así que **la
+> escarapela impresa no pasaba el control de ingreso**: el servidor recibía una
+> URL donde esperaba una firma y contestaba «QR inválido». Ni servía para dar
+> puntos en un stand, ni para canjear. **Un papel con un QR que no abre ninguna
+> puerta.**
+
+Está corregido de origen, y quedó un traductor permanente para las escarapelas
+impresas antes —a nadie se le puede pedir que reimprima cien la mañana del
+evento—. Pero la causa no fue un descuido de programación: fue que **dos
+pantallas trataban el mismo objeto como si fueran dos cosas**, y cada una
+decidió por su cuenta qué meter en el QR.
+
+### Lo que hay hoy, medido
+
+Una sola cosa —**la entrada de una persona**, fila en `tickets` con su `codigo`
+y su `qr_token`— sale por **tres puertas**:
+
+| Salida | Quién la dibuja | Diseño del organizador |
+|---|---|---|
+| **Tarjeta en pantalla** (`WalletCard`) | `components/public/WalletCard.jsx` | ✅ `page_json.wallet`, por variante |
+| **Escarapela impresa** | mismo componente, mitad `IMPRESION_DEFECTO` | ✅ la misma variante |
+| **Boleta en PDF** | `lib/boletaPdf.jsx` | ❌ **ninguno** |
+
+**Las dos primeras ya están unificadas** y conviene no replanificarlo:
+`lib/wallet.js` fusionó `page_json.credenciales` dentro de la variante, y su
+propio comentario explica por qué no se metió todo en el mismo saco —«el tamaño
+físico y los campos que se imprimen no significan nada en una pantalla, igual
+que el degradado y los puntos no significan nada en papel. Son la MISMA tarjeta
+con dos salidas»—. Ésa es exactamente la forma correcta, y es la que le falta a
+la tercera.
+
+**La que se quedó fuera es el PDF.** `descargarBoletaPdf()` no recibe `design`
+ni llama a `walletConfig`: pinta con tres constantes fijas al principio del
+archivo (`NEGRO`, `GRIS`, `BORDE`). Consecuencias medibles:
+
+- Un evento con **White Label** —marca propia, logo propio, colores propios—
+  entrega un PDF gris neutro. El archivo que **más se reenvía y más se
+  imprime** es el único que no lleva la marca del organizador.
+- Cambiar el logo en la tarjeta no lo cambia en el PDF. Es el mismo problema que
+  ya se arregló entre escarapela y tarjeta, un archivo más allá.
+- Las **variantes por público y por tipo** (`staff`, `VIP`) no existen para el
+  PDF: todos reciben el mismo.
+
+### Y el vocabulario, que es la mitad del problema
+
+En la interfaz hay **cinco palabras para un objeto**: «boleta», «tarjeta»,
+«escarapela», «credencial» y «carné digital». Los propios comentarios del código
+las tratan como cosas distintas —«La escarapela es para colgarse; el PDF es la
+boleta con sus datos»— y ahí es donde nace la sensación de modalidades.
+
+**La forma de nombrarlo, y de ahí sale todo lo demás:**
+
+> **La entrada** es el objeto. Tiene **tres salidas**: en pantalla, en papel y
+> en PDF. No son tipos de entrada: son formas de llevarla encima.
+
+Ya hay dos señales de que el sistema iba solo hacia ahí: la fusión de
+Credenciales+Tarjeta en **Acreditación** (hecho hoy) y el «Descargar» único con
+el formato después (M6). Falta decirlo también en el modelo.
+
+### Dónde se nota hoy, además del PDF
+
+**`MiTicketPage` —la página a la que vuelve el asistente el día del evento—
+todavía tiene las tres acciones sueltas**: «Imprimir mi escarapela», «Descargar
+mi tarjeta» y «Descargar boleta (PDF)». M6 unificó esto en la confirmación del
+registro y **no aquí**, que es justo donde más se usa: quien vuelve por el
+enlace en la puerta se encuentra tres botones para el mismo objeto.
+
+---
+
+### Fase 1 · El «Descargar» único, también en /mi-ticket
+
+Llevar el menú de formatos de M6 a `MiTicketPage`. Es el mismo componente y el
+mismo `FORMATOS_BOLETA`; hoy están escritos dos veces con distinta forma. Barato
+y es donde el asistente de verdad entra.
+
+### Fase 2 · El PDF, con el diseño del organizador
+
+`descargarBoletaPdf()` recibe `design` —la misma variante que ya resuelve
+`walletConfig(page_json, { publico, tipo })`— y usa su logo, sus dos colores y
+sus campos.
+
+**Lo que NO hay que hacer:** volcar la tarjeta entera en el PDF. Una hoja no es
+una pantalla: el degradado a sangre y los puntos de gamificación no ayudan en
+papel, y el PDF tiene algo que las otras dos no —la tabla de respuestas del
+formulario, que es lo que se revisa en la fila—. Mismo criterio que ya usó
+`wallet.js` al separar `IMPRESION_DEFECTO`: **la variante manda la identidad
+(logo, colores, qué campos), cada salida decide su forma.**
+
+### Fase 3 · Una sola palabra en la interfaz
+
+Renombrar a **«tu entrada»** con sus tres salidas, en las cuatro pantallas que
+hoy dicen cinco cosas distintas: la confirmación del registro, `/mi-ticket`,
+Acreditación y el escáner. Es texto, no modelo — pero es lo que hace que deje
+de sentirse como modalidades.
+
+### Fase 4 · Una prueba que impida que se vuelvan a separar
+
+La lección de `qrEscaneado.js` merece un guardarraíl: **las tres salidas tienen
+que llevar el mismo `qrValue`**. Hoy eso depende de que quien toque una se
+acuerde de las otras dos. Una prueba que compruebe que las tres lo piden a la
+misma función lo caza — en el estilo de `tests/menu.test.mjs`.
+
+### Lo que este frente no toca
+
+- **`ticket_types`** (VIP, general, stand). Ésos **sí** son modalidades de
+  verdad: cambian precio, cupo y a qué da derecho. No confundirlos con las
+  salidas de una entrada ya emitida.
+- **La variante por público** (`asistentes` / `staff`). También es real: la
+  tarjeta del staff no es la del asistente. Lo que se unifica es la salida, no
+  el público.
+
+### Orden
+
+**1 → 2 → 4 → 3.** La 1 es de un rato y se nota. La 2 es la que arregla el
+agravio de verdad (el White Label que no llega al archivo más usado). La 4 antes
+que la 3 porque la 3 es texto y la 4 evita que vuelva el fallo del QR.
+
+---
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
 sesiones distintas sin que el merge duela.
+
+El **Frente N** es la continuación del I y **no se puede correr en paralelo con
+él ni con el Frente C**: toca `EventWorkspace.jsx`, `SessionForm.jsx`,
+`StandsTab.jsx`, `MapaSection.jsx`, `ZonasSection.jsx` y `lib/espacio.js`. Su
+Fase 1 es de un rato y no toca backend; la Fase 3 es DDL sobre datos de
+producción y va con [[db-guardian]].
 
 El **Camino unitario** (sección 2) es el tercer cubo: tareas que no dependen
 de cPanel ni se pisan entre sí, así que las toma quien esté libre —no hay

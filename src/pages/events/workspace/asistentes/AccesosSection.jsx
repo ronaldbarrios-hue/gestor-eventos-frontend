@@ -8,6 +8,9 @@ import { useToast } from '../../../../context/ToastContext.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
 import { zonasDelEvento, etiquetaZona } from '../../../../lib/zonas.js';
+import { miembrosDelEvento } from '../../../../lib/equipo.js';
+import { rolesApi } from '../../../../api/roles.js';
+import SelectorDePersonas from '../../../../components/ui/SelectorDePersonas.jsx';
 
 /* Asistentes · Accesos — control de ingresos por puerta.
    El organizador define cuántas entradas hay, qué tipos de boleta admite cada
@@ -21,8 +24,13 @@ function uid() { return 'acc_' + Math.random().toString(36).slice(2, 9); }
    persistir. Mismo recorte que hace `guardar*` antes de mandar al servidor:
    sin esto, un espacio de más en el nombre marcaría "sin guardar" para
    siempre. */
-const limpiarAccesos = (l) => (l || []).map(({ id, nombre, tipos, staff, zona_id }) =>
-  ({ id, nombre: (nombre || '').trim(), tipos: tipos || [], staff: staff || [], zona_id: zona_id || null }));
+/* `staff` son personas y `roles` son roles, y se guardan aparte a propósito.
+   Guardar el rol ya resuelto —la gente que hoy lo tiene— haría que quien entre
+   mañana a ese rol no quede asignado, que es justo lo que el rol viene a
+   evitar: en la puerta no se asigna a Juan, se asigna «a quien esté en
+   puerta». */
+const limpiarAccesos = (l) => (l || []).map(({ id, nombre, tipos, staff, roles, zona_id }) =>
+  ({ id, nombre: (nombre || '').trim(), tipos: tipos || [], staff: staff || [], roles: roles || [], zona_id: zona_id || null }));
 export default function AccesosSection({ evento }) {
   const { success, error } = useToast();
   const [accesos, setAccesos] = useState(() => (evento.page_json?.accesos || []).map(a => ({ ...a, _k: a.id })));
@@ -40,6 +48,7 @@ export default function AccesosSection({ evento }) {
   const [nuevaAlerta, setNuevaAlerta] = useState('');
   const [tipos, setTipos] = useState([]);
   const [miembros, setMiembros] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [guardandoAccesos, setGuardandoAccesos] = useState(false);
@@ -49,12 +58,16 @@ export default function AccesosSection({ evento }) {
       ticketsApi.list(evento.id).catch(() => ({ tickets: [] })),
       equipoApi.list(evento.id).catch(() => ({ miembros: [], owner: null })),
       clientesApi.list(evento.id, { limit: 1000 }).catch(() => ({ clientes: [] })),
-    ]).then(([tt, eq, cl]) => {
+      /* El catálogo de roles, para poder decir «todo el rol». Si falla, el
+         selector sigue sirviendo para elegir personas. */
+      rolesApi.list(evento.id).catch(() => ({ roles: [] })),
+    ]).then(([tt, eq, cl, rs]) => {
       setTipos(tt.tickets || tt.ticket_types || []);
-      const staff = [...(eq.owner ? [{ id: eq.owner.id, nombre: eq.owner.nombre || 'Organizador' }] : []),
-        ...(eq.miembros || []).map(m => ({ id: m.profile?.id || m.id, nombre: m.profile?.nombre || m.nombre_invitado || m.email }))]
-        .filter(s => s.id && s.nombre);
-      setMiembros(staff);
+      /* Antes esto desenredaba a mano las tres formas en que puede venir el
+         nombre de un miembro, y se dejaba el rol por el camino. Vive en
+         `lib/equipo.js`, con las otras seis pantallas que piden lo mismo. */
+      setMiembros(miembrosDelEvento(eq));
+      setRoles(rs.roles || []);
       setClientes(cl.clientes || cl.tickets || []);
     }).finally(() => setLoading(false));
   }, [evento.id]);
@@ -96,7 +109,7 @@ export default function AccesosSection({ evento }) {
   const sinPuerta = useMemo(() => clientes.filter(c => c.estado === 'usado' && !c.acceso).length, [clientes]);
 
   const set = (k, patch) => setAccesos(l => l.map(a => a._k === k ? { ...a, ...patch } : a));
-  const agregar = () => setAccesos(l => [...l, { _k: uid(), id: uid(), nombre: '', tipos: [], staff: [] }]);
+  const agregar = () => setAccesos(l => [...l, { _k: uid(), id: uid(), nombre: '', tipos: [], staff: [], roles: [] }]);
   const quitar = (k) => {
     const lista = accesos.filter(a => a._k !== k);
     setAccesos(lista);
@@ -105,9 +118,8 @@ export default function AccesosSection({ evento }) {
   const toggleTipo = (k, tid) => set(k, { tipos: (accesos.find(a => a._k === k)?.tipos || []).includes(tid)
     ? accesos.find(a => a._k === k).tipos.filter(x => x !== tid)
     : [...(accesos.find(a => a._k === k)?.tipos || []), tid] });
-  const toggleStaff = (k, sid) => set(k, { staff: (accesos.find(a => a._k === k)?.staff || []).includes(sid)
-    ? accesos.find(a => a._k === k).staff.filter(x => x !== sid)
-    : [...(accesos.find(a => a._k === k)?.staff || []), sid] });
+  const asignar = (k, { personas, roles: rolesElegidos }) =>
+    set(k, { staff: personas, roles: rolesElegidos });
 
   /* Guardar puertas y guardar zonas van cada una por su lado: antes un botón
      único mandaba las dos listas juntas, así que una puerta a medio llenar
@@ -257,15 +269,21 @@ export default function AccesosSection({ evento }) {
             {miembros.length > 0 && (
               <div>
                 <label className="label text-xs">Quién registra aquí <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
-                <div className="flex flex-wrap gap-1.5">
-                  {miembros.map(s => (
-                    <button key={s.id} onClick={() => toggleStaff(a._k, s.id)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
-                        ${(a.staff || []).includes(s.id) ? 'border-primary bg-primary/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
-                      {s.nombre}
-                    </button>
-                  ))}
-                </div>
+                {/* Era una ficha por miembro con el nombre y nada más: en un
+                    evento con cuarenta personas, cuarenta fichas seguidas, sin
+                    buscador y sin saber cuál de los cuatro «Juan» es el de
+                    puerta. */}
+                <SelectorDePersonas
+                  miembros={miembros}
+                  roles={roles}
+                  personas={a.staff || []}
+                  rolesSel={a.roles || []}
+                  onChange={(v) => asignar(a._k, v)}
+                />
+                <p className="text-[11px] text-text-3 mt-1.5">
+                  Elegir un rol entero es lo que aguanta un cambio de turno: quien entre
+                  después a ese rol queda asignado sin volver aquí.
+                </p>
               </div>
             )}
           </div>
@@ -282,7 +300,7 @@ export default function AccesosSection({ evento }) {
           enlace — repetir aquí el alta sería volver a tener dos dueños del
           mismo dato, que es justo lo que se acaba de quitar del mapa. */}
       <div className="border-t border-border pt-5">
-        <Link to={`/eventos/${evento.id}?s=espacio&t=zonas`}
+        <Link to={`/eventos/${evento.id}?s=zonas&t=zonas`}
           className="block rounded-2xl border border-border bg-surface/40 p-4 hover:bg-surface-2/40 transition-colors">
           <p className="text-base font-semibold text-text-1">Zonas de interés <span className="text-text-3 font-normal">→</span></p>
           <p className="text-sm text-text-2 mt-1">
