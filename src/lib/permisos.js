@@ -12,8 +12,9 @@
    como no aplicados y `routes/chat.js` los comprueba en cinco sitios. La marca
    miente en la dirección peor: le dice a quien arma un rol que conceder eso no
    cambia nada, cuando sí cambia. Se midió buscando cada id en las rutas antes
-   de tocarlo — los que siguen sin comprobarse son `vip_zone`, `ver_pagos`,
-   `reembolsar` y `gestionar_descuentos`, cuatro y no seis. Los que están en
+   de tocarlo. Al 2026-09-03 queda **uno solo** sin comprobar: `vip_zone`, que
+   no es que falte enchufarlo —es que no existe la función que promete—.
+   `gestionar_descuentos`, `ver_pagos` y `reembolsar` ya hacen algo. Los que están en
    `false` se pueden conceder y no cambian nada todavía: se dejan porque los
    roles semilla ya los reparten y esconderlos haría que un rol tuviera
    permisos invisibles en su propia pantalla de edición. Con la marca, quien
@@ -44,21 +45,21 @@ export const PERMISOS = [
 
   /* Tickets */
   { id: 'gestionar_tickets',     grupo: 'Tickets',   label: 'Gestionar tipos de boleta', desc: 'Crear, editar y borrar tipos de ticket.', aplicado: true },
-  { id: 'gestionar_descuentos',  grupo: 'Tickets',   label: 'Códigos de descuento',    desc: 'Crear y administrar cupones.', aplicado: false },
+  { id: 'gestionar_descuentos',  grupo: 'Tickets',   label: 'Códigos de descuento',    desc: 'Crear y administrar cupones.', aplicado: true },
 
   /* Clientes */
   { id: 'ver_clientes',          grupo: 'Clientes',  label: 'Ver lista de clientes',   desc: 'Acceso a la lista de inscritos.', aplicado: true },
-  { id: 'gestionar_clientes',    grupo: 'Clientes',  label: 'Editar clientes',         desc: 'Cambiar estado, reembolsar, invalidar.', aplicado: true },
+  { id: 'gestionar_clientes',    grupo: 'Clientes',  label: 'Editar clientes',         desc: 'Cambiar el estado de una boleta, invalidarla, importar y exportar.', aplicado: true },
   { id: 'checkin',               grupo: 'Clientes',  label: 'Hacer check-in',          desc: 'Escanear QR y marcar asistencia.', aplicado: true },
-  { id: 'vip_zone',              grupo: 'Clientes',  label: 'Acceso zona VIP',         desc: 'Atender la zona VIP.', aplicado: false },
+  { id: 'vip_zone',              grupo: 'Clientes',  label: 'Acceso zona VIP',         desc: 'Sin efecto todavía: no hay ninguna zona marcada como VIP en el modelo. Está pendiente de decidir qué significa.', aplicado: false },
 
   /* Chat */
   { id: 'crear_canales',         grupo: 'Chat',      label: 'Crear canales',           desc: 'Crear chats principales y subgrupos.', aplicado: true },
   { id: 'borrar_mensajes',       grupo: 'Chat',      label: 'Moderar mensajes',        desc: 'Borrar mensajes de otros miembros.', aplicado: true },
 
   /* Pagos */
-  { id: 'ver_pagos',             grupo: 'Pagos',     label: 'Ver pagos e ingresos',    desc: 'Acceso al dashboard financiero.', aplicado: false },
-  { id: 'reembolsar',            grupo: 'Pagos',     label: 'Emitir reembolsos',       desc: 'Devolver dinero a clientes.', aplicado: false },
+  { id: 'ver_pagos',             grupo: 'Pagos',     label: 'Ver pagos e ingresos',    desc: 'La pestaña Dinero: cuánto entró, de qué, qué falta por cobrar y qué se devolvió.', aplicado: true },
+  { id: 'reembolsar',            grupo: 'Pagos',     label: 'Registrar reembolsos',    desc: 'Marcar una boleta como reembolsada y liberar su cupo. El dinero se devuelve en la pasarela.', aplicado: true },
 
   /* Analytics */
   { id: 'ver_analytics',         grupo: 'Analytics', label: 'Ver analytics',           desc: 'Métricas, conversión y reportes.', aplicado: true },

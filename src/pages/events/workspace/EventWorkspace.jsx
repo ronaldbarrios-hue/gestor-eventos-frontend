@@ -17,6 +17,7 @@ import PublicacionSection from './PublicacionSection.jsx';
 import AnunciosSection from './AnunciosSection.jsx';
 import GestbotSidebar from '../../../components/agente/GestbotSidebar.jsx';
 import PagosSection        from './comercial/PagosSection.jsx';
+import DineroSection       from './comercial/DineroSection.jsx';
 import CheckoutSection      from './comercial/CheckoutSection.jsx';
 import SeoSection           from './comercial/SeoSection.jsx';
 import EmailsSection        from './comercial/EmailsSection.jsx';
@@ -144,7 +145,10 @@ const SECCIONES = [
      servidor va a decir que no es peor que esconderla. */
   { id: 'comercial', label: 'Entradas y dinero', icon: WalletIcon, tabs: [
     { id: 'boletas',      label: 'Boletas',      perm: 'gestionar_tickets' },
-    { id: 'promociones',  label: 'Promociones',  perm: '__solo_owner__' },
+    { id: 'promociones',  label: 'Promociones',  perm: 'gestionar_descuentos' },
+    /* `ver_pagos` prometía un «dashboard financiero» que no existía; ésta es esa
+       pantalla, y por eso la pestaña pide justo ese permiso. */
+    { id: 'dinero',       label: 'Dinero',       perm: 'ver_pagos' },
     { id: 'pagos',        label: 'Pagos',        perm: 'editar_evento' },
     { id: 'facturacion',  label: 'Facturación',  perm: 'ver_clientes' },
   ]},
@@ -534,6 +538,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'actividades/ranking'          : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
+    case 'comercial/dinero'         : return <DineroSection evento={evento} />;
     case 'resumen/analytics'      : return <AnalyticsTab evento={evento} />;
     case 'comercial/promociones'    : return <PromocionesSection evento={evento} />;
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
