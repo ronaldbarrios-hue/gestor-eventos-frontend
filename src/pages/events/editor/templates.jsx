@@ -310,54 +310,11 @@ export const TEMPLATES = [
   },
 ];
 
-export function TemplatesPicker({ onPick, onCancel }) {
-  return (
-    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-bg/70 backdrop-blur-md animate-[fadeIn_0.2s_ease_both]" onClick={onCancel}>
-      <div className="relative w-full max-w-3xl rounded-t-3xl sm:rounded-3xl border-t sm:border border-border-2 bg-surface shadow-2xl max-h-[88vh] overflow-y-auto animate-[authCardIn_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
-        onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 bg-surface px-5 py-4 border-b border-border flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">Plantillas</p>
-            <h2 className="text-xl font-bold font-display tracking-tight text-text-1">Empezá con una base</h2>
-          </div>
-          <button onClick={onCancel} aria-label="Cerrar"
-            className="w-9 h-9 rounded-xl text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-
-        <div className="p-5 space-y-3">
-          <p className="text-sm text-text-2 leading-relaxed">
-            Las plantillas reemplazan los bloques actuales de tu página. Tu información (título, fecha, ubicación, tickets) se mantiene — los bloques de sistema se rellenan automáticamente.
-          </p>
-
-          <div className="grid sm:grid-cols-2 gap-3 pt-2">
-            {TEMPLATES.map(t => (
-              <button key={t.key} onClick={() => onPick(t)}
-                className="group text-left rounded-3xl border border-border bg-surface/40 hover:border-primary/40 hover:bg-surface/60 transition-all p-5 overflow-hidden relative">
-                <div className={`absolute inset-0 bg-gradient-to-br ${t.accent} opacity-30 group-hover:opacity-50 transition-opacity pointer-events-none`} />
-                <div className="relative">
-                  <h3 className="text-lg font-bold font-display text-text-1 tracking-tight mb-1">{t.nombre}</h3>
-                  <p className="text-sm text-text-2 mb-4 leading-relaxed">{t.desc}</p>
-                  <ul className="space-y-1.5">
-                    {t.preview.map(p => (
-                      <li key={p} className="text-xs text-text-3 flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-text-3" /> {p}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    Usar esta plantilla →
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* `TemplatesPicker` vivía aquí y se fue con `PageBuilder`, su único
+   consumidor. El editor de verdad enseña las plantillas con su propia lista y
+   no con este modal, así que mantenerlo era guardar una pantalla que nadie
+   podía abrir — y las pantallas que nadie abre no se enteran de que el resto
+   cambió. */
 
 /* Helper: regenera ids únicos al aplicar el template (evita choques) */
 export function instanciarTemplate(template) {

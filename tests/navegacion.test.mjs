@@ -154,3 +154,31 @@ test('el correo se previsualiza con el renderizador que lo envía', () => {
   assert.ok(!/\.replace\(\/\\{\\{/.test(sinComentarios(src)),
     'el panel volvió a sustituir variables por su cuenta: eso lo hace renderEmail');
 });
+
+test('hay UN editor de la página, no dos', () => {
+  /* `PageBuilder.jsx` eran 470 líneas —páginas, bloques, plantillas— sin un
+     solo consumidor: un segundo editor de lo mismo que hace ExperienceBuilder,
+     construido y nunca enchufado. Resucitarlo habría dejado dos editores de la
+     misma página; se rescató lo único que tenía y el otro no —ver la página
+     como datos— y el resto se borró.
+
+     Si vuelve a aparecer un segundo editor, esto lo dice antes de que alguien
+     empiece a arreglar cosas en el que no se usa. */
+  const editores = ARCHIVOS.filter(([ruta, src]) =>
+    ruta.startsWith('src/pages/events/editor/')
+    && /export default function \w*(PageBuilder|Builder)\b/.test(src));
+  assert.deepEqual(editores.map(([r]) => r), ['src/pages/events/editor/ExperienceBuilder.jsx']);
+});
+
+test('la vista de datos edita el mismo contrato que valida el servidor', () => {
+  /* No es una consola de HTML, y no por falta de tiempo: un <script> en la
+     landing corre con el origen del evento y lo ve todo el público. El
+     contrato en JSON es además lo que permite que un asistente escriba la
+     página por MCP y que el servidor pueda decir que no. */
+  const src = readFileSync(join(SRC, 'pages/events/editor/VistaDesarrollador.jsx'), 'utf8');
+  const codigo = sinComentarios(src);
+  assert.match(codigo, /BLOCKS\[/, 'la vista de datos ya no comprueba el tipo contra el catálogo');
+  assert.ok(!/dangerouslySetInnerHTML/.test(codigo), 'la vista de datos pinta HTML crudo');
+  /* El alcance: la página entera o un bloque suelto. Es lo que se pidió. */
+  assert.match(codigo, /Toda la página/, 'ya no se puede mirar la página entera');
+});
