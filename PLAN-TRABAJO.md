@@ -1016,6 +1016,117 @@ Ethernet + Bluetooth 5.0 (BLE/WiFi), identifica el sensor automáticamente con
 el botón de calibración) para imprimir en el sitio los QR de las escarapelas
 el día del evento.
 
+### El diseño de la etiqueta — ✅ decidido y construido el 2026-09-03
+
+Primera pieza del frente. **No reemplaza al diseñador de escarapelas que ya
+existe**: aquél compone una HOJA con varias para cortar a mano en una impresora
+normal; la TT460 saca **una etiqueta a la vez, a tamaño exacto, desde un rollo**.
+Son dos medios distintos y el mismo diseño no vale para los dos.
+
+#### Lo que decidió el diseño, y no fue el gusto
+
+**1 · No hay colores. Ni grises.** La transferencia térmica es de **un bit**:
+cada punto se imprime o no, con la tinta de la cinta cargada. Un gris sólo se
+finge con trama, y a 203 dpi una trama se ve sucia.
+
+Eso **tumba lo único configurable de la escarapela actual**: el color por tipo
+de asistente (`colores: { 'VIP': '#d4af37' }`), la marca de agua con opacidad y
+el logo a color. En térmica, todo eso es una mancha o no es nada.
+
+Se sustituye por lo que sí sobrevive en un bit: **el tipo en un recuadro con
+borde**, y relleno (texto en blanco) para el que se quiera destacar. Si de
+verdad hacen falta dos colores, la salida es **operativa y no de diseño**:
+cargar una cinta dorada e imprimir los VIP en una tanda aparte.
+
+**2 · Los rellenos grandes se evitan.** Una banda negra a lo ancho gasta cinta,
+calienta el cabezal —lo que baja la velocidad real— y se corre si la escarapela
+roza durante el día. Por eso el recuadro invertido es pequeño y el resto va en
+línea fina.
+
+**3 · Todo cae en punto entero.** 203 dpi son exactamente **8 puntos/mm**. Una
+medida de 3,3 mm son 26,4 puntos: el cabezal redondea por su cuenta y el borde
+sale con diente. Todas las medidas son múltiplos de 0,125 mm.
+
+#### El tamaño: 90 × 55 mm
+
+Es el `9x5` que el diseñador de escarapelas **ya trae por defecto**. No es una
+medida inventada: si ya se compraron portagafetes para ese tamaño, la etiqueta
+entra en ellos. A 203 dpi son 720 × 440 puntos.
+
+#### El QR, que es quien manda
+
+Lleva el **token firmado**, no el código corto: el código son 8 caracteres sobre
+32 símbolos —unos 40 bits— y se puede adivinar.
+
+El token son **253 caracteres**, medidos contra producción. Comprobado
+**empíricamente** contra `qrcode.react`, no de memoria:
+
+| Nivel | Margen | Módulos |
+|---|---|---|
+| M | sin | **65 × 65** (versión 12) |
+| M | con | 73 × 73 |
+| L | con | 65 × 65 |
+
+Se usa **M**: una escarapela se dobla, se moja y se roza, y bajar a L para ganar
+2 mm es cambiar tamaño por fallos intermitentes.
+
+    73 módulos × 3 puntos = 219 puntos ÷ 8 = **27,375 mm de lado**
+
+Tres puntos por módulo es el mínimo con el que un lector barato acierta a la
+primera. Con dos se lee en un móvil bueno y falla en la puerta, que es donde
+importa. Quedan **56,6 mm** para el nombre, el tipo y el evento.
+
+**El tamaño no está fijo: se calcula.** El día que el token crezca —una firma
+más larga, un campo más— el QR sube de versión, y `medidas()` lo recalcula y
+avisa si deja de caber. Lo que no puede pasar es imprimir un QR ilegible sin que
+nadie lo sepa.
+
+#### Lo que se imprime, y lo que no
+
+| Sale | No sale, y por qué |
+|---|---|
+| QR 27,4 mm + código corto debajo, monoespaciado | Marca de agua — es una trama, ensucia y come contraste junto al QR |
+| Nombre, 6 mm de altura de mayúscula, máximo 2 líneas | Colores por tipo — no existen en un bit |
+| Tipo, en recuadro | Campos extra del formulario — caben dos líneas y el nombre y el tipo son lo que se mira |
+| Nombre del evento, 2,5 mm | Logo a color — se deja opcional, pero sólo funciona si es silueta de un tono |
+
+Las alturas van en **milímetros y no en puntos tipográficos**: lo que decide si
+un nombre se lee desde el otro lado de la mesa es su altura física, y por debajo
+de 2 mm a 203 dpi las letras se rellenan y una «e» es un borrón.
+
+#### La impresión
+
+`@page { size: 90mm 55mm; margin: 0 }` y **un salto de página por etiqueta**.
+Una etiquetadora no tiene hoja: si el navegador manda una A4 con seis
+escarapelas, imprime la primera y tira el resto. Y el margen por defecto del
+navegador, sobre 55 mm de alto, deja el diseño a escala y el QR fuera de la zona
+imprimible.
+
+**Lo que el navegador no puede garantizar:** que el driver no reescale. Casi
+todos ofrecen «ajustar al área imprimible», y eso rompe la relación
+puntos↔módulos: 3 puntos por módulo pasan a 2,7 y el lector empieza a fallar **a
+veces**, que es peor que fallar siempre. Al imprimir hay que dejar la escala al
+100 % y desmarcar el ajuste.
+
+**Si el driver da guerra**, la salida no es pelearse con él: es generar el
+lenguaje de la impresora (TSPL o ZPL, según lo que hable la TT460) y mandárselo
+por USB o red. Eso ya no es diseño, es fontanería, y hasta no probar en el
+aparato no se sabe si hace falta.
+
+#### Lo que falta, y necesita el aparato delante
+
+1. **Una prueba física.** El cálculo dice que 27,4 mm con cinta de cera/resina
+   se lee; no dice que se lea con **esa** cinta y **ese** papel. Es la única
+   forma de cerrar esto.
+2. **Confirmar el rollo.** Todo esto asume etiquetas de 90 × 55 mm. Si el rollo
+   que hay es otro, `ETIQUETA` es un objeto y se cambia en un sitio — pero el
+   QR necesita 27,4 mm de alto libre, así que **una etiqueta de menos de 34 mm
+   de alto no sirve** para este token.
+3. **Decidir la cinta.** Cera se corre con el roce de un día colgada; cera/resina
+   o resina aguanta. Es la diferencia entre una escarapela legible a las seis de
+   la tarde y una manchada.
+
+
 **Lo que hay que decidir antes de programar nada** (esto sí es una decisión
 de arquitectura, como B1 lo fue — no una tarea mecánica):
 
@@ -2429,6 +2540,209 @@ misma función lo caza — en el estilo de `tests/menu.test.mjs`.
 **1 → 2 → 4 → 3.** La 1 es de un rato y se nota. La 2 es la que arregla el
 agravio de verdad (el White Label que no llega al archivo más usado). La 4 antes
 que la 3 porque la 3 es texto y la 4 evita que vuelva el fallo del QR.
+
+---
+
+## FRENTE Q · Lo que se vio al usar el panel — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-03**, mirando el panel desplegado por primera
+vez. Es el frente más grande de todos: no son arreglos sueltos, son **cuatro
+cosas que deberían estar conectadas y no lo están**, más dos que están en el
+sitio equivocado.
+
+Cada punto lleva **lo que se comprobó en el código**, porque varias
+suposiciones cambiaron al medirlas.
+
+---
+
+### Q0 · Los tres fallos que se vieron en las capturas — ✅ arreglados el 2026-09-03
+
+Antes de planear nada, lo que estaba roto a la vista:
+
+1. **Facturación reventaba entera.** `c.tipo` llega del servidor como OBJETO
+   —`tipo:ticket_types(id, nombre, precio, currency)`, exactamente las cuatro
+   claves del error #31 de React— y se pintaba como texto. De paso, la factura
+   usaba el precio ACTUAL del tipo en vez de `precio_pagado`: una venta de hace
+   un mes salía con el precio de hoy, que es una factura falsa.
+2. **«Este evento todavía no tiene tipos de boleta» salía SIEMPRE.**
+   `GET /eventos/:id` no traía `ticket_types`, así que la lista llegaba
+   `undefined` y el aviso saltaba en todos los eventos, tuvieran cuatro o
+   ninguno. **Un consejero que se equivoca siempre enseña a ignorar también los
+   avisos que sí aciertan.** Ahora el backend lo trae, y el aviso distingue «no
+   hay» de «no lo sé».
+3. **El rol salía con el nombre viejo.** Regresión de la 0090: se renombraron
+   los roles y `event_members.rol` —columna de texto heredada— se quedó con el
+   nombre de cuando se invitó. Quien es «Puerta» seguía saliendo como
+   «Staff · Acceso». El nombre bueno es el de la tabla, siempre.
+
+---
+
+### Q1 · La boleta de stand no conecta con el stand
+
+**Lo pedido:** que la boleta se vincule al stand, para que el expositor se
+registre solo y su información se despliegue — o se haga a mano. Y lo mismo para
+el resto de actividades (torneos, etc.).
+
+**Lo medido:** el camino existe —un trigger de la 0036 crea la ficha cuando se
+paga una boleta-stand— y **nunca ha corrido**: 0 stands creados desde una
+boleta, 5 a mano. Hay 1 tipo de boleta «Stand comercial» con 0 vendidas.
+
+Así que no es que falte el enganche: es que **nadie lo ha visto funcionar** y no
+hay nada en la pantalla que diga que existe. Un tipo de boleta no declara «esto
+es un stand»; se adivina por el nombre.
+
+**Lo que hay que hacer:** que un tipo de boleta diga **qué crea al venderse**
+—nada, un stand, un equipo de torneo— en vez de deducirlo. Eso abre el mismo
+camino para los torneos, que es lo que se pide: comprar la inscripción crea el
+equipo, y el capitán completa sus datos por su enlace.
+
+### Q2 · Un equipo de torneo no cabe en la tabla
+
+**Lo pedido:** poder poner la información del equipo, los rangos, etc. Cada
+evento es distinto: un equipo de fútbol y uno de esports no se presentan igual.
+«Todo el flujo está hecho para un torneo de fútbol.»
+
+**Lo medido, y confirma el diagnóstico:** `torneo_equipos` tiene `nombre`,
+`foto_url`, `posicion_bracket`, `contacto_email`, `contacto_user_id`, `grupo`.
+**Y nada más.** No hay jugadores, ni roles dentro del equipo, ni rango, ni
+nickname, ni país, ni nada que dependa de la disciplina.
+
+**Lo que hay que hacer:** lo mismo que ya se resolvió para el registro de
+asistentes — **un formulario por torneo**. `event_form_fields` ya existe y ya
+resuelve exactamente este problema (campos definidos por el organizador,
+condicionales incluidos). Un torneo de fútbol pide dorsal y posición; uno de
+esports pide nick, rango y servidor. **No hay que inventar el mecanismo, hay que
+apuntarlo a otra tabla.**
+
+### Q3 · Torneos y Rueda de negocios deberían nacer como sub-evento
+
+**Lo pedido:** que en «Nuevo sub-evento», el selector de TIPO ofrezca también
+torneo y rueda de negocios; y que las secciones aparte queden para editar los
+datos propios de cada uno.
+
+**Por qué encaja:** `agenda_sessions` ya tiene `tipo` y `torneo_id`, y el tipo
+`competencia` ya está marcado como `competitivo`. La N-Fase 2 ya puso el
+«¿cuándo se juega?» dentro del alta del torneo — esto es el mismo movimiento en
+la otra dirección, y el que faltaba: **una sola puerta para crear cualquier cosa
+que ocurra en el evento.**
+
+Hoy hay dos puertas y por eso existían 4 torneos sin hueco en el calendario.
+
+### Q4 · La rueda de negocios YA es un stand, y no se dice
+
+**Lo observado por Sekkon0906:** «al parecer la rueda de negocios está vinculada
+a los stands, entonces al crear una rueda de negocios se registra como un
+stand».
+
+**Es exacto, y está bien que lo sea:** las dos escriben en
+`networking_expositores`. Se unificó en J3 el 2-sep, cuando resultó que había
+dos altas para la misma tabla y la de la rueda ni siquiera tenía `PATCH`.
+
+**El problema es que la interfaz no lo cuenta.** Se crea un expositor en una
+pantalla y aparece en otra sin explicación. No hay que cambiar el modelo: hay
+que **decirlo** — y que las dos pantallas enseñen que están mirando lo mismo
+desde dos lados.
+
+### Q5 · El aforo no dice cuánto está repartido
+
+**Lo pedido:** ver el aforo total y el **aforo predispuesto** (lo distribuido
+entre las zonas). Y que el stand se elija de una lista en vez de escribir su
+número.
+
+**Lo medido:** el evento tiene `aforo_total` (1500 en TechNova) y cada zona su
+`aforo_max`. **Nadie compara los dos.** Se pueden declarar zonas que sumen 3000
+en un recinto de 1500 y nada avisa.
+
+Es el mismo patrón que la bolsa de puntos, que se acaba de arreglar: un total,
+un reparto, y lo que queda sin repartir. Ahí ya está resuelto y se puede copiar
+la forma.
+
+Y el número de stand es texto libre (`networking_expositores.stand`): dos stands
+pueden llamarse «A11» y nadie lo nota.
+
+### Q6 · «Accesos e ingresos» es una zona más
+
+**Lo pedido:** meterlo dentro de Zonas de interés, y que al añadir una zona se
+elija su **tipo** — zona de evento, zona de ingreso, zona de evacuación, otras —
+con su edición propia.
+
+**Encaja con lo que ya pasó:** en la reagrupación del menú los dos quedaron
+juntos en «Zonas del evento» justamente porque son lo mismo —sitios—. Esto es el
+paso siguiente: que también sean lo mismo **en el modelo**, no sólo vecinos en
+el menú.
+
+Hoy las puertas viven en `page_json.accesos` y las zonas en la tabla `zonas`
+(desde la 0091). Unificar quiere decir: `zonas.tipo`, y las puertas pasan a ser
+zonas de tipo ingreso.
+
+**Y una zona de evacuación no es un capricho:** un recinto de 7.000 personas
+tiene salidas de emergencia, y hoy no hay dónde declararlas.
+
+### Q7 · El panel de edición de zonas desperdicia la pantalla
+
+**Lo pedido:** «se pierde mucho espacio mostrando ese modal de las zonas que
+está vacío, toca agrandar la zona de personalización».
+
+Se ve en la captura: la ficha de la derecha ocupa un tercio de la pantalla para
+decir «Sin gente», «Ninguna actividad», «Ningún stand». **El vacío ocupa lo
+mismo que lo lleno.** La lista de la izquierda, que es donde se trabaja, va
+apretada.
+
+### Q8 · El escáner de puntos no es del organizador — **el más importante**
+
+**Lo pedido, y es un problema de permisos, no de comodidad:** dar puntos y
+canjear deberían estar en «mi espacio», en el stand de quien se registró.
+«Escanear» sólo debería salirle al staff. **Quien no es del evento no puede
+tener permiso de entrar a las ediciones del evento.**
+
+**Lo medido:** ya existen las dos cosas y ahí está el lío.
+
+| Dónde | Quién entra | Qué hace |
+|---|---|---|
+| `Asistentes → Escanear` | miembro con permiso `checkin` | check-in, reingreso, sub-evento, **puntos**, canjear |
+| `/expositor/:codigo` | el expositor, con el código de su boleta | su ficha, cronograma, **dar puntos**, sus premios |
+
+**Dar puntos está en los dos.** Y para que un expositor use el del panel habría
+que meterlo en el equipo del evento, que es exactamente lo que no debe pasar: un
+expositor es un tercero, no personal.
+
+**Lo que hay que hacer:** `Asistentes → Escanear` se queda **sólo con lo de
+entrar** —check-in, reingreso, sub-evento—, y puntos y canje viven donde ya
+funcionan, en el portal del expositor. Eso quita la duplicación y, de paso,
+quita la razón para dar acceso al panel a quien no es del evento.
+
+### Q9 · «Acreditación» y «Antes de la boleta» no se llaman como lo que hacen
+
+**Acreditación** debería separar **diseñar** (escarapela y carné) de
+**imprimir**, que hoy están mezclados. Y el imprimir tiene que enlazar con la
+etiqueta térmica del Frente H, que ya está construida y no está conectada a
+ninguna pantalla.
+
+**«Antes de la boleta»** — nombre que puse yo en la reagrupación — no se
+entiende. Junté ahí Invitaciones y Lista de espera porque las dos son «gente que
+todavía no tiene boleta», y visto en uso el nombre no lo dice. Va a
+**«Invitaciones»**, con la lista de espera dentro.
+
+---
+
+### Orden
+
+**Primero lo que quita permisos de más:** Q8. Es el único con consecuencia de
+seguridad —hoy la única forma de que un expositor dé puntos es meterlo en el
+equipo del evento— y además borra una duplicación.
+
+**Después lo barato y visible:** Q9 (nombres y separar diseñar de imprimir, que
+además conecta el Frente H), Q7 (el espacio de la pantalla), Q4 (decir que la
+rueda y los stands son lo mismo).
+
+**Luego lo de modelo, de menor a mayor:** Q5 (aforo repartido, copiando la forma
+de la bolsa de puntos), Q3 (una sola puerta para crear), Q6 (la puerta como tipo
+de zona), Q1 (qué crea un tipo de boleta).
+
+**Y al final Q2**, que es el más grande: el formulario por torneo. No porque
+importe menos —es lo que hace que la plataforma sirva para algo que no sea
+fútbol— sino porque conviene hacerlo cuando Q3 ya haya dejado una sola puerta
+para crear un torneo.
 
 ---
 
