@@ -1900,8 +1900,12 @@ con `aplicado: false`: `gestionar_descuentos`, `vip_zone`, `crear_canales`,
 | **Expositor** | `gestionar_expositores` | un expositor puede administrar a **todos** los expositores — y el expositor de verdad ya tiene su propio camino público, `/expositor/:codigo`, con su lista corta de campos |
 | **Staff · Logística** | `ver_clientes` y nada más | no puede hacer nada logístico |
 
-**d) Dos semillas que no coinciden.** `modules/eventos/semillas.js` reparte unos
-permisos y lo que hay en producción (de la 0054) reparte otros:
+**d) CORRECCIÓN (2-sep, al ir a arreglarlo): las dos semillas SÍ coinciden.**
+`private.fn_roles_semilla()` y `modules/eventos/semillas.js` dicen exactamente
+lo mismo. Lo que diverge es **lo guardado**, y el hallazgo real es peor: **el
+mismo rol da permisos distintos según cuándo se creó el evento.** Medido sobre
+los 33 de producción — 31 creados antes del 11-ago llevan la lista traducida
+del inglés de la 0007, y sólo 2 (del 16-ago en adelante) llevan la buena:
 
 | Rol | En `semillas.js` | En producción |
 |---|---|---|
@@ -1910,8 +1914,14 @@ permisos y lo que hay en producción (de la 0054) reparte otros:
 | Staff · Logística | `crear_canales`, `gestionar_agenda` | `ver_clientes` |
 | Staff · Atención | `ver_clientes`, `checkin` | `ver_clientes`, `gestionar_clientes` |
 
-Dos fuentes de verdad para lo mismo. Un evento creado por el camino de MySQL
-(Frente A) tendría **otros roles** que uno creado hoy.
+La 0054 arregló la función; los datos ya escritos se quedaron. Traducir
+«view_analytics» da «ver_analytics», pero no puede inventar los permisos que
+aquella lista en inglés no tenía. Resultado hoy: en 31 de 33 eventos,
+«Staff · Logística» **no puede hacer nada logístico** — sólo `ver_clientes`.
+
+Lo arregla la **0089** (O3), que realinea ÚNICAMENTE las filas cuyo contenido es
+exactamente el de la traducción vieja: si alguien editó el rol a mano, esa
+decisión es suya y se respeta.
 
 **e) La unión de permisos está escrita tres veces.** `role.permissions ∪
 custom_permissions` se resuelve en `core/permisos/index.js:168`,
@@ -2036,8 +2046,22 @@ la Fase 1 del Frente N. **9 secciones, 36 pestañas** (eran 8 y 39).
   construía la ruta por partes (`base` + `&t=…`) y **se escapaba de la prueba**:
   sus cinco destinos ahora viven en dos secciones distintas.
 
-**O3** · El rol **Administrador** y la semilla arreglada. Migración que sólo
-añade: no toca a nadie.
+**O3** · ~~El rol **Administrador** y la semilla arreglada~~ — ✅ **escrito el
+2026-09-02, SIN APLICAR**. Migración `0089_rol_administrador_y_realineo.sql`:
+crea el rol que puede todo (con `orden = 0`), lo mete en los 33 eventos que ya
+existen, y realinea los roles viejos **sólo donde nadie los tocó**. Reversible,
+idempotente, sin un solo `DROP`, con el rollback escrito al final.
+
+Un detalle que casi la rompe: la 0056 movió `fn_roles_semilla` de `public` a
+`private`. Escribirla en `public` no habría dado error — habría creado una
+función **fantasma** que nadie llama, y el rol nuevo no habría aparecido en
+ningún evento nuevo. Comprobado contra la base antes de escribirla.
+
+Pruebas: `test/rolesSemilla.test.js` — que las dos semillas repartan lo mismo,
+que exista un rol que puede todo (y que ningún otro pueda algo que él no), y que
+ninguna siembre un permiso que la pantalla de roles no conoce. **427 en verde.**
+
+**Falta aplicarla**: es DDL sobre producción y va con permiso.
 
 **O4** · Renombrar roles y ajustar los que conceden de más, in situ, sin borrar.
 
