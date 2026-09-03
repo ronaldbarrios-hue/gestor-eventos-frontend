@@ -3018,7 +3018,41 @@ a otro sitio concreto.
 - ¿La página pública debe tener «← Volver a explorar» cuando se llega desde
   Google, que es de donde llega casi todo el mundo? Ahí no hay «atrás».
 
-### R2 · La landing pública
+### R2 · La landing pública — empezado el 2026-09-03
+
+**Lo primero que apareció al abrir el frente fue otro «construido y nunca
+enchufado»**, y de los grandes: `PageBuilder.jsx`, 470 líneas —páginas, bloques,
+plantillas— **sin un solo consumidor**. Un segundo editor de lo mismo que ya
+hace `ExperienceBuilder`. Resucitarlo habría dejado dos editores de la misma
+página; se rescató lo único que tenía y el otro no —ver la página como datos— y
+el resto se borró, junto con `TemplatesPicker`, que era suyo.
+
+**Las tres vistas ahora se eligen en el mismo sitio.** Estaban las tres y
+estaban escondidas una dentro de otra: al preview se llegaba por defecto, al
+editor por un botón de la esquina y a los datos por ningún sitio.
+
+  · **Página de GESTEK** — la página de verdad en un marco, no una imitación.
+  · **Editor** — secciones o lienzo libre.
+  · **Datos** — el mismo contrato que valida el servidor.
+
+**Y el alcance de la exportación, que era lo pedido:** se copia o se descarga
+**la página entera o un bloque suelto**. Junto a la otra exportación, la de
+incrustar el bloque funcionando en un iframe, que vivía en otro menú sin decir
+en qué se diferencian: una es para mover, la otra para incrustar.
+
+**Lo que no cambia, y es una decisión:** no hay HTML libre. Un `<script>` en la
+landing corre con el origen del evento y lo ve todo el público; el contrato en
+JSON es además lo que permite que un asistente la escriba por MCP y que el
+servidor pueda decirle que no.
+
+#### Lo que queda del frente
+
+El rediseño visual de los bloques en sí —qué enseña cada uno y cómo— sigue por
+hacer. Lo arreglado hasta ahora es lo que estaba **roto**: el desbordamiento de
+la galería, la página de torneo que no contestaba nada y los bloques vacíos que
+ocupaban pantalla.
+
+#### Lo que se vio en las capturas
 
 **Dos de los defectos ya están arreglados** (2026-09-03), porque eran fallos y no
 decisiones de diseño:

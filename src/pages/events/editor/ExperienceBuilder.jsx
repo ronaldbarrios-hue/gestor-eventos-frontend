@@ -67,7 +67,7 @@ function canvasDesdeBlocks(blocks, hasCover) {
   return { alto: Math.max(900, y + 60), elementos };
 }
 
-export default function ExperienceBuilder({ evento, onClose }) {
+export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = false }) {
   const initialPages = useMemo(() => {
     const pj = evento.page_json;
     if (pj?.pages?.length > 0) return pj.pages;
@@ -88,7 +88,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
   const [embedId, setEmbedId] = useState(null);   // sección que se está exportando como iframe
   /* La página vista como datos. No es otro editor: es la misma página y el
      mismo estado, escritos en el formato que el servidor valida. */
-  const [verDatos, setVerDatos] = useState(false);
+  const [verDatos, setVerDatos] = useState(Boolean(abrirEnDatos));
   const [navbar, setNavbar] = useState(() => navbarConfig(evento.page_json));
   const initialNavbar = useMemo(() => navbarConfig(evento.page_json), []); // eslint-disable-line
 
