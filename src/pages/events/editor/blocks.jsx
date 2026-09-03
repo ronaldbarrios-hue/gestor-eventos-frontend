@@ -1242,8 +1242,18 @@ function RecompensasEditor({ data, onChange }) {
   );
 }
 
-function RecompensasPreview({ data, evento }) {
+function RecompensasPreview({ data, evento, isEditor }) {
   const items = evento?.recompensas || [];
+  /* Un apartado vacío no se pinta en la página pública.
+
+     «Aún no hay premios publicados» es útil para quien está montando la página
+     —dice que el bloque está puesto y esperando— y no le dice nada a quien la
+     visita: para él es un título, un recuadro y una frase que ocupan pantalla
+     para contar que no hay nada. Es la misma regla que ya siguen la portada, la
+     descripción, la dirección, los enlaces, la galería y las boletas; estos dos
+     bloques se quedaron fuera y por eso el evento real tenía huecos grandes
+     entre secciones. */
+  if (items.length === 0 && !isEditor) return null;
   return (
     <section className="py-4">
       {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
@@ -1296,7 +1306,7 @@ function MapaEventoEditor({ data, onChange }) {
   );
 }
 
-function MapaEventoPreview({ data, evento }) {
+function MapaEventoPreview({ data, evento, isEditor }) {
   const [sel, setSel] = useState(null);
   const mapa = evento?.page_json?.mapa || {};
   const marcadores = Array.isArray(mapa.marcadores) ? mapa.marcadores : [];
@@ -1314,6 +1324,9 @@ function MapaEventoPreview({ data, evento }) {
   const aforoPorId = new Map((evento?.mapa_aforo || []).map(z => [z.id, z]));
 
   if (!mapa.imagen_url) {
+    /* Sin plano no hay mapa que enseñar. Al visitante no se le cuenta que el
+       organizador no lo ha subido: eso es un recado interno. */
+    if (!isEditor) return null;
     return (
       <section className="py-4">
         {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
@@ -1558,8 +1571,11 @@ function ExpositoresEditor({ data, onChange }) {
   );
 }
 
-function ExpositoresPreview({ data, evento }) {
+function ExpositoresPreview({ data, evento, isEditor }) {
   const items = evento?.expositores || [];
+  /* Igual que en Recompensas: el vacío se enseña a quien monta, no a quien
+     visita. */
+  if (items.length === 0 && !isEditor) return null;
   const hora = (s) => new Date(s).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   return (
     <section className="py-4">

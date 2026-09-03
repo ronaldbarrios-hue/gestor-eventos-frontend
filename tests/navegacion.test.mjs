@@ -119,3 +119,22 @@ test('la salida del panel dice a dónde va, y es una sola', () => {
   assert.match(sinComentarios(src), /Mis eventos/,
     'la salida del panel ya no dice a dónde lleva');
 });
+
+test('un bloque vacío no se pinta en la página pública', () => {
+  /* «Aún no hay premios publicados» es útil para quien está montando la página
+     —dice que el bloque está puesto y esperando— y no le dice nada a quien la
+     visita: para él es un título, un recuadro y una frase que ocupan pantalla
+     para contar que no hay nada. De ahí los huecos grandes entre secciones que
+     se veían en el evento real.
+
+     La regla ya existía en los bloques de sistema y se comprueba aquí porque el
+     siguiente bloque que alguien añada volverá a olvidarla: el editor le pasa
+     `isEditor` y la página pública no, así que el vacío se ve bien mientras se
+     escribe y sólo molesta en producción. */
+  const src = readFileSync(join(SRC, 'pages/events/editor/blocks.jsx'), 'utf8');
+  const vacios = [...src.matchAll(/Aún no hay|El mapa aún no está configurado/g)];
+  const guardas = [...src.matchAll(/if \([^)]*!isEditor\) return null|if \(!isEditor\) return null/g)];
+  assert.ok(guardas.length >= vacios.length,
+    `Hay ${vacios.length} avisos de «vacío» y sólo ${guardas.length} guardas de isEditor: `
+    + 'algún bloque enseña su vacío al visitante');
+});
