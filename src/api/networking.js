@@ -12,6 +12,13 @@ export const networkingApi = {
   crearStand      : (eventoId, body) => client.post(`/eventos/${eventoId}/expositores`, body).then(r => r.data),
   editarStand     : (eventoId, id, body) => client.patch(`/eventos/${eventoId}/expositores/${id}`, body).then(r => r.data),
   borrarStand     : (eventoId, id) => client.delete(`/eventos/${eventoId}/expositores/${id}`).then(r => r.data),
+  /* La bolsa de puntos y su reparto. Existian en el backend desde la 0057
+     —con trigger que aplica el tope— y no los llamaba nadie: la tarjeta de
+     cada stand ensenaba «% de la bolsa repartida» de un numero que no habia
+     forma de fijar. */
+  bolsa           : (eventoId) => client.get(`/eventos/${eventoId}/expositores/bolsa`).then(r => r.data),
+  guardarBolsa    : (eventoId, body) => client.put(`/eventos/${eventoId}/expositores/bolsa`, body).then(r => r.data),
+  guardarCuotas   : (eventoId, body) => client.put(`/eventos/${eventoId}/expositores/cuotas`, body).then(r => r.data),
   admin           : (eventoId) => client.get(`/eventos/${eventoId}/networking/admin`).then(r => r.data),
   crearExpositor  : (eventoId, body) => client.post(`/eventos/${eventoId}/networking/expositores`, body).then(r => r.data),
   /* Faltaba, y su ausencia se notaba: un expositor creado desde la Rueda de

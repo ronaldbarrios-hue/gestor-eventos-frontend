@@ -6,6 +6,7 @@ import { expositorApi } from '../../api/interacciones.js';
 import ImagePicker from '../../components/ui/ImagePicker.jsx';
 import QrScanner from '../../components/ui/QrScanner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
+import Icono from '../../components/ui/Iconos.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 
 /* Página pública /expositor/:codigo
@@ -186,6 +187,7 @@ export default function ExpositorPage() {
 
 /* ─────────── Dar puntos (escáner del expositor) ─────────── */
 function PuntosTab({ codigo, nombre }) {
+  const [cuota, setCuota] = useState(null);
   const [motivos, setMotivos] = useState(null);
   const [editando, setEditando] = useState(false);
   const [sel, setSel] = useState(null);
@@ -194,7 +196,12 @@ function PuntosTab({ codigo, nombre }) {
   const [msg, setMsg] = useState('');
 
   const cargar = useCallback(() => {
-    expositorApi.panel(codigo).then(d => setMotivos(d.motivos || [])).catch(e => setMsg(e.response?.data?.error || e.message));
+    /* La cuota venía en la respuesta desde siempre (`v_consumo_puntos_stand`)
+       y se tiraba: el expositor no sabía cuántos puntos le quedaban hasta que
+       un escaneo le decía que se había pasado. La consulta ya se pagaba. */
+    expositorApi.panel(codigo)
+      .then(d => { setMotivos(d.motivos || []); setCuota(d.cuota || null); })
+      .catch(e => setMsg(e.response?.data?.error || e.message));
   }, [codigo]);
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -244,7 +251,9 @@ function PuntosTab({ codigo, nombre }) {
           {!sel ? <p className="text-sm text-text-3">Elige un motivo arriba para habilitar el escáner.</p> : (<>
             <QrScanner onScan={onScan} containerId="qr-expo-pts"
               titulo={`${sel.nombre} · apunta al QR`} textoActivar="Escanear en mi stand"
-              descripcion="Escanea la escarapela del asistente para darle tus puntos."
+              descripcion={cuota?.cuota_puntos != null
+                ? `Te quedan ${Math.max(0, cuota.disponibles ?? 0)} de ${cuota.cuota_puntos} puntos.`
+                : 'Escanea la escarapela del asistente para darle tus puntos.'}
               overlay={ultimo ? <ResultadoExpo r={ultimo} /> : null} />
             <CodigoManual onSubmit={(c) => registrar({ codigo: c })} disabled={working} />
           </>)}
@@ -417,6 +426,11 @@ function CronogramaTab({ codigo }) {
   const [form, setForm] = useState({ titulo: '', descripcion: '', inicio: '', fin: '' });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  /* Qué franja se está editando, y con qué valores. Antes sólo se podía crear
+     y borrar: corregir una errata obligaba a borrar la franja y escribirla
+     entera otra vez. */
+  const [editando, setEditando] = useState(null);
+  const [edicion, setEdicion] = useState({ titulo: '', descripcion: '', inicio: '', fin: '' });
 
   const cargar = useCallback(() => {
     expositorApi.franjas(codigo).then(d => setFranjas(d.franjas || [])).catch(e => setMsg(e.response?.data?.error || e.message));
@@ -441,6 +455,40 @@ function CronogramaTab({ codigo }) {
 
   const borrar = async (id) => { try { await expositorApi.borrarFranja(codigo, id); cargar(); } catch (e) { setMsg(e.response?.data?.error || e.message); } };
 
+  /* `datetime-local` quiere la hora LOCAL sin zona; `toISOString` da UTC y
+     mostraría otra hora al abrir el formulario. */
+  const paraInput = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const p = (x) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+
+  const abrirEdicion = (fr) => {
+    setEditando(fr.id);
+    setEdicion({
+      titulo: fr.titulo || '', descripcion: fr.descripcion || '',
+      inicio: paraInput(fr.inicio), fin: paraInput(fr.fin),
+    });
+    setMsg('');
+  };
+
+  const guardarEdicion = async (e) => {
+    e.preventDefault();
+    if (!edicion.titulo.trim() || !edicion.inicio) { setMsg('Título y hora de inicio son obligatorios.'); return; }
+    setSaving(true); setMsg('');
+    try {
+      await expositorApi.editarFranja(codigo, editando, {
+        titulo: edicion.titulo, descripcion: edicion.descripcion || null,
+        inicio: new Date(edicion.inicio).toISOString(),
+        fin: edicion.fin ? new Date(edicion.fin).toISOString() : null,
+      });
+      setEditando(null);
+      cargar();
+    } catch (e) { setMsg(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+
   if (franjas === null) return <GLoader message="Cargando…" />;
 
   return (
@@ -449,7 +497,21 @@ function CronogramaTab({ codigo }) {
 
       {franjas.length > 0 && (
         <div className="rounded-3xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
-          {franjas.map(fr => (
+          {franjas.map(fr => (editando === fr.id ? (
+            <form key={fr.id} onSubmit={guardarEdicion} className="px-4 py-3 space-y-2 bg-surface-2/40">
+              <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Editando esta franja</p>
+              <input value={edicion.titulo} onChange={e => setEdicion(f => ({ ...f, titulo: e.target.value }))} className="input" />
+              <input value={edicion.descripcion} onChange={e => setEdicion(f => ({ ...f, descripcion: e.target.value }))} placeholder="Descripción (opcional)" className="input" />
+              <div className="grid grid-cols-2 gap-2">
+                <input type="datetime-local" value={edicion.inicio} onChange={e => setEdicion(f => ({ ...f, inicio: e.target.value }))} className="input" />
+                <input type="datetime-local" value={edicion.fin} onChange={e => setEdicion(f => ({ ...f, fin: e.target.value }))} className="input" />
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setEditando(null)} className="btn-ghost btn-sm flex-1">Cancelar</button>
+                <button type="submit" disabled={saving} className="btn-gradient btn-sm flex-1">{saving ? 'Guardando…' : 'Guardar'}</button>
+              </div>
+            </form>
+          ) : (
             <div key={fr.id} className="flex items-center gap-3 px-4 py-3">
               <span className="text-text-1 font-display font-bold tabular-nums text-sm w-14 flex-shrink-0">
                 {new Date(fr.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
@@ -458,9 +520,14 @@ function CronogramaTab({ codigo }) {
                 <p className="text-sm font-medium text-text-1 truncate">{fr.titulo}</p>
                 <p className="text-[11px] text-text-3">{new Date(fr.inicio).toLocaleDateString('es-CO', { weekday: 'short', day: '2-digit', month: 'short' })}</p>
               </div>
-              <button onClick={() => borrar(fr.id)} className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
+              <button onClick={() => abrirEdicion(fr)} aria-label={`Editar ${fr.titulo}`}
+                className="w-8 h-8 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center flex-shrink-0">
+                <Icono nombre="documento" className="w-4 h-4" />
+              </button>
+              <button onClick={() => borrar(fr.id)} aria-label={`Borrar ${fr.titulo}`}
+                className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
             </div>
-          ))}
+          )))}
         </div>
       )}
 

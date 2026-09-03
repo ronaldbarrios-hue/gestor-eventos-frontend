@@ -56,15 +56,39 @@ export default function EmailsSection({ evento, reload }) {
   const [segmento, setSegmento] = useState('todos');
   const [enviando, setEnviando] = useState(false);
 
+  /* `null` mientras no se sepa; `false` avisa de que la 0052 no está aplicada
+     y de que lo que se guarde se queda en el sitio viejo. */
+  const [almacenListo, setAlmacenListo] = useState(null);
+
   useEffect(() => {
-    setData(evento.page_json?.emails || {});
+    /* De la TABLA, no de `page_json`. El GET hereda lo que quedara en el sitio
+       viejo, así que lo ya escrito sigue apareciendo. */
+    emailsApi.plantillas(evento.id)
+      .then((d) => {
+        setData(d.plantillas || {});
+        setAlmacenListo(d.almacenamiento_listo !== false);
+      })
+      .catch(() => {
+        /* Si la petición falla del todo, se vuelve a lo que trae el evento:
+           mejor enseñar lo que hay que una pantalla vacía. */
+        setData(evento.page_json?.emails || {});
+        setAlmacenListo(false);
+      });
     ticketsApi.list(evento.id).then(d => setTipos((d.tickets || d.tipos || []).filter(t => (t.descripcion || '') !== 'GESTEK_INVITACION'))).catch(() => {});
-  }, [evento.id]);
+  }, [evento.id, evento.page_json]);
 
   const plantilla = { ...plantillaDefecto(tipo), ...(data[tipo] || {}) };
   const setP = (patch) => setData(d => ({ ...d, [tipo]: { ...plantilla, ...patch } }));
 
   const persistir = async () => {
+    if (almacenListo) {
+      /* Sólo el tipo que se está editando: la tabla guarda una fila por tipo, y
+         mandar las diez pisaría plantillas que nadie tocó. */
+      const { tipo: _t, updated_at: _u, origen: _o, ...limpia } = plantilla;
+      await emailsApi.guardarPlantilla(evento.id, tipo, limpia);
+      return;
+    }
+    /* Sin la 0052 aplicada, el sitio viejo sigue siendo el único que hay. */
     await eventosApi.update(evento.id, { page_json: { emails: data } });
     /* Sin esto, el `evento` que tiene el padre (EventWorkspace) se queda con
        el page_json de ANTES de guardar. Si el usuario cambia de pestaña y

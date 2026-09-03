@@ -11,6 +11,7 @@ import GalleryUploader from '../../../components/ui/GalleryUploader.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import BarraProgreso from '../../../components/ui/BarraProgreso.jsx';
+import BolsaPuntos from './stands/BolsaPuntos.jsx';
 
 /* Tab Stands — la CONFIGURACIÓN de los stands y de la mecánica de puntos.
 
@@ -38,7 +39,7 @@ export default function StandsTab({ evento, soyOwner }) {
   const { success, error: toastErr } = useToast();
   const [motivos, setMotivos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [vista, setVista] = useState('stands');   // stands | pasaporte | motivos | historial
+  const [vista, setVista] = useState('stands');   // stands | bolsa | pasaporte | motivos | historial
   const [historial, setHistorial] = useState([]);
 
   const cargar = useCallback(async () => {
@@ -75,7 +76,7 @@ export default function StandsTab({ evento, soyOwner }) {
           </p>
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
-          {[['stands', 'Stands'], ['pasaporte', 'Pasaporte'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
+          {[['stands', 'Stands'], ['bolsa', 'Bolsa de puntos'], ['pasaporte', 'Pasaporte'], ['motivos', 'Motivos'], ['historial', 'Historial']].map(([k, l]) => (
             <button key={k} onClick={() => setVista(k)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${vista === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               {l}
@@ -85,6 +86,9 @@ export default function StandsTab({ evento, soyOwner }) {
       </div>
 
       {vista === 'stands' && <StandsEditor evento={evento} soyOwner={soyOwner} />}
+      {/* Fijar el tope y repartirlo. La tarjeta de cada stand ya enseñaba el
+          «% de la bolsa repartida»; lo que faltaba era dónde poner ese número. */}
+      {vista === 'bolsa' && <BolsaPuntos evento={evento} />}
       {vista === 'pasaporte' && <PasaporteConfig evento={evento} soyOwner={soyOwner} />}
 
 

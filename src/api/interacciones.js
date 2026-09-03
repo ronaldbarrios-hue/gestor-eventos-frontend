@@ -37,5 +37,10 @@ export const expositorApi = {
   canjear       : (codigo, body)    => client.post(`${EXPO(codigo)}/canje`, body).then(r => r.data),
   franjas       : (codigo)          => client.get(`${EXPO(codigo)}/franjas`).then(r => r.data),
   crearFranja   : (codigo, body)    => client.post(`${EXPO(codigo)}/franjas`, body).then(r => r.data),
+  /* Faltaba, y su ausencia dejaba «borra y vuelve a crearla» como única forma
+     de corregir una errata en el título o mover media hora una demo. El
+     endpoint existía desde el principio (`routes/expositor.js`), filtrando
+     por `expositor_id` para que nadie toque la franja de otro. */
+  editarFranja  : (codigo, id, body) => client.patch(`${EXPO(codigo)}/franjas/${id}`, body).then(r => r.data),
   borrarFranja  : (codigo, id)      => client.delete(`${EXPO(codigo)}/franjas/${id}`).then(r => r.data),
 };
