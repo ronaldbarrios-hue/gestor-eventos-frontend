@@ -1345,9 +1345,15 @@ indica, así que se pueden tomar en paralelo.
 4. **Conectar `oauth_barrer()`** a alguno de los `cron-*.js` que ya corren, o
    documentar que sigue pendiente. Hoy `oauth_codes`/`oauth_tokens` crecen sin
    límite (§3.4).
-5. **Adoptar `StatCard.jsx`** donde el layout ya coincide, y añadir un
-   `<BarraProgreso>` para las 7 copias a mano (§3.4, §3.6). Empezar por dos o
-   tres pantallas, no por las 18 de golpe.
+5. ~~**Adoptar `StatCard` y añadir `<BarraProgreso>`**~~ — ✅ la barra, hecha:
+   `components/ui/BarraProgreso.jsx`, adoptada en Boletas, Stands y Analytics.
+   Las siete copias no eran idénticas y las diferencias no las había decidido
+   nadie: `bg-surface-2` en unas y `bg-surface-3` en otras, `h-1`/`h-1.5`/`h-2`
+   según el día. Lo que **sí** varía de verdad —alto y color— son props, y el
+   color acepta clase o color CSS porque los tres casos existen (fijo, según el
+   valor, y venido de un dato). Y acota el porcentaje: el aforo permite
+   excederse a propósito, así que un 140 llega hasta aquí y sin acotar se
+   pintaba fuera del carril.
 6. **Limpieza mecánica:** los 10 comentarios huérfanos, los 11 imports sin
    usar, los 11 exports sin consumidor y el estado no leído de
    `AuthPage.jsx:440` (§3.6). Un solo PR, sin decisiones.
@@ -1849,6 +1855,29 @@ zona» pasa a ser un join.
 Va **después** de la Fase 2 a propósito: hacer que la relación se use no
 necesita la tabla, y al revés la tabla nacería con 2 de 11 filas apuntando a
 algo. Primero que el dato exista, después que la base lo sostenga.
+
+### Fases 3, 4 y 5 — ✅ hechas el 2026-09-02
+
+**Fase 3 (zonas como tabla)** aplicada en producción en tres pasos:
+la 0091 creó y copió; el código pasó a **leer de la tabla y escribir en las
+dos**. `zonasDelEvento` resultó ser la única puerta de lectura del backend
+—nueve llamadas en cinco archivos—, así que cambiarla lo cambió todo, incluida
+`zonaInvalida()`, que ahora valida contra la misma tabla que la clave foránea.
+**Falta el paso 3** (dejar de escribir el JSON): mientras siga ahí, revertir es
+gratis, y conviene dejarlo correr.
+
+**Fase 4:** `agendaPorZona` trae ya el speaker, el expositor y el tipo de
+boleta de cada sesión, y la ficha de zona dice **quién habla aquí** sin repetir
+a quien da dos charlas. Es la pregunta que obligaba a recorrer el calendario
+entero mirando cuál cae en esta zona.
+
+**Fase 5:** los tipos de sub-evento son un dato (`page_json.tipos_extra`), con
+pantalla para crearlos donde antes sólo se podían pedir. **La firma de
+`tipoEspacio(id)` no cambió** — el segundo argumento es opcional, así que los
+seis consumidores siguen funcionando y los que tienen el evento ven los tipos
+propios. El icono se elige de una lista cerrada y `competitivo` no se ofrece:
+lo primero porque un trazo inventado dejaría el hueco en el panel, la agenda
+pública y el embed; lo segundo porque engancha con las llaves de un torneo.
 
 ### Fase 4 · La ficha de zona, completada
 

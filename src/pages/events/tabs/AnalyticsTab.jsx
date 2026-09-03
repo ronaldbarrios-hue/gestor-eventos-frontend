@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { analyticsApi } from '../../../api/analytics.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import BarraProgreso from '../../../components/ui/BarraProgreso.jsx';
 
 const RANGOS = [
   { dias: 7,   label: '7 días' },
@@ -218,11 +219,9 @@ function SourceBars({ sources }) {
               <span className="text-sm text-text-1">{SOURCE_LABEL[s.source] || s.source}</span>
               <span className="text-xs text-text-3 tabular-nums">{s.count} · {pct.toFixed(0)}%</span>
             </div>
-            <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
-              <div className="h-full rounded-full transition-all"
-                style={{ width: `${pct}%`, background: SOURCE_COLOR[s.source] || '#64748b' }}
-              />
-            </div>
+            <BarraProgreso pct={pct} alto="h-2"
+              color={SOURCE_COLOR[s.source] || '#64748b'}
+              etiqueta={`${pct.toFixed(0)}% del tráfico`} />
           </div>
         );
       })}
