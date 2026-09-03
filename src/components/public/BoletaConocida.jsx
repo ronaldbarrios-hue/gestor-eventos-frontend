@@ -65,7 +65,7 @@ export default function BoletaConocida({ slug }) {
     const ok = await verificar(codigo);
     setBuscando(false);
     if (ok) { setPidiendo(false); setCodigo(''); }
-    else setErr('Ese código no es de este evento o no existe. Míralo en el correo de tu boleta.');
+    else setErr('Ese código no es de este evento o no existe. Míralo en el correo de tu entrada.');
   };
 
   const cambiar = () => { olvidarBoleta(slug); setBoleta(null); setPidiendo(true); setCodigo(''); };
@@ -103,12 +103,12 @@ export default function BoletaConocida({ slug }) {
       {!pidiendo ? (
         <button type="button" onClick={() => setPidiendo(true)}
           className="text-sm text-text-3 hover:text-text-1 transition-colors">
-          ¿Ya te registraste? <span className="text-primary-light hover:underline">Ver mi boleta</span>
+          ¿Ya te registraste? <span className="text-primary-light hover:underline">Ver mi entrada</span>
         </button>
       ) : (
         <form onSubmit={submit} className="rounded-2xl border border-border bg-surface/50 px-4 py-3.5 max-w-md">
-          <label className="text-sm text-text-1 font-medium">Escribe el código de tu boleta</label>
-          <p className="text-[11px] text-text-3 mb-2">Está en el correo de confirmación y en tu boleta digital.</p>
+          <label className="text-sm text-text-1 font-medium">Escribe el código de tu entrada</label>
+          <p className="text-[11px] text-text-3 mb-2">Está en el correo de confirmación y en tu entrada.</p>
           <div className="flex items-center gap-2">
             <input value={codigo} onChange={e => { setCodigo(e.target.value.toUpperCase()); setErr(''); }}
               placeholder="ABCD1234" autoFocus

@@ -20,16 +20,13 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { verificar } from '../../lib/validarDato.js';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
 import { dividirEnModulos, convienePaginar } from '../../lib/modulosFormulario.js';
-import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
-import { descargarQrPng } from '../../lib/qrPng.jsx';
-import { descargarTarjetaPng } from '../../lib/tarjetaPng.jsx';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
-import { baseEnlaces, enlaceBoleta } from '../../lib/enlacesPublicos.js';
+import { enlaceBoleta } from '../../lib/enlacesPublicos.js';
 import BoletaConocida, { guardarBoleta } from '../../components/public/BoletaConocida.jsx';
 import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
-import { Flotante, usePosicionFlotante } from '../../components/ui/Flotante.jsx';
+import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
    Event Experience → Proceso de compra (`page_json.checkout.modal_ancho` /
@@ -1129,14 +1126,6 @@ const trackUtil = (t) => {
   return TRACKS_VACIOS.has(v.toLowerCase()) ? '' : v;
 };
 
-/* Los formatos de descarga de la boleta, en el orden en que se eligen: el que
-   casi todo el mundo quiere primero. */
-const FORMATOS_BOLETA = [
-  { id: 'pdf',     titulo: 'Boleta en PDF',        pista: 'Para imprimir o guardar. Lleva el QR dentro.' },
-  { id: 'tarjeta', titulo: 'Tarjeta (imagen)',     pista: 'Para la galería del móvil y enseñarla en la puerta.' },
-  { id: 'qr',      titulo: 'Sólo el QR (imagen)',  pista: 'Para reenviarlo por WhatsApp.' },
-];
-
 export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, onClose, embebido = false }) {
   const qrValue = ticket.qr_token || ticket.codigo;
   const [bajando, setBajando] = useState(false);
@@ -1175,74 +1164,6 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
       .catch(() => { /* sin agenda o sin sub-eventos: no se ofrece nada */ });
     return () => { vivo = false; };
   }, [slug]);
-
-  /* El PDF se pide aquí y no en un correo: el correo puede tardar, caer en spam
-     o ni siquiera existir si el organizador no configuró remitente. Esto está
-     en la mano de quien acaba de reservar, ahora. */
-  const descargarPdf = () => {
-    setBajando(true);
-    try {
-      descargarBoletaPdf({
-        evento, ticket, tipo: ticket.tipo,
-        asistente: ticket.asistente, respuestas: ticket.respuestas,
-        campos: evento.campos_formulario, qrValue,
-        origen: baseEnlaces(evento),
-      });
-    } finally { setBajando(false); }
-  };
-  const descargarQr = () => {
-    if (!descargarQrPng(qrValue, `qr-${ticket.codigo}`)) {
-      /* Si el navegador no pudo dibujarlo, el PDF sigue estando: es mejor
-         decirlo que dejar un botón que no responde. */
-      alert('No se pudo generar la imagen del QR. Descargá la boleta en PDF, que lo lleva dentro.');
-    }
-  };
-  /* La tarjeta entera como imagen, que es lo que se guarda en el móvil y se
-     enseña en la puerta. Va aparte del QR suelto a propósito: el QR pelado es
-     para reenviar por WhatsApp, la tarjeta es la boleta. */
-  const [bajandoTarjeta, setBajandoTarjeta] = useState(false);
-  const descargarTarjeta = async () => {
-    setBajandoTarjeta(true);
-    try {
-      const ok = await descargarTarjetaPng(
-        {
-          design: walletConfig(evento.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre }),
-          evento, ticket,
-        },
-        `tarjeta-${ticket.codigo}`,
-      );
-      if (!ok) alert('No se pudo generar la imagen de la tarjeta. Descargá la boleta en PDF, que lleva el QR dentro.');
-    } finally { setBajandoTarjeta(false); }
-  };
-
-  /* Los tres formatos detrás del único «Descargar» (M6). El texto de abajo es
-     para qué sirve cada uno, que es lo que de verdad se está eligiendo: el PDF
-     para imprimir o guardar, la tarjeta para la galería del móvil, el QR
-     suelto para reenviarlo por WhatsApp. */
-  const [menuDescarga, setMenuDescarga] = useState(false);
-  const ocupado = bajando || bajandoTarjeta;
-  const descargasPorFormato = { pdf: descargarPdf, tarjeta: descargarTarjeta, qr: descargarQr };
-
-  /* Este menú nació con el mismo fallo que el desplegable de «Comuna» y se vio
-     al recorrerlo contra un evento real: `absolute` dentro del modal, y la
-     tercera opción caía fuera del recorte, imposible de pulsar. Va por
-     [[Flotante]], igual que la lista del selector buscable. */
-  const anclaDescarga = useRef(null);
-  const cajaDescarga = useRef(null);
-  const menuRef = useRef(null);
-  const posDescarga = usePosicionFlotante(menuDescarga && !ocupado, anclaDescarga, { altoMax: 300 });
-
-  /* Cerrar al pinchar fuera: sin esto el menú se queda abierto tapando los
-     botones de al lado, y el contenido ya no es hijo del botón. */
-  useEffect(() => {
-    if (!menuDescarga) return;
-    const fuera = (e) => {
-      if (menuRef.current?.contains(e.target) || cajaDescarga.current?.contains(e.target)) return;
-      setMenuDescarga(false);
-    };
-    document.addEventListener('mousedown', fuera);
-    return () => document.removeEventListener('mousedown', fuera);
-  }, [menuDescarga]);
 
   const pendientes = subeventos.filter(s => !inscritas.has(s.id));
 
@@ -1312,7 +1233,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
               || (fechaEvento ? `Te esperamos el ${fechaEvento}.` : 'Te esperamos en el evento.')}
           </p>
           <p className="text-xs text-text-3 mb-6">
-            Tu boleta queda guardada en <span className="font-mono text-text-2">{ticket.codigo}</span>.
+            Tu entrada queda guardada en <span className="font-mono text-text-2">{ticket.codigo}</span>.
             {' '}Puedes volver a verla cuando quieras en{' '}
             <a href={urlBoleta} {...(enlacePropio ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
               className="text-primary-light hover:underline break-all">{textoBoleta}</a>.
@@ -1326,7 +1247,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
         <div className="py-2">
           <button type="button" onClick={() => setVista('boleta')}
             className="text-xs text-text-3 hover:text-text-1 mb-3 inline-flex items-center gap-1 transition-colors">
-            ← Volver a mi boleta
+            ← Volver a mi entrada
           </button>
           <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Actividades con inscripción</h2>
           <p className="text-sm text-text-2 mb-4 leading-relaxed">
@@ -1438,33 +1359,12 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           </button>
         )}
 
-        {/* M6 · Un solo «Descargar». Eran tres botones —PDF, QR, tarjeta— para
-            el mismo objeto, y obligaban a elegir formato antes de saber que
-            había uno. Ahora se pulsa «Descargar» y se elige el formato, que es
-            el orden en que se piensa. */}
+        {/* M6 · Un solo «Descargar», y el formato después. Vive en
+            [[DescargarEntrada]] porque `/mi-ticket` —donde la gente vuelve el
+            día del evento— tenía los tres botones sueltos de antes: el arreglo
+            no había llegado al sitio donde más se usa. */}
         <div className="flex items-center justify-center gap-2 flex-wrap">
-          <div className="relative" ref={cajaDescarga}>
-            <button ref={anclaDescarga} onClick={() => setMenuDescarga(v => !v)} disabled={ocupado}
-              aria-expanded={menuDescarga} aria-haspopup="menu"
-              className="px-6 py-3 rounded-full border border-border-2 text-text-1 hover:bg-surface-2 text-sm font-semibold transition-all disabled:opacity-60 inline-flex items-center gap-2">
-              {ocupado ? 'Generando…' : 'Descargar'}
-              <span aria-hidden className="text-xs">▾</span>
-            </button>
-            {menuDescarga && !ocupado && (
-              <Flotante pos={posDescarga} ancho="propio" role="menu" ref={menuRef}
-                style={{ width: 260 }}
-                className="rounded-2xl border border-border-2 bg-surface shadow-xl text-left">
-                {FORMATOS_BOLETA.map(f => (
-                  <button key={f.id} role="menuitem" type="button"
-                    onClick={() => { setMenuDescarga(false); descargasPorFormato[f.id](); }}
-                    className="w-full px-4 py-3 hover:bg-surface-2 transition-colors block">
-                    <span className="block text-sm font-semibold text-text-1">{f.titulo}</span>
-                    <span className="block text-[11px] text-text-3 mt-0.5">{f.pista}</span>
-                  </button>
-                ))}
-              </Flotante>
-            )}
-          </div>
+          <DescargarEntrada evento={evento} ticket={ticket} qrValue={qrValue} />
           {pendientes.length > 0 && (
             <button onClick={() => setVista('subeventos')}
               className="px-6 py-3 rounded-full bg-accent text-white hover:brightness-110 text-sm font-semibold transition-all">

@@ -2,17 +2,24 @@ import Icono from '../../../../components/ui/Iconos.jsx';
 import { tipoEspacio, tipoEstilo } from '../../../../lib/espacio.js';
 import { EditIcon, TrashIcon } from './agendaComun.jsx';
 import SessionForm from './SessionForm.jsx';
+import { zonasDelEvento } from '../../../../lib/zonas.js';
 
 /* La vista de lista y la fila de cada sub-evento. Es la vista por defecto:
    la que se usa mientras se está armando la agenda, antes de que las horas
    importen. */
 
-export default function SessionsList({ sessions, editing, speakers, torneos, evento, onEdit, onSave, onDelete }) {
+export default function SessionsList({ sessions, editing, speakers, torneos, evento, expositores = [], tiposBoleta = [], onEdit, onSave, onDelete }) {
   const grupos = sessions.reduce((acc, s) => {
     const d = new Date(s.inicio).toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     (acc[d] = acc[d] || []).push(s);
     return acc;
   }, {});
+
+  /* Si el evento tiene plano, una actividad sin zona no sale en ninguna parte
+     de él. Medido en producción: 2 de 11 sesiones tenían zona. El aviso va en
+     la LISTA y no sólo en el formulario porque aquí se ven todas de golpe, que
+     es cuando se nota que faltan nueve. */
+  const hayZonas = zonasDelEvento(evento).length > 0;
 
   return (
     <div className="space-y-6">
@@ -21,8 +28,10 @@ export default function SessionsList({ sessions, editing, speakers, torneos, eve
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">{dia}</p>
           <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
             {items.map((s, i) => editing === s.id
-              ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} evento={evento} sessions={sessions} onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
-              : <SessionRow key={s.id} session={s} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s)} isLast={i === items.length - 1} />
+              ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} evento={evento} sessions={sessions}
+                  expositores={expositores} tiposBoleta={tiposBoleta}
+                  onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
+              : <SessionRow key={s.id} session={s} hayZonas={hayZonas} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s)} isLast={i === items.length - 1} />
             )}
           </div>
         </div>
@@ -31,7 +40,7 @@ export default function SessionsList({ sessions, editing, speakers, torneos, eve
   );
 }
 
-function SessionRow({ session, onEdit, onDelete, isLast }) {
+function SessionRow({ session, hayZonas = false, onEdit, onDelete, isLast }) {
   const hi = new Date(session.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   const hf = session.fin ? new Date(session.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
   const tip = tipoEspacio(session.tipo);
@@ -80,6 +89,11 @@ function SessionRow({ session, onEdit, onDelete, isLast }) {
         )}
         <div className="flex items-center gap-3 mt-2 text-sm text-text-3 flex-wrap">
           {session.ubicacion && <span className="inline-flex items-center gap-1"><Icono nombre="pin" className="w-3.5 h-3.5" />{session.ubicacion}</span>}
+          {hayZonas && !session.zona_id && (
+            <span className="inline-flex items-center gap-1 text-warning">
+              <Icono nombre="pin" className="w-3.5 h-3.5" />Sin zona: no sale en el plano
+            </span>
+          )}
           {session.speaker && (
             <span className="inline-flex items-center gap-2">
               {session.speaker.foto_url

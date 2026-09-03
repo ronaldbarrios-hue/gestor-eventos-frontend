@@ -1687,6 +1687,25 @@ Decidido en el Frente I, sigue valiendo:
 
 ---
 
+### Fase 2 — ✅ hecha el 2026-09-02 · que la relación deje de ser opcional
+
+- **La zona ya no compite con un atajo.** El formulario copiaba el nombre de la
+  zona al campo de texto al elegirla: dejaba DOS verdades y, al renombrar la
+  zona, la copia se quedaba vieja sin aviso. Ahora la zona es la respuesta y
+  «Ubicación» pasa a «Detalle del sitio».
+- **Avisos donde se ven:** en el formulario y en la LISTA, que es donde se
+  notan las nueve que faltan.
+- **El torneo se pregunta al crearlo.** La tarjeta `HuecoEnCalendario` existía,
+  funcionaba y era opcional: 4 torneos, 0 enlazados. Ahora «¿cuándo se juega?»
+  va en el alta, y la franja se crea en su propio `try` — si falla, el torneo ya
+  existe y perderlo por no poder escribir la hora sería absurdo.
+- **Expositor y boleta**, los dos campos que faltaban para dos columnas que ya
+  estaban. Backend: entraron en la lista blanca del PATCH y en el alta, con
+  validación de que el id **sea de este evento** — `assertOwner` dice que mandas
+  en el evento, no que ese expositor sea suyo.
+- `test/agendaRelaciones.test.js`: las cinco relaciones se pueden editar, se
+  pueden poner al crear, y lo que apunta a otra tabla se valida.
+
 ### Fase 1 · La agrupación · barato, sin backend
 
 > **Se hace en la misma pasada que el FRENTE O2**, que reagrupa el menú entero.
@@ -2091,10 +2110,25 @@ ninguna siembre un permiso que la pantalla de roles no conoce. **427 en verde.**
 
 **Falta aplicarla**: es DDL sobre producción y va con permiso.
 
-**O4** · Renombrar roles y ajustar los que conceden de más, in situ, sin borrar.
+**O4** · ~~Renombrar roles~~ — ✅ **escrito, SIN APLICAR** (`0090`). Speaker →
+**Programación** (y pierde poder editar la agenda entera), Expositor →
+**Coordinación de expositores**, Staff·Acceso → **Puerta**, Staff·Atención →
+**Atención**, y Moderación pierde `gestionar_agenda`. Se **renombra in situ**:
+recrear el rol dejaría sin permisos a los 29 miembros que apuntan a su `rol_id`.
+Sólo donde conserva su nombre Y su descripción de origen.
 
-**O5** · La unión de permisos, en un solo sitio; y la prueba de que ningún rol
-concede un permiso con `aplicado: false`.
+**O5** · ~~La unión de permisos en un solo sitio~~ — ✅ **hecho**, y era peor de
+lo anotado: estaba escrita en **cinco** sitios y **dos no hacían la unión**.
+`routes/clientes.js` es el gate del escáner: quien tuviera `checkin` como
+permiso **suelto** —sin cambiarle el rol, que es para lo que existen los
+sueltos— recibía «No autorizado». `routes/chat.js` ignoraba igual
+`crear_canales` y `borrar_mensajes` individuales. Ahora `permisosDeMiembro()` y
+`SELECT_PERMISOS` en `core/permisos`.
+
+**Y otra corrección medida:** los permisos decorativos son **cuatro, no seis**.
+`crear_canales` y `borrar_mensajes` **sí** se comprueban —cinco veces en
+`chat.js`— y el catálogo los marcaba como no aplicados. La marca mentía en la
+dirección peor: decía que conceder eso no cambia nada.
 
 **O6** · Aplicar de verdad los seis permisos decorativos, o quitarlos del
 catálogo. Es una decisión de producto, no de código: hoy `ver_pagos` esconde una
@@ -2189,6 +2223,34 @@ registro y **no aquí**, que es justo donde más se usa: quien vuelve por el
 enlace en la puerta se encuentra tres botones para el mismo objeto.
 
 ---
+
+### Fases 1, 2 y 4 — ✅ hechas el 2026-09-02
+
+`components/public/DescargarEntrada.jsx`: las tres salidas se piden **desde un
+solo sitio**, y por eso el `qrValue` es el mismo para las tres — que es la
+lección de `qrEscaneado.js`, ahora estructural y no de memoria.
+
+- **`/mi-ticket` tenía CUATRO acciones para el mismo objeto**, no tres:
+  «Imprimir mi escarapela», «Descargar mi tarjeta», «Descargar boleta (PDF)» y,
+  más abajo, «Descargar el QR como imagen». Ahora es un «Descargar mi entrada»
+  con el formato después.
+- **El PDF ya lleva la marca del organizador** (Fase 2): recibe `design` —la
+  misma variante que resuelve `walletConfig`— y usa su color y su logo. Antes
+  pintaba siempre con `NEGRO`, así que un evento con White Label entregaba un
+  PDF gris: el archivo que más se reenvía era el único sin su marca.
+- Dos detalles que salían al hacerlo: el texto de la cabecera se elige por
+  **luminancia** (una marca clara con título blanco era ilegible), y el logo va
+  dentro de un `try` — perder la boleta entera por un logo mal subido no tiene
+  sentido, sin él la hoja sigue sirviendo para entrar.
+- `tests/entrada.test.mjs` (Fase 4): que **nadie más** llame a las tres
+  funciones de salida, que el `qrValue` sea uno solo, y que el PDF acepte y use
+  el diseño. Comprobado que muerde. Y se quitó la única excepción de la lista
+  al ver que no excusaba nada: el panel no llama a ninguna.
+
+**Queda la Fase 3** (una sola palabra en la interfaz) y una cosa anotada al
+pasar: `ClientesTab` dibuja su propio QR desde un `<canvas>` — no usa ninguna de
+las tres, así que la prueba no lo ve. Es el panel del organizador y otro caso de
+uso, pero es una cuarta forma de producir la misma imagen.
 
 ### Fase 1 · El «Descargar» único, también en /mi-ticket
 

@@ -1,7 +1,14 @@
 /* Catálogo central de permisos por rol dentro de un evento.
    Cada permiso tiene id, label, descripción y grupo.
 
-   `aplicado` dice si el servidor lo VERIFICA de verdad hoy. Los que están en
+   `aplicado` dice si el servidor lo VERIFICA de verdad hoy.
+
+   **Corregido el 2-sep:** `crear_canales` y `borrar_mensajes` estaban marcados
+   como no aplicados y `routes/chat.js` los comprueba en cinco sitios. La marca
+   miente en la dirección peor: le dice a quien arma un rol que conceder eso no
+   cambia nada, cuando sí cambia. Se midió buscando cada id en las rutas antes
+   de tocarlo — los que siguen sin comprobarse son `vip_zone`, `ver_pagos`,
+   `reembolsar` y `gestionar_descuentos`, cuatro y no seis. Los que están en
    `false` se pueden conceder y no cambian nada todavía: se dejan porque los
    roles semilla ya los reparten y esconderlos haría que un rol tuviera
    permisos invisibles en su propia pantalla de edición. Con la marca, quien
@@ -41,8 +48,8 @@ export const PERMISOS = [
   { id: 'vip_zone',              grupo: 'Clientes',  label: 'Acceso zona VIP',         desc: 'Atender la zona VIP.', aplicado: false },
 
   /* Chat */
-  { id: 'crear_canales',         grupo: 'Chat',      label: 'Crear canales',           desc: 'Crear chats principales y subgrupos.', aplicado: false },
-  { id: 'borrar_mensajes',       grupo: 'Chat',      label: 'Moderar mensajes',        desc: 'Borrar mensajes de otros miembros.', aplicado: false },
+  { id: 'crear_canales',         grupo: 'Chat',      label: 'Crear canales',           desc: 'Crear chats principales y subgrupos.', aplicado: true },
+  { id: 'borrar_mensajes',       grupo: 'Chat',      label: 'Moderar mensajes',        desc: 'Borrar mensajes de otros miembros.', aplicado: true },
 
   /* Pagos */
   { id: 'ver_pagos',             grupo: 'Pagos',     label: 'Ver pagos e ingresos',    desc: 'Acceso al dashboard financiero.', aplicado: false },
