@@ -56,6 +56,39 @@ function PreviewSortable({ id, children }) {
 
 /* ─────────── helpers ─────────── */
 
+/* La cabecera de una sección pública, una sola vez.
+ *
+ * ── Lo que había ─────────────────────────────────────────────────
+ *
+ * Doce bloques escribían su propio título, con **cuatro tamaños distintos**
+ * (`text-2xl`, `text-2xl sm:text-3xl`, uno centrado, uno enorme) y **tres
+ * separaciones distintas** debajo (`mb-2`, `mb-4`, `mb-5`). Nadie decidió eso:
+ * se fue acumulando, un bloque cada vez, copiando el de al lado y ajustando a
+ * ojo. El resultado es una página donde cada sección empieza con un ritmo
+ * distinto —y eso es la mitad de lo que hace que una página «se vea mal» sin
+ * que se pueda señalar qué está mal.
+ *
+ * Aquí hay un tamaño y un ritmo. Lo único que varía es lo que tenía motivo:
+ * centrar —una llamada a la acción se centra, un directorio no—.
+ *
+ * El subtítulo va con el título y no suelto: separarlos era lo que producía
+ * `mb-2` en unos sitios y `mb-5` en otros según si había subtítulo o no. */
+function CabeceraSeccion({ titulo, subtitulo, centrado = false }) {
+  if (!titulo && !subtitulo) return null;
+  return (
+    <div className={`${subtitulo ? 'mb-5' : 'mb-4'} ${centrado ? 'text-center' : ''}`}>
+      {titulo && (
+        <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">{titulo}</h2>
+      )}
+      {subtitulo && (
+        <p className={`text-sm text-text-2 leading-relaxed mt-2 ${centrado ? 'mx-auto' : ''} max-w-2xl`}>
+          {subtitulo}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Section({ title, children }) {
   return <div className="text-text-3 text-xs italic">[{title}]</div>;
 }
@@ -661,7 +694,7 @@ function TextoPreview({ data }) {
   const ps = (data.texto || '').split(/\n\s*\n/).filter(Boolean);
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {ps.map((p, i) => <p key={i} className="text-base text-text-2 leading-relaxed mb-3">{p}</p>)}
     </div>
   );
@@ -706,7 +739,7 @@ function GaleriaPreview({ data, reorder }) {
   );
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
           onMove={(from, to) => reorder.onChange({ ...data, urls: arrayMove(all, from, to) })}
@@ -736,7 +769,7 @@ function VideoPreview({ data }) {
   if (!embed) return null;
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       <div className="aspect-video rounded-3xl overflow-hidden border border-border"><iframe src={embed} className="w-full h-full" allowFullScreen /></div>
     </div>
   );
@@ -781,7 +814,7 @@ function FAQPreview({ data, reorder }) {
   const item = (i) => <FAQItem key={i} q={all[i].q} a={all[i].a} />;
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={verticalListSortingStrategy} className="space-y-2"
           onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
@@ -959,7 +992,7 @@ function SpeakersPreview({ data, reorder }) {
   const grid = 'grid sm:grid-cols-2 gap-3';
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
           onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
@@ -1014,7 +1047,7 @@ function SponsorsPreview({ data }) {
   const grouped = TIERS.map(t => ({ ...t, items: items.filter(it => (it.tier || 'silver') === t.id) })).filter(g => g.items.length > 0);
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5 text-center">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} centrado />
       <div className="space-y-6">
         {grouped.map(g => (
           <div key={g.id}>
@@ -1063,7 +1096,7 @@ function MapaPreview({ data, evento }) {
   const linkSrc  = `https://www.google.com/maps?q=${encodeURIComponent(direccion)}`;
   return (
     <div>
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-4">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       <div className="rounded-3xl overflow-hidden border border-border mb-3 aspect-video">
         <iframe src={embedSrc} className="w-full h-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Mapa" />
       </div>
@@ -1194,7 +1227,7 @@ function RedesPreview({ data, reorder }) {
   const wrap = 'flex flex-wrap justify-center gap-2';
   return (
     <div className="text-center">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-5">{data.titulo}</h2>}
+      <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
         <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={wrap}
           onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
@@ -1256,8 +1289,7 @@ function RecompensasPreview({ data, evento, isEditor }) {
   if (items.length === 0 && !isEditor) return null;
   return (
     <section className="py-4">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
-      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-5 max-w-2xl">{data.subtitulo}</p>}
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm text-text-3">Aún no hay premios publicados.</p>
@@ -1329,7 +1361,7 @@ function MapaEventoPreview({ data, evento, isEditor }) {
     if (!isEditor) return null;
     return (
       <section className="py-4">
-        {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
+        <CabeceraSeccion titulo={data.titulo} />
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm text-text-3">El mapa aún no está configurado.</p>
         </div>
@@ -1339,8 +1371,7 @@ function MapaEventoPreview({ data, evento, isEditor }) {
 
   return (
     <section className="py-4">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
-      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-4 max-w-2xl">{data.subtitulo}</p>}
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       <div className="rounded-2xl overflow-auto border border-border bg-surface-2 flex justify-center">
         <div className="relative">
           <img src={mapa.imagen_url} alt="Mapa del evento" className="block max-h-[75vh] w-auto max-w-full" />
@@ -1579,8 +1610,7 @@ function ExpositoresPreview({ data, evento, isEditor }) {
   const hora = (s) => new Date(s).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   return (
     <section className="py-4">
-      {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
-      {data.subtitulo && <p className="text-sm text-text-2 leading-relaxed mb-5 max-w-2xl">{data.subtitulo}</p>}
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm text-text-3">Aún no hay expositores publicados.</p>

@@ -182,3 +182,18 @@ test('la vista de datos edita el mismo contrato que valida el servidor', () => {
   /* El alcance: la página entera o un bloque suelto. Es lo que se pidió. */
   assert.match(codigo, /Toda la página/, 'ya no se puede mirar la página entera');
 });
+
+test('las secciones públicas empiezan todas con el mismo ritmo', () => {
+  /* Doce bloques escribían su propio título, con cuatro tamaños distintos y
+     tres separaciones distintas debajo. Nadie decidió eso: se fue acumulando,
+     un bloque cada vez, copiando el de al lado y ajustando a ojo. Es la mitad
+     de lo que hace que una página «se vea mal» sin que se pueda señalar qué
+     está mal.
+
+     El siguiente bloque que alguien añada volverá a copiar el de al lado, así
+     que esto lo dice antes. */
+  const src = sinComentarios(readFileSync(join(SRC, 'pages/events/editor/blocks.jsx'), 'utf8'));
+  const sueltos = [...src.matchAll(/\{data\.titulo && <h2[^>]*>/g)];
+  assert.deepEqual(sueltos.map(m => m[0].slice(0, 60)), [],
+    'Usa <CabeceraSeccion> en vez de escribir el título de la sección a mano');
+});
