@@ -3112,6 +3112,23 @@ landing corre con el origen del evento y lo ve todo el público; el contrato en
 JSON es además lo que permite que un asistente la escriba por MCP y que el
 servidor pueda decirle que no.
 
+#### El flujo, que era lo que se sentía roto — 2026-09-03
+
+Pedido así: «que la integridad al crear, desplegar y navegar se sienta fluido».
+Lo que rompía el recorrido no era una pantalla fea, era **dónde vivía cada
+cosa**:
+
+- **Navegar** — las sub-páginas no llevaban la ropa del evento, así que moverse
+  entre ellas parecía salir del sitio. Arreglado: una sola lista de secciones,
+  un color, y la actual marcada.
+- **Desplegar** — el estado de la página y el botón de publicar vivían dos
+  pantallas más atrás. Se montaba la página entera sin saber si estaba viva.
+  Ahora el editor lo dice y publica desde ahí, enseñando lo que falta —la misma
+  lista del asistente, que hasta hoy sólo se veía en una esquina—.
+- **Y una confusión de nombres**: «Publicación», en el editor, no publica —elige
+  dónde vive la página—. Dos cosas distintas con el mismo nombre a diez
+  centímetros. Ahora se dicen juntas: **si se ve** y **dónde se ve**.
+
 #### Lo que queda del frente
 
 El rediseño visual de los bloques en sí —qué enseña cada uno y cómo— sigue por
