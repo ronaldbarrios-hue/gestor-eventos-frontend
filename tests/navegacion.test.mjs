@@ -138,3 +138,19 @@ test('un bloque vacío no se pinta en la página pública', () => {
     `Hay ${vacios.length} avisos de «vacío» y sólo ${guardas.length} guardas de isEditor: `
     + 'algún bloque enseña su vacío al visitante');
 });
+
+test('el correo se previsualiza con el renderizador que lo envía', () => {
+  /* El panel tenía una imitación en JSX del correo: su propio maquetado, su
+     propia sustitución de variables y su propia copia de `esClaro`. Dos
+     renderizadores del mismo correo, y el que el organizador aprobaba no era
+     el que salía — aprobaba una maqueta.
+
+     Lo que se prohíbe es SUSTITUIR, no nombrar: los textos por defecto de las
+     plantillas contienen las variables y tienen que contenerlas. Lo que no
+     puede volver es un `.replace()` que las resuelva aquí. */
+  const src = readFileSync(join(SRC, 'pages/events/workspace/comercial/EmailsSection.jsx'), 'utf8');
+  assert.match(sinComentarios(src), /emailsApi\.previsualizar/,
+    'la previa del correo ya no la hace el servidor');
+  assert.ok(!/\.replace\(\/\\{\\{/.test(sinComentarios(src)),
+    'el panel volvió a sustituir variables por su cuenta: eso lo hace renderEmail');
+});

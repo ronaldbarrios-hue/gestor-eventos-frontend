@@ -136,15 +136,20 @@ export default function EmailsSection({ evento, reload }) {
 
   const meta = TIPOS.find(t => t.id === tipo);
 
-  /* Colores de la previa. El texto se decide por contraste contra el fondo
-     elegido, no a ojo: con un centro oscuro, el gris de siempre se vuelve
-     ilegible y el organizador aprobaría un correo que nadie puede leer. */
-  const fondoPrevia  = /^#[0-9a-f]{6}$/i.test(plantilla.fondo || '') ? plantilla.fondo : '#FFFFFF';
-  const claro        = esClaro(fondoPrevia);
-  const textoPrevia  = claro ? '#0F172A' : '#F5F3EE';
-  const suavePrevia  = claro ? '#475569' : '#CFC9BE';
-  const tenuePrevia  = claro ? '#94A3B8' : '#8D8578';
-  const filetePrevia = claro ? '#E2E8F0' : 'rgba(255,255,255,0.14)';
+  /* La previa se pide al servidor con un respiro: escribir en el cuerpo
+     dispararía una petición por tecla. 400 ms es lo que tarda una pausa al
+     escribir, y el `setTimeout` se cancela en cada cambio. */
+  const [previa, setPrevia] = useState({ cargando: true });
+  useEffect(() => {
+    let vivo = true;
+    setPrevia(p => ({ ...p, cargando: true }));
+    const id = setTimeout(() => {
+      emailsApi.previsualizar(evento.id, tipo, plantilla)
+        .then(d => { if (vivo) setPrevia({ asunto: d.asunto, html: d.html }); })
+        .catch(e => { if (vivo) setPrevia({ error: e.response?.data?.error || e.message }); });
+    }, 400);
+    return () => { vivo = false; clearTimeout(id); };
+  }, [evento.id, tipo, plantilla]);
 
   return (
     <div className="space-y-5">
@@ -290,57 +295,46 @@ export default function EmailsSection({ evento, reload }) {
         </div>
       </div>
 
-      {/* Vista previa del correo */}
+      {/* Vista previa del correo — la del SERVIDOR.
+
+          Aquí había una imitación en JSX del correo: su propio maquetado, su
+          propia sustitución de variables y su propia copia de `esClaro`. Es
+          decir, **dos renderizadores del mismo correo**, y el que el
+          organizador aprobaba no era el que salía. Se aprobaba una maqueta.
+
+          Ahora se pide al mismo `renderEmail` que arma el envio de verdad y se
+          pinta su HTML en un `iframe` aislado: lo que se ve es, literalmente,
+          lo que se manda. El `sandbox` va vacío —sin scripts— porque esto es
+          contenido para pintar, no una aplicación. */}
       <div className="lg:sticky lg:top-4 space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-text-3">Vista previa</p>
-        {/* La previa sigue a lo que se sube y al color elegido. Si se quedara
-            en blanco fijo diría una cosa y el correo saldría otra — que es
-            exactamente lo que hacía la previa del checkout antes de atarla. */}
-        <div className="rounded-2xl border border-border overflow-hidden" style={{ background: fondoPrevia, color: textoPrevia }}>
-          <div className="px-5 py-3 text-xs border-b truncate"
-               style={{ color: tenuePrevia, borderColor: filetePrevia }}>
-            {muestra(plantilla.asunto, evento) || '(sin asunto)'}
-          </div>
-          {/* La cabecera del organizador entera, sin recortar: cortarle el logo
-              a la mitad es lo que hace que un correo parezca roto. */}
-          {plantilla.imagen && <img src={plantilla.imagen} alt="" className="w-full block" />}
-          <div className="p-6 text-center">
-            {plantilla.encabezado && <h2 className="text-xl font-bold mb-3">{muestra(plantilla.encabezado, evento)}</h2>}
-            {plantilla.cuerpo && <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: suavePrevia }}>{muestra(plantilla.cuerpo, evento)}</p>}
-            {/* El QR siempre sobre blanco: es lo único que un lector no perdona. */}
-            {plantilla.mostrar_qr && <div className="my-4 mx-auto w-24 h-24 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">QR</div>}
-            {plantilla.boton_texto && (
-              <div className="mt-5"><span className="inline-block px-5 py-2.5 rounded-full text-white text-sm font-semibold" style={{ background: 'linear-gradient(135deg,#3B82F6,#8B5CF6)' }}>{plantilla.boton_texto}</span></div>
-            )}
-          </div>
-          {plantilla.pie_imagen && <img src={plantilla.pie_imagen} alt="" className="w-full block" />}
-          <div className="px-6 py-3 text-center text-[11px]"
-               style={{ color: tenuePrevia, borderTop: plantilla.pie_imagen ? 'none' : `1px solid ${filetePrevia}` }}>
-            {muestra(plantilla.footer, evento) || `${evento.titulo}`}
-          </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-text-3">Vista previa</p>
+          {previa?.cargando && <span className="text-[11px] text-text-3">actualizando…</span>}
         </div>
+
+        {previa?.error ? (
+          <div className="rounded-2xl border border-warning/30 bg-warning/5 p-4 text-sm text-text-2">
+            No se pudo generar la previa: {previa.error}
+            <p className="text-[11px] text-text-3 mt-1.5">
+              El correo se sigue pudiendo guardar y enviar; lo que falta es la imagen de cómo queda.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-border overflow-hidden bg-white">
+            <div className="px-5 py-3 text-xs text-slate-500 border-b border-slate-200 truncate bg-slate-50">
+              {previa?.asunto || '(sin asunto)'}
+            </div>
+            <iframe
+              title="Vista previa del correo"
+              srcDoc={previa?.html || ''}
+              sandbox=""
+              className="w-full block"
+              style={{ height: 520, border: 0 }}
+            />
+          </div>
+        )}
       </div>
     </div>
     </div>
   );
-}
-
-/* Mismo criterio que `esClaro` del servidor (lib/emailPlantillas.js):
-   luminancia percibida, no el promedio de los tres canales. El verde pesa seis
-   veces más que el azul para el ojo, y promediar da blanco sobre amarillo. */
-function esClaro(hex) {
-  const h = String(hex || '').replace('#', '');
-  if (h.length !== 6) return true;
-  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) > 150;
-}
-
-function muestra(txt, evento) {
-  if (!txt) return txt;
-  return txt
-    .replace(/\{\{nombre\}\}/g, 'María')
-    .replace(/\{\{evento\}\}/g, evento.titulo || 'tu evento')
-    .replace(/\{\{fecha\}\}/g, evento.fecha_inicio ? new Date(evento.fecha_inicio).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' }) : 'la fecha')
-    .replace(/\{\{tipo_boleta\}\}/g, 'General')
-    .replace(/\{\{codigo\}\}/g, 'ABC123');
 }

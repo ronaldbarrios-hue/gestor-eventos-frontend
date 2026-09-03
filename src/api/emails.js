@@ -25,6 +25,13 @@ export const emailsApi = {
   borrarPlantilla: (eventoId, tipo) =>
     client.delete(`/eventos/${eventoId}/emails/${tipo}`).then(r => r.data),
 
+  /* La previa la RENDERIZA EL SERVIDOR, con el mismo `renderEmail` que arma el
+     correo que sale. El panel tenía su propia imitación en JSX —con su propia
+     sustitución de variables y su propia copia de `esClaro`—, así que lo que el
+     organizador aprobaba no era lo que se enviaba. */
+  previsualizar: (eventoId, tipo, plantilla) =>
+    client.post(`/eventos/${eventoId}/emails/previsualizar`, { tipo, plantilla }).then(r => r.data),
+
   prueba: (eventoId, tipo) =>
     client.post(`/eventos/${eventoId}/emails/prueba`, { tipo }).then(r => r.data),
   enviar: (eventoId, { tipo, audiencia }) =>
