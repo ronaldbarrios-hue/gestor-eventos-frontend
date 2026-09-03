@@ -407,11 +407,11 @@ porque uno estaba roto.
 
 | Qué | Dónde | Estado |
 |---|---|---|
-| `components/ui/StatCard.jsx` | existe, con su clase `stat-card` en `index.css` | **Cero consumidores.** Mientras tanto, 18 pantallas reinventan su propia tarjeta de número (`ReporteTab`, `AnalyticsTab`, `ClientesTab`, `EquipoTab`, `TicketsTab`, `VacantesTab`, `ChatTab`, `NetworkingTab`, `CheckoutSection`…). |
+| `components/ui/StatCard.jsx` | — | ✅ **borrado** el 2026-09-03. No encajaba con ninguna de las tres tarjetas que existían de verdad; en su lugar está `components/ui/Kpi.jsx`, que sí reemplazó a las tres. Antes decía: **cero consumidores.** Mientras tanto, 18 pantallas reinventan su propia tarjeta de número (`ReporteTab`, `AnalyticsTab`, `ClientesTab`, `EquipoTab`, `TicketsTab`, `VacantesTab`, `ChatTab`, `NetworkingTab`, `CheckoutSection`…). |
 | Editor de plantillas de correo | `routes/emails.js:160,198,226,243,266,347` | ✅ **conectados los seis** (2026-09-03). El catálogo ya se usaba; faltaban `previsualizar`, `diagnostico` y `envios`. Ver abajo. |
-| Bolsa y cuotas de expositores | `routes/networking.js:341,361,392` | Sin UI. Relacionado con la migración 0057. |
-| `public.oauth_barrer()` | `db/migrations/0073:92-98` | **Nadie la llama.** La propia migración dice que el backend debería invocarla «en el mismo ciclo que ya corre cada quince minutos», y ningún `cron-*.js` la incluye: `oauth_codes`/`oauth_tokens` crecen sin límite. |
-| Editar franja de expositor | `routes/expositor.js:328` (`PATCH`) | El frontend sólo crea y borra franjas. ¿Falta el botón «editar horario»? |
+| Bolsa y cuotas de expositores | `routes/networking.js:341,361,392` | ✅ **conectado** — `stands/BolsaPuntos.jsx`. Medido antes: 0 eventos con bolsa y 0 stands con cuota, o sea que la gamificación no se podía limitar. |
+| `public.oauth_barrer()` | `db/migrations/0073:92-98` | ✅ **se llama** desde `cron-recordatorios.js`, en el ciclo que ya corre. Antes: **nadie la llamaba.** La propia migración dice que el backend debería invocarla «en el mismo ciclo que ya corre cada quince minutos», y ningún `cron-*.js` la incluye: `oauth_codes`/`oauth_tokens` crecen sin límite. |
+| Editar franja de expositor | `routes/expositor.js:328` (`PATCH`) | ✅ ya conectado — comprobado el 2026-09-03: `expositorApi.editarFranja` se usa en `ExpositorPage`. La fila se quedó vieja. |
 | `modules/aforo/consultas.js` | backend | Muerto **a propósito**: es la traducción a MySQL para el corte del Frente A. Su comentario ya lo dice. No tocar. |
 | `ARCHIVOS_PROPIOS` | `core/config/index.js:108` | Apagada, y a diferencia de `AUTH_PROPIA` **no tiene ningún consumidor en el frontend**: encenderla hoy no cambiaría nada visible. Ninguna de las dos banderas está en los `.env.example`. |
 | `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | ✅ **conectado** (2026-09-03). Y no era cosmético: la copia de `DocumentosSection` aceptaba **.doc, .xls y .ppt** —que sí llevan macros— y no cruzaba el MIME con la extensión. |
