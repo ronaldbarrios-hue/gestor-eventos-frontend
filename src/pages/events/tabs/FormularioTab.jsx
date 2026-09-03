@@ -954,9 +954,17 @@ function CondicionEditor({ campo, campos, onChange }) {
    · El documento NO se guarda. El servidor lo convierte en un hash con la sal
      del evento y guarda sólo eso, así que la tabla no sirve para listar
      cédulas ni aunque alguien la lea entera. Ver la migración 0085.
-   · Se avisa de las columnas que ninguna pregunta recoge. Es la mitad útil de
-     todo esto: subir un archivo con «Empresa» cuando el formulario no pregunta
-     la empresa no sirve de nada, y sin el aviso no hay forma de enterarse. */
+   · **No hay plantilla.** El cruce por defecto compara el encabezado de la
+     columna con el enunciado de la pregunta, y eso falla en cuanto el archivo
+     viene de otro sistema: «ciudad» no es «Ciudad de residencia» y
+     «barrio_vereda» no es «Barrio o vereda». Por eso hay una tabla de mapeo:
+     se conecta cada pregunta con su columna una vez y el archivo se sube como
+     esté. Se guarda por id de pregunta, así que renombrar una pregunta no
+     rompe el prellenado — antes sí, y en silencio.
+   · Se avisa de las columnas que ninguna pregunta recoge, y de cuántas filas
+     no llenan NI UNA. Ese segundo número es el que faltaba: sin él, un archivo
+     que no sirve se ve igual que uno bueno. El caso que lo destapó traía 4.124
+     personas de las que 3.624 sólo tenían nombre y apellidos. */
 /* Mismos alias que reconoce el backend (lib/padronPrevio.js del backend),
    para poder avisar del problema ANTES de subir el archivo. */
 const SINONIMOS_DOCUMENTO = ['documento', 'cedula', 'identificacion', 'nit', 'dni', 'numero documento', 'no documento', 'id number'];
@@ -980,9 +988,14 @@ function PadronPrevio({ evento, campos }) {
   const [estado, setEstado]   = useState(null);
   const [subiendo, setSubiendo] = useState(false);
   const [informe, setInforme]   = useState(null);
+  /* El mapeo que se está editando. `null` = todavía no se ha abierto. */
+  const [mapeo, setMapeo]       = useState(null);
+  const [guardandoMapeo, setGuardandoMapeo] = useState(false);
 
   useEffect(() => {
-    eventosApi.padronEstado(evento.id).then(setEstado).catch(() => setEstado({ filas: 0, disponible: false }));
+    eventosApi.padronEstado(evento.id)
+      .then(d => { setEstado(d); setMapeo(d?.mapeo || null); })
+      .catch(() => setEstado({ filas: 0, disponible: false }));
   }, [evento.id]);
 
   const tomar = async (file) => {
@@ -1002,7 +1015,8 @@ function PadronPrevio({ evento, campos }) {
 
       const r = await eventosApi.subirPadron(evento.id, filas, file.name);
       setInforme(r);
-      setEstado(e => ({ ...(e || {}), filas: r.guardadas, disponible: true }));
+      setEstado(e => ({ ...(e || {}), filas: r.guardadas, disponible: true, columnas: r.columnas || [] }));
+      setMapeo(r.mapeo || null);
       success(`${r.guardadas} personas en el padrón.`);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setSubiendo(false); }
@@ -1010,9 +1024,26 @@ function PadronPrevio({ evento, campos }) {
 
   const borrar = async () => {
     if (!(await confirmDialog({ message: '¿Borrar el padrón de este evento? El formulario dejará de prellenarse.', danger: true }))) return;
-    try { await eventosApi.borrarPadron(evento.id); setEstado({ filas: 0, disponible: true }); setInforme(null); success('Padrón borrado.'); }
+    try { await eventosApi.borrarPadron(evento.id); setEstado({ filas: 0, disponible: true }); setInforme(null); setMapeo(null); success('Padrón borrado.'); }
     catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
+
+  const guardarMapeo = async () => {
+    setGuardandoMapeo(true);
+    try {
+      const r = await eventosApi.guardarMapeoPadron(evento.id, mapeo || {});
+      setMapeo(r.mapeo || {});
+      success('Listo. El formulario se prellenará con esas columnas.');
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setGuardandoMapeo(false); }
+  };
+
+  const columnas = estado?.columnas || informe?.columnas || [];
+  /* Las preguntas: las que trae el estado del servidor o, recién subido el
+     archivo, las que ya tiene esta pantalla. */
+  const preguntas = estado?.preguntas?.length ? estado.preguntas : (campos || []);
+  const puedeMapear = columnas.length > 0 && preguntas.length > 0;
+  const sinLlenar = preguntas.filter(c => !(mapeo || {})[c.id]).length;
 
   return (
     <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
@@ -1051,14 +1082,81 @@ function PadronPrevio({ evento, campos }) {
         </p>
       )}
 
-      {informe?.columnas_sin_pregunta?.length > 0 && (
-        <div className="rounded-xl border border-accent/30 bg-accent/5 px-3 py-2.5">
+      {/* Cuántas filas no llenarían ni una pregunta.
+          Es el número que faltaba: antes se decía «4.124 personas en el
+          padrón» y con eso un archivo inútil se veía igual que uno bueno. */}
+      {informe?.sin_cruce > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 px-3 py-2.5">
           <p className="text-[11px] text-text-2 leading-relaxed">
-            <b className="text-text-1">Tu archivo trae datos que nadie pregunta.</b>{' '}
-            Para aprovechar {informe.columnas_sin_pregunta.length === 1 ? 'esta columna' : 'estas columnas'},
-            añade una pregunta con ese mismo enunciado:{' '}
-            <b className="text-text-1">{informe.columnas_sin_pregunta.join(', ')}</b>.
+            <b className="text-text-1">
+              {informe.sin_cruce} de {informe.guardadas} filas no llenan ninguna pregunta.
+            </b>{' '}
+            Traen documento, así que la persona se reconoce, pero el archivo no trae
+            ninguno de los datos que este formulario pide. Revisa el mapeo de abajo, y si ahí
+            está bien, es que al archivo le faltan esas columnas.
           </p>
+        </div>
+      )}
+
+      {/* ── El mapeo ──
+          Esto es lo que evita tener que renombrar el archivo. El cruce por
+          defecto compara el ENCABEZADO de la columna con el enunciado de la
+          pregunta, y eso falla en cuanto el archivo viene de otro sistema:
+          «ciudad» no es «Ciudad de residencia» y «barrio_vereda» no es
+          «Barrio o vereda». Aquí se conecta una vez y se sube el archivo como
+          se tenga. */}
+      {puedeMapear && (
+        <div className="rounded-xl border border-border bg-surface-2/30 p-3 space-y-2.5">
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-text-1">De dónde sale cada respuesta</p>
+              <p className="text-[11px] text-text-3 mt-0.5 leading-relaxed max-w-lg">
+                Conecta cada pregunta con la columna de tu archivo. No hace falta que el
+                archivo se llame de ninguna manera concreta.
+              </p>
+            </div>
+            <button onClick={guardarMapeo} disabled={guardandoMapeo}
+              className="btn-secondary btn-sm flex-shrink-0">
+              {guardandoMapeo ? <><Spinner size="sm" /> Guardando…</> : 'Guardar'}
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            {preguntas.map(c => (
+              <div key={c.id} className="flex items-center gap-2">
+                <span className="text-[11px] text-text-2 flex-1 min-w-0 truncate" title={c.etiqueta}>
+                  {c.etiqueta}
+                </span>
+                <span className="text-text-3 text-[11px] flex-shrink-0">←</span>
+                <select
+                  value={(mapeo || {})[c.id] ?? ''}
+                  onChange={e => setMapeo(m => ({ ...(m || {}), [c.id]: e.target.value }))}
+                  className="input !h-8 text-[11px] w-[46%] flex-shrink-0"
+                >
+                  {/* En blanco es una respuesta válida: «mi archivo no trae
+                      esto». Sin esta opción, la única forma de decirlo sería
+                      dejarlo a medias y que el sistema volviera a adivinar. */}
+                  <option value="">— el archivo no lo trae —</option>
+                  {columnas.map(col => <option key={col} value={col}>{col}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+
+          {sinLlenar > 0 && (
+            <p className="text-[11px] text-text-3">
+              {sinLlenar === 1 ? '1 pregunta se preguntará siempre' : `${sinLlenar} preguntas se preguntarán siempre`},
+              porque no hay columna que las llene.
+            </p>
+          )}
+
+          {informe?.columnas_sin_pregunta?.length > 0 && (
+            <p className="text-[11px] text-text-3 leading-relaxed border-t border-border pt-2">
+              <b className="text-text-2">Tu archivo trae datos que nadie pregunta:</b>{' '}
+              {informe.columnas_sin_pregunta.join(', ')}. Si te sirven, añade la pregunta
+              y vuelve aquí a conectarla.
+            </p>
+          )}
         </div>
       )}
 
