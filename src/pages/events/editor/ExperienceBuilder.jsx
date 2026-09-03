@@ -22,6 +22,7 @@ import { BrandHeader } from '../../../components/public/Branding.jsx';
 import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
 import PublicacionSection from '../workspace/PublicacionSection.jsx';
 import ExportIframeModal from './ExportIframeModal.jsx';
+import Volver from '../../../components/ui/Volver.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Event Experience · Editor UNIFICADO (Rework v3)
@@ -306,7 +307,7 @@ export default function ExperienceBuilder({ evento, onClose }) {
           {dirty && <span className="text-warning"> · cambios sin guardar</span>}
         </p>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {onClose && <button onClick={onClose} className="btn-ghost btn-sm">← Volver al preview</button>}
+          {onClose && <Volver onClick={onClose}>Volver al preview</Volver>}
           {/* El cambio de modo se fue abajo, a la franja de Páginas: es una
               decisión SOBRE la página que se está editando, no una salida del
               editor como las otras. Arriba quedan solo las que abren otra cosa

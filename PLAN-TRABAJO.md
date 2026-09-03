@@ -407,14 +407,31 @@ porque uno estaba roto.
 
 | Qué | Dónde | Estado |
 |---|---|---|
-| `components/ui/StatCard.jsx` | existe, con su clase `stat-card` en `index.css` | **Cero consumidores.** Mientras tanto, 18 pantallas reinventan su propia tarjeta de número (`ReporteTab`, `AnalyticsTab`, `ClientesTab`, `EquipoTab`, `TicketsTab`, `VacantesTab`, `ChatTab`, `NetworkingTab`, `CheckoutSection`…). |
-| Editor de plantillas de correo | `routes/emails.js:160,198,226,243,266,347` (GET/PUT/DELETE catálogo, previsualizar, diagnóstico, envíos) | Seis endpoints sin una sola pantalla que los llame. El frontend sólo usa `prueba`, `enviar`, `cola`, `reintentarCola`. Decidir: conectar o borrar. |
-| Bolsa y cuotas de expositores | `routes/networking.js:341,361,392` | Sin UI. Relacionado con la migración 0057. |
-| `public.oauth_barrer()` | `db/migrations/0073:92-98` | **Nadie la llama.** La propia migración dice que el backend debería invocarla «en el mismo ciclo que ya corre cada quince minutos», y ningún `cron-*.js` la incluye: `oauth_codes`/`oauth_tokens` crecen sin límite. |
-| Editar franja de expositor | `routes/expositor.js:328` (`PATCH`) | El frontend sólo crea y borra franjas. ¿Falta el botón «editar horario»? |
+| `components/ui/StatCard.jsx` | — | ✅ **borrado** el 2026-09-03. No encajaba con ninguna de las tres tarjetas que existían de verdad; en su lugar está `components/ui/Kpi.jsx`, que sí reemplazó a las tres. Antes decía: **cero consumidores.** Mientras tanto, 18 pantallas reinventan su propia tarjeta de número (`ReporteTab`, `AnalyticsTab`, `ClientesTab`, `EquipoTab`, `TicketsTab`, `VacantesTab`, `ChatTab`, `NetworkingTab`, `CheckoutSection`…). |
+| Editor de plantillas de correo | `routes/emails.js:160,198,226,243,266,347` | ✅ **conectados los seis** (2026-09-03). El catálogo ya se usaba; faltaban `previsualizar`, `diagnostico` y `envios`. Ver abajo. |
+| Bolsa y cuotas de expositores | `routes/networking.js:341,361,392` | ✅ **conectado** — `stands/BolsaPuntos.jsx`. Medido antes: 0 eventos con bolsa y 0 stands con cuota, o sea que la gamificación no se podía limitar. |
+| `public.oauth_barrer()` | `db/migrations/0073:92-98` | ✅ **se llama** desde `cron-recordatorios.js`, en el ciclo que ya corre. Antes: **nadie la llamaba.** La propia migración dice que el backend debería invocarla «en el mismo ciclo que ya corre cada quince minutos», y ningún `cron-*.js` la incluye: `oauth_codes`/`oauth_tokens` crecen sin límite. |
+| Editar franja de expositor | `routes/expositor.js:328` (`PATCH`) | ✅ ya conectado — comprobado el 2026-09-03: `expositorApi.editarFranja` se usa en `ExpositorPage`. La fila se quedó vieja. |
 | `modules/aforo/consultas.js` | backend | Muerto **a propósito**: es la traducción a MySQL para el corte del Frente A. Su comentario ya lo dice. No tocar. |
 | `ARCHIVOS_PROPIOS` | `core/config/index.js:108` | Apagada, y a diferencia de `AUTH_PROPIA` **no tiene ningún consumidor en el frontend**: encenderla hoy no cambiaría nada visible. Ninguna de las dos banderas está en los `.env.example`. |
-| `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | El comentario del archivo dice que se extrajeron de `DocumentosSection.jsx` para reusarlas — y `DocumentosSection.jsx` nunca importa el módulo. Refactor a medias. |
+| `src/lib/archivos.js:26,42,45` | `TIPOS_DOCUMENTO`, `ACCEPT_DOCUMENTO`, `MAX_DOCUMENTO` | ✅ **conectado** (2026-09-03). Y no era cosmético: la copia de `DocumentosSection` aceptaba **.doc, .xls y .ppt** —que sí llevan macros— y no cruzaba el MIME con la extensión. |
+
+#### Los tres que faltaban, y lo que se destapó al conectarlos
+
+- **`previsualizar`.** El panel tenía una **imitación en JSX del correo** —su
+  propio maquetado, su propia sustitución de variables, su propia copia de
+  `esClaro`—. Dos renderizadores del mismo correo, y el que el organizador
+  aprobaba no era el que salía: aprobaba una maqueta. Ahora la previa es el HTML
+  del servidor en un `iframe` aislado.
+- **`envios`.** Los contadores de la cola dicen CUÁNTOS no salieron; quien entra
+  ahí entra porque UNA persona dice que no le llegó, y eso no se contesta con un
+  número. Es una lista plegada con destinatario, motivo y hora.
+- **`diagnostico`.** Venía **en la misma respuesta** que las plantillas y nadie
+  lo pintaba. Sin proveedor configurado no se envía nada —y no falla: se
+  descarta—, así que se podían escribir plantillas, darle a enviar y no pasar
+  nada, sin un solo aviso. Ahora eso es lo primero que se lee. Y con
+  `FRONTEND_URL` sin poner, los enlaces del correo apuntan a otro dominio: eso
+  también se avisa, porque es el fallo que nadie ve hasta que alguien hace clic.
 
 ### 3.5 · Cinco migraciones mentían en su cabecera — ✅ arreglado el 2026-09-02
 
@@ -2577,7 +2594,29 @@ Antes de planear nada, lo que estaba roto a la vista:
 
 ---
 
-### Q1 · La boleta de stand no conecta con el stand
+### Q1 · La boleta declara qué crea — ✅ escrito el 2026-09-03 (migración 0093, sin aplicar)
+
+Una casilla «es de stand» sólo sabe hablar de stands. `crea` es una columna con
+un valor —nada | stand | equipo— y `crea_torneo_id` obligatorio sólo para
+equipo. Con un booleano por cada cosa creable acabarían siendo tres columnas que
+se contradicen en cuanto alguien marque dos.
+
+`es_expositor` **se queda** y un trigger la mantiene sincronizada: cinco sitios
+del backend la leen y producción sirve hoy ese código.
+
+**Y el enlace del capitán, que era la mitad que faltaba** (2026-09-03). La ficha
+del equipo nacía con lo único que el trigger sabe —el nombre de quien compró— y
+no había por dónde completarla: la promesa era «el capitán completa sus datos
+por su enlace» y ese enlace no existía. Ahora es `/equipo/:código`, con la misma
+forma que el portal del expositor —mismo caso, y resolverlo de dos maneras sería
+equivocarse de dos maneras—.
+
+No puede tocar lo que decide el torneo (grupo, cuadro), el nombre se congela en
+cuanto hay fixture, y las respuestas se validan con el mismo código que el
+registro: un formulario que se puede saltar por otra puerta no es un
+formulario.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** que la boleta se vincule al stand, para que el expositor se
 registre solo y su información se despliegue — o se haga a mano. Y lo mismo para
@@ -2596,7 +2635,19 @@ es un stand»; se adivina por el nombre.
 camino para los torneos, que es lo que se pide: comprar la inscripción crea el
 equipo, y el capitán completa sus datos por su enlace.
 
-### Q2 · Un equipo de torneo no cabe en la tabla
+### Q2 · El formulario por torneo — ✅ escrito el 2026-09-03 (migración 0095, sin aplicar)
+
+No se añaden columnas: se le apunta a `torneo_equipos` el mismo
+`event_form_fields` que ya define los campos del registro, con su editor, su
+validación y su `respuestas`. El editor de preguntas se **generaliza** en vez de
+copiarse —dos copias se separan hasta que una acepta un tipo de campo que la
+otra no—.
+
+Y con el cuidado que Q8 enseñó el mismo día: los tres diffs borran lo que no
+viene en el payload, así que el formulario del evento lleva ahora
+`torneo_id is null` en la lectura **y** en el borrado.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** poder poner la información del equipo, los rangos, etc. Cada
 evento es distinto: un equipo de fútbol y uno de esports no se presentan igual.
@@ -2614,7 +2665,38 @@ condicionales incluidos). Un torneo de fútbol pide dorsal y posición; uno de
 esports pide nick, rango y servidor. **No hay que inventar el mecanismo, hay que
 apuntarlo a otra tabla.**
 
-### Q3 · Torneos y Rueda de negocios deberían nacer como sub-evento
+### Q3 · Una sola puerta para crear — ✅ hecho el 2026-09-03 (la mitad que faltaba)
+
+**Lo que había que arreglar no era el selector de tipo, era el callejón sin
+salida.** El tipo `competencia` ya existía y ya marcaba «competitivo»; lo que
+pasaba es que, al llegar al campo de las llaves, el formulario decía «crea un
+torneo en la pestaña Torneo». Con el sub-evento ya escrito —nombre, fecha y
+sitio—, pedir que se abandone el formulario a medias y se escriba el nombre otra
+vez en otra pantalla es exactamente lo que produce los cuatro torneos sin hueco
+en el calendario.
+
+Ahora las llaves se crean **desde aquí**, con el nombre del sub-evento y por
+eliminación directa. Los grupos, los equipos y los resultados se siguen llevando
+en la pestaña de Torneo, que es donde se trabajan: lo único que hacía falta en
+el formulario era que EXISTIERAN para poder vincularlas.
+
+**Y lo mismo con el expositor**, que tenía el callejón peor: el campo «la da» ni
+siquiera aparecía si el evento no tenía ningún expositor. Ahora se crea en
+línea. Con una diferencia deliberada: el expositor **se pregunta** en vez de
+copiar el título del sub-evento, porque unas llaves son de esta actividad y se
+llaman como ella, pero un expositor es una empresa que existe por su cuenta —y
+llamarlo como la sesión dejaría un stand llamado «Charla de apertura» en el
+directorio público.
+
+Con un campo dentro del formulario y no un `prompt` del navegador: el formulario
+está a medio escribir y un diálogo del sistema lo tapa entero.
+
+**Lo que NO se hizo:** meter «torneo» y «rueda» como tipos en el selector. Con
+esto, crear un torneo desde el sub-evento ya es un camino entero, y añadir dos
+tipos que en realidad son «competencia» con otro nombre traería de vuelta la
+duplicación que Q4 acaba de explicar.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** que en «Nuevo sub-evento», el selector de TIPO ofrezca también
 torneo y rueda de negocios; y que las secciones aparte queden para editar los
@@ -2628,7 +2710,18 @@ que ocurra en el evento.**
 
 Hoy hay dos puertas y por eso existían 4 torneos sin hueco en el calendario.
 
-### Q4 · La rueda de negocios YA es un stand, y no se dice
+### Q4 · La rueda de negocios YA es un stand — ✅ dicho el 2026-09-03
+
+No se tocó el modelo, que estaba bien: las dos cabeceras se apuntan ahora la una
+a la otra y dicen que es **la misma ficha vista por el otro lado**. Lo que
+cambia entre las dos pantallas no es la lista, son las columnas —citas y
+horarios aquí, número de stand y cuota allí— y eso sí había que decirlo.
+
+De paso, la cabecera de Stands ya no manda a «Asistentes → Escanear» a dar los
+puntos de un stand: después de Q8, un stand da los suyos desde su enlace y el
+panel sólo da los del evento.
+
+#### Lo que decía la ficha original
 
 **Lo observado por Sekkon0906:** «al parecer la rueda de negocios está vinculada
 a los stands, entonces al crear una rueda de negocios se registra como un
@@ -2643,7 +2736,30 @@ pantalla y aparece en otra sin explicación. No hay que cambiar el modelo: hay
 que **decirlo** — y que las dos pantallas enseñen que están mirando lo mismo
 desde dos lados.
 
-### Q5 · El aforo no dice cuánto está repartido
+### Q5 · El aforo repartido, y el stand — ✅ hecho el 2026-09-03
+
+**El aforo.** Se podían declarar zonas que sumaran 3.000 en un recinto de 1.500
+y nada avisaba. Ahora Zonas enseña el total del recinto, lo repartido y lo que
+queda sin repartir, con la misma forma que la bolsa de puntos —a propósito, para
+que las dos pantallas se lean igual—.
+
+**Con dos diferencias respecto a la bolsa, y las dos importan:** aquí no se
+bloquea (el aforo avisa, no cierra la puerta) y una zona **sin** aforo máximo es
+«sin límite» y no cero, así que la suma nunca es una cuenta cerrada y se dice
+cuántas zonas quedan fuera de ella. Sin `aforo_total` no se enseña la barra: un
+porcentaje sobre un total desconocido es peor que ningún dato.
+
+**El stand: no es un desplegable, y no por pereza.** Los puestos **no existen
+como catálogo** —no hay tabla de stands del recinto, sólo un texto en cada
+expositor—. Un desplegable cerrado daría por bueno un catálogo inventado y
+dejaría sin poder escribir el primer stand de cada evento. Lo que sí se puede
+hacer sin mentir: ofrecer los ya puestos y **avisar del repetido**.
+
+Y el número se normaliza **al guardar** y no sólo al pintar, que era el arreglo
+de esta mañana: así «C10» y «Stand C10» se reconocen como el mismo puesto en
+vez de contar como dos.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** ver el aforo total y el **aforo predispuesto** (lo distribuido
 entre las zonas). Y que el stand se elija de una lista en vez de escribir su
@@ -2660,7 +2776,21 @@ la forma.
 Y el número de stand es texto libre (`networking_expositores.stand`): dos stands
 pueden llamarse «A11» y nadie lo nota.
 
-### Q6 · «Accesos e ingresos» es una zona más
+### Q6 · `zonas.tipo` — ✅ escrito el 2026-09-03 (migración 0094, sin aplicar)
+
+evento | ingreso | evacuación | otra. Las de evacuación **no suman aforo**: no se
+llenan, se vacían por ellas, y sumarlas diría que caben más personas por tener
+más salidas.
+
+**Falta el paso de datos**: mover las puertas de `page_json.accesos` a zonas de
+tipo ingreso. Va aparte porque cada puerta arrastra su conteo de ingresos y hay
+que mirar evento por evento.
+
+Y `leerZonas` ahora **mira el error** de la consulta y reintenta sin la columna,
+en vez de caer al JSON en silencio —que es como se vacía el plano de un evento
+sin que nadie se entere—.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** meterlo dentro de Zonas de interés, y que al añadir una zona se
 elija su **tipo** — zona de evento, zona de ingreso, zona de evacuación, otras —
@@ -2678,7 +2808,18 @@ zonas de tipo ingreso.
 **Y una zona de evacuación no es un capricho:** un recinto de 7.000 personas
 tiene salidas de emergencia, y hoy no hay dónde declararlas.
 
-### Q7 · El panel de edición de zonas desperdicia la pantalla
+### Q7 · El panel de zonas desperdiciaba la pantalla — ✅ hecho el 2026-09-03
+
+La segunda columna estaba **siempre**: 380 px reservados para una tarjeta que
+decía «Toca una zona», con la lista —que es donde se trabaja— apretada al lado.
+Ahora esa columna sólo existe cuando hay una zona elegida; sin selección, la
+lista se queda con el ancho entero.
+
+Y el bloque «Ir a», que son hasta seis enlaces abiertos —media ficha para lo que
+menos se hace desde aquí—, va plegado. Lo que se usa a diario es colgar una
+actividad o un stand, y eso queda arriba.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** «se pierde mucho espacio mostrando ese modal de las zonas que
 está vacío, toca agrandar la zona de personalización».
@@ -2688,7 +2829,30 @@ decir «Sin gente», «Ninguna actividad», «Ningún stand». **El vacío ocupa
 mismo que lo lleno.** La lista de la izquierda, que es donde se trabaja, va
 apretada.
 
-### Q8 · El escáner de puntos no es del organizador — **el más importante**
+### Q8 · El escáner de puntos no es del organizador — ✅ hecho el 2026-09-03
+
+**Y al medirlo, la solución no era la que parecía.** Quitar «Puntos» y
+«Canjear» del panel habría roto **lo único que se usa**: las 5 recompensas y los
+5 motivos que existen son **del evento**, no de expositores (0 de expositor). El
+escáner del panel es la herramienta del staff para los puntos del evento; el
+portal del expositor es la del stand. No sobra ninguno.
+
+Lo que sí estaba mal:
+
+- **El panel ofrecía los motivos de los stands.** `evento_motivos` guarda los del
+  evento y los de cada stand, y el endpoint no filtraba: el staff podía dar
+  puntos **en nombre de un stand**, con su motivo y contra su cuota. Justo la
+  frontera que separa al evento de un tercero.
+- **Y arreglarlo destapó algo peor:** el guardado del catálogo **borra todo lo
+  que no venga en la lista**. Con el filtro puesto sólo en la lectura, guardar
+  un motivo desde el panel habría borrado de golpe **los motivos de todos los
+  stands**, que ni siquiera se ven en esa pantalla. Filtrado también ahí.
+- **La barra mezclaba entrar y premiar** en cinco botones seguidos. Ahora son
+  dos grupos —«Ingreso» y «Puntos del evento»— y el texto dice que un stand da
+  los suyos por su enlace. De ahí salía la idea de que un expositor necesita
+  esta pantalla: no la necesita, y por eso no hay que meterlo en el equipo.
+
+#### Lo que decía la ficha original
 
 **Lo pedido, y es un problema de permisos, no de comodidad:** dar puntos y
 canjear deberían estar en «mi espacio», en el stand de quien se registró.
@@ -2711,7 +2875,39 @@ entrar** —check-in, reingreso, sub-evento—, y puntos y canje viven donde ya
 funcionan, en el portal del expositor. Eso quita la duplicación y, de paso,
 quita la razón para dar acceso al panel a quien no es del evento.
 
-### Q9 · «Acreditación» y «Antes de la boleta» no se llaman como lo que hacen
+### Q9 · Los nombres, y la etiqueta que no colgaba de ninguna pantalla — ✅ hecho el 2026-09-03
+
+**El hallazgo gordo no era el nombre.** La escarapela térmica del Frente H
+estaba construida entera —medidas, QR comprobado contra el token real, CSS de
+impresión, seis pruebas en verde— y **no colgába de ninguna pantalla**. Existía
+en el repositorio y no en la plataforma, que para quien la usa es lo mismo que
+no existir: las pruebas pasaban y no había forma de imprimir una escarapela.
+
+Ahora hay `EtiquetadoraSection`, y una prueba comprueba el camino entero
+—sección → vista → componente— porque el fallo no fue que el componente
+estuviera mal, fue que no estaba enchufado.
+
+**Es vista aparte del diseñador, y no el mismo diseño con otro botón.** El
+diseñador compone una hoja con varias, a color, para cortar a mano; la
+etiquetadora saca una por etiqueta, a tamaño exacto, en un bit. Mezclarlas
+obligaría a enseñar ahí opciones que en térmica no hacen nada —color por tipo,
+marca de agua, logo a color—, y una opción que no hace nada es peor que no
+tenerla.
+
+**Los nombres, que era lo pedido:** las vistas decían el soporte —«Escarapela
+impresa», «Carné digital»— y no lo que la persona viene a hacer. Ahora son tres
+verbos: diseñar escarapela, diseñar carné, imprimir en etiquetadora. Y la
+sección pasó de «Acreditación» a **«Escarapelas y carnés»**; «Antes de la
+boleta» —nombre que puse yo y no se entendía— a **«Invitaciones»**.
+
+**Imprimir va con `checkin` y no con `ver_clientes`**: quien imprime es quien
+está en la puerta, no quien lleva los clientes.
+
+Falta el número del rollo real para cerrar las medidas —ver
+`09 — Impresora de escarapelas (traspaso)`—, pero eso es un objeto de una línea
+y una prueba que dice si el QR sigue cabiendo.
+
+#### Lo que decía la ficha original
 
 **Acreditación** debería separar **diseñar** (escarapela y carné) de
 **imprimir**, que hoy están mezclados. Y el imprimir tiene que enlazar con la
@@ -2743,6 +2939,138 @@ de zona), Q1 (qué crea un tipo de boleta).
 importe menos —es lo que hace que la plataforma sirva para algo que no sea
 fútbol— sino porque conviene hacerlo cuando Q3 ya haya dejado una sola puerta
 para crear un torneo.
+
+---
+
+## FRENTE R · La landing y la navegación — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-03**, después del Frente Q y mirando la
+página pública: «remodelar todo el sistema de landing page, tanto visual como el
+cómo funciona y todas las funciones que tiene». Y aparte: «analizar todos los
+botones e interacciones que hay en GESTEK, dado que muchos son ← atrás o flecha
+y salir, eso se ve horrible».
+
+**Orden explícito suyo: la landing va DESPUÉS de conectar la plataforma.**
+Primero el Frente Q, luego esto. Queda aquí escrito para que no se pierda, no
+para hacerlo ya.
+
+---
+
+### R1 · La navegación — ✅ la mitad hecha el 2026-09-03
+
+**Lo que se veía mal no era la repetición, era la flecha tecleada.** Un «←»
+dentro de la cadena no es un icono: hereda el interlineado de la fuente, se
+descuadra respecto a la palabra y cambia de grosor según el sistema. Ahora es un
+`svg` que se alinea como cualquier otro icono, en `components/ui/Volver.jsx`, y
+las dieciséis vueltas escritas a mano lo usan.
+
+**Y `Volver` no retrocede en el historial, a propósito.** Retroceder devuelve a
+donde estabas, que no siempre es donde quieres ir: quien llega a la página de un
+torneo desde una búsqueda no tiene «atrás», y quien entra a editar un stand
+desde tres sitios acabaría en tres sitios. Cada uso **declara su destino**, y por
+eso el texto dice a dónde va y no la dirección.
+
+De paso apareció otra copia: la pantalla de «evento no encontrado» estaba seis
+veces, palabra por palabra. Es una sola, y dice algo útil —que puede haberse
+despublicado o que el enlace esté mal copiado— en vez de «Evento no encontrado».
+
+Tres pruebas lo sostienen, porque estas vueltas no aparecieron de golpe:
+aparecieron de una en una, cada vez que alguien añadió una pantalla y escribió la
+suya porque era más rápido que mirar cómo lo hacían las demás.
+
+**Y la cabecera del panel, que era el caso peor.** Tenía un cuadrado con una
+flecha cuyo destino vivía sólo en el `title` —que en un móvil no existe— y, al
+lado, el nombre del evento pintado en gris muerto: **uno llevaba a algún sitio
+sin decir a cuál y el otro decía dónde estabas sin llevar a ninguna parte**.
+Ahora es una sola línea —«Mis eventos › TechNova Summit»— donde el primer tramo
+es la salida.
+
+Y era **la tercera salida al mismo sitio**: quedaban la flecha, «Salir del
+evento» en el menú y el selector de eventos. La flecha se fue y «Salir del
+evento» pasó a «Mis eventos», porque decía lo que dejas y no a dónde vas, que es
+lo que hace falta para decidir si pulsarlo.
+
+**Lo que queda:** el selector de eventos del menú lateral sigue siendo la tercera
+puerta, y esa sí tiene sentido propio —cambiar de evento sin pasar por la
+lista—. Falta mirar si se entiende que hace eso.
+
+#### Lo que decía la ficha original
+
+**Lo medido:** hay **al menos 16 vueltas atrás escritas a mano**, cada una con
+su propio texto: «← Volver a explorar» (6 veces), «← Volver a vacantes» (2),
+«← Volver al preview», «← Volver al evento», «← Volver a eventos», «Atrás»,
+«Volver», y un «Salir del evento» en el menú lateral.
+
+Y no es sólo que sean feas: **cada una es una decisión distinta sobre a dónde se
+vuelve**, tomada por separado. Nadie decidió el conjunto.
+
+El problema de fondo es que una flecha «atrás» es lo que se pone cuando no está
+claro dónde estás. En un panel con un evento activo, un menú lateral y un
+buscador global, volver atrás casi nunca es lo que la persona quiere: quiere ir
+a otro sitio concreto.
+
+**Lo que hay que decidir antes de tocar nada** (es diseño, no código):
+
+- ¿Qué papel juega la miga de pan de arriba —«Eventos › Detalle»— que hoy está
+  y nadie usa? Si funcionara, sobran la mitad de esas vueltas.
+- ¿«Salir del evento» es salir, o es cambiar de evento? Son dos cosas
+  distintas y hoy comparten botón.
+- ¿La página pública debe tener «← Volver a explorar» cuando se llega desde
+  Google, que es de donde llega casi todo el mundo? Ahí no hay «atrás».
+
+### R2 · La landing pública
+
+**Dos de los defectos ya están arreglados** (2026-09-03), porque eran fallos y no
+decisiones de diseño:
+
+- **La galería que se salía de la tarjeta.** Cada foto pedía el 100 % del ancho y
+  había hasta tres: 300 % más los huecos, y la tarjeta no recorta, así que se
+  pintaba encima de las vecinas. Era `flex` con `w-full` donde tenía que haber
+  una rejilla de tres.
+- **La página del torneo que no contestaba nada.** El dato existía: la N-Fase 2
+  guardó el «¿cuándo se juega?» en `agenda_sessions.torneo_id` y la consulta
+  pública nunca lo miró. Ahora salen fecha, sede y número de equipos; y sin
+  fixture se enseñan **los equipos inscritos** en vez de una sola frase: lo que
+  falta es el cruce, no los participantes.
+
+Queda el rest del frente —qué enseña cada bloque, qué pasa cuando va casi vacío,
+y el diseño entero—, que es lo que va después de conectar la plataforma.
+
+Lo visto en las capturas del evento real:
+
+- **El directorio de expositores está roto de layout.** La galería de un
+  expositor se sale de su tarjeta y pisa las de al lado; una tarjeta con
+  descripción larga y tres fotos desborda sobre la vecina. Se ve en DevUP.
+- **«STAND STAND C10»** — el dato trae la palabra «Stand» y la etiqueta le
+  añade otra. *(Arreglado el 2026-09-03; se deja anotado porque salió de aquí.)*
+- **La página pública de un torneo está casi vacía:** el nombre, la disciplina,
+  el formato y dos equipos. Ni fecha, ni hora, ni sede, ni marcador, ni cuándo
+  se juega la final. Es la pantalla que un asistente abre para saber si le
+  interesa, y no contesta nada.
+- **Huecos grandes de espacio muerto** entre bloques.
+
+**Lo que R2 tiene que resolver, y es más que pintar:**
+
+1. **Qué información expone cada bloque.** El torneo es el ejemplo claro: la
+   información existe (`torneo_partidos` tiene `fecha_hora`, `cancha`,
+   marcadores) y la página no la enseña.
+2. **Qué pasa cuando un bloque va vacío o casi.** Hoy se pinta igual: un
+   apartado con un dato se ve como un apartado completo.
+3. **El desbordamiento del directorio**, que es un fallo y no una preferencia.
+
+**Y lo que conviene NO rehacer:** el editor por bloques y el catálogo
+(`lib/bloquesLanding.js`, validado en el servidor desde que Claude escribe por
+MCP) funcionan y son la parte cara. Lo que se rehace es cómo se ven y qué
+enseñan, no el mecanismo.
+
+---
+
+### Por qué va después del Frente Q, y no es sólo porque lo pidió
+
+La landing **enseña** lo que la plataforma tiene conectado. Si un torneo
+todavía no sabe qué equipos lo juegan con qué datos (Q2), ni cuándo se juega
+(Q3), rediseñar cómo se muestra un torneo es decidir la vitrina antes que la
+mercancía. Se haría dos veces.
 
 ---
 

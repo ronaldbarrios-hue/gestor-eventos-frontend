@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import CredencialesSection from './CredencialesSection.jsx';
 import TarjetaSection from './TarjetaSection.jsx';
+import EtiquetadoraSection from './EtiquetadoraSection.jsx';
 
 /* Asistentes · Acreditación — lo que el asistente lleva encima.
  *
@@ -14,12 +15,24 @@ import TarjetaSection from './TarjetaSection.jsx';
  * (`checkin`) y el carné lo diseña quien lleva los clientes (`ver_clientes`).
  * Fusionar sin mirar habría dado a cada uno lo del otro, en silencio. Por eso
  * la pestaña se ve con CUALQUIERA de los dos y cada vista comprueba el suyo:
- * quien sólo escanea sigue viendo escarapelas y no el carné. */
+ * quien sólo escanea sigue viendo escarapelas y no el carné.
+ *
+ * ── Las vistas dicen QUÉ SE HACE, no dónde acaba ─────────────────────────
+ *
+ * Se llamaban «Escarapela impresa» y «Carné digital» —dos soportes— y no
+ * contestaban lo que la persona viene a hacer, que es diseñar o imprimir.
+ * Ahora son tres verbos: diseñar la escarapela, diseñar el carné, e imprimir en
+ * la etiquetadora. La tercera es nueva: la escarapela térmica llevaba
+ * construida desde el Frente H y no colgaba de ninguna pantalla.
+ *
+ * Imprimir va con `checkin` y no con `ver_clientes`: quien imprime es quien
+ * está en la puerta. */
 export default function AcreditacionSection({ evento, soyOwner, permisos = [] }) {
   const puede = (p) => soyOwner || permisos.includes('*') || permisos.includes(p);
   const vistas = [
-    ...(puede('checkin')      ? [['escarapela', 'Escarapela impresa']] : []),
-    ...(puede('ver_clientes') ? [['carne',      'Carné digital']]      : []),
+    ...(puede('ver_clientes') ? [['escarapela', 'Diseñar escarapela']]      : []),
+    ...(puede('ver_clientes') ? [['carne',       'Diseñar carné digital']]   : []),
+    ...(puede('checkin')      ? [['etiquetas',   'Imprimir en etiquetadora']] : []),
   ];
   const [vista, setVista] = useState(() => vistas[0]?.[0] || 'escarapela');
 
@@ -37,7 +50,9 @@ export default function AcreditacionSection({ evento, soyOwner, permisos = [] })
           ))}
         </div>
       )}
-      {vista === 'carne' ? <TarjetaSection evento={evento} /> : <CredencialesSection evento={evento} />}
+      {vista === 'carne'     && <TarjetaSection evento={evento} />}
+      {vista === 'etiquetas' && <EtiquetadoraSection evento={evento} />}
+      {vista === 'escarapela' && <CredencialesSection evento={evento} />}
     </div>
   );
 }

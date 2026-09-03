@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import Icono from '../../components/ui/Iconos.jsx';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* Página pública /explorar/:slug/torneo — vista de SOLO LECTURA del
    bracket/tabla del torneo de un evento, accesible a cualquiera (no
@@ -36,10 +37,7 @@ export default function TorneoPublicoPage() {
   );
 
   if (error) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   if (!data.torneo) {
@@ -53,7 +51,7 @@ export default function TorneoPublicoPage() {
     );
   }
 
-  const { torneo, equipos, partidos } = data;
+  const { torneo, equipos, partidos, cuando } = data;
   const equipoPorId = new Map(equipos.map(e => [e.id, e]));
   const nombreFormato = torneo.formato === 'eliminacion' ? 'Eliminación'
     : torneo.formato === 'liga' ? 'Liga' : 'Grupos + Eliminación';
@@ -68,6 +66,30 @@ export default function TorneoPublicoPage() {
           {torneo.disciplina && <span className="text-[10px] uppercase tracking-wide bg-surface-3 text-text-2 px-2 py-0.5 rounded">{torneo.disciplina}</span>}
           <span className="badge badge-blue text-[10px]">{nombreFormato}</span>
         </div>
+
+        {/* Cuándo y dónde. Esta página enseñaba el nombre, la disciplina, el
+            formato y poco más — y es la que abre alguien para decidir si le
+            interesa venir. El dato ya existía en el sub-evento vinculado. */}
+        {(cuando || equipos.length > 0) && (
+          <div className="flex items-center gap-3 flex-wrap mt-2 text-sm text-text-2">
+            {cuando?.inicio && (
+              <span className="flex items-center gap-1.5">
+                <Icono nombre="calendario" className="w-3.5 h-3.5 text-text-3" />
+                {new Date(cuando.inicio).toLocaleString('es-CO', {
+                  weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit',
+                })}
+              </span>
+            )}
+            {cuando?.ubicacion && (
+              <span className="flex items-center gap-1.5">
+                <Icono nombre="pin" className="w-3.5 h-3.5 text-text-3" />{cuando.ubicacion}
+              </span>
+            )}
+            {equipos.length > 0 && (
+              <span className="text-text-3">{equipos.length} equipos</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Selector cuando el evento tiene varios torneos */}
@@ -85,8 +107,37 @@ export default function TorneoPublicoPage() {
       )}
 
       {partidos.length === 0 ? (
-        <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
-          <p className="text-sm text-text-3">El fixture todavía no se ha generado.</p>
+        /* Sin fixture había una sola frase y nada más: quien entra se queda sin
+           saber siquiera quién va a jugar, aunque los equipos ya estén
+           inscritos. Lo que todavía no se sabe es el cruce, no los
+           participantes. */
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-border bg-surface/40 px-6 py-8 text-center">
+            <p className="text-sm text-text-2">Todavía no se sabe quién juega contra quién.</p>
+            <p className="text-xs text-text-3 mt-1.5">
+              {equipos.length > 0
+                ? 'Los cruces se publican aquí en cuanto se sorteen.'
+                : 'Cuando haya equipos inscritos aparecerán aquí.'}
+            </p>
+          </div>
+
+          {equipos.length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">
+                Equipos inscritos
+              </p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {equipos.map(e => (
+                  <div key={e.id} className="rounded-2xl border border-border bg-surface/40 p-3 flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg overflow-hidden bg-surface-2 flex items-center justify-center text-[11px] font-semibold text-text-2 flex-shrink-0">
+                      {e.foto_url ? <img src={e.foto_url} alt="" className="w-full h-full object-cover" /> : (e.nombre?.[0]?.toUpperCase() || '?')}
+                    </div>
+                    <span className="text-sm text-text-1 truncate">{e.nombre}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : torneo.formato === 'eliminacion' ? (
         <BracketPublico partidos={partidos} equipoPorId={equipoPorId} />

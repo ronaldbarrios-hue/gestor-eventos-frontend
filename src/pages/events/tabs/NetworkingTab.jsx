@@ -4,8 +4,24 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import { numeroDeStand } from '../../../lib/expositoresUi.js';
 
-/* Tab Rueda de Negocios — gestionado + autogestionado:
+/* Tab Rueda de Negocios.
+ *
+ * ── Un expositor de aquí ES un stand ──────────────────────────────────
+ *
+ * Las dos pantallas escriben en `networking_expositores`. Se unificó en el
+ * Frente J, cuando resultó que había dos altas para la misma tabla y la de la
+ * rueda ni siquiera tenía `PATCH`. **Está bien que sean lo mismo** —quien monta
+ * un stand es con quien se agenda una cita—, lo que estaba mal es que la
+ * interfaz no lo dijera: se creaba un expositor aquí y aparecía en Stands sin
+ * explicación, como si se hubiera duplicado solo.
+ *
+ * Por eso las dos cabeceras se apuntan la una a la otra. Lo que cambia entre
+ * ellas no es la lista, son las columnas: aquí las citas y los horarios, allí
+ * el número de stand y la cuota de puntos.
+ *
+ * Gestionado + autogestionado:
    el organizador crea expositores y sus horarios disponibles; los
    asistentes reservan citas libremente, confirmación automática.
    ExplorarView y MisCitasView se exportan también para poder reutilizarse
@@ -19,7 +35,18 @@ export default function NetworkingTab({ evento, soyOwner }) {
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Rueda de Negocios</h2>
-          <p className="text-sm text-text-2 mt-1">Agenda citas cortas de networking con expositores del evento.</p>
+          <p className="text-sm text-text-2 mt-1">
+            Agenda citas cortas de networking con expositores del evento.
+          </p>
+          {/* Que un expositor y un stand son la misma ficha no se adivina: se
+              dice, y con el enlace al lado. */}
+          <p className="text-xs text-text-3 mt-1">
+            Cada expositor de aquí es también un <b className="text-text-2">stand</b>: es la misma ficha
+            vista por el otro lado. Su número de stand y su cuota de puntos se llevan en{' '}
+            <a href={`/eventos/${evento.id}?s=zonas&t=stands`} className="text-primary-light hover:underline">
+              Zonas → Stands
+            </a>.
+          </p>
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
           {soyOwner && (
@@ -94,7 +121,7 @@ export function ExplorarView({ evento }) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-base font-semibold text-text-1 truncate">{exp.nombre}</p>
-              {exp.stand && <p className="text-xs text-text-3">Stand {exp.stand}</p>}
+              {exp.stand && <p className="text-xs text-text-3">Stand {numeroDeStand(exp.stand)}</p>}
             </div>
           </div>
           {exp.descripcion && <p className="text-sm text-text-2 leading-relaxed">{exp.descripcion}</p>}
@@ -189,7 +216,7 @@ export function MisCitasView({ evento }) {
               <p className="text-sm font-medium text-text-1 truncate">{c.horario?.expositor?.nombre}</p>
               <p className="text-xs text-text-3">
                 {inicio.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })} – {fin.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                {c.horario?.expositor?.stand ? ` · Stand ${c.horario.expositor.stand}` : ''}
+                {c.horario?.expositor?.stand ? ` · Stand ${numeroDeStand(c.horario.expositor.stand)}` : ''}
               </p>
             </div>
             <button onClick={() => cancelar(c.id)} disabled={busy === c.id}
@@ -261,7 +288,7 @@ function AdminView({ evento }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-text-1 truncate">{exp.nombre}</p>
-                  {exp.stand && <p className="text-xs text-text-3">Stand {exp.stand}</p>}
+                  {exp.stand && <p className="text-xs text-text-3">Stand {numeroDeStand(exp.stand)}</p>}
                 </div>
                 <button onClick={() => setHorariosPara(exp)} className="btn-secondary btn-sm">+ Horarios</button>
                 <button onClick={() => setEditando(exp)} aria-label={`Editar a ${exp.nombre}`}
@@ -304,6 +331,9 @@ function AdminView({ evento }) {
           key={editando === 'nuevo' ? 'nuevo' : editando.id}
           eventoId={evento.id}
           expositor={editando === 'nuevo' ? null : editando}
+          /* Los stands que ya tienen dueño: el modal los ofrece y avisa si se
+             repite uno. */
+          ocupados={(data || []).map(e => ({ id: e.id, stand: e.stand, nombre: e.nombre }))}
           onClose={() => setEditando(null)}
           onDone={() => { setEditando(null); cargar(); }}
         />
@@ -325,13 +355,23 @@ function AdminView({ evento }) {
    creado aquí no se podía tocar desde ninguna parte: para corregir una letra
    del nombre había que borrarlo —perdiendo sus horarios y las citas que
    alguien ya hubiera reservado— y volver a crearlo. */
-function ExpositorModal({ eventoId, expositor, onClose, onDone }) {
+function ExpositorModal({ eventoId, expositor, onClose, onDone, ocupados = [] }) {
   const editando = !!expositor;
   const [nombre, setNombre] = useState(expositor?.nombre || '');
-  const [stand, setStand] = useState(expositor?.stand || '');
+  const [stand, setStand] = useState(numeroDeStand(expositor?.stand) || '');
   const [descripcion, setDescripcion] = useState(expositor?.descripcion || '');
   const [working, setWorking] = useState(false);
   const { error: toastErr } = useToast();
+
+  /* Los puestos ya ocupados, comparados por su número limpio: «C10» y
+     «Stand C10» son el mismo sitio y hasta ahora contaban como dos. */
+  const usados = [...new Set(ocupados
+    .filter(o => o.id !== expositor?.id)
+    .map(o => numeroDeStand(o.stand))
+    .filter(Boolean))];
+  const repetido = ocupados.find(o => o.id !== expositor?.id
+    && numeroDeStand(o.stand)
+    && numeroDeStand(o.stand).toLowerCase() === numeroDeStand(stand).toLowerCase());
 
   const submit = async (e) => {
     e.preventDefault();
@@ -339,7 +379,12 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone }) {
     setWorking(true);
     const cuerpo = {
       nombre: nombre.trim(),
-      stand: stand.trim() || null,
+      /* Se guarda el número limpio y no lo tecleado: quien escribe «Stand C10»
+         acaba con «Stand Stand C10» en la página pública, porque la etiqueta ya
+         pone la palabra. Se normaliza AQUÍ, al entrar el dato, y no sólo al
+         pintarlo, para que dos formas de escribir el mismo puesto —«C10» y
+         «Stand C10»— se reconozcan como repetidas. */
+      stand: numeroDeStand(stand) || null,
       descripcion: descripcion.trim() || null,
     };
     try {
@@ -373,8 +418,24 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone }) {
           </div>
           <div className="field">
             <label className="label">Stand <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
-            <input value={stand} onChange={e => setStand(e.target.value)} className="input rounded-2xl py-3" placeholder="Ej. A-12" />
-            <p className="text-xs text-text-3 mt-1.5">Número o código del puesto físico donde estará el día del evento.</p>
+            {/* No es un desplegable cerrado porque **los puestos no existen
+                como catálogo**: no hay una tabla de stands del recinto, sólo un
+                texto en cada expositor. Inventar la lista aquí sería dar por
+                bueno un catálogo que no existe, y dejaría sin poder escribir el
+                primer stand de cada evento. Lo que sí se puede hacer sin
+                mentir: ofrecer los que ya están puestos y avisar de un
+                repetido. */}
+            <input value={stand} onChange={e => setStand(e.target.value)} list="stands-usados"
+              className="input rounded-2xl py-3" placeholder="Ej. A-12" />
+            <datalist id="stands-usados">
+              {usados.map(u => <option key={u} value={u} />)}
+            </datalist>
+            {repetido
+              ? <p className="text-xs text-warning-light mt-1.5">
+                  <b className="text-text-1">{repetido.nombre}</b> ya está en este stand. Dos expositores en el
+                  mismo puesto se puede hacer —a veces lo comparten— pero casi siempre es un error de dedo.
+                </p>
+              : <p className="text-xs text-text-3 mt-1.5">Número o código del puesto físico donde estará el día del evento. Sin la palabra «stand»: esa la pone la plataforma.</p>}
           </div>
           <div className="field">
             <label className="label">Descripción <span className="text-text-3 lowercase font-normal">(opcional)</span></label>

@@ -610,7 +610,7 @@ export default function EventCreatePage() {
             onClick={() => step > 0 ? setStep(s => s - 1) : navigate('/eventos')}
             className="btn-secondary"
           >
-            {step === 0 ? 'Cancelar' : '← Atrás'}
+            {step === 0 ? 'Cancelar' : 'Atrás'}
           </button>
           {step < STEPS.length - 1 ? (
             <button

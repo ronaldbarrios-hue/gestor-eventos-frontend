@@ -34,6 +34,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
               <h2 className="text-base font-semibold text-text-1">{title}</h2>
               <button
                 onClick={onClose}
+                aria-label="Cerrar"
                 className="btn-icon btn-ghost w-8 h-8 text-text-2"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

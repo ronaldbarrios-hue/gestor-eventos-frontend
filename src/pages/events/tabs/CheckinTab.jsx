@@ -355,14 +355,28 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <AsistenciaContador ingresados={ingresados} total={totalAsistentes} compact />
-          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-            {[['checkin', 'Check-in'], ['reingreso', 'Reingreso'], ['subevento', 'Sub-evento'], ['puntos', 'Puntos'], ['canjear', 'Canjear']].map(([k, l]) => (
-              <button key={k} onClick={() => { setAccion(k); setLast(null); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${accion === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
-                {l}
-              </button>
-            ))}
-          </div>
+          {/* Dos grupos, y no cinco botones seguidos: entrar y premiar son dos
+              trabajos distintos, los hace gente distinta y en momentos
+              distintos. Mezclados en una sola barra parecían lo mismo, y de ahí
+              salía la idea de que un expositor necesita esta pantalla — no la
+              necesita: da sus puntos por su propio enlace, donde se le
+              identifica. Lo de aquí son los puntos DEL EVENTO. */}
+          {[
+            ['Ingreso', [['checkin', 'Check-in'], ['reingreso', 'Reingreso'], ['subevento', 'Sub-evento']]],
+            ['Puntos del evento', [['puntos', 'Puntos'], ['canjear', 'Canjear']]],
+          ].map(([grupo, opciones]) => (
+            <div key={grupo} className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-widest text-text-3 font-semibold px-1">{grupo}</span>
+              <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
+                {opciones.map(([k, l]) => (
+                  <button key={k} onClick={() => { setAccion(k); setLast(null); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${accion === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
             {[['manual', 'Código'], ['camara', 'Cámara']].map(([k, l]) => (
               <button key={k} onClick={() => setMode(k)}
@@ -440,7 +454,8 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
         <div className="rounded-2xl border border-success/30 bg-success/5 px-4 py-3 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-text-2">
-              Modo <b className="text-text-1">puntos</b>: elige qué le vas a marcar y queda fijo — en un stand se marca lo mismo muchas veces seguidas.
+              Modo <b className="text-text-1">puntos</b>: elige qué le vas a marcar y queda fijo — se marca lo mismo muchas veces seguidas.
+              Estos son los motivos <b className="text-text-1">del evento</b>; un stand da los suyos desde su propio enlace, con su cuota.
             </p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-3">Lugar:</span>

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { numeroDeStand } from '../../lib/expositoresUi.js';
 import { Medalla } from '../../components/ui/Iconos.jsx';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* Página pública /explorar/:slug/ranking — clasificación de expositores por
    puntos otorgados en sus stands.
@@ -29,10 +31,7 @@ export default function RankingPublicoPage() {
   }, [slug]);
 
   if (error) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   if (ranking === undefined) return (
@@ -90,7 +89,7 @@ export function TablaRanking({ ranking, titulo = 'Ranking de expositores' }) {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-text-1 truncate">{x.nombre}</p>
               <p className="text-[11px] text-text-3">
-                {x.stand ? `Stand ${x.stand} · ` : ''}
+                {x.stand ? `Stand ${numeroDeStand(x.stand)} · ` : ''}
                 {x.interacciones} {x.interacciones === 1 ? 'interacción' : 'interacciones'}
               </p>
               {/* La barra da la distancia real entre puestos, que un número

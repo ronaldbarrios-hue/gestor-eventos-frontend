@@ -6,6 +6,7 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../../components/public/Branding.jsx';
 import BuzonSugerencia from '../../../components/ui/BuzonSugerencia.jsx';
+import Volver from '../../../components/ui/Volver.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Vacantes — lado ORGANIZADOR (dentro del evento).
@@ -167,7 +168,7 @@ function FormVacante({ evento, roles, vacante, onListo, onCancel, onRolesChange 
      vista previa sirva para algo y no sea un espejo decorativo. */
   return (
     <div className="space-y-4">
-      <button onClick={onCancel} className="text-sm text-text-3 hover:text-text-1">← Volver a vacantes</button>
+      <Volver onClick={onCancel}>Volver a vacantes</Volver>
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)] gap-5 items-start">
       <div className="rounded-3xl border border-border bg-surface/40 p-5 space-y-4 min-w-0">
@@ -441,7 +442,7 @@ function Pipeline({ evento, vacante, onVolver }) {
 
   return (
     <div className="space-y-4">
-      <button onClick={onVolver} className="text-sm text-text-3 hover:text-text-1">← Volver a vacantes</button>
+      <Volver onClick={onVolver}>Volver a vacantes</Volver>
       <div>
         <h3 className="text-lg font-bold font-display text-text-1">{vacante.titulo}</h3>
         <p className="text-sm text-text-3">{formatoPago(vacante.pago_monto, vacante.pago_moneda, vacante.pago_periodo)} · {posts.length} postulante{posts.length !== 1 ? 's' : ''}</p>

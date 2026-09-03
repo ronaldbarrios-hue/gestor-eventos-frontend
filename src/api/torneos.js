@@ -18,6 +18,12 @@ export const torneosApi = {
   editarCategoria  : (eventoId, id, body) => client.patch(`/eventos/${eventoId}/torneo-categorias/${id}`, body).then(r => r.data),
   borrarCategoria  : (eventoId, id) => client.delete(`/eventos/${eventoId}/torneo-categorias/${id}`).then(r => r.data),
 
+  /* 0095 · los campos propios de este torneo: lo que se le pide a un equipo
+     además del nombre. Dorsal y posición en fútbol; nick, rango y servidor en
+     esports. */
+  formulario       : (eventoId, torneoId) => client.get(`/eventos/${eventoId}/torneo/${torneoId}/formulario`).then(r => r.data),
+  guardarFormulario: (eventoId, torneoId, campos) => client.put(`/eventos/${eventoId}/torneo/${torneoId}/formulario`, { campos }).then(r => r.data),
+
   crearEquipo      : (eventoId, torneoId, body) => client.post(`/eventos/${eventoId}/torneo/${torneoId}/equipos`, body).then(r => r.data),
   borrarEquipo     : (eventoId, torneoId, equipoId) => client.delete(`/eventos/${eventoId}/torneo/${torneoId}/equipos/${equipoId}`).then(r => r.data),
 

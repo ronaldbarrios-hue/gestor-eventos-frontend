@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import Icono from '../../../components/ui/Iconos.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import BarraProgreso from '../../../components/ui/BarraProgreso.jsx';
+import { torneosApi } from '../../../api/torneos.js';
 
 /* Tab Tickets — tipos de boleta del evento. Minimalista Apple. */
 
@@ -82,6 +82,7 @@ export default function TicketsTab({ evento }) {
 
       {creating && (
         <TicketForm
+          eventoId={evento.id}
           currency={evento.currency || 'COP'}
           onSubmit={onCrear}
           onCancel={() => setCreating(false)}
@@ -118,6 +119,7 @@ function TicketCard({ ticket, isEditing, onStartEdit, onCancelEdit, onSave, onDe
       <div className="sm:col-span-2">
         <TicketForm
           initial={ticket}
+          eventoId={ticket.evento_id}
           currency={ticket.currency}
           onSubmit={onSave}
           onCancel={onCancelEdit}
@@ -212,7 +214,7 @@ function TicketCard({ ticket, isEditing, onStartEdit, onCancelEdit, onSave, onDe
 
 /* ─────────── Form crear/editar ─────────── */
 
-function TicketForm({ initial, currency, onSubmit, onCancel }) {
+function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     nombre           : initial?.nombre || '',
     descripcion      : initial?.descripcion || '',
@@ -222,14 +224,29 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
     early_bird_precio: initial?.early_bird_precio ?? '',
     early_bird_hasta : toLocalInput(initial?.early_bird_hasta),
     venta_hasta      : toLocalInput(initial?.venta_hasta),
-    es_expositor     : initial?.es_expositor || false,
+    /* 0093 · `crea` sustituye a la casilla «es de stand». Se cae a
+       `es_expositor` para los eventos cuya base todavía no tiene la columna:
+       así la pantalla enseña lo que hay, en vez de decir «nada» sobre un tipo
+       que sí crea stands. */
+    crea             : initial?.crea || (initial?.es_expositor ? 'stand' : 'nada'),
+    crea_torneo_id   : initial?.crea_torneo_id || '',
   });
+  const [torneos, setTorneos] = useState([]);
   const [saving, setSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(
     Boolean(initial?.early_bird_precio || initial?.early_bird_hasta || initial?.venta_hasta)
   );
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  /* Los torneos hacen falta sólo para «crea un equipo», pero se piden al abrir
+     el formulario y no al elegir esa opción: si se pidieran después, el
+     desplegable saldría vacío el primer instante y parecería que no hay
+     ninguno. */
+  useEffect(() => {
+    if (!eventoId) return;
+    torneosApi.list(eventoId).then(d => setTorneos(d.torneos || [])).catch(() => {});
+  }, [eventoId]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -244,7 +261,12 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
       early_bird_precio: form.early_bird_precio === '' ? null : Number(form.early_bird_precio),
       early_bird_hasta : form.early_bird_hasta ? new Date(form.early_bird_hasta).toISOString() : null,
       venta_hasta      : form.venta_hasta      ? new Date(form.venta_hasta).toISOString()      : null,
-      es_expositor     : form.es_expositor,
+      crea             : form.crea,
+      crea_torneo_id   : form.crea === 'equipo' ? (form.crea_torneo_id || null) : null,
+      /* Se manda también la vieja: si esta base aún no tiene la 0093, el
+         backend guarda al menos lo que ya sabía guardar y un stand sigue
+         siendo un stand. */
+      es_expositor     : form.crea === 'stand',
     };
     await onSubmit(payload);
     setSaving(false);
@@ -263,7 +285,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
           <label className="label">Nombre *</label>
           <input
             value={form.nombre} onChange={e => update('nombre', e.target.value)}
-            placeholder={form.es_expositor ? 'Ej: Stand comercial, Stand VIP' : 'Ej: General, VIP, Early Bird'}
+            placeholder={form.crea === 'stand' ? 'Ej: Stand comercial, Stand VIP' : form.crea === 'equipo' ? 'Ej: Inscripción por equipo' : 'Ej: General, VIP, Early Bird'}
             className="input-form" required autoFocus
           />
         </div>
@@ -299,7 +321,7 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
       </div>
 
       <div className="field">
-        <label className="label">{form.es_expositor ? 'Número de stands' : 'Cupo'}</label>
+        <label className="label">{form.crea === 'stand' ? 'Número de stands' : form.crea === 'equipo' ? 'Equipos que caben' : 'Cupo'}</label>
         <input
           type="number" min="0"
           value={form.cupo} onChange={e => update('cupo', e.target.value)}
@@ -308,16 +330,50 @@ function TicketForm({ initial, currency, onSubmit, onCancel }) {
         />
       </div>
 
-      {/* Boleta de expositor: cada compra genera una ficha de stand editable */}
-      <label className={`flex items-start gap-3 rounded-2xl border p-3 cursor-pointer transition-colors
-        ${form.es_expositor ? 'border-accent/50 bg-accent/5' : 'border-border hover:bg-surface-2'}`}>
-        <input type="checkbox" checked={form.es_expositor}
-          onChange={e => update('es_expositor', e.target.checked)} className="mt-0.5 accent-[#8B5CF6]" />
-        <span className="text-sm">
-          <span className="font-medium text-text-1 block flex items-center gap-1.5"><Icono nombre="empresa" className="w-3.5 h-3.5" />Es una boleta de stand / expositor</span>
-          <span className="text-text-3 text-xs">Cada empresa que la compra recibe su propia ficha de expositor (logo, descripción, contacto) que edita ella misma y aparece en el evento. Con el toggle persona / empresa.</span>
-        </span>
-      </label>
+      {/* Qué crea al venderse.
+
+          Era una casilla —«es una boleta de stand»— y por tanto sólo sabía
+          hablar de stands. Un torneo tiene el mismo caso: comprar la
+          inscripción debería crear el equipo, y el capitán completa sus datos
+          por su enlace. Con una casilla por cada cosa que se pueda crear
+          acabarían siendo tres que se contradicen en cuanto alguien marque dos;
+          con un solo valor, no. */}
+      <div className="field">
+        <label className="label">Qué se crea al pagarse</label>
+        <div className="grid sm:grid-cols-3 gap-2">
+          {[
+            ['nada',   'Nada más',        'Una boleta normal: da acceso y ya.'],
+            ['stand',  'Un stand',         'La empresa recibe su ficha —logo, contacto, cronograma— y la edita ella.'],
+            ['equipo', 'Un equipo',        'Entra al torneo que elijas; el capitán completa los datos por su enlace.'],
+          ].map(([v, titulo, ayuda]) => (
+            <button type="button" key={v} onClick={() => update('crea', v)}
+              className={`text-left rounded-2xl border p-3 transition-colors
+                ${form.crea === v ? 'border-accent/50 bg-accent/5' : 'border-border hover:bg-surface-2'}`}>
+              <span className="text-sm font-medium text-text-1 block">{titulo}</span>
+              <span className="text-text-3 text-[11px] leading-snug block mt-0.5">{ayuda}</span>
+            </button>
+          ))}
+        </div>
+
+        {form.crea === 'equipo' && (
+          <div className="mt-2">
+            {torneos.length > 0 ? (
+              <select value={form.crea_torneo_id} onChange={e => update('crea_torneo_id', e.target.value)}
+                className="input bg-surface-2 rounded-2xl py-3 text-sm w-full" required>
+                <option value="">¿A qué torneo entra?</option>
+                {torneos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+              </select>
+            ) : (
+              /* Sin torneo no se puede guardar, y decirlo aquí evita que el
+                 formulario se rechace al enviarlo sin explicar por qué. */
+              <p className="text-[11px] text-warning-light">
+                Este evento todavía no tiene ningún torneo. Crea uno —desde el sub-evento o en la
+                pestaña Torneo— y vuelve: un tipo de boleta que crea equipos tiene que decir a cuál.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Avanzado */}
       <button

@@ -4,6 +4,7 @@
    Cada uno expone: label, icon, defaults, Editor, Preview, category. */
 
 import { useState, useEffect } from 'react';
+import { numeroDeStand } from '../../../lib/expositoresUi.js';
 import { Seccion, ControlesPresentacion, Grupo, Opciones, Interruptor } from './presentacion.jsx';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -1241,8 +1242,18 @@ function RecompensasEditor({ data, onChange }) {
   );
 }
 
-function RecompensasPreview({ data, evento }) {
+function RecompensasPreview({ data, evento, isEditor }) {
   const items = evento?.recompensas || [];
+  /* Un apartado vacío no se pinta en la página pública.
+
+     «Aún no hay premios publicados» es útil para quien está montando la página
+     —dice que el bloque está puesto y esperando— y no le dice nada a quien la
+     visita: para él es un título, un recuadro y una frase que ocupan pantalla
+     para contar que no hay nada. Es la misma regla que ya siguen la portada, la
+     descripción, la dirección, los enlaces, la galería y las boletas; estos dos
+     bloques se quedaron fuera y por eso el evento real tenía huecos grandes
+     entre secciones. */
+  if (items.length === 0 && !isEditor) return null;
   return (
     <section className="py-4">
       {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
@@ -1295,7 +1306,7 @@ function MapaEventoEditor({ data, onChange }) {
   );
 }
 
-function MapaEventoPreview({ data, evento }) {
+function MapaEventoPreview({ data, evento, isEditor }) {
   const [sel, setSel] = useState(null);
   const mapa = evento?.page_json?.mapa || {};
   const marcadores = Array.isArray(mapa.marcadores) ? mapa.marcadores : [];
@@ -1313,6 +1324,9 @@ function MapaEventoPreview({ data, evento }) {
   const aforoPorId = new Map((evento?.mapa_aforo || []).map(z => [z.id, z]));
 
   if (!mapa.imagen_url) {
+    /* Sin plano no hay mapa que enseñar. Al visitante no se le cuenta que el
+       organizador no lo ha subido: eso es un recado interno. */
+    if (!isEditor) return null;
     return (
       <section className="py-4">
         {data.titulo && <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{data.titulo}</h2>}
@@ -1405,15 +1419,15 @@ function MapaEventoPreview({ data, evento }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-semibold text-text-1">{sel.data.nombre}</p>
                   {sel.data.categoria_negocio && <p className="text-xs text-text-3">{sel.data.categoria_negocio}</p>}
-                  {sel.data.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {sel.data.stand}</span>}
+                  {sel.data.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {numeroDeStand(sel.data.stand)}</span>}
                 </div>
                 <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
               </div>
               {sel.data.descripcion && <p className="text-sm text-text-2 mt-3 leading-relaxed">{sel.data.descripcion}</p>}
               {Array.isArray(sel.data.galeria) && sel.data.galeria.length > 0 && (
-                <div className="flex gap-2 mt-3">
+                <div className="grid grid-cols-3 gap-2 mt-3">
                   {sel.data.galeria.slice(0, 3).map((url, i) => (
-                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-lg object-cover" />
+                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-lg object-cover min-w-0" />
                   ))}
                 </div>
               )}
@@ -1557,8 +1571,11 @@ function ExpositoresEditor({ data, onChange }) {
   );
 }
 
-function ExpositoresPreview({ data, evento }) {
+function ExpositoresPreview({ data, evento, isEditor }) {
   const items = evento?.expositores || [];
+  /* Igual que en Recompensas: el vacío se enseña a quien monta, no a quien
+     visita. */
+  if (items.length === 0 && !isEditor) return null;
   const hora = (s) => new Date(s).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   return (
     <section className="py-4">
@@ -1571,7 +1588,9 @@ function ExpositoresPreview({ data, evento }) {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {items.map(x => (
-            <div key={x.id} className="rounded-2xl border border-border bg-surface/40 p-4">
+            /* `overflow-hidden` como cinturón además de los tirantes: un nombre
+               larguisimo o una foto futura no pueden volver a pintar fuera. */
+            <div key={x.id} className="rounded-2xl border border-border bg-surface/40 p-4 overflow-hidden min-w-0">
               <div className="flex items-start gap-3">
                 {x.logo_url
                   ? <img src={x.logo_url} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
@@ -1579,14 +1598,22 @@ function ExpositoresPreview({ data, evento }) {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text-1 truncate">{x.nombre}</p>
                   {x.categoria_negocio && <p className="text-[11px] text-text-3">{x.categoria_negocio}</p>}
-                  {x.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {x.stand}</span>}
+                  {x.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {numeroDeStand(x.stand)}</span>}
                 </div>
               </div>
               {x.descripcion && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{x.descripcion}</p>}
+              {/* Rejilla de tres y no `flex` con `w-full`.
+
+                  Cada foto pedía el 100 % del ancho de la tarjeta y había hasta
+                  tres: 300 % más los huecos. Como la tarjeta no recorta, la
+                  galería se salía por la derecha y se pintaba ENCIMA de las
+                  tarjetas vecinas —se ve en el directorio del evento real, donde
+                  un expositor tapa al de al lado—. Con `grid-cols-3` cada foto
+                  ocupa un tercio, que es lo que se quería desde el principio. */}
               {Array.isArray(x.galeria) && x.galeria.length > 0 && (
-                <div className="flex gap-1.5 mt-2">
+                <div className="grid grid-cols-3 gap-1.5 mt-2">
                   {x.galeria.slice(0, 3).map((url, i) => (
-                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-md object-cover" />
+                    <img key={i} src={url} alt="" className="w-full aspect-square rounded-md object-cover min-w-0" />
                   ))}
                 </div>
               )}

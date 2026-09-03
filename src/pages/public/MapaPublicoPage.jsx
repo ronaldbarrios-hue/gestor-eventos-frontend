@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import { BLOCKS } from '../events/editor/blocks.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* GESTEK — El plano del evento, en público.
 
@@ -37,10 +38,7 @@ export default function MapaPublicoPage() {
   );
 
   if (!evento) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   const mapa = evento.page_json?.mapa;

@@ -46,8 +46,29 @@ const CON_OPCIONES = new Set(['seleccion', 'multiple']);
 let contador = 0;
 const claveLocal = () => `nueva_${++contador}`;
 
-export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado }) {
+/* Quien pregunta: un sub-evento por defecto, o cualquier otra cosa que tenga
+   campos propios —hoy, un torneo—.
+
+   La alternativa era copiar este editor entero para los torneos, y ya se sabe
+   cómo acaba: el editor de sub-eventos y el de torneos separándose poco a poco
+   hasta que uno acepta un tipo de campo que el otro no. Lo que cambia entre los
+   dos es de dónde se leen los campos y dónde se guardan; el resto —ordenar,
+   validar, el tope, los tipos permitidos— es lo mismo. */
+const fuenteDeSesion = (evento, sesion) => ({
+  titulo: `Preguntas de «${sesion.titulo}»`,
+  ayuda: 'Sólo para apuntarse a esta actividad. Cortas: la boleta ya sabe quién es.',
+  vacio: 'Sin preguntas, apuntarse es un solo botón — que suele ser lo correcto.',
+  vacioAyuda: 'Añade alguna sólo si necesitas algo que la boleta no sabe.',
+  cargar : () => agendaApi.formularioSesion(evento.id, sesion.id),
+  guardar: (campos) => agendaApi.guardarFormularioSesion(evento.id, sesion.id, campos),
+  textoGuardado: (n) => (n
+    ? `Guardado. Quien se apunte a «${sesion.titulo}» verá estas ${n} preguntas.`
+    : 'Sin preguntas: apuntarse a este sub-evento vuelve a ser un solo botón.'),
+});
+
+export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, onGuardado }) {
   const { success, error: toastErr } = useToast();
+  const f = fuente || fuenteDeSesion(evento, sesion);
   const [campos, setCampos] = useState(null);   // null = cargando
   const [max, setMax] = useState(12);
   const [tipos, setTipos] = useState(
@@ -56,7 +77,7 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
 
   useEffect(() => {
     let vivo = true;
-    agendaApi.formularioSesion(evento.id, sesion.id)
+    f.cargar()
       .then(d => {
         if (!vivo) return;
         setCampos((d.campos || []).map(c => ({ ...c, _k: c.id })));
@@ -71,7 +92,11 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
       })
       .catch(e => { if (vivo) { toastErr(e.response?.data?.error || e.message); setCampos([]); } });
     return () => { vivo = false; };
-  }, [evento.id, sesion.id, toastErr]);
+    /* `f` se reconstruye en cada render, así que no puede ir en las
+       dependencias: la carga se repetiría sin parar. Lo que la identifica son
+       el evento y de quién son las preguntas. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evento.id, sesion?.id, fuente?.clave, toastErr]);
 
   const set = (k, patch) => setCampos(cs => cs.map(c => (c._k === k ? { ...c, ...patch } : c)));
   const quitar = (k) => setCampos(cs => cs.filter(c => c._k !== k));
@@ -106,10 +131,8 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
         requerido: Boolean(c.requerido),
         opciones: CON_OPCIONES.has(c.tipo) ? (c.opciones || []).filter(Boolean) : null,
       }));
-      const d = await agendaApi.guardarFormularioSesion(evento.id, sesion.id, payload);
-      success(payload.length
-        ? `Guardado. Quien se apunte a «${sesion.titulo}» verá estas ${payload.length} preguntas.`
-        : 'Sin preguntas: apuntarse a este sub-evento vuelve a ser un solo botón.');
+      const d = await f.guardar(payload);
+      success(f.textoGuardado(payload.length));
       onGuardado?.(d);
       onClose();
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
@@ -122,10 +145,8 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
            onClick={e => e.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 px-6 py-4 border-b border-border flex-shrink-0">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-text-1">Preguntas de «{sesion.titulo}»</h3>
-            <p className="text-xs text-text-3 mt-0.5">
-              Sólo para apuntarse a esta actividad. Cortas: la boleta ya sabe quién es.
-            </p>
+            <h3 className="text-base font-semibold text-text-1">{f.titulo}</h3>
+            <p className="text-xs text-text-3 mt-0.5">{f.ayuda}</p>
           </div>
           <button onClick={onClose} aria-label="Cerrar" className="text-text-3 hover:text-text-1 flex-shrink-0">✕</button>
         </header>
@@ -135,12 +156,8 @@ export default function PreguntasSubEvento({ evento, sesion, onClose, onGuardado
             <p className="text-sm text-text-3 text-center py-8">Cargando…</p>
           ) : campos.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center">
-              <p className="text-sm text-text-2">
-                Sin preguntas, apuntarse es un solo botón — que suele ser lo correcto.
-              </p>
-              <p className="text-xs text-text-3 mt-1.5">
-                Añade alguna sólo si necesitas algo que la boleta no sabe.
-              </p>
+              <p className="text-sm text-text-2">{f.vacio}</p>
+              <p className="text-xs text-text-3 mt-1.5">{f.vacioAyuda}</p>
             </div>
           ) : campos.map((c, i) => (
             <Pregunta

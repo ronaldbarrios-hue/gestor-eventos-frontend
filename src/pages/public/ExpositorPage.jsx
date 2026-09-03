@@ -8,6 +8,7 @@ import QrScanner from '../../components/ui/QrScanner.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import Icono from '../../components/ui/Iconos.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
+import Volver from '../../components/ui/Volver.jsx';
 
 /* Página pública /expositor/:codigo
    La empresa que compró una boleta-Stand edita su propia ficha con el código
@@ -61,7 +62,7 @@ export default function ExpositorPage() {
       <p className="text-xs uppercase tracking-widest text-danger mb-3">Ficha no encontrada</p>
       <h1 className="text-2xl font-bold font-display text-text-1 mb-3">El código <span className="font-mono">{codigo}</span> no corresponde a un stand.</h1>
       <p className="text-sm text-text-2 mb-6">Usa el código de tu boleta de stand. Si acabas de pagar, espera unos segundos y recarga.</p>
-      <Link to="/explorar" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-border-2 text-sm hover:bg-surface">← Explorar eventos</Link>
+      <Volver a="/explorar" tono="chip">Explorar eventos</Volver>
     </section>
   );
 

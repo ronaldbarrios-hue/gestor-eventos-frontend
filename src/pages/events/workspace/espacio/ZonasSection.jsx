@@ -8,7 +8,8 @@ import { useToast } from '../../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
-import { zonasDelEvento } from '../../../../lib/zonas.js';
+import { zonasDelEvento, TIPOS_ZONA, TIPO_ZONA_DEFECTO } from '../../../../lib/zonas.js';
+import BarraProgreso from '../../../../components/ui/BarraProgreso.jsx';
 import {
   nivelDeZona, estaEnLlamas, IconoLlama, DetalleMarcador,
 } from '../../../../components/aforo/MapaAforo.jsx';
@@ -73,8 +74,9 @@ const zonasConClave = (evento) => zonasDelEvento(evento).map(z => ({ ...z, _k: z
 /* El mismo recorte que se manda al servidor. Sirve para comparar y saber si
    una fila tiene cambios sin guardar: sin esto, un espacio de más en el
    nombre marcaría «sin guardar» para siempre. */
-const limpiar = (l) => (l || []).map(({ id, nombre, aforo_max }) =>
-  ({ id, nombre: (nombre || '').trim(), aforo_max: Number(aforo_max) || null }));
+const limpiar = (l) => (l || []).map(({ id, nombre, aforo_max, tipo }) =>
+  ({ id, nombre: (nombre || '').trim(), aforo_max: Number(aforo_max) || null,
+     tipo: TIPOS_ZONA.some(t => t.id === tipo) ? tipo : TIPO_ZONA_DEFECTO }));
 
 /* Una zona configurada de la que el endpoint en vivo todavía no sabe nada
    —recién creada, o sin un solo movimiento— sale en ceros en vez de
@@ -160,7 +162,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
     } finally { setGuardando(false); }
   }, [configuradas, evento.id, error, success, reload]);
 
-  const agregar = () => setConfiguradas(l => [...l, { _k: uid(), id: uid(), nombre: '', aforo_max: '' }]);
+  const agregar = () => setConfiguradas(l => [...l, { _k: uid(), id: uid(), nombre: '', aforo_max: '', tipo: TIPO_ZONA_DEFECTO }]);
 
   const borrar = async (z) => {
     /* Se pregunta, y no por costumbre: una zona borrada se lleva por delante
@@ -249,6 +251,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
       id: c.id,
       _k: c._k,
       nombre: c.nombre,
+      tipo: c.tipo || TIPO_ZONA_DEFECTO,
       aforo_max: c.aforo_max === '' || c.aforo_max == null ? null : Number(c.aforo_max),
       _enPlano: enElPlano.has(c.id),
     }));
@@ -275,6 +278,26 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
   const datosDetalle = useMemo(() => ({ zonas: filas }), [filas]);
 
   const sinColocar = filas.filter(z => !z._enPlano).length;
+
+  /* El aforo del recinto contra lo repartido entre las zonas.
+
+     Nadie comparába los dos: se podían declarar zonas que sumaran 3.000 en un
+     recinto de 1.500 y nada avisaba. Es el mismo patrón que la bolsa de puntos
+     —un total, un reparto, y lo que queda sin repartir— y se copia la forma a
+     propósito para que las dos pantallas se lean igual.
+
+     Diferencia con la bolsa: aquí **no se bloquea**. Una zona sin `aforo_max`
+     es «sin límite» y no cero, así que la suma nunca es una cuenta cerrada; y
+     el aforo del evento avisa, no impide entrar. Lo que hacía falta era verlo.
+     Sin `aforo_total` no hay nada que comparar y no se enseña la barra: un
+     porcentaje sobre un total desconocido es peor que ningún dato. */
+  const aforoRecinto = Number(evento.aforo_total) || 0;
+  /* Una salida de emergencia no aporta aforo: no se llena, se vacía por ella.
+     Sumarla diría que caben más personas por tener más salidas. */
+  const conTope = filas.filter(z => z.aforo_max > 0 && z.tipo !== 'evacuacion');
+  const repartido = conTope.reduce((a, z) => a + z.aforo_max, 0);
+  const sinTope = filas.length - conTope.length;
+  const pasado = aforoRecinto > 0 && repartido > aforoRecinto;
 
   if (zonas === null) return <GLoader message="Cargando zonas…" />;
 
@@ -303,6 +326,33 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
         )}
       </div>
 
+      {aforoRecinto > 0 && configuradas.length > 0 && (
+        <div className="card"><div className="card-body space-y-2">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <p className="text-sm text-text-1">
+              Aforo del recinto: <b className="tabular-nums">{aforoRecinto.toLocaleString('es-CO')}</b>
+            </p>
+            <p className="text-xs text-text-3 tabular-nums">
+              {repartido.toLocaleString('es-CO')} repartidos entre {conTope.length} zona{conTope.length !== 1 ? 's' : ''}
+              {aforoRecinto > repartido && ` · ${(aforoRecinto - repartido).toLocaleString('es-CO')} sin repartir`}
+            </p>
+          </div>
+          <BarraProgreso pct={Math.round((repartido / aforoRecinto) * 100)} color={pasado ? 'bg-warning' : 'bg-text-1'} />
+          {pasado && (
+            <p className="text-xs text-warning-light">
+              Las zonas suman {(repartido - aforoRecinto).toLocaleString('es-CO')} más de lo que cabe en el recinto.
+              No bloquea nada —el aforo avisa, no cierra la puerta— pero es una de las dos cifras que está mal.
+            </p>
+          )}
+          {sinTope > 0 && (
+            <p className="text-[11px] text-text-3">
+              {sinTope === 1 ? 'Una zona no tiene' : `${sinTope} zonas no tienen`} aforo máximo: cuentan como
+              sin límite y no suman aquí.
+            </p>
+          )}
+        </div></div>
+      )}
+
       {configuradas.length === 0 ? (
         <div className="card"><div className="card-body text-center py-10">
           <p className="text-sm text-text-2">Todavía no hay zonas.</p>
@@ -315,7 +365,13 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
             : <p className="text-[11px] text-text-3 mt-3">Las crea quien administra el evento.</p>}
         </div></div>
       ) : (
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+        /* La segunda columna sólo existe cuando hay zona elegida.
+
+           Antes estaba siempre: 360 px reservados para una tarjeta que decía
+           «Toca una zona», y la lista —que es donde se trabaja— apretada al
+           lado. El vacío ocupaba lo mismo que lo lleno. Sin selección la lista
+           se queda con el ancho entero. */
+        <div className={`grid gap-4 items-start ${seleccionada ? 'lg:grid-cols-[minmax(0,1fr)_380px]' : 'grid-cols-1'}`}>
           <div className="space-y-2">
             {filas.map(z => (
               <FilaZona key={z._k} z={z} activa={z.id === sel}
@@ -347,8 +403,8 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
             )}
           </div>
 
+          {seleccionada && (
           <div className="lg:sticky lg:top-4 space-y-3">
-            {seleccionada ? (
               <>
                 <DetalleMarcador sel={`zona:${seleccionada.id}`} datos={datosDetalle} />
                 <Puertas evento={evento} lista={puertasPorZona[seleccionada.id] || []} />
@@ -374,15 +430,8 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
                 )}
                 <Acciones evento={evento} z={seleccionada} puedeAgenda={puedeAgenda} puedeStands={puedeStands} />
               </>
-            ) : (
-              <div className="rounded-2xl border border-border bg-surface/40 p-5 text-center">
-                <p className="text-sm text-text-2">Toca una zona</p>
-                <p className="text-xs text-text-3 mt-1.5">
-                  Verás su aforo, qué hay programado dentro y qué stands están montados ahí.
-                </p>
-              </div>
-            )}
           </div>
+          )}
         </div>
       )}
     </div>
@@ -415,6 +464,14 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
             <input value={z.nombre} onChange={e => onEditar({ nombre: e.target.value })}
               placeholder="Nombre de la zona" autoFocus={nueva}
               className="input !h-9 text-sm flex-1 min-w-0" />
+            {/* El tipo va junto al nombre y no escondido en la ficha: es lo
+                que decide si esto es una tarima o una salida de emergencia, y
+                se elige al crearla o nunca. */}
+            <select value={z.tipo || TIPO_ZONA_DEFECTO} onChange={e => onEditar({ tipo: e.target.value })}
+              title={TIPOS_ZONA.find(t => t.id === (z.tipo || TIPO_ZONA_DEFECTO))?.ayuda}
+              className="input !h-9 text-sm w-32 flex-shrink-0">
+              {TIPOS_ZONA.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
             <input type="number" min="0" value={z.aforo_max ?? ''}
               onChange={e => onEditar({ aforo_max: e.target.value })}
               placeholder="Aforo" title="Aforo máximo (opcional)"
@@ -425,6 +482,15 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
         ) : (
           <>
             <p className="font-medium text-text-1 flex-1 min-w-0 truncate">{z.nombre}</p>
+            {/* El tipo se enseña también a quien no puede editar: saber cuál es
+                la salida de emergencia no es una tarea de administración. El
+                tipo por defecto no se marca —casi todas son del evento y
+                etiquetarlas todas no distingue nada. */}
+            {z.tipo && z.tipo !== TIPO_ZONA_DEFECTO && (
+              <span className="text-[10px] uppercase tracking-widest text-text-3 flex-shrink-0">
+                {TIPOS_ZONA.find(t => t.id === z.tipo)?.label}
+              </span>
+            )}
             <p className="text-sm font-bold font-display tabular-nums text-text-1 flex-shrink-0">
               {z.dentro}
               {z.aforo_max ? <span className="text-text-3 text-xs font-normal"> / {z.aforo_max}</span> : null}
@@ -475,8 +541,15 @@ function Acciones({ evento, z, puedeAgenda, puedeStands }) {
   const enZonas = `/eventos/${evento.id}?s=zonas`;
   const enActividades = `/eventos/${evento.id}?s=actividades`;
   return (
-    <div className="rounded-2xl border border-border bg-surface/40 p-3.5 space-y-2">
-      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ir a</p>
+    /* Plegado, y no por gusto: son hasta seis enlaces —media ficha— para lo
+       que menos se hace desde aquí. Lo que se usa a diario es colgar una
+       actividad o un stand, y eso está justo encima. */
+    <details className="rounded-2xl border border-border bg-surface/40 px-3.5 py-2.5 group">
+      <summary className="text-[11px] uppercase tracking-widest text-text-3 font-semibold cursor-pointer list-none flex items-center justify-between">
+        Ir a
+        <span className="text-text-3 group-open:rotate-180 transition-transform">⌄</span>
+      </summary>
+      <div className="space-y-2 pt-2">
       <Enlace to={`${enZonas}&t=mapa`} texto={z._enPlano ? 'Mover en el plano' : 'Colocar en el plano'} nota="Mapa del evento" />
       <Enlace to={`${enZonas}&t=aforo`} texto="Operar y tomar reporte" nota="Aforo por zonas" />
       {/* Asignar ya se hace arriba, desde la zona. Estos dos enlaces se quedan
@@ -487,7 +560,8 @@ function Acciones({ evento, z, puedeAgenda, puedeStands }) {
       {!puedeStands && <Enlace to={`${enZonas}&t=stands`} texto="Montar un stand" nota="Stands · campo «Zona del plano»" />}
       <Enlace to={`${enActividades}&t=calendario`} texto="Crear una actividad nueva" nota="Calendario" />
       <Enlace to={`${enZonas}&t=accesos`} texto="Puertas del recinto" nota="Accesos e ingresos" />
-    </div>
+      </div>
+    </details>
   );
 }
 

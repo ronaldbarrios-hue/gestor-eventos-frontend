@@ -27,6 +27,7 @@ const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'))
 const AutorizarPage = lazy(() => import('./pages/conectar/AutorizarPage.jsx'));
 const EmbedPage          = lazy(() => import('./pages/public/EmbedPage.jsx'));
 const ExpositorPage      = lazy(() => import('./pages/public/ExpositorPage.jsx'));
+const EquipoTorneoPage   = lazy(() => import('./pages/public/EquipoTorneoPage.jsx'));
 const FAQPage            = lazy(() => import('./pages/public/FAQPage.jsx'));
 const PrivacidadPage     = lazy(() => import('./pages/public/PrivacidadPage.jsx'));
 const TerminosPage       = lazy(() => import('./pages/public/TerminosPage.jsx'));
@@ -116,6 +117,9 @@ export default function App() {
                     entrar guardando a donde volver. */}
                 <Route path="/conectar/autorizar" element={<AutorizarPage />} />
                 <Route path="/expositor/:codigo"  element={<ExpositorPage />} />
+                {/* El capitán de un equipo, con el código de su boleta de
+                    inscripción. Mismo patrón que el expositor. */}
+                <Route path="/equipo/:codigo"     element={<EquipoTorneoPage />} />
                   <Route path="/faq"               element={<FAQPage />} />
                 <Route path="/privacidad"        element={<PrivacidadPage />} />
                 <Route path="/terminos"          element={<TerminosPage />} />

@@ -25,6 +25,13 @@ export const emailsApi = {
   borrarPlantilla: (eventoId, tipo) =>
     client.delete(`/eventos/${eventoId}/emails/${tipo}`).then(r => r.data),
 
+  /* La previa la RENDERIZA EL SERVIDOR, con el mismo `renderEmail` que arma el
+     correo que sale. El panel tenía su propia imitación en JSX —con su propia
+     sustitución de variables y su propia copia de `esClaro`—, así que lo que el
+     organizador aprobaba no era lo que se enviaba. */
+  previsualizar: (eventoId, tipo, plantilla) =>
+    client.post(`/eventos/${eventoId}/emails/previsualizar`, { tipo, plantilla }).then(r => r.data),
+
   prueba: (eventoId, tipo) =>
     client.post(`/eventos/${eventoId}/emails/prueba`, { tipo }).then(r => r.data),
   enviar: (eventoId, { tipo, audiencia }) =>
@@ -35,6 +42,11 @@ export const emailsApi = {
      que se quedó a medias porque el proceso murió— no se reenvía solo a
      propósito: insistir con una dirección que rebota quema la reputación del
      dominio, y reenviar lo interrumpido duplicaría la boleta. */
+  /* Quién recibió qué. La cola dice CUÁNTOS no salieron; esto dice A QUIÉN, que
+     es la pregunta de verdad cuando alguien avisa de que no le llegó. */
+  envios: (eventoId, limit = 50) =>
+    client.get(`/eventos/${eventoId}/emails/envios`, { params: { limit } }).then(r => r.data),
+
   cola: (eventoId) =>
     client.get(`/eventos/${eventoId}/emails/cola`).then(r => r.data),
   reintentarCola: (eventoId) =>

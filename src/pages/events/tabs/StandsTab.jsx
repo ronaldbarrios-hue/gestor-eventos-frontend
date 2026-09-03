@@ -71,8 +71,17 @@ export default function StandsTab({ evento, soyOwner }) {
           <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Stands</h2>
           <p className="text-sm text-text-2 mt-1">
             Los stands del evento, su cuota de puntos y el catálogo de motivos.
-            Dar puntos y canjear premios se hacen en <b className="text-text-1">Asistentes → Escanear</b>,
-            con el resto de escaneos.
+            Cada stand da SUS puntos desde su propio enlace, contra su cuota;
+            los del evento se dan en <b className="text-text-1">Asistentes → Escanear</b>.
+          </p>
+          {/* La misma tabla que la rueda de negocios, y hasta ahora nadie lo
+              decía: se creaba un expositor allí y aparecía aquí solo. */}
+          <p className="text-xs text-text-3 mt-1">
+            Es la misma lista que la <b className="text-text-2">Rueda de negocios</b>, vista por el otro
+            lado: quien monta un stand es con quien se agenda una cita.{' '}
+            <a href={`/eventos/${evento.id}?s=actividades&t=networking`} className="text-primary-light hover:underline">
+              Ver sus citas y horarios
+            </a>
           </p>
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
