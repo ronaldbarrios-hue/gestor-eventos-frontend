@@ -918,6 +918,85 @@ propio que ya usa `baseDelEvento`.
 
 ---
 
+## Estudio del flujo de registro — 2026-09-02, contra producción
+
+Medido contra **FESTECH IBAGUÉ** (`festech2026`), publicado, y con el frontend
+local apuntando al backend desplegado. Sirve de base para el **Frente H**
+(impresión de escarapelas el día del evento).
+
+### Lo que está sano
+
+| Pieza | Medido |
+|---|---|
+| Estado del evento | `publicado`, aforo **41 / 7.000** |
+| Boletas emitidas | **41**, todas `pagado`, **0 sin `qr_token`** |
+| Tipo de boleta | uno, gratis, cupo 7.000, activo |
+| Formulario | 11 preguntas, **9 obligatorias**, 4 pasos |
+| Recordatorios por correo | activados |
+| Página pública | carga y el registro avanza; **cero errores en consola** |
+| Selector de «Comuna» | 48 opciones, fuera del recorte, dentro de pantalla |
+
+**La cadena del QR es coherente de punta a punta**, que es lo que importa para
+la impresora:
+
+1. Al emitir, la boleta guarda un `qr_token` **firmado** (253 caracteres, sin
+   barras — no es una URL).
+2. La API pública de la boleta lo devuelve, junto con `evento.page_json`, así
+   que las tres salidas resuelven el mismo diseño y **el mismo valor de QR**
+   (`DescargarEntrada` lo reparte desde un solo sitio).
+3. `resolverTicket()` acepta **las dos formas**: el token firmado —verificado y
+   acotado al evento— y el código corto de 8 caracteres, también acotado.
+
+Es decir: el fallo histórico —la escarapela que imprimía la URL y no pasaba el
+control de ingreso— **está cerrado de origen y con un traductor para las
+impresas antes**.
+
+### Lo que NO está listo, y bloquea o condiciona la impresora
+
+1. **El padrón previo no prellena nada.** `page_json.padron` sigue en `NULL`, así
+   que de las 11 preguntas cruza una. Y de las 4.124 personas del archivo, sólo
+   500 traen datos. **No es un problema de código.**
+2. **Sin captcha y sin términos.** `terminos_activo` está en falso y no hay
+   Turnstile. Para un evento de 7.000 personas con 9 campos obligatorios, el
+   formulario está abierto a envíos automáticos. Es una decisión, no un fallo,
+   pero conviene tomarla a propósito.
+3. **El panel no se ha visto en navegador.** Todo lo del organizador —el menú
+   reagrupado, el selector de personas, la pantalla de mapeo— sigue verificado
+   sólo por código: este entorno no tiene credenciales de sesión.
+
+### Para el Frente H · lo que este estudio deja decidido
+
+**Qué imprimir en el QR: el `qr_token`, no el código corto.** Los dos funcionan,
+pero el token va firmado y el código de 8 caracteres sobre un alfabeto de 32
+(~40 bits) es adivinable. El código corto se queda donde ya está: impreso en
+texto debajo, como respaldo para teclear cuando el QR no lee.
+
+**El tamaño físico, que es la decisión de verdad.** 253 caracteres en QR nivel M
+piden alrededor de una versión 11–12, es decir **unos 61–65 módulos por lado**.
+La SAT TT460 es de **203 dpi** (8 puntos/mm), y un lector fiable quiere ≥ 3
+puntos por módulo:
+
+> 65 módulos × 3 puntos = 195 puntos ÷ 8 = **≈ 24 mm de lado, mínimo**.
+
+Con 4 puntos por módulo son ~33 mm. En una etiqueta de 50 mm de ancho cabe, pero
+**hay que probarlo físicamente antes del evento**: el cálculo dice que es
+viable, no que lea bien con esa cinta y ese papel.
+
+**Si no lee a ese tamaño**, la salida no es bajar a nivel L —menos corrección de
+errores en un papel que se dobla y se moja es peor—, sino **acortar el
+contenido**: un token más corto emitido para impresión, o el código corto con el
+riesgo asumido. Esa es una decisión de producto y va antes de programar nada.
+
+### Antes de la impresora, en este orden
+
+1. **Aplicar `0089`, `0090` y `0091`** — están escritas, probadas y reversibles.
+2. **Verificar el panel en navegador**, que es lo único construido a ciegas.
+3. **Decidir captcha y términos** para Festech.
+4. **Subir el padrón con los datos completos**, o asumir que 3.624 personas
+   escriben todo a mano — con 9 campos obligatorios, eso es cola en la puerta.
+
+---
+
 ## FRENTE H · Impresión de escarapelas el día del evento
 
 **Sin empezar, a propósito — anotado el 2026-09-01, se retoma más adelante.**
