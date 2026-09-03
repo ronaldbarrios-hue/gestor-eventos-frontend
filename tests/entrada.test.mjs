@@ -89,3 +89,38 @@ test('el PDF acepta el diseño del organizador', () => {
   assert.match(comp, /walletConfig\(/, 'el componente no resuelve la variante del organizador');
   assert.match(comp, /design,/, 'el componente no le pasa el diseño al PDF');
 });
+
+test('el panel manda la MISMA entrada que se lleva el asistente', () => {
+  /* En el detalle del asistente sólo se podía bajar el QR: una imagen suelta,
+     sin nombre, sin evento y sin instrucciones — escrita a mano por cuarta vez,
+     mientras el asistente tiene desde hace tiempo su tarjeta, su PDF y su QR en
+     `/mi-ticket`. El panel se había quedado con la mitad más pobre de lo que ya
+     existía.
+
+     Que use los mismos componentes no es aseo: es lo que garantiza que el QR
+     que manda el organizador sea el mismo que valida el escáner. Cuando eso se
+     escribió dos veces, una de las dos metió la URL en vez del token firmado y
+     el papel no abría ninguna puerta. */
+  const panel = readFileSync(join(RAIZ, 'src/pages/events/tabs/ClientesTab.jsx'), 'utf8');
+  assert.match(panel, /<DescargarEntrada/, 'el panel volvió a escribir su propia descarga');
+  assert.match(panel, /<EnviarEntrada/, 'el panel no puede enviar la entrada');
+  assert.ok(!/download = `qr-/.test(panel), 'volvió la descarga de QR escrita a mano');
+});
+
+test('enviar por correo no acepta destinatario, y WhatsApp manda el enlace', () => {
+  /* Dos decisiones que hay que sostener:
+
+     · El destinatario NO viaja en la petición. Un endpoint del panel que acepta
+       correo libre es un formulario de envío masivo con la marca del evento.
+     · Por WhatsApp va el ENLACE y no una captura: un PNG suelto no se puede
+       revalidar si cambia el token ni corrige la fecha si el evento se mueve, y
+       lo reenvía cualquiera. */
+  const api = readFileSync(join(RAIZ, 'src/api/clientes.js'), 'utf8');
+  assert.match(api, /clientes\/\$\{ticketId\}\/reenviar`\)/,
+    'reenviar dejó de ser una llamada sin cuerpo: ¿se le está pasando un correo?');
+
+  const env = readFileSync(join(RAIZ, 'src/components/public/EnviarEntrada.jsx'), 'utf8');
+  assert.match(env, /wa\.me\//, 'ya no se ofrece compartir por WhatsApp');
+  assert.match(env, /enlaceBoleta\(evento, ticket\.codigo\)/,
+    'el mensaje de WhatsApp ya no lleva el enlace a la entrada viva');
+});
