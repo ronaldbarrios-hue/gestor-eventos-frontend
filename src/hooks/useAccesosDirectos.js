@@ -30,36 +30,40 @@ export const DESTINOS_ACCESO = [
    La ruta final es /eventos/<id>?s=<seccion>&t=<tab>. Sin límite de cuántos
    se fijan. `cat` sectoriza; `kw` son sinónimos para que el buscador las
    encuentre aunque el usuario escriba otra palabra (ej. "qr" → ingreso). */
+/* Las rutas de aquí son las de HOY. Si el menú se reagrupa, `REUBICADAS`
+   en EventWorkspace traduce las viejas y esto sigue funcionando — pero se
+   queda diciendo nombres que ya no existen. `tests/menu.test.mjs` comprueba
+   que todo `?s=…&t=…` del código lleve a alguna parte. */
 export const SECCIONES_EVENTO = [
-  { q: '?s=resumen',                     label: 'Resumen',            cat: 'Organización', kw: 'panel general' },
-  { q: '?s=organizacion&t=tareas',       label: 'Tareas',             cat: 'Organización', kw: 'pendientes' },
-  { q: '?s=configuracion&t=general',     label: 'Configuración',      cat: 'Organización' },
+  { q: '?s=resumen',                     label: 'Resumen',            cat: 'Equipo', kw: 'panel general' },
+  { q: '?s=equipo&t=tareas',       label: 'Tareas',             cat: 'Equipo', kw: 'pendientes' },
+  { q: '?s=configuracion&t=general',     label: 'Configuración',      cat: 'Equipo' },
 
   { q: '?s=asistentes&t=checkin',        label: 'Escanear',           cat: 'Ingreso', kw: 'escanear qr entrada checkin puerta reingreso subevento puntos canjear premios' },
-  { q: '?s=espacio&t=stands',            label: 'Stands',             cat: 'Espacio', kw: 'motivos pasaporte cuota gamificacion premios' },
-  { q: '?s=asistentes&t=credenciales',   label: 'Credenciales',       cat: 'Ingreso', kw: 'escarapela imprimir tarjeton' },
-  { q: '?s=asistentes&t=tarjeta',        label: 'Tarjeta',            cat: 'Ingreso', kw: 'wallet puntos gamificacion alcance' },
+  { q: '?s=zonas&t=stands',            label: 'Stands',             cat: 'Zonas del evento', kw: 'motivos pasaporte cuota gamificacion premios' },
+  { q: '?s=asistentes&t=acreditacion',   label: 'Credenciales',       cat: 'Ingreso', kw: 'escarapela imprimir tarjeton' },
+  { q: '?s=asistentes&t=acreditacion',        label: 'Tarjeta',            cat: 'Ingreso', kw: 'wallet puntos gamificacion alcance' },
 
-  { q: '?s=experience&t=landing',        label: 'Landing',            cat: 'Contenido', kw: 'pagina publica editor' },
-  { q: '?s=organizacion&t=agenda',       label: 'Espacio del evento', cat: 'Contenido', kw: 'agenda calendario charlas stands sub-eventos' },
-  { q: '?s=dinamicas&t=torneo',          label: 'Torneos',            cat: 'Contenido', kw: 'llaves bracket competencia gaming' },
-  { q: '?s=experience&t=seo',            label: 'SEO',                cat: 'Contenido' },
-  { q: '?s=organizacion&t=documentos',   label: 'Documentos',         cat: 'Contenido', kw: 'archivos contratos' },
+  { q: '?s=pagina&t=landing',        label: 'Landing',            cat: 'Tu página', kw: 'pagina publica editor' },
+  { q: '?s=actividades&t=calendario',       label: 'Espacio del evento', cat: 'Tu página', kw: 'agenda calendario charlas stands sub-eventos' },
+  { q: '?s=actividades&t=torneos',          label: 'Torneos',            cat: 'Tu página', kw: 'llaves bracket competencia gaming' },
+  { q: '?s=pagina&t=seo',            label: 'SEO',                cat: 'Tu página' },
+  { q: '?s=equipo&t=documentos',   label: 'Documentos',         cat: 'Tu página', kw: 'archivos contratos' },
 
   { q: '?s=comercial&t=boletas',         label: 'Boletas',            cat: 'Comercial', kw: 'tickets entradas precios' },
-  { q: '?s=experience&t=checkout',       label: 'Proceso de compra',  cat: 'Comercial', kw: 'checkout formulario' },
+  { q: '?s=pagina&t=checkout',       label: 'Proceso de compra',  cat: 'Comercial', kw: 'checkout formulario' },
   { q: '?s=comercial&t=pagos',           label: 'Pagos',              cat: 'Comercial', kw: 'mercadopago cobros' },
   { q: '?s=comercial&t=promociones',     label: 'Promociones',        cat: 'Comercial', kw: 'descuentos cupones' },
-  { q: '?s=comercial&t=analytics',       label: 'Analytics',          cat: 'Comercial', kw: 'estadisticas ventas' },
+  { q: '?s=resumen&t=analytics',       label: 'Analytics',          cat: 'Comercial', kw: 'estadisticas ventas' },
   { q: '?s=comercial&t=facturacion',     label: 'Facturación',        cat: 'Comercial' },
 
   { q: '?s=asistentes&t=clientes',       label: 'Clientes',           cat: 'Personas', kw: 'asistentes registrados' },
-  { q: '?s=asistentes&t=invitaciones',   label: 'Invitaciones',       cat: 'Personas' },
-  { q: '?s=organizacion&t=equipo',       label: 'Equipo y roles',     cat: 'Personas', kw: 'staff permisos colaboradores' },
-  { q: '?s=organizacion&t=vacantes',     label: 'Vacantes',           cat: 'Personas', kw: 'empleo trabajo contratar personal talento pipeline' },
+  { q: '?s=asistentes&t=previos',   label: 'Invitaciones',       cat: 'Personas' },
+  { q: '?s=equipo&t=equipo',       label: 'Equipo y roles',     cat: 'Personas', kw: 'staff permisos colaboradores' },
+  { q: '?s=equipo&t=vacantes',     label: 'Vacantes',           cat: 'Personas', kw: 'empleo trabajo contratar personal talento pipeline' },
 
-  { q: '?s=experience&t=emails',         label: 'Emails',             cat: 'Comunicación', kw: 'correos campañas' },
-  { q: '?s=comunicacion&t=chat',         label: 'Chats del evento',   cat: 'Comunicación', kw: 'mensajes' },
+  { q: '?s=mensajes&t=emails',         label: 'Emails',             cat: 'Comunicación', kw: 'correos campañas' },
+  { q: '?s=mensajes&t=chat',         label: 'Chats del evento',   cat: 'Comunicación', kw: 'mensajes' },
 ];
 
 /* Categorías en el orden en que se muestran en el picker. */

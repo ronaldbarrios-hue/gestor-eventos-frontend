@@ -300,7 +300,7 @@ export default function AccesosSection({ evento }) {
           enlace — repetir aquí el alta sería volver a tener dos dueños del
           mismo dato, que es justo lo que se acaba de quitar del mapa. */}
       <div className="border-t border-border pt-5">
-        <Link to={`/eventos/${evento.id}?s=espacio&t=zonas`}
+        <Link to={`/eventos/${evento.id}?s=zonas&t=zonas`}
           className="block rounded-2xl border border-border bg-surface/40 p-4 hover:bg-surface-2/40 transition-colors">
           <p className="text-base font-semibold text-text-1">Zonas de interés <span className="text-text-3 font-normal">→</span></p>
           <p className="text-sm text-text-2 mt-1">

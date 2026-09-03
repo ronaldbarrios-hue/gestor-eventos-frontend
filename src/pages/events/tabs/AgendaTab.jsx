@@ -32,13 +32,17 @@ import SpeakersList, { SpeakerForm } from './agenda/AgendaSpeakers.jsx';
    pasaba de 1.200 líneas y las cinco vistas comparten helpers que estaban al
    final, después de todo lo demás. */
 
-export default function AgendaTab({ evento }) {
+/* `vistaFija` separa «Speakers» a su propia pestaña del menú. Era un
+   conmutador dentro del Calendario y por eso no se encontraba: para ver los
+   ponentes había que entrar a las sesiones primero. Sin `vistaFija` el
+   conmutador sigue estando, que es lo que quiere quien ya está aquí dentro. */
+export default function AgendaTab({ evento, vistaFija = null }) {
   const { usuario } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [speakers, setSpeakers] = useState([]);
   const [torneos,  setTorneos]  = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [view,     setView]     = useState('sessions'); // sessions | speakers
+  const [view,     setView]     = useState(vistaFija || 'sessions'); // sessions | speakers
   const [subView,  setSubView]  = useState('lista');    // lista | dia | semana | mes | salas
   const [cursor,   setCursor]   = useState(() => startOfMonth(new Date()));
   const [creating, setCreating] = useState(false);
@@ -154,11 +158,17 @@ export default function AgendaTab({ evento }) {
     <div className="space-y-5">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Espacio del evento</h2>
-          <p className="text-sm text-text-2 mt-1">Todo lo que pasa dentro: charlas, stands, competencias, shows… y sus speakers.</p>
+          <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">
+            {vistaFija === 'speakers' ? 'Speakers' : 'Actividades del evento'}
+          </h2>
+          <p className="text-sm text-text-2 mt-1">
+            {vistaFija === 'speakers'
+              ? 'Quién habla en el evento. Se enganchan a cada actividad desde el Calendario.'
+              : 'Todo lo que pasa dentro: charlas, stands, competencias, shows… y sus speakers.'}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
+          <div className={`items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 ${vistaFija ? 'hidden' : 'flex'}`}>
             {[['sessions', 'Sesiones'], ['speakers', 'Speakers']].map(([k, l]) => (
               <button key={k} onClick={() => setView(k)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${view === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>

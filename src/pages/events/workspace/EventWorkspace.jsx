@@ -22,12 +22,11 @@ import SeoSection           from './comercial/SeoSection.jsx';
 import EmailsSection        from './comercial/EmailsSection.jsx';
 import FacturacionSection  from './comercial/FacturacionSection.jsx';
 import PromocionesSection  from './comercial/PromocionesSection.jsx';
-import CredencialesSection from './asistentes/CredencialesSection.jsx';
 import AccesosSection     from './asistentes/AccesosSection.jsx';
 import AforoSection       from './asistentes/AforoSection.jsx';
-import InvitacionesSection from './asistentes/InvitacionesSection.jsx';
+import AcreditacionSection from './asistentes/AcreditacionSection.jsx';
+import PreviosSection      from './asistentes/PreviosSection.jsx';
 import DocumentosSection    from './DocumentosSection.jsx';
-import TarjetaSection       from './asistentes/TarjetaSection.jsx';
 import PaginaPublicaTab  from '../tabs/PaginaPublicaTab.jsx';
 import FormularioTab     from '../tabs/FormularioTab.jsx';
 import EquipoTab         from '../tabs/EquipoTab.jsx';
@@ -44,7 +43,6 @@ import TicketsTab        from '../tabs/TicketsTab.jsx';
 import AnalyticsTab      from '../tabs/AnalyticsTab.jsx';
 import ClientesTab       from '../tabs/ClientesTab.jsx';
 import CheckinTab        from '../tabs/CheckinTab.jsx';
-import WaitlistTab       from '../tabs/WaitlistTab.jsx';
 import NetworkingTab     from '../tabs/NetworkingTab.jsx';
 import TorneoTab         from '../tabs/TorneoTab.jsx';
 import MapaSection       from './MapaSection.jsx';
@@ -64,96 +62,110 @@ const CATEGORIAS_NETWORKING = ['negocios', 'marketing', 'tecnologia'];
 
 /* Secciones y sub-tabs. perm: permiso requerido para miembros (owner ve todo).
    null = todo el equipo. 'placeholder' marca módulos aún en construcción. */
+/* ── Por qué el menú está agrupado así ─────────────────────────
+ *
+ * Antes había 8 secciones y 39 pestañas, agrupadas por TRES criterios a la vez:
+ * por objeto (Espacio del evento, Asistentes), por momento (Event Experience
+ * era *antes*, Comercial era *la venta*) y por departamento (Organización).
+ * Con tres ejes, la respuesta a «¿dónde está X?» es «depende», y por eso la
+ * misma cosa caía en dos sitios según con qué eje se mirara: el Reporte junto
+ * a Vacantes y Documentos, y Analytics en Comercial, midiendo los dos lo mismo.
+ *
+ * La regla ahora es una sola: cada sección es UNA COSA del evento, no un
+ * momento ni un departamento. Una actividad ocurre en el tiempo, una zona
+ * existe en el espacio; un torneo es actividad aunque tenga sitio, un stand es
+ * sitio aunque tenga horario.
+ *
+ * Lo que se juntó porque era lo mismo partido en dos:
+ *   · Credenciales + Tarjeta → Acreditación (qué lleva encima el asistente)
+ *   · Lista de espera + Invitaciones → Antes de la boleta
+ *   · Analytics + Reporte → dentro de Resumen, que era una sección de una sola
+ *     pestaña
+ *   · Emails + Anuncios + Chats → Mensajes, las tres formas de decir algo
+ *
+ * Las dos fusiones de Asistentes cambian permisos, así que no se hicieron a
+ * secas: cada pantalla fusionada comprueba dentro el permiso de cada vista.
+ * Ver `AcreditacionSection` y `PreviosSection`.
+ *
+ * `perm`: permiso requerido para miembros (el dueño ve todo). null = todo el
+ * equipo. Un array = le basta cualquiera de ellos. */
 const SECCIONES = [
   { id: 'resumen', label: 'Resumen', icon: HomeIcon, tabs: [
-    { id: 'general', label: 'Resumen', perm: null },
+    { id: 'general',   label: 'Resumen',   perm: null },
+    { id: 'analytics', label: 'Analytics', perm: 'ver_analytics' },
+    { id: 'reporte',   label: 'Reporte',   perm: 'ver_analytics' },
   ]},
-  { id: 'experience', label: 'Event Experience', icon: SparkIcon, tabs: [
+  { id: 'pagina', label: 'Tu página', icon: SparkIcon, tabs: [
     { id: 'landing',     label: 'Landing',            perm: 'editar_pagina_publica' },
     { id: 'publicacion', label: 'Publicación',        perm: 'editar_pagina_publica' },
-    { id: 'checkout',    label: 'Proceso de compra',  perm: 'gestionar_tickets' },
-    { id: 'emails',      label: 'Emails',             perm: 'editar_pagina_publica' },
     { id: 'seo',         label: 'SEO',                perm: 'editar_pagina_publica' },
+    { id: 'checkout',    label: 'Proceso de compra',  perm: 'gestionar_tickets' },
   ]},
-  /* ── Espacio del evento ──────────────────────────────────────────────
-     Aquí vive TODO lo que pasa dentro del evento: charlas, competencias,
-     stands, shows, y el plano donde ocurren.
-
-     Antes estaba partido en dos sitios que no se hablaban: la "Agenda" colgaba
-     de Organización —junto a Vacantes y Documentos, que son papeleo— y los
-     torneos vivían en una sección aparte llamada "Dinámicas", con la rueda de
-     negocios y el mapa. Eran las mismas cosas en dos menús: `agenda_sessions`
-     ya tiene un `tipo` competitivo y un `torneo_id` que apunta a las llaves,
-     así que un torneo SIEMPRE fue un sub-evento más — sólo que había que
-     acordarse de crearlo dos veces, en dos pantallas distintas, y nada
-     garantizaba que coincidieran.
-
-     Esta es la decisión de navegación que el refactor pedía tomar antes de
-     mover código: una sola sección, y dentro las vistas de lo mismo. El
-     calendario es "cuándo", las llaves son "cómo va", el mapa es "dónde". */
-  { id: 'espacio', label: 'Espacio del evento', icon: TrophyIcon, tabs: [
+  /* Actividades del evento: QUÉ pasa.
+     `agenda_sessions` ya tiene un `tipo` competitivo y un `torneo_id`, así que
+     un torneo SIEMPRE fue un sub-evento más. El calendario es «cuándo», las
+     llaves son «cómo va», los speakers son «quién». */
+  { id: 'actividades', label: 'Actividades del evento', icon: TrophyIcon, tabs: [
     { id: 'calendario', label: 'Calendario',        perm: null },
     { id: 'torneos',    label: 'Torneos',           perm: ['gestionar_torneo'] },
     { id: 'networking', label: 'Rueda de negocios', perm: null },
-    { id: 'mapa',       label: 'Mapa del evento',   perm: 'editar_evento' },
-    /* Las puertas, el aforo y los stands son del ESPACIO: por dónde se entra,
-       una zona con su cupo y un stand con su sitio son DÓNDE pasan las cosas,
-       no quién asiste. Estaban en Asistentes —que es de personas— y por eso
-       había que salir del mapa para tocar la zona que se estaba mirando.
-       «Accesos e ingresos» define las puertas y las zonas; el aforo se OPERA
-       aparte. El aforo lo opera quien está en la puerta, no sólo el dueño: por
-       eso va con el permiso de check-in. Limpiar el contador sí queda
-       reservado al owner, y eso lo decide el backend. */
-    { id: 'accesos',    label: 'Accesos e ingresos', perm: '__solo_owner__' },
-    /* «Zonas de interés» es la zona vista entera: su aforo en vivo, lo que
-       ocurre dentro y los stands montados ahí. Va antes del aforo porque
-       contesta «qué es esta zona»; el aforo contesta «cómo va ahora mismo» y
-       es donde se opera. Mismo permiso que el aforo: se mira mientras se
-       trabaja el evento, no es una pantalla de configuración. */
-    { id: 'zonas',      label: 'Zonas de interés',  perm: 'checkin' },
-    { id: 'aforo',      label: 'Aforo por zonas',   perm: 'checkin' },
-    { id: 'stands',     label: 'Stands',            perm: 'checkin' },
+    { id: 'speakers',   label: 'Speakers',          perm: null },
     { id: 'ranking',    label: 'Ranking',           perm: null },
   ]},
-  { id: 'organizacion', label: 'Organización', icon: UsersIcon, tabs: [
-    { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
-    { id: 'vacantes',    label: 'Vacantes',    perm: 'editar_evento' },
-    { id: 'tareas',      label: 'Tareas',      perm: null },
-    { id: 'solicitudes', label: 'Sugerencias', perm: null },
-    { id: 'documentos',  label: 'Documentos',  perm: null },
-    { id: 'reporte',     label: 'Reporte',     perm: 'ver_analytics' },
+  /* Zonas del evento: DÓNDE pasa.
+     Una zona con su cupo, un stand con su sitio y una puerta por la que se
+     entra son sitios, no personas: estaban en Asistentes y por eso había que
+     salir del mapa para tocar la zona que se estaba mirando.
+     «Zonas de interés» va primero porque contesta «qué es esta zona»; el aforo
+     contesta «cómo va ahora mismo» y es donde se opera, de pie y con cola
+     delante — por eso lleva el permiso de check-in y no el del dueño. */
+  { id: 'zonas', label: 'Zonas del evento', icon: PinIcon, tabs: [
+    { id: 'zonas',   label: 'Zonas de interés',   perm: 'checkin' },
+    { id: 'mapa',    label: 'Mapa del evento',    perm: 'editar_evento' },
+    { id: 'aforo',   label: 'Aforo por zonas',    perm: 'checkin' },
+    { id: 'stands',  label: 'Stands',             perm: 'checkin' },
+    { id: 'accesos', label: 'Accesos e ingresos', perm: '__solo_owner__' },
   ]},
-  { id: 'comercial', label: 'Comercial', icon: WalletIcon, tabs: [
+  { id: 'comercial', label: 'Entradas y dinero', icon: WalletIcon, tabs: [
     { id: 'boletas',      label: 'Boletas',      perm: 'gestionar_tickets' },
-    { id: 'pagos',        label: 'Pagos',        perm: 'ver_pagos' },
-    { id: 'analytics',    label: 'Analytics',    perm: 'ver_analytics' },
     { id: 'promociones',  label: 'Promociones',  perm: 'gestionar_tickets' },
+    { id: 'pagos',        label: 'Pagos',        perm: 'ver_pagos' },
     { id: 'facturacion',  label: 'Facturación',  perm: 'ver_pagos' },
   ]},
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
-    { id: 'clientes',     label: 'Clientes',        perm: 'ver_clientes' },
+    { id: 'clientes',     label: 'Clientes',  perm: 'ver_clientes' },
     /* «Escanear» y no «Control de ingreso»: ya no sólo controla el ingreso.
        Es el único sitio donde se pasa una escarapela por un móvil —entrada,
        reingreso, sub-evento, puntos y canje—, y llamarlo por la primera de
        las cinco cosas mandaba a buscar las otras cuatro a otra pantalla. */
-    { id: 'checkin',      label: 'Escanear',        perm: 'checkin' },
-    /* «Accesos e ingresos» se fue a Espacio del evento: define puertas y zonas
-       del recinto, que es DÓNDE se entra, no quién. Ver REUBICADAS. */
-    { id: 'waitlist',     label: 'Lista de espera', perm: '__solo_owner__' },
-    { id: 'invitaciones', label: 'Invitaciones',    perm: 'ver_clientes' },
-    { id: 'credenciales', label: 'Credenciales',    perm: 'checkin' },
-    { id: 'tarjeta',      label: 'Tarjeta',         perm: 'ver_clientes' },
+    { id: 'checkin',      label: 'Escanear',  perm: 'checkin' },
+    /* Los dos permisos, no uno: la escarapela la imprime quien está en la
+       puerta y el carné lo diseña quien lleva los clientes. La pantalla
+       comprueba dentro cuál de las dos vistas puede ver cada quien. */
+    { id: 'acreditacion', label: 'Acreditación',       perm: ['checkin', 'ver_clientes'] },
+    { id: 'previos',      label: 'Antes de la boleta', perm: 'ver_clientes' },
   ]},
-  { id: 'comunicacion', label: 'Comunicación', icon: ChatIcon, tabs: [
+  { id: 'equipo', label: 'Equipo y tareas', icon: UsersIcon, tabs: [
+    { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
+    { id: 'tareas',      label: 'Tareas',      perm: null },
+    { id: 'vacantes',    label: 'Vacantes',    perm: 'editar_evento' },
+    { id: 'solicitudes', label: 'Sugerencias', perm: null },
+    { id: 'documentos',  label: 'Documentos',  perm: null },
+  ]},
+  /* Las tres formas de decirle algo a alguien. «Emails» estaba en Event
+     Experience por ser plantillas y «Anuncios» en Comunicación por ser un
+     envío: quien quería avisar algo tenía que saber de antemano cuál era. */
+  { id: 'mensajes', label: 'Mensajes', icon: ChatIcon, tabs: [
     { id: 'chat',     label: 'Chats',    perm: null },
     { id: 'anuncios', label: 'Anuncios', perm: '__solo_owner__' },
+    { id: 'emails',   label: 'Emails',   perm: 'editar_pagina_publica' },
   ]},
+  /* Fuera «API» y «Seguridad»: eran dos placeholders que no hacían nada y
+     ocupaban sitio en el menú. Vuelven cuando existan. */
   { id: 'configuracion', label: 'Configuración', icon: CogIcon, tabs: [
     { id: 'general',          label: 'General',          perm: '__solo_owner__' },
     { id: 'integraciones',    label: 'Integraciones',    perm: '__solo_owner__' },
     { id: 'automatizaciones', label: 'Automatizaciones', perm: '__solo_owner__' },
-    { id: 'api',              label: 'API',              perm: '__solo_owner__', placeholder: ['API', 'Tokens, webhooks y SDK para integraciones externas.'] },
-    { id: 'seguridad',        label: 'Seguridad',        perm: '__solo_owner__', placeholder: ['Seguridad', 'Dominios permitidos, CORS, accesos y auditoría técnica.'] },
   ]},
 ];
 
@@ -186,20 +198,56 @@ export default function EventWorkspace() {
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [anunciosVersion, setAnunciosVersion] = useState(0);
 
-  /* Direcciones de antes de fusionar Dinámicas en Espacio del evento. Un
-     enlace guardado, un correo o un botón de otra pantalla seguían apuntando
-     a `dinamicas/torneo`; sin esto caerían en el Resumen sin explicación. */
+  /* Direcciones de antes.
+     Un enlace guardado, un correo, un botón de otra pantalla o un atajo del
+     buscador siguen apuntando a la casa vieja; sin esto caerían en el Resumen
+     sin explicación. La lista crece cada vez que algo se muda — no se
+     reemplaza, se añade: la primera mudanza (Dinámicas → Espacio) sigue aquí
+     y ahora apunta dos saltos más allá, a su destino de hoy. */
   const REUBICADAS = {
-    'dinamicas/torneo'     : ['espacio', 'torneos'],
-    'dinamicas/networking' : ['espacio', 'networking'],
-    'dinamicas/mapa'       : ['espacio', 'mapa'],
-    'organizacion/agenda'  : ['espacio', 'calendario'],
-    'organizacion/ranking' : ['espacio', 'ranking'],
-    /* El aforo, los stands y los accesos se fueron a Espacio del evento. Un
-       enlace guardado o un correo antiguo seguirían apuntando aquí. */
-    'asistentes/aforo'     : ['espacio', 'aforo'],
-    'asistentes/stands'    : ['espacio', 'stands'],
-    'asistentes/accesos'   : ['espacio', 'accesos'],
+    /* Dinámicas y Organización → Espacio del evento → Actividades / Zonas */
+    'dinamicas/torneo'       : ['actividades', 'torneos'],
+    'dinamicas/networking'   : ['actividades', 'networking'],
+    'dinamicas/mapa'         : ['zonas', 'mapa'],
+    'organizacion/agenda'    : ['actividades', 'calendario'],
+    'organizacion/ranking'   : ['actividades', 'ranking'],
+    'asistentes/aforo'       : ['zonas', 'aforo'],
+    'asistentes/stands'      : ['zonas', 'stands'],
+    'asistentes/accesos'     : ['zonas', 'accesos'],
+    /* Espacio del evento, partido en QUÉ pasa y DÓNDE pasa */
+    'espacio/calendario'     : ['actividades', 'calendario'],
+    'espacio/torneos'        : ['actividades', 'torneos'],
+    'espacio/networking'     : ['actividades', 'networking'],
+    'espacio/ranking'        : ['actividades', 'ranking'],
+    'espacio/zonas'          : ['zonas', 'zonas'],
+    'espacio/mapa'           : ['zonas', 'mapa'],
+    'espacio/aforo'          : ['zonas', 'aforo'],
+    'espacio/stands'         : ['zonas', 'stands'],
+    'espacio/accesos'        : ['zonas', 'accesos'],
+    /* Event Experience → Tu página (y los correos, a Mensajes) */
+    'experience/landing'     : ['pagina', 'landing'],
+    'experience/publicacion' : ['pagina', 'publicacion'],
+    'experience/seo'         : ['pagina', 'seo'],
+    'experience/checkout'    : ['pagina', 'checkout'],
+    'experience/formularios' : ['pagina', 'formularios'],
+    'experience/whitelabel'  : ['pagina', 'whitelabel'],
+    'experience/emails'      : ['mensajes', 'emails'],
+    /* Organización → Equipo y tareas (y el Reporte, con la otra medición) */
+    'organizacion/equipo'      : ['equipo', 'equipo'],
+    'organizacion/tareas'      : ['equipo', 'tareas'],
+    'organizacion/vacantes'    : ['equipo', 'vacantes'],
+    'organizacion/solicitudes' : ['equipo', 'solicitudes'],
+    'organizacion/documentos'  : ['equipo', 'documentos'],
+    'organizacion/reporte'     : ['resumen', 'reporte'],
+    'comercial/analytics'      : ['resumen', 'analytics'],
+    /* Las dos fusiones de Asistentes */
+    'asistentes/credenciales'  : ['asistentes', 'acreditacion'],
+    'asistentes/tarjeta'       : ['asistentes', 'acreditacion'],
+    'asistentes/waitlist'      : ['asistentes', 'previos'],
+    'asistentes/invitaciones'  : ['asistentes', 'previos'],
+    /* Comunicación → Mensajes */
+    'comunicacion/chat'        : ['mensajes', 'chat'],
+    'comunicacion/anuncios'    : ['mensajes', 'anuncios'],
   };
   const sBruto = searchParams.get('s') || 'resumen';
   const tBruto = searchParams.get('t') || '';
@@ -426,30 +474,31 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
   const k = `${seccion.id}/${tab.id}`;
   switch (k) {
     case 'resumen/general'          : return <ResumenSection evento={evento} soyOwner={soyOwner} reload={reload} onEditar={onEditar} onAnuncio={onAnuncio} onEliminar={onEliminar} />;
-    case 'experience/landing'       : return <PaginaPublicaTab evento={evento} />;
-    case 'experience/publicacion'   : return <PublicacionSection evento={evento} reload={reload} />;
-    case 'experience/formularios'   : return <FormularioTab evento={evento} />;
-    case 'experience/checkout'      : return <CheckoutSection evento={evento} />;
-    case 'experience/seo'           : return <SeoSection evento={evento} />;
-    case 'experience/emails'        : return <EmailsSection evento={evento} reload={reload} />;
-    case 'experience/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
-    case 'organizacion/equipo'      : return <EquipoTab evento={evento} />;
-    case 'organizacion/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
-    case 'organizacion/tareas'      : return <TareasTab evento={evento} />;
-    case 'organizacion/solicitudes' : return <SolicitudesTab evento={evento} />;
-    case 'organizacion/documentos'  : return <DocumentosSection evento={evento} />;
-    case 'organizacion/reporte'     : return <ReporteTab evento={evento} />;
+    case 'pagina/landing'       : return <PaginaPublicaTab evento={evento} />;
+    case 'pagina/publicacion'   : return <PublicacionSection evento={evento} reload={reload} />;
+    case 'pagina/formularios'   : return <FormularioTab evento={evento} />;
+    case 'pagina/checkout'      : return <CheckoutSection evento={evento} />;
+    case 'pagina/seo'           : return <SeoSection evento={evento} />;
+    case 'mensajes/emails'        : return <EmailsSection evento={evento} reload={reload} />;
+    case 'pagina/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
+    case 'equipo/equipo'      : return <EquipoTab evento={evento} />;
+    case 'equipo/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
+    case 'equipo/tareas'      : return <TareasTab evento={evento} />;
+    case 'equipo/solicitudes' : return <SolicitudesTab evento={evento} />;
+    case 'equipo/documentos'  : return <DocumentosSection evento={evento} />;
+    case 'resumen/reporte'     : return <ReporteTab evento={evento} />;
 
     /* Espacio del evento: las cuatro vistas de lo mismo. */
-    case 'espacio/calendario'       : return <AgendaTab evento={evento} />;
-    case 'espacio/torneos'          : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
-    case 'espacio/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
-    case 'espacio/mapa'             : return <MapaSection evento={evento} />;
-    case 'espacio/accesos'          : return <AccesosSection evento={evento} />;
-    case 'espacio/ranking'          : return <RankingTab evento={evento} />;
+    case 'actividades/calendario'   : return <AgendaTab evento={evento} />;
+    case 'actividades/speakers'     : return <AgendaTab evento={evento} vistaFija="speakers" />;
+    case 'actividades/torneos'          : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
+    case 'actividades/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
+    case 'zonas/mapa'             : return <MapaSection evento={evento} />;
+    case 'zonas/accesos'          : return <AccesosSection evento={evento} />;
+    case 'actividades/ranking'          : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
-    case 'comercial/analytics'      : return <AnalyticsTab evento={evento} />;
+    case 'resumen/analytics'      : return <AnalyticsTab evento={evento} />;
     case 'comercial/promociones'    : return <PromocionesSection evento={evento} />;
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
@@ -457,15 +506,16 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     /* Esta pantalla toca tres cosas con tres permisos distintos (la zona, la
        agenda y los stands), así que recibe la lista y decide ella: la regla de
        cada acción vive junto a la acción. */
-    case 'espacio/zonas'            : return <ZonasSection evento={evento} soyOwner={soyOwner} permisos={permisos} reload={reload} />;
-    case 'espacio/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
-    case 'espacio/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
-    case 'asistentes/waitlist'      : return <WaitlistTab evento={evento} />;
-    case 'asistentes/credenciales'  : return <CredencialesSection evento={evento} />;
-    case 'asistentes/invitaciones'  : return <InvitacionesSection evento={evento} />;
-    case 'asistentes/tarjeta'       : return <TarjetaSection evento={evento} />;
-    case 'comunicacion/chat'        : return <ChatTab evento={evento} />;
-    case 'comunicacion/anuncios'    : return <AnunciosSection evento={evento} onAnuncio={onAnuncio} recargar={anunciosVersion} />;
+    case 'zonas/zonas'            : return <ZonasSection evento={evento} soyOwner={soyOwner} permisos={permisos} reload={reload} />;
+    case 'zonas/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
+    case 'zonas/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
+    /* Las dos fusiones. Cada una comprueba dentro el permiso de cada vista:
+       juntarlas sin eso habría dado a quien escanea el diseñador del carné,
+       y a quien lleva clientes la lista de espera del dueño. */
+    case 'asistentes/acreditacion'  : return <AcreditacionSection evento={evento} soyOwner={soyOwner} permisos={permisos} />;
+    case 'asistentes/previos'       : return <PreviosSection evento={evento} soyOwner={soyOwner} />;
+    case 'mensajes/chat'        : return <ChatTab evento={evento} />;
+    case 'mensajes/anuncios'    : return <AnunciosSection evento={evento} onAnuncio={onAnuncio} recargar={anunciosVersion} />;
     case 'configuracion/general'    : return <ConfigGeneral evento={evento} />;
     case 'configuracion/automatizaciones': return <AutomatizacionesSection evento={evento} />;
     case 'configuracion/integraciones': return <IntegracionesSection />;
@@ -522,6 +572,7 @@ function Fila({ k, v, mono }) {
 /* ── Icons ── */
 function HomeIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>; }
 function SparkIcon({ className }) { return <svg className={className} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9L12 2zm7 12l.95 2.85L22.8 17.8l-2.85.95L19 21.6l-.95-2.85-2.85-.95 2.85-.95L19 14z"/></svg>; }
+function PinIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>; }
 function UsersIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>; }
 function WalletIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>; }
 function TicketIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>; }

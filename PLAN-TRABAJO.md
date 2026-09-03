@@ -2011,10 +2011,30 @@ falta es una pantalla que los junte.
 **O1** · El selector de personas compartido, y la puerta usándolo. Frontend
 solo, sin migración, y arregla hoy lo que se pidió. → *empezar por aquí*
 
-**O2** · El menú: las nueve secciones, con las fusiones (Acreditación, Antes de
-la boleta, Resumen+medición, Mensajes). Va junto con la **Fase 1 del Frente N**,
-que parte «Espacio» en dos — es la misma estructura y el mismo mapa de rutas
-viejas; hacerlo en dos pasadas es tocar dos veces lo mismo.
+**O2** · ~~El menú: las nueve secciones~~ — ✅ **hecho el 2026-09-02**, junto con
+la Fase 1 del Frente N. **9 secciones, 36 pestañas** (eran 8 y 39).
+
+- «Espacio del evento» partido en **Actividades del evento** (qué pasa) y
+  **Zonas del evento** (dónde pasa). **Speakers** sale a su propia pestaña: era
+  un conmutador dentro del Calendario y por eso no se encontraba.
+- Fusionadas: **Acreditación** (Credenciales+Tarjeta), **Antes de la boleta**
+  (Lista de espera+Invitaciones), **Analytics y Reporte** dentro de Resumen
+  —que era una sección de una sola pestaña— y **Mensajes** (Chats, Anuncios,
+  Emails). Fuera los dos placeholders de Configuración.
+- **Las dos fusiones de Asistentes cambiaban permisos y no se hicieron a
+  secas.** La escarapela la imprime quien está en la puerta (`checkin`) y el
+  carné lo diseña quien lleva los clientes (`ver_clientes`); la lista de espera
+  es del dueño y las invitaciones no. Cada pantalla fusionada comprueba dentro
+  el permiso de su vista, así que nadie ganó ni perdió acceso.
+- `REUBICADAS` pasó de 8 a 37 entradas: **ningún enlace guardado cae en el
+  Resumen**. Las de la primera mudanza (Dinámicas → Espacio) siguen ahí y ahora
+  apuntan dos saltos más allá, a su destino de hoy.
+- `tests/menu.test.mjs`: que toda pestaña tenga pantalla, que toda ruta vieja
+  lleve a una que existe, y que **todo `?s=…&t=…` escrito en el código** lleve
+  a alguna parte. Comprobado que muerde: renombrando un `case` a mano, falla.
+- Actualizados los 16 atajos del buscador y los enlaces internos. Uno de ellos
+  construía la ruta por partes (`base` + `&t=…`) y **se escapaba de la prueba**:
+  sus cinco destinos ahora viven en dos secciones distintas.
 
 **O3** · El rol **Administrador** y la semilla arreglada. Migración que sólo
 añade: no toca a nadie.
