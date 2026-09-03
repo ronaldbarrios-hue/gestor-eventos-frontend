@@ -108,7 +108,6 @@ export default function TopBar({ onMenu }) {
      dos cosas: organiza sus eventos Y va a los de otros. Ahora hay un solo
      sidebar y "Explorar" es una sección más, no un modo. */
 
-  const showBack = !ROOT_PATHS.has(pathname);
   const initials = usuario?.nombre
     ?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'U';
 
@@ -131,15 +130,13 @@ export default function TopBar({ onMenu }) {
       >
         <MenuIcon className="w-5 h-5" />
       </button>
-      {showBack && (
-        <button
-          onClick={() => navigate(-1)}
-          aria-label={t('Volver')}
-          className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0"
-        >
-          <BackIcon className="w-4 h-4" />
-        </button>
-      )}
+      {/* Aquí había una flecha suelta que hacía `navigate(-1)`.
+
+          Dos cosas mal en un botón de 32 píxeles: no decía a dónde llevaba —su
+          destino vivía sólo en el `aria-label`— y retrocedía en el historial,
+          que devuelve a donde estabas y no a donde quieres ir. Justo al lado
+          está la miga de pan, que SÍ dice dónde estás y lleva a sitios con
+          nombre. Con las dos cosas, la flecha era la peor de las dos. */}
 
       {/* Breadcrumb */}
       <nav className="hidden sm:flex items-center gap-1.5 text-sm min-w-0 flex-shrink-0">
@@ -299,9 +296,7 @@ function MenuIcon({ className }) {
 function BellIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>;
 }
-function BackIcon({ className }) {
-  return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>;
-}
+
 function ChevronIcon({ className }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>;
 }

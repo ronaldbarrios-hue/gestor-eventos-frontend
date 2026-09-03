@@ -8,38 +8,30 @@ import { Flotante, usePosicionFlotante } from '../ui/Flotante.jsx';
 
 /* GESTEK — Hacerle llegar la entrada a quien ya la tiene.
  *
- * ── Lo que se pidió, y lo que se puede cumplir de verdad ─────────────────
+ * ── Dos caminos, y el segundo lo eligió mal la primera versión ──────────
  *
- * «Poder enviar la tarjeta de una persona registrada por email. Ahora sólo
- * permite descargar el QR; debería ser toda la tarjeta, para enviarla al correo
- * registrado o compartirla por WhatsApp a un número.»
+ * · **Al correo** lo manda el servidor, y manda el correo de siempre —el mismo
+ *   que sale al pagar, con la plantilla del evento y el QR dentro—. Reenviar
+ *   algo distinto a lo que se envió el primer día es como se acaba con dos
+ *   entradas que no se parecen.
  *
- * Son dos cosas con mecánicas distintas, y conviene no prometer la misma:
+ * · **Compartir** abre el menú del sistema: WhatsApp, Instagram, Telegram,
+ *   correo, lo que la persona tenga instalado. La primera versión de esto
+ *   ponía un campo para escribir un número y abría `wa.me`, y eso es contestar
+ *   otra pregunta: nadie quiere teclear un teléfono, quiere el menú de siempre.
  *
- * · **Por correo** lo manda el SERVIDOR, y manda el correo de siempre —el mismo
- *   que sale al pagar, con la plantilla del evento, su marca y el QR dentro—.
- *   No es una copia nueva: reenviar algo distinto a lo que se envió el primer
- *   día es como se acaba con dos entradas que no se parecen.
+ * `navigator.share` es ese menú. Existe en todos los móviles y en Windows; en
+ * los escritorios donde no existe se cae a `wa.me` con el mensaje escrito, que
+ * es lo único que queda —y ahí sí conviene poder poner el número—.
  *
- * · **Por WhatsApp** no lo puede mandar el servidor: no hay API de WhatsApp
- *   conectada, y montarla es un frente aparte —número verificado, plantillas
- *   aprobadas por Meta—. Lo que sí se puede, y es honesto, es **preparar el
- *   mensaje** y dejar que lo mande la persona desde su propio WhatsApp.
+ * ── Se comparte el ENLACE; la imagen va sólo si el sistema la admite ─────
  *
- * ── Y ahí la decisión que importa: se comparte el ENLACE, no la imagen ────
+ * Un PNG suelto no se revalida si cambia el token, no corrige la fecha si el
+ * evento se mueve y lo reenvía cualquiera con el QR dentro. El enlace lleva a la
+ * entrada viva y desde ahí se baja en los tres formatos.
  *
- * `wa.me` abre WhatsApp con un texto, y en un texto no cabe una imagen. Se
- * podría bajar la tarjeta y pedir que la adjunte a mano, pero entonces lo que
- * circula es un PNG suelto: sin QR que se pueda revalidar si cambia el token,
- * sin fecha si el evento se mueve, y reenviable por quien sea.
- *
- * El enlace a `/mi-ticket/:codigo` lleva a la tarjeta viva, y desde ahí la
- * persona se la baja en los tres formatos. Se comparte la entrada, no una foto
- * de la entrada.
- *
- * En un móvil, además, el sistema sabe compartir archivos: si el navegador trae
- * `navigator.share` con soporte de ficheros, se ofrece **también** la tarjeta
- * como imagen, que es lo que la mayoría espera al decir «compartir».
+ * Cuando el sistema sabe compartir archivos se manda **la tarjeta Y el enlace**
+ * juntos: la imagen es lo que se ve en el chat, el enlace es lo que sirve.
  */
 
 const soloDigitos = (t) => String(t || '').replace(/\D+/g, '');
@@ -84,44 +76,35 @@ export default function EnviarEntrada({ evento = {}, ticket = {}, qrValue, class
     }
   };
 
-  const abrirWhatsapp = () => {
-    /* El número va SIN validar el país: los organizadores escriben «312…»,
-       «+57 312…» y «57312…» para el mismo teléfono, y rechazar cualquiera de
-       las tres por no llevar indicativo es discutir con quien tiene el móvil
-       delante. WhatsApp resuelve el resto; si el número no existe, lo dice él,
-       que además sabe de qué país es cada quien. */
-    const tel = soloDigitos(numero);
-    const texto = `Tu entrada para ${evento.titulo || 'el evento'}: ${enlace}`;
-    const url = tel
-      ? `https://wa.me/${tel}?text=${encodeURIComponent(texto)}`
-      : `https://wa.me/?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank', 'noopener');
-    setAbierto(false);
-  };
+  const texto = `Tu entrada para ${evento.titulo || 'el evento'}: ${enlace}`;
 
-  /* Compartir la tarjeta como archivo, cuando el sistema sabe hacerlo. En
-     escritorio casi nunca existe, y por eso no es el camino principal: es el
-     atajo del móvil, donde «compartir» significa esto. */
-  const puedeCompartirArchivo = typeof navigator !== 'undefined' && Boolean(navigator.canShare);
+  /* El menú del sistema: WhatsApp, Instagram, Telegram, correo… lo que la
+     persona tenga. Existe en todos los móviles y en Windows. */
+  const hayMenuSistema = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
-  const compartirTarjeta = async () => {
+  /* Compartir de verdad. Intenta con la tarjeta adjunta y, si el sistema no
+     admite archivos —o falla al generarla—, comparte sólo el enlace: quedarse
+     sin compartir por no poder adjuntar una imagen sería cambiar lo importante
+     por el adorno. */
+  const compartir = async () => {
     setEnviando(true);
     try {
-      const design = walletConfig(evento.page_json, {
-        publico: 'asistentes', tipo: ticket.tipo?.nombre,
-      });
-      const dataUrl = await tarjetaPng({ design, evento, ticket: { ...ticket, qr_token: qrValue } });
-      if (!dataUrl) throw new Error('No se pudo generar la tarjeta.');
-      const blob = await (await fetch(dataUrl)).blob();
-      const archivo = new File([blob], `entrada-${ticket.codigo}.png`, { type: 'image/png' });
-      if (!navigator.canShare({ files: [archivo] })) {
-        throw new Error('Este navegador no deja compartir imágenes.');
+      const base = { title: evento.titulo || 'Entrada', text: texto, url: enlace };
+      let archivos = null;
+
+      if (typeof navigator.canShare === 'function') {
+        try {
+          const design = walletConfig(evento.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre });
+          const dataUrl = await tarjetaPng({ design, evento, ticket: { ...ticket, qr_token: qrValue } });
+          if (dataUrl) {
+            const blob = await (await fetch(dataUrl)).blob();
+            const f = new File([blob], `entrada-${ticket.codigo}.png`, { type: 'image/png' });
+            if (navigator.canShare({ files: [f] })) archivos = [f];
+          }
+        } catch { /* sin imagen, pero con enlace */ }
       }
-      await navigator.share({
-        files: [archivo],
-        title: evento.titulo || 'Entrada',
-        text: `Tu entrada para ${evento.titulo || 'el evento'}: ${enlace}`,
-      });
+
+      await navigator.share(archivos ? { ...base, files: archivos } : base);
       setAbierto(false);
     } catch (e) {
       /* Cancelar el diálogo del sistema lanza `AbortError`, y eso no es un
@@ -130,6 +113,19 @@ export default function EnviarEntrada({ evento = {}, ticket = {}, qrValue, class
     } finally {
       setEnviando(false);
     }
+  };
+
+  /* Sin menú del sistema —escritorios viejos— queda WhatsApp web, y ahí sí
+     hace falta el número. El teléfono va SIN validar el país: se escribe
+     «312…», «+57 312…» y «57312…» para el mismo móvil, y rechazar cualquiera
+     de las tres es discutir con quien lo tiene delante. */
+  const abrirWhatsapp = () => {
+    const tel = soloDigitos(numero);
+    const url = tel
+      ? `https://wa.me/${tel}?text=${encodeURIComponent(texto)}`
+      : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank', 'noopener');
+    setAbierto(false);
   };
 
   return (
@@ -166,31 +162,37 @@ export default function EnviarEntrada({ evento = {}, ticket = {}, qrValue, class
             </div>
 
             <div className="border-t border-border pt-3">
-              <p className="text-sm font-semibold text-text-1">Por WhatsApp</p>
-              <p className="text-[11px] text-text-3 mt-0.5 leading-relaxed">
-                Se abre tu WhatsApp con el mensaje escrito. Lo mandas tú, no la plataforma.
-              </p>
-              <div className="flex items-center gap-2 mt-2">
-                <input value={numero} onChange={e => setNumero(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); abrirWhatsapp(); } }}
-                  inputMode="tel" placeholder="Número (opcional)"
-                  className="input !h-9 text-sm flex-1 min-w-0" />
-                <button onClick={abrirWhatsapp} className="btn-secondary btn-sm flex-shrink-0">Abrir</button>
-              </div>
-              <p className="text-[11px] text-text-3 mt-1.5 leading-relaxed">
-                Va el <b className="text-text-2">enlace</b> a su entrada, no una captura: así el QR sigue
-                sirviendo aunque cambie, y ella se la baja en el formato que quiera.
-              </p>
+              {hayMenuSistema ? (<>
+                {/* El menú de siempre: WhatsApp, Instagram, Telegram, correo…
+                    lo que la persona tenga instalado. Es lo que se pidió y lo
+                    que ya sabe usar; escribir un número a mano no lo es. */}
+                <button onClick={compartir} disabled={enviando}
+                  className="btn-secondary btn-sm w-full justify-center">
+                  {enviando ? 'Preparando…' : 'Compartir…'}
+                </button>
+                <p className="text-[11px] text-text-3 mt-1.5 leading-relaxed">
+                  Se abre el menú de tu teléfono o de Windows. Va el{' '}
+                  <b className="text-text-2">enlace</b> a su entrada —y la tarjeta como imagen, si el
+                  sistema deja adjuntarla—.
+                </p>
+              </>) : (<>
+                {/* Sin menú del sistema no queda más que WhatsApp web, y ahí sí
+                    hace falta el número. */}
+                <p className="text-sm font-semibold text-text-1">Por WhatsApp</p>
+                <p className="text-[11px] text-text-3 mt-0.5 leading-relaxed">
+                  Este navegador no tiene menú de compartir, así que se abre WhatsApp web con el
+                  mensaje escrito. Lo mandas tú, no la plataforma.
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <input value={numero} onChange={e => setNumero(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); abrirWhatsapp(); } }}
+                    inputMode="tel" placeholder="Número (opcional)"
+                    className="input !h-9 text-sm flex-1 min-w-0" />
+                  <button onClick={abrirWhatsapp} className="btn-secondary btn-sm flex-shrink-0">Abrir</button>
+                </div>
+              </>)}
             </div>
 
-            {puedeCompartirArchivo && (
-              <div className="border-t border-border pt-3">
-                <button onClick={compartirTarjeta} disabled={enviando}
-                  className="btn-ghost btn-sm w-full justify-center">
-                  Compartir la tarjeta como imagen
-                </button>
-              </div>
-            )}
           </div>
         </Flotante>
       )}

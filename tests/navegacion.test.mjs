@@ -232,3 +232,40 @@ test('las secciones del evento se declaran una sola vez', () => {
   assert.match(barra, /seccionesDe\(evento/, 'las sub-páginas ya no usan la lista compartida');
   assert.match(barra, /aria-current/, 'la sección actual ya no se marca');
 });
+
+test('no quedan flechas de «atrás» sueltas en el panel', () => {
+  /* Se pidió quitarlas todas, y la primera pasada se quedó a medias: cambié el
+     TEXTO de «Salir del evento» a «Mis eventos» y dejé el icono de flecha
+     delante, y dejé la flecha de la barra de arriba, que además hacía
+     `navigate(-1)` con su destino escondido en el `aria-label`.
+
+     Una flecha delante de un destino con nombre no añade nada: sugiere
+     «atrás», que es justo lo que esos botones no hacen. */
+  for (const ruta of ['components/layout/TopBar.jsx', 'pages/events/workspace/EventWorkspace.jsx']) {
+    const src = sinComentarios(readFileSync(join(SRC, ruta), 'utf8'));
+    assert.ok(!/BackIcon/.test(src), `volvió la flecha de atrás en ${ruta}`);
+  }
+});
+
+test('compartir abre el menú del sistema, no un campo para teclear un número', () => {
+  /* «Al darle compartir, que aparezcan opciones como WhatsApp, Instagram, etc.,
+     como usualmente sale.» La primera versión pedía escribir un teléfono y
+     abría wa.me: eso contesta otra pregunta. `navigator.share` es ese menú, y
+     existe en todos los móviles y en Windows; wa.me se queda sólo como salida
+     para los escritorios donde no existe. */
+  const src = sinComentarios(readFileSync(join(SRC, 'components/public/EnviarEntrada.jsx'), 'utf8'));
+  assert.match(src, /navigator\.share/, 'compartir ya no usa el menú del sistema');
+  assert.match(src, /hayMenuSistema \?/, 'wa.me dejó de ser sólo el respaldo');
+});
+
+test('la ficha de una zona ocupa el ancho, y va debajo de su zona', () => {
+  /* Se pidió más espacio para editar zonas dos veces. La primera pasada sólo
+     quitó la tarjeta de relleno cuando no había nada elegido —media medida—: la
+     lista seguía trabajando en dos tercios de pantalla y la ficha metía cinco
+     bloques en una tira de 380 px. */
+  const src = sinComentarios(readFileSync(join(SRC, 'pages/events/workspace/espacio/ZonasSection.jsx'), 'utf8'));
+  assert.ok(!/lg:grid-cols-\[minmax\(0,1fr\)_380px\]/.test(src),
+    'volvió la columna lateral fija de la ficha de zona');
+  assert.match(src, /z\.id === sel && seleccionada/,
+    'la ficha ya no se pinta debajo de su propia zona');
+});
