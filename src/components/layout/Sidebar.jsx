@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useAccesosDirectos, DESTINOS_ACCESO, SECCIONES_EVENTO,
   CATEGORIAS_GENERAL, CATEGORIAS_EVENTO, filtrarYAgrupar } from '../../hooks/useAccesosDirectos.js';
 import { eventosApi } from '../../api/eventos.js';
+import Volver from '../ui/Volver.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Sidebar — Rework 2026
@@ -193,8 +194,9 @@ export default function Sidebar({ mobile = false, onClose }) {
                         )}
 
                         {modo === 'evento' && eventoSel && (<>
-                          <button onClick={() => { setEventoSel(null); setBusqueda(''); }}
-                            className="w-full text-left px-3 py-1.5 text-[11px] text-slate-400 hover:text-white">← {eventoSel.titulo}</button>
+                          <Volver tono="menu" onClick={() => { setEventoSel(null); setBusqueda(''); }}>
+                            {eventoSel.titulo}
+                          </Volver>
                           {gruposEvento.length === 0
                             ? <p className="px-3 py-2 text-xs text-slate-500">Sin resultados.</p>
                             : gruposEvento.map(g => (

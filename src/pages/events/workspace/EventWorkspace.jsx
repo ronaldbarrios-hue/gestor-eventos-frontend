@@ -50,6 +50,7 @@ import ZonasSection      from './espacio/ZonasSection.jsx';
 import ChatTab           from '../tabs/ChatTab.jsx';
 import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
+import Volver from '../../../components/ui/Volver.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Workspace del evento — Rework Fase 3
@@ -331,7 +332,7 @@ export default function EventWorkspace() {
   if (!evento) return (
     <div className="h-screen flex flex-col items-center justify-center bg-bg gap-4">
       <p className="text-text-2">{err || 'Evento no encontrado.'}</p>
-      <Link to="/eventos" className="btn-secondary">← Volver a eventos</Link>
+      <Volver a="/eventos" tono="chip">Volver a mis eventos</Volver>
     </div>
   );
 

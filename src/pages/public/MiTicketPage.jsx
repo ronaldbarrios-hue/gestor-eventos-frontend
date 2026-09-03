@@ -8,6 +8,7 @@ import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import { googleCalendarUrl } from '../../lib/calendario.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
+import Volver from '../../components/ui/Volver.jsx';
 
 /* Página pública /mi-ticket/:codigo
    Cualquiera con el código puede ver su QR. */
@@ -47,9 +48,7 @@ export default function MiTicketPage() {
         El código <span className="font-mono">{codigo}</span> no existe.
       </h1>
       <p className="text-sm text-text-2 mb-6">Revisa el código o pídele al organizador que te lo reenvíe.</p>
-      <Link to="/explorar" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-border-2 text-sm hover:bg-surface">
-        ← Explorar eventos
-      </Link>
+      <Volver a="/explorar" tono="chip">Explorar eventos</Volver>
     </section>
   );
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import Spinner from '../../components/ui/Spinner.jsx';
+import Volver from '../../components/ui/Volver.jsx';
 
 /* GESTEK — Los términos y la privacidad de UN evento, en público.
 
@@ -94,7 +95,7 @@ export default function LegalEventoPage() {
         <a href="/privacidad" target="_blank" rel="noreferrer" className="underline hover:text-text-2">política de privacidad</a>.
       </div>
 
-      <Link to={`/explorar/${slug}`} className="btn-secondary btn-sm mt-6">← Volver al evento</Link>
+      <Volver a={`/explorar/${slug}`} tono="chip" className="mt-6">Volver al evento</Volver>
     </Marco>
   );
 }

@@ -26,6 +26,7 @@ import BoletaConocida, { guardarBoleta } from '../../components/public/BoletaCon
 import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
+import Volver from '../../components/ui/Volver.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
    Event Experience → Proceso de compra (`page_json.checkout.modal_ancho` /
@@ -495,7 +496,7 @@ export default function EventoPublicoPage() {
         <div className="mt-12 text-center">
           {!isStandalone && (
             <Link to={conSesion ? '/app/explorar' : '/explorar'} className="text-xs text-text-3 hover:text-text-1 transition-colors">
-              ← Volver a explorar
+              Volver a explorar
             </Link>
           )}
           <PoweredBy organizador={organizador} />
@@ -1244,10 +1245,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
         </div>
       ) : vista === 'subeventos' ? (
         <div className="py-2">
-          <button type="button" onClick={() => setVista('boleta')}
-            className="text-xs text-text-3 hover:text-text-1 mb-3 inline-flex items-center gap-1 transition-colors">
-            ← Volver a mi entrada
-          </button>
+          <Volver onClick={() => setVista('boleta')} className="mb-3">Volver a mi entrada</Volver>
           <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Actividades con inscripción</h2>
           <p className="text-sm text-text-2 mb-4 leading-relaxed">
             Tu entrada no las incluye: cada una se apunta aparte y tiene cupo. Con la boleta que acabas de

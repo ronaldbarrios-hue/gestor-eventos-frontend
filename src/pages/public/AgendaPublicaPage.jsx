@@ -10,6 +10,7 @@ import { ymdLocal } from '../../lib/fechaLocal.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* Página pública /explorar/:slug/agenda — "Espacio del evento": el calendario
    público de todo lo que pasa dentro (charlas, stands, competencias, shows…),
@@ -156,10 +157,7 @@ export default function AgendaPublicaPage() {
   );
 
   if (error) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   if (sessions.length === 0) {

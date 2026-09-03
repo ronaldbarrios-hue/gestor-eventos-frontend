@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import Icono from '../../components/ui/Iconos.jsx';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* Página pública /explorar/:slug/torneo — vista de SOLO LECTURA del
    bracket/tabla del torneo de un evento, accesible a cualquiera (no
@@ -36,10 +37,7 @@ export default function TorneoPublicoPage() {
   );
 
   if (error) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   if (!data.torneo) {

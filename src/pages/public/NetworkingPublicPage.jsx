@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { ExplorarView, MisCitasView } from '../events/tabs/NetworkingTab.jsx';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* Página pública /explorar/:slug/networking — acceso a la Rueda de Negocios
    desde afuera del panel interno. Requiere: 1) sesión iniciada, 2) tener
@@ -43,10 +44,7 @@ export default function NetworkingPublicPage() {
   );
 
   if (error || !evento) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   /* La puerta de sesión es la pantalla que más gente ve de esta sección, y era

@@ -5,6 +5,7 @@ import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { aplanar, ramaCompleta, rutaDe } from '../../lib/torneoCategorias.js';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* Página pública /explorar/:slug/torneos — el resumen de TODOS los torneos del
    evento: quién ganó y quién jugó.
@@ -40,10 +41,7 @@ export default function TorneosResumenPage() {
   }, [slug]);
 
   if (error) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   if (torneos === undefined) return (

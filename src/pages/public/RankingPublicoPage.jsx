@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { numeroDeStand } from '../../lib/expositoresUi.js';
 import { Medalla } from '../../components/ui/Iconos.jsx';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import BarraEvento from '../../components/public/BarraEvento.jsx';
+import EventoNoEncontrado from '../../components/public/EventoNoEncontrado.jsx';
 
 /* Página pública /explorar/:slug/ranking — clasificación de expositores por
    puntos otorgados en sus stands.
@@ -30,10 +31,7 @@ export default function RankingPublicoPage() {
   }, [slug]);
 
   if (error) return (
-    <section className="px-5 py-20 max-w-md mx-auto text-center">
-      <p className="text-sm text-danger mb-4">Evento no encontrado.</p>
-      <Link to="/explorar" className="text-sm text-text-2 hover:text-text-1">← Volver a explorar</Link>
-    </section>
+    <EventoNoEncontrado />
   );
 
   if (ranking === undefined) return (

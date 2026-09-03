@@ -2927,7 +2927,34 @@ para hacerlo ya.
 
 ---
 
-### R1 · La navegación: «atrás» no es una forma de moverse
+### R1 · La navegación — ✅ la mitad hecha el 2026-09-03
+
+**Lo que se veía mal no era la repetición, era la flecha tecleada.** Un «←»
+dentro de la cadena no es un icono: hereda el interlineado de la fuente, se
+descuadra respecto a la palabra y cambia de grosor según el sistema. Ahora es un
+`svg` que se alinea como cualquier otro icono, en `components/ui/Volver.jsx`, y
+las dieciséis vueltas escritas a mano lo usan.
+
+**Y `Volver` no retrocede en el historial, a propósito.** Retroceder devuelve a
+donde estabas, que no siempre es donde quieres ir: quien llega a la página de un
+torneo desde una búsqueda no tiene «atrás», y quien entra a editar un stand
+desde tres sitios acabaría en tres sitios. Cada uso **declara su destino**, y por
+eso el texto dice a dónde va y no la dirección.
+
+De paso apareció otra copia: la pantalla de «evento no encontrado» estaba seis
+veces, palabra por palabra. Es una sola, y dice algo útil —que puede haberse
+despublicado o que el enlace esté mal copiado— en vez de «Evento no encontrado».
+
+Tres pruebas lo sostienen, porque estas vueltas no aparecieron de golpe:
+aparecieron de una en una, cada vez que alguien añadió una pantalla y escribió la
+suya porque era más rápido que mirar cómo lo hacían las demás.
+
+**Lo que queda, que es lo de decidir y no lo de teclear:**
+
+- La miga de pan de arriba —«Eventos › Detalle»— sigue sin hacer nada.
+- «Salir del evento» sigue sin distinguir salir de **cambiar de evento**.
+
+#### Lo que decía la ficha original
 
 **Lo medido:** hay **al menos 16 vueltas atrás escritas a mano**, cada una con
 su propio texto: «← Volver a explorar» (6 veces), «← Volver a vacantes» (2),
