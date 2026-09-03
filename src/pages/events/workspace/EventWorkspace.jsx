@@ -178,6 +178,9 @@ export default function EventWorkspace() {
   const [err, setErr]           = useState('');
   const [soyOwner, setSoyOwner] = useState(true);
   const [permisos, setPermisos] = useState(['*']);
+  /* El rol con el que entro a ESTE evento. Lo usa el escáner para saber qué
+     puertas son mías cuando se asignaron a un rol entero. */
+  const [miRolId, setMiRolId] = useState(null);
   const [working, setWorking]   = useState(false);
   const [drawer, setDrawer]     = useState(false);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -209,6 +212,7 @@ export default function EventWorkspace() {
         setEvento(d.evento);
         setSoyOwner(d.soyOwner !== false);
         setPermisos(d.permisos || ['*']);
+        setMiRolId(d.mi_rol_id || null);
       })
       .catch(e => setErr(e.response?.data?.error || e.message))
       .finally(() => setLoading(false));
@@ -388,6 +392,7 @@ export default function EventWorkspace() {
             <div key={`${seccion?.id}-${tabActivo?.id}`} className="animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
               <ErrorBoundary key={`eb-${seccion?.id}-${tabActivo?.id}`} compact>
                 <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
+                  miRolId={miRolId} miUserId={usuario?.id || null}
                   permisos={permisos}
                   onAnuncio={() => setBroadcastOpen(true)}
                   onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
@@ -413,7 +418,7 @@ export default function EventWorkspace() {
 /* `anunciosVersion` viaja como prop y no como variable suelta: es estado del
    componente de arriba, y aquí dentro no existía. Al abrir Comunicación →
    Anuncios se lanzaba un ReferenceError y la pestaña no se pintaba. */
-function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio, onEditar, onEliminar, anunciosVersion }) {
+function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio, onEditar, onEliminar, anunciosVersion, miRolId, miUserId }) {
   const { t } = useI18n();
   if (!seccion || !tab) return null;
   if (tab.placeholder) return <PlaceholderTab title={t(tab.placeholder[0])} desc={t(tab.placeholder[1])} icon="spark" />;
@@ -448,7 +453,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'comercial/promociones'    : return <PromocionesSection evento={evento} />;
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
     case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
-    case 'asistentes/checkin'       : return <CheckinTab evento={evento} />;
+    case 'asistentes/checkin'       : return <CheckinTab evento={evento} miRolId={miRolId} miUserId={miUserId} />;
     /* Esta pantalla toca tres cosas con tres permisos distintos (la zona, la
        agenda y los stands), así que recibe la lista y decide ella: la regla de
        cada acción vive junto a la acción. */
