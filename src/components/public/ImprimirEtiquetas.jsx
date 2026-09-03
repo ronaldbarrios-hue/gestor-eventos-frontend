@@ -39,6 +39,9 @@ export default function ImprimirEtiquetas({
      si el papel declarado y el dibujo no miden lo mismo, la impresora escala y
      el QR pierde la relación puntos↔módulos que lo hace legible. */
   etiqueta,
+  /* Qué va dentro del QR de cada boleta. Lo decide la pieza —firma o código
+     corto— y no este componente, que sólo maqueta. */
+  qrDe,
 }) {
   const E = etiqueta ? normalizarEtiqueta(etiqueta) : ETIQUETA_DEFECTO;
   return (
@@ -50,7 +53,7 @@ export default function ImprimirEtiquetas({
               etiqueta={E}
               ticket={t}
               evento={evento}
-              qrValue={t.qr_token || t.codigo}
+              qrValue={qrDe ? qrDe(t) : (t.qr_token || t.codigo)}
               destacados={destacados}
               logoUrl={logoUrl}
               mostrarCodigo={mostrarCodigo}

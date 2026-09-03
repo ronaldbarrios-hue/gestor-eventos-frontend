@@ -25,6 +25,10 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { medidas, versionParaToken, ETIQUETA, PUNTOS_POR_MM, normalizarEtiqueta, LIMITES } =
   await import(pathToFileURL(join(RAIZ, 'src/lib/etiquetaTermica.js')).href);
 
+/* El catálogo de piezas, con el mismo `await` de nivel superior: dentro de un
+   `test()` síncrono un `await import` no compila. */
+const piezas = await import(pathToFileURL(join(RAIZ, 'src/lib/piezasBranding.js')).href);
+
 /* 253 es el largo real, medido contra un token de producción el 2026-09-02. */
 const TOKEN_REAL = 'x'.repeat(253);
 
@@ -157,4 +161,32 @@ test('el QR se sube arriba cuando al lado no cabe el nombre', () => {
   const forzada = medidas(TOKEN_REAL, { ancho: 100, alto: 50, qr_objetivo: 40, disposicion: 'debajo' });
   assert.equal(forzada.nombre_cabe, false);
   assert.match(forzada.aviso, /no se va a leer/i);
+});
+
+test('cada pieza del catálogo se puede imprimir tal como viene', () => {
+  /* El catálogo no vale de nada si un tipo trae medidas con las que no cabe
+     nada. Esto lo comprueba contra un token REAL de 253 caracteres, que es el
+     caso que decide — no contra un valor corto de prueba. */
+  for (const t of piezas.TIPOS_PIEZA) {
+    const r = piezas.revisarPieza(piezas.piezaDesdeTipo(t.id));
+    assert.equal(r.cabe, true, `«${t.nombre}» viene con medidas donde el QR no cabe: ${r.motivo}`);
+  }
+});
+
+test('en una manilla cabe el código corto y no la firma', () => {
+  /* Es la restricción que hay que saber ANTES de comprar el rollo: el QR del
+     token firmado necesita 28 mm de alto y una manilla tiene 25. No es diseño,
+     es que no entra.
+     
+     Y con el código corto sí: 8 caracteres son un QR de versión 1. */
+  const manilla = piezas.piezaDesdeTipo('manilla');
+
+  assert.equal(manilla.qr_contenido, 'codigo', 'la manilla dejó de venir con código corto');
+  assert.equal(piezas.revisarPieza(manilla).cabe, true);
+
+  const conFirma = piezas.revisarPieza({ ...manilla, qr_contenido: 'token' });
+  assert.equal(conFirma.cabe, false, 'la firma cabría en una manilla de 25 mm, y no cabe');
+  /* Y cuando no cabe se dice cómo arreglarlo: «no cabe» a secas deja a alguien
+     creyendo que las manillas no se pueden usar. */
+  assert.match(conFirma.arreglo, /código corto/i);
 });

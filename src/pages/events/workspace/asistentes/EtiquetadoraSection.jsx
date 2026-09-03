@@ -2,9 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { clientesApi } from '../../../../api/clientes.js';
 import ImprimirEtiquetas from '../../../../components/public/ImprimirEtiquetas.jsx';
 import EtiquetaTermica from '../../../../components/public/EtiquetaTermica.jsx';
+import { LIMITES } from '../../../../lib/etiquetaTermica.js';
 import {
-  ETIQUETA_DEFECTO, LIMITES, medidas, normalizarEtiqueta,
-} from '../../../../lib/etiquetaTermica.js';
+  TIPOS_PIEZA, CONTENIDOS_QR, tipoPieza, piezaDesdeTipo, piezasDelEvento,
+  normalizarPieza, revisarPieza, valorQr,
+} from '../../../../lib/piezasBranding.js';
 import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import MedirConFoto from './MedirConFoto.jsx';
@@ -32,11 +34,12 @@ import { impresionConfig } from '../../../../lib/wallet.js';
 export default function EtiquetadoraSection({ evento }) {
   const { success, error: toastErr } = useToast();
   const [clientes, setClientes] = useState([]);
-  /* Las medidas del rollo, del evento. Antes estaban en el código: un número
-     razonable inventado que sólo servía si tu rollo era el mismo que el nuestro.
-     Viven en `page_json.etiqueta` porque son del evento —cada organizador compra
-     su rollo— y no de la plataforma. */
-  const [etq, setEtq] = useState(() => normalizarEtiqueta(evento.page_json?.etiqueta));
+  /* Las piezas del evento. Antes esto era UNA etiqueta, y antes de eso un número
+     escrito en el código. Son varias porque el mismo evento saca escarapelas
+     para el staff, manillas para los tres días y tarjetas para los
+     patrocinadores: otro tamaño, otro rollo y otro contenido cada una. */
+  const [piezas, setPiezas] = useState(() => piezasDelEvento(evento));
+  const [piezaId, setPiezaId] = useState(() => piezasDelEvento(evento)[0]?.id);
   const [guardando, setGuardando] = useState(false);
   const [midiendo, setMidiendo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -66,15 +69,36 @@ export default function EtiquetadoraSection({ evento }) {
     [clientes],
   );
 
-  const cambiar = (patch) => setEtq(e => normalizarEtiqueta({ ...e, ...patch }));
+  const etq = piezas.find(x => x.id === piezaId) || piezas[0];
+
+  const cambiar = (patch) => setPiezas(ps =>
+    ps.map(x => (x.id === etq.id ? normalizarPieza({ ...x, ...patch }) : x)));
+
+  const agregar = (tipo) => {
+    const nueva = piezaDesdeTipo(tipo);
+    setPiezas(ps => [...ps, nueva]);
+    setPiezaId(nueva.id);
+  };
+
+  const quitar = (id) => {
+    /* La última no se borra: sin ninguna pieza esta pantalla no tiene nada que
+       enseñar, y «añade una para empezar» es una pregunta que ya contestamos al
+       entrar. */
+    if (piezas.length <= 1) return;
+    setPiezas(ps => ps.filter(x => x.id !== id));
+    /* `ps` es el id seleccionado, no la lista: si la que se borra era la
+       elegida, se pasa a otra. Nombrarlo `ps` como el otro `setPiezas` de arriba
+       era pedir confundirlos. */
+    setPiezaId(actual => (actual === id ? piezas.find(x => x.id !== id)?.id : actual));
+  };
 
   const guardarMedidas = async () => {
     setGuardando(true);
     try {
       /* El PATCH mezcla por claves de primer nivel, así que mandar sólo
-         `etiqueta` no pisa el resto de `page_json`. */
-      await eventosApi.update(evento.id, { page_json: { etiqueta: etq } });
-      success('Medidas guardadas. Las próximas escarapelas salen así.');
+         `piezas` no pisa el resto de `page_json`. */
+      await eventosApi.update(evento.id, { page_json: { piezas } });
+      success('Guardado. Las próximas impresiones salen así.');
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setGuardando(false); }
   };
@@ -87,14 +111,11 @@ export default function EtiquetadoraSection({ evento }) {
      del token firmado, no del gusto de nadie. Si un token creciera hasta no
      caber, hay que decirlo AQUÍ y no dejar salir del rollo escarapelas
      ilegibles, que además ya cuestan etiqueta y cinta. */
-  const problema = aImprimir
-    .map(t => medidas(t.qr_token || t.codigo || '', etq))
-    .find(m => !m.cabe);
-
-  /* Lo que sale con las medidas de ahora. Se calcula con un token de muestra
-     cuando todavía no hay boletas, para que el panel de medidas se pueda usar
-     antes de vender la primera. */
-  const muestra = medidas(aImprimir[0]?.qr_token || aImprimir[0]?.codigo || 'x'.repeat(253), etq);
+  /* Lo que sale con las medidas de ahora, y si hay algo que arreglar. Se
+     comprueba contra un token de muestra cuando todavía no hay boletas, para
+     poder armar las piezas antes de vender la primera. */
+  const muestra = revisarPieza(etq);
+  const problema = muestra.cabe ? null : muestra;
 
   if (loading) return <p className="text-sm text-text-3 py-8">Cargando asistentes…</p>;
 
@@ -102,8 +123,30 @@ export default function EtiquetadoraSection({ evento }) {
     <div className="space-y-5">
       <div className="card no-print">
         <div className="card-body space-y-3">
+          {/* Las piezas del evento. Cada una es un rollo distinto: se elige
+              cuál se está armando y se imprime esa. */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {piezas.map(pz => (
+              <button key={pz.id} onClick={() => setPiezaId(pz.id)}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors
+                  ${pz.id === etq.id ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+                {pz.nombre}
+                <span className="text-text-3 tabular-nums">{pz.ancho}×{pz.alto}</span>
+              </button>
+            ))}
+            <select value="" onChange={e => e.target.value && agregar(e.target.value)}
+              className="input !h-8 text-xs w-auto">
+              <option value="">+ Añadir pieza…</option>
+              {TIPOS_PIEZA.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+          </div>
+
+          <p className="text-[11px] text-text-3 leading-relaxed">
+            {tipoPieza(etq.tipo).pista}
+          </p>
+
           <p className="text-sm text-text-2">
-            Sale <strong>una escarapela por etiqueta</strong> del rollo, de {etq.ancho}×{etq.alto} mm,
+            Sale <strong>una por etiqueta</strong> del rollo, de {etq.ancho}×{etq.alto} mm,
             en blanco y negro. No es el diseño a color: la impresora térmica sólo
             marca el punto o lo deja en blanco.
           </p>
@@ -119,10 +162,17 @@ export default function EtiquetadoraSection({ evento }) {
               WhatsApp. Servía para un rollo y para ninguno más. */}
           <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
             <div className="flex items-baseline justify-between gap-3 flex-wrap">
-              <p className="text-sm font-semibold text-text-1">Medidas del rollo</p>
-              <button onClick={() => setMidiendo(true)} className="btn-ghost btn-sm">
-                Medir con una foto
-              </button>
+              <input value={etq.nombre} onChange={e => cambiar({ nombre: e.target.value })}
+                className="input !h-9 text-sm font-semibold w-56" aria-label="Nombre de la pieza" />
+              <div className="flex items-center gap-2">
+                <button onClick={() => setMidiendo(true)} className="btn-ghost btn-sm">
+                  Medir con una foto
+                </button>
+                {piezas.length > 1 && (
+                  <button onClick={() => quitar(etq.id)}
+                    className="btn-ghost btn-sm text-danger-light">Quitar</button>
+                )}
+              </div>
             </div>
 
             <div className="grid sm:grid-cols-4 gap-3">
@@ -134,6 +184,24 @@ export default function EtiquetadoraSection({ evento }) {
                      onChange={v => cambiar({ qr_objetivo: v })} />
               <Campo label="Margen (mm)" valor={etq.margen} limites={LIMITES.margen}
                      onChange={v => cambiar({ margen: v })} />
+            </div>
+
+            {/* Qué lleva el QR dentro. Es la decisión que hace que una manilla
+                sea posible o no, y por eso está aquí y no escondida. */}
+            <div className="field">
+              <label className="label">Qué lleva el QR</label>
+              <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit">
+                {CONTENIDOS_QR.map(c => (
+                  <button key={c.id} onClick={() => cambiar({ qr_contenido: c.id })}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                      ${etq.qr_contenido === c.id ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-text-3 mt-1.5 leading-relaxed">
+                {CONTENIDOS_QR.find(c => c.id === etq.qr_contenido)?.pista}
+              </p>
             </div>
 
             <div className="field">
@@ -169,15 +237,22 @@ export default function EtiquetadoraSection({ evento }) {
               <p className="text-xs text-warning-light leading-relaxed">{muestra.aviso}</p>
             )}
             {!muestra.cabe && (
-              <p className="text-xs text-danger-light leading-relaxed">{muestra.motivo}</p>
+              <div className="rounded-xl border border-danger/30 bg-danger/5 px-3 py-2">
+                <p className="text-xs text-danger-light leading-relaxed">{muestra.motivo}</p>
+                {/* Decir «no cabe» sin decir que hay salida deja a alguien
+                    creyendo que las manillas no se pueden usar. */}
+                {muestra.arreglo && (
+                  <p className="text-xs text-text-2 mt-1 leading-relaxed">{muestra.arreglo}</p>
+                )}
+              </div>
             )}
 
             <div className="flex items-center gap-2">
               <button onClick={guardarMedidas} disabled={guardando} className="btn-primary btn-sm">
                 {guardando ? 'Guardando…' : 'Guardar medidas'}
               </button>
-              <button onClick={() => setEtq(normalizarEtiqueta(ETIQUETA_DEFECTO))} className="btn-ghost btn-sm">
-                Volver a 100×50
+              <button onClick={() => cambiar(piezaDesdeTipo(etq.tipo))} className="btn-ghost btn-sm">
+                Volver a las medidas de {tipoPieza(etq.tipo).nombre.toLowerCase()}
               </button>
             </div>
           </div>
@@ -211,6 +286,7 @@ export default function EtiquetadoraSection({ evento }) {
           <EtiquetaTermica
             etiqueta={etq}
             ticket={aImprimir[0] || { guest_nombre: 'María Restrepo', codigo: 'ABC123' }}
+            qrValue={valorQr(etq, aImprimir[0] || { codigo: 'ABC123' })}
             evento={evento}
             destacados={destacados}
             logoUrl={cfg.logo_url || ''}
@@ -255,6 +331,7 @@ export default function EtiquetadoraSection({ evento }) {
 
         <ImprimirEtiquetas
           etiqueta={etq}
+          qrDe={(t) => valorQr(etq, t)}
           tickets={aImprimir}
           evento={evento}
           destacados={destacados}

@@ -59,9 +59,19 @@
 /* 203 dpi exactos. */
 export const PUNTOS_POR_MM = 8;
 
-/* Capacidad en modo byte por versión, corrección M. Sólo de la 8 a la 16: por
-   debajo no cabe un token y por encima el QR ya no entra en la etiqueta. */
+/* Capacidad en modo byte por versión, corrección M.
+ *
+ * Empezaba en la 8 «porque por debajo no cabe un token», y era cierto mientras
+ * lo único que se imprimía fuera el token. En cuanto una pieza lleva el **código
+ * corto** —8 caracteres, que es lo único que cabe en una manilla— la tabla
+ * mandaba ese código a la versión 8: 81 módulos para 8 caracteres, un QR cuatro
+ * veces más grande de lo necesario, y por eso «no cabía» en la manilla.
+ *
+ * Un límite puesto por una suposición que dejó de ser cierta. Ahora están las
+ * dieciséis: las de la 8 en adelante se midieron contra `qrcode.react`, las de
+ * abajo son las de la norma. */
 const CAPACIDAD_M = [
+  [1, 14], [2, 26], [3, 42], [4, 62], [5, 84], [6, 106], [7, 122],
   [8, 152], [9, 182], [10, 213], [11, 251], [12, 287],
   [13, 331], [14, 362], [15, 412], [16, 450],
 ];
