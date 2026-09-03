@@ -209,3 +209,26 @@ test('el panel y el servidor conocen los mismos bloques', () => {
     assert.match(panel, new RegExp(`\n  ${tipo}: \{`), `el panel no conoce el bloque «${tipo}»`);
   }
 });
+
+test('las secciones del evento se declaran una sola vez', () => {
+  /* «Al seleccionar Mapa del evento, y al darle en Rueda de negocios, es como
+     si redirigiera a otra página». El enlace era correcto: lo que cambiaba era
+     la ropa. La portada tenía su fila de cinco enlaces escritos a mano —y
+     pintados de cinco colores, sin que el color significara nada— y las
+     sub-páginas tenían otra lista, con otras etiquetas: «Ver Torneo» en una,
+     «Torneo» en la otra.
+
+     Dos listas del mismo conjunto siempre acaban diciendo cosas distintas. */
+  const chrome = readFileSync(join(SRC, 'components/public/EventChrome.jsx'), 'utf8');
+  assert.match(chrome, /export const SECCIONES_PUBLICAS/, 'ya no hay una lista única de secciones');
+
+  const landing = sinComentarios(readFileSync(join(SRC, 'pages/public/EventoPublicoPage.jsx'), 'utf8'));
+  assert.match(landing, /seccionesDe\(evento, nav\)/, 'la portada volvió a escribir su propia lista');
+  /* Los colores sueltos eran el síntoma visible: si vuelven, es que alguien
+     escribió otra vez los enlaces a mano. */
+  assert.ok(!/Ver Torneo/.test(landing), 'la portada volvió a tener su propia etiqueta para el torneo');
+
+  const barra = sinComentarios(readFileSync(join(SRC, 'components/public/BarraEvento.jsx'), 'utf8'));
+  assert.match(barra, /seccionesDe\(evento/, 'las sub-páginas ya no usan la lista compartida');
+  assert.match(barra, /aria-current/, 'la sección actual ya no se marca');
+});
