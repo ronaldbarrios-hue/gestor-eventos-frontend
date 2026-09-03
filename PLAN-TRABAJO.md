@@ -1016,6 +1016,117 @@ Ethernet + Bluetooth 5.0 (BLE/WiFi), identifica el sensor automáticamente con
 el botón de calibración) para imprimir en el sitio los QR de las escarapelas
 el día del evento.
 
+### El diseño de la etiqueta — ✅ decidido y construido el 2026-09-03
+
+Primera pieza del frente. **No reemplaza al diseñador de escarapelas que ya
+existe**: aquél compone una HOJA con varias para cortar a mano en una impresora
+normal; la TT460 saca **una etiqueta a la vez, a tamaño exacto, desde un rollo**.
+Son dos medios distintos y el mismo diseño no vale para los dos.
+
+#### Lo que decidió el diseño, y no fue el gusto
+
+**1 · No hay colores. Ni grises.** La transferencia térmica es de **un bit**:
+cada punto se imprime o no, con la tinta de la cinta cargada. Un gris sólo se
+finge con trama, y a 203 dpi una trama se ve sucia.
+
+Eso **tumba lo único configurable de la escarapela actual**: el color por tipo
+de asistente (`colores: { 'VIP': '#d4af37' }`), la marca de agua con opacidad y
+el logo a color. En térmica, todo eso es una mancha o no es nada.
+
+Se sustituye por lo que sí sobrevive en un bit: **el tipo en un recuadro con
+borde**, y relleno (texto en blanco) para el que se quiera destacar. Si de
+verdad hacen falta dos colores, la salida es **operativa y no de diseño**:
+cargar una cinta dorada e imprimir los VIP en una tanda aparte.
+
+**2 · Los rellenos grandes se evitan.** Una banda negra a lo ancho gasta cinta,
+calienta el cabezal —lo que baja la velocidad real— y se corre si la escarapela
+roza durante el día. Por eso el recuadro invertido es pequeño y el resto va en
+línea fina.
+
+**3 · Todo cae en punto entero.** 203 dpi son exactamente **8 puntos/mm**. Una
+medida de 3,3 mm son 26,4 puntos: el cabezal redondea por su cuenta y el borde
+sale con diente. Todas las medidas son múltiplos de 0,125 mm.
+
+#### El tamaño: 90 × 55 mm
+
+Es el `9x5` que el diseñador de escarapelas **ya trae por defecto**. No es una
+medida inventada: si ya se compraron portagafetes para ese tamaño, la etiqueta
+entra en ellos. A 203 dpi son 720 × 440 puntos.
+
+#### El QR, que es quien manda
+
+Lleva el **token firmado**, no el código corto: el código son 8 caracteres sobre
+32 símbolos —unos 40 bits— y se puede adivinar.
+
+El token son **253 caracteres**, medidos contra producción. Comprobado
+**empíricamente** contra `qrcode.react`, no de memoria:
+
+| Nivel | Margen | Módulos |
+|---|---|---|
+| M | sin | **65 × 65** (versión 12) |
+| M | con | 73 × 73 |
+| L | con | 65 × 65 |
+
+Se usa **M**: una escarapela se dobla, se moja y se roza, y bajar a L para ganar
+2 mm es cambiar tamaño por fallos intermitentes.
+
+    73 módulos × 3 puntos = 219 puntos ÷ 8 = **27,375 mm de lado**
+
+Tres puntos por módulo es el mínimo con el que un lector barato acierta a la
+primera. Con dos se lee en un móvil bueno y falla en la puerta, que es donde
+importa. Quedan **56,6 mm** para el nombre, el tipo y el evento.
+
+**El tamaño no está fijo: se calcula.** El día que el token crezca —una firma
+más larga, un campo más— el QR sube de versión, y `medidas()` lo recalcula y
+avisa si deja de caber. Lo que no puede pasar es imprimir un QR ilegible sin que
+nadie lo sepa.
+
+#### Lo que se imprime, y lo que no
+
+| Sale | No sale, y por qué |
+|---|---|
+| QR 27,4 mm + código corto debajo, monoespaciado | Marca de agua — es una trama, ensucia y come contraste junto al QR |
+| Nombre, 6 mm de altura de mayúscula, máximo 2 líneas | Colores por tipo — no existen en un bit |
+| Tipo, en recuadro | Campos extra del formulario — caben dos líneas y el nombre y el tipo son lo que se mira |
+| Nombre del evento, 2,5 mm | Logo a color — se deja opcional, pero sólo funciona si es silueta de un tono |
+
+Las alturas van en **milímetros y no en puntos tipográficos**: lo que decide si
+un nombre se lee desde el otro lado de la mesa es su altura física, y por debajo
+de 2 mm a 203 dpi las letras se rellenan y una «e» es un borrón.
+
+#### La impresión
+
+`@page { size: 90mm 55mm; margin: 0 }` y **un salto de página por etiqueta**.
+Una etiquetadora no tiene hoja: si el navegador manda una A4 con seis
+escarapelas, imprime la primera y tira el resto. Y el margen por defecto del
+navegador, sobre 55 mm de alto, deja el diseño a escala y el QR fuera de la zona
+imprimible.
+
+**Lo que el navegador no puede garantizar:** que el driver no reescale. Casi
+todos ofrecen «ajustar al área imprimible», y eso rompe la relación
+puntos↔módulos: 3 puntos por módulo pasan a 2,7 y el lector empieza a fallar **a
+veces**, que es peor que fallar siempre. Al imprimir hay que dejar la escala al
+100 % y desmarcar el ajuste.
+
+**Si el driver da guerra**, la salida no es pelearse con él: es generar el
+lenguaje de la impresora (TSPL o ZPL, según lo que hable la TT460) y mandárselo
+por USB o red. Eso ya no es diseño, es fontanería, y hasta no probar en el
+aparato no se sabe si hace falta.
+
+#### Lo que falta, y necesita el aparato delante
+
+1. **Una prueba física.** El cálculo dice que 27,4 mm con cinta de cera/resina
+   se lee; no dice que se lea con **esa** cinta y **ese** papel. Es la única
+   forma de cerrar esto.
+2. **Confirmar el rollo.** Todo esto asume etiquetas de 90 × 55 mm. Si el rollo
+   que hay es otro, `ETIQUETA` es un objeto y se cambia en un sitio — pero el
+   QR necesita 27,4 mm de alto libre, así que **una etiqueta de menos de 34 mm
+   de alto no sirve** para este token.
+3. **Decidir la cinta.** Cera se corre con el roce de un día colgada; cera/resina
+   o resina aguanta. Es la diferencia entre una escarapela legible a las seis de
+   la tarde y una manchada.
+
+
 **Lo que hay que decidir antes de programar nada** (esto sí es una decisión
 de arquitectura, como B1 lo fue — no una tarea mecánica):
 
