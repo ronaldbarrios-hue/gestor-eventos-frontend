@@ -197,3 +197,15 @@ test('las secciones públicas empiezan todas con el mismo ritmo', () => {
   assert.deepEqual(sueltos.map(m => m[0].slice(0, 60)), [],
     'Usa <CabeceraSeccion> en vez de escribir el título de la sección a mano');
 });
+
+test('el panel y el servidor conocen los mismos bloques', () => {
+  /* El catálogo del panel pinta y el del servidor valida. Si se separan, el
+     organizador arrastra un bloque que existe en pantalla y el guardado lo
+     rechaza —o peor: un bloque que el servidor acepta no se pinta y la página
+     pública sale con un hueco. Los dos nuevos, agenda y torneos, tienen que
+     estar en los dos sitios. */
+  const panel = readFileSync(join(SRC, 'pages/events/editor/blocks.jsx'), 'utf8');
+  for (const tipo of ['agenda', 'torneos']) {
+    assert.match(panel, new RegExp(`\n  ${tipo}: \{`), `el panel no conoce el bloque «${tipo}»`);
+  }
+});

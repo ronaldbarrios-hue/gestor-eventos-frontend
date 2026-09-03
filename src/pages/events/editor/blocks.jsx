@@ -1675,6 +1675,138 @@ function ExpositoresPreview({ data, evento, isEditor }) {
   );
 }
 
+
+/* ─────────── Agenda del evento ───────────
+ *
+ * El catálogo tenía veinticinco bloques y ninguno para el PROGRAMA. Se podían
+ * poner patrocinadores, galería y testimonios; lo que el evento hace, no. La
+ * información existía y vivía sólo en una página hermana a la que hay que
+ * saber ir.
+ *
+ * Enseña lo que viene y enlaza al resto: una landing no es un listado, es una
+ * portada. Por eso el tope, y por eso el enlace. */
+function AgendaEditor({ data = {}, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })}
+        placeholder="Título" className="input" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })}
+        placeholder="Subtítulo" rows={2} className="input resize-none" />
+      <div className="field">
+        <label className="label">Cuántas actividades se enseñan</label>
+        <input type="number" min={1} max={24} value={data.limite ?? 6}
+          onChange={e => onChange({ ...data, limite: Math.max(1, Math.min(24, Number(e.target.value) || 6)) })}
+          className="input" />
+        <p className="text-[11px] text-text-3 mt-1">
+          Las siguientes por hora. El resto se ve en la página del programa, que se enlaza abajo.
+        </p>
+      </div>
+      <p className="text-[11px] text-text-3">
+        Las actividades se crean en «Actividades del evento → Calendario». Aquí sólo se muestran.
+      </p>
+    </div>
+  );
+}
+
+function AgendaPreview({ data = {}, evento, isEditor }) {
+  const items = (evento?.agenda || []).slice(0, data.limite || 6);
+  if (items.length === 0 && !isEditor) return null;
+
+  const cuando = (s) => (s
+    ? new Date(s).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null);
+
+  return (
+    <section>
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">Todavía no hay actividades programadas.</p>
+        </div>
+      ) : (<>
+        <ul className="space-y-2">
+          {items.map(s => (
+            <li key={s.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-text-1">{s.titulo}</p>
+                <p className="text-[11px] text-text-3 mt-0.5">
+                  {cuando(s.inicio) || 'Sin fecha'}{s.ubicacion ? ` · ${s.ubicacion}` : ''}
+                </p>
+              </div>
+              {/* Sólo se marca lo que cambia lo que la persona tiene que hacer:
+                  si hay que apuntarse, el resto es ruido. */}
+              {s.requiere_inscripcion && (
+                <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded flex-shrink-0">
+                  Con inscripción
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {evento?.slug && (
+          <a href={`/explorar/${evento.slug}/agenda`} className="inline-block mt-3 text-sm text-primary-light hover:underline">
+            Ver el programa completo
+          </a>
+        )}
+      </>)}
+    </section>
+  );
+}
+
+/* ─────────── Torneos ─────────── */
+function TorneosEditor({ data = {}, onChange }) {
+  return (
+    <div className="space-y-3">
+      <input value={data.titulo || ''} onChange={e => onChange({ ...data, titulo: e.target.value })}
+        placeholder="Título" className="input" />
+      <textarea value={data.subtitulo || ''} onChange={e => onChange({ ...data, subtitulo: e.target.value })}
+        placeholder="Subtítulo" rows={2} className="input resize-none" />
+      <p className="text-[11px] text-text-3">
+        Los torneos se crean en «Actividades del evento». Aquí se muestran con su disciplina y
+        cuántos equipos llevan inscritos.
+      </p>
+    </div>
+  );
+}
+
+function TorneosPreview({ data = {}, evento, isEditor }) {
+  const items = evento?.torneos || [];
+  if (items.length === 0 && !isEditor) return null;
+
+  const ESTADO = { armando: 'Inscripciones abiertas', en_curso: 'En juego', finalizado: 'Terminado' };
+
+  return (
+    <section>
+      <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+          <p className="text-sm text-text-3">Todavía no hay torneos.</p>
+        </div>
+      ) : (<>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {items.map(t => (
+            <div key={t.id} className="rounded-2xl border border-border bg-surface/40 p-4 min-w-0">
+              <p className="text-sm font-semibold text-text-1 truncate">{t.nombre}</p>
+              {t.disciplina && <p className="text-[11px] text-text-3 mt-0.5">{t.disciplina}</p>}
+              <p className="text-[11px] text-text-2 mt-2">
+                {/* El número de equipos es lo que dice si el torneo está vivo o
+                    es un nombre puesto hace un mes. */}
+                {t.equipos || 0} equipo{t.equipos === 1 ? '' : 's'}
+                {ESTADO[t.estado] ? ` · ${ESTADO[t.estado]}` : ''}
+              </p>
+            </div>
+          ))}
+        </div>
+        {evento?.slug && (
+          <a href={`/explorar/${evento.slug}/torneo`} className="inline-block mt-3 text-sm text-primary-light hover:underline">
+            Ver llaves y resultados
+          </a>
+        )}
+      </>)}
+    </section>
+  );
+}
+
 function CTAPreview({ data }) {
   if (!data.texto || !data.url) return null;
   const cls = data.estilo === 'secondary'
@@ -1929,6 +2061,16 @@ export const BLOCKS = {
       texto_boton: 'Registrar mi stand', url: '',
     },
     Editor: RegistrarStandEditor, Preview: RegistrarStandPreview,
+  },
+  agenda: {
+    label: 'Programa / agenda', category: 'custom', icon: IconInfo,
+    defaults: { titulo: 'Qué pasa en el evento', subtitulo: 'Las próximas actividades del programa.', limite: 6 },
+    Editor: AgendaEditor, Preview: AgendaPreview,
+  },
+  torneos: {
+    label: 'Torneos', category: 'custom', icon: IconRecompensas,
+    defaults: { titulo: 'Torneos', subtitulo: 'Compite o ven a mirar.' },
+    Editor: TorneosEditor, Preview: TorneosPreview,
   },
   mapa_evento: {
     label: 'Mapa del evento', category: 'custom', icon: IconMapa,
