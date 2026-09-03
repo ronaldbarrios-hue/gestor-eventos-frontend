@@ -1661,6 +1661,11 @@ Decidido en el Frente I, sigue valiendo:
 
 ### Fase 1 · La agrupación · barato, sin backend
 
+> **Se hace en la misma pasada que el FRENTE O2**, que reagrupa el menú entero.
+> Es la misma estructura y el mismo mapa de rutas viejas: partirlo en dos
+> sesiones es tocar `EventWorkspace.jsx` dos veces y migrar los enlaces dos
+> veces.
+
 Partir `espacio` en `actividades` y `zonas` en la lista de secciones
 (`EventWorkspace.jsx:94`). Es una estructura de datos; el `switch` de render
 (`:439`) cambia sólo de prefijo.
@@ -1767,6 +1772,264 @@ Que `mapa/vivo` sea la única puerta a los datos cruzados. Funciona y da la
 pantalla entera en una llamada; partirlo en consultas pequeñas «porque ahora hay
 joins» sería cambiar algo que anda por algo que se lee mejor. Se mira cuando la
 Fase 3 esté, no antes.
+
+---
+
+## FRENTE O · El menú entero, los roles y a quién se le asigna — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-02**, tres cosas en una: «agrupar la mayoría
+de funciones, porque hay varias cosas que están separadas por secciones que al
+final son para la misma sección»; «mejorar la asignación de tareas, que se pueda
+seleccionar por roles — al asignar una puerta de ingreso sólo se puede
+seleccionar por nombres, y en un evento con mucha gente es poco eficiente»; y
+«volver a crear los roles, uno que tenga todos los permisos y el resto
+refactorizados según el nombre».
+
+El **Frente N** parte «Espacio del evento» en dos. Éste mira el menú completo,
+y las dos cosas que lo cruzan: quién puede hacer qué, y a quién se le asigna.
+
+---
+
+# Parte 1 · El menú entero
+
+Hoy: **8 secciones, 39 pestañas.**
+
+| Sección | Pestañas |
+|---|---|
+| Resumen | Resumen |
+| Event Experience | Landing · Publicación · Proceso de compra · Emails · SEO |
+| Espacio del evento | Calendario · Torneos · Rueda de negocios · Mapa · Accesos · Zonas de interés · Aforo · Stands · Ranking |
+| Organización | Equipo y roles · Vacantes · Tareas · Sugerencias · Documentos · **Reporte** |
+| Comercial | Boletas · Pagos · **Analytics** · Promociones · Facturación |
+| Asistentes | Clientes · Escanear · Lista de espera · Invitaciones · **Credenciales** · **Tarjeta** |
+| Comunicación | Chats · **Anuncios** |
+| Configuración | General · Integraciones · Automatizaciones · API\* · Seguridad\* |
+
+\* placeholders: dos pestañas que no hacen nada ocupando sitio en el menú.
+
+### El diagnóstico: el menú mezcla tres criterios
+
+No están mal agrupadas por descuido. Están agrupadas por **tres ejes a la vez**,
+y por eso una misma cosa cae en dos sitios según con qué eje se mire:
+
+- por **objeto** — Espacio del evento, Asistentes;
+- por **momento** — Event Experience es *antes*, Comercial es *la venta*;
+- por **quién mira** — Organización es papeleo del organizador.
+
+Cuando hay tres ejes, la respuesta a «¿dónde está X?» es «depende», y eso es
+exactamente lo que se siente. Es el mismo error que ya se corrigió una vez: la
+Agenda colgaba de Organización —junto a Vacantes y Documentos— y los torneos
+vivían en «Dinámicas», siendo las dos cosas sub-eventos de la misma tabla.
+
+### Lo que está partido y es lo mismo, con la evidencia
+
+1. **Credenciales + Tarjeta** (Asistentes). Una diseña la **escarapela
+   imprimible**, la otra el **carné digital**. Es la misma pregunta —qué lleva
+   encima el asistente— en dos pantallas que no se hablan. → una pestaña,
+   **Acreditación**, con las dos vistas.
+2. **Reporte (Organización) + Analytics (Comercial).** El propio encabezado de
+   `ReporteTab` dice que «consolida en una sola hoja lo que quedó repartido por
+   el workspace: ventas, asistencia, gamificación, expositores, tareas y
+   contrataciones». Analytics son las mismas métricas por rango de fechas. Las
+   dos contestan «cómo va / cómo fue», y están en secciones distintas — y
+   Reporte, además, junto a Vacantes y Documentos, que es papeleo.
+3. **Lista de espera + Invitaciones** (Asistentes). Las dos son **gente que
+   todavía no tiene boleta**. Se operan juntas y están separadas.
+4. **Emails (Event Experience) + Anuncios (Comunicación).** Las dos mandan
+   mensajes a los asistentes. Emails está en Event Experience porque son
+   plantillas; Anuncios en Comunicación porque es un envío. Quien quiere «avisar
+   algo» tiene que saber de antemano cuál de las dos es.
+5. **Proceso de compra (Event Experience) + Boletas + Promociones (Comercial).**
+   Qué se vende, cómo se vende y con qué descuento, en dos secciones.
+6. **Resumen es una sección con una sola pestaña.** Una sección entera del menú
+   para una pantalla.
+
+### La propuesta: un solo eje, el objeto
+
+**Nueve secciones, ~33 pestañas.** La regla, escrita para no discutirla cada
+vez: **cada sección es una cosa del evento, no un momento ni un departamento.**
+
+| Sección | Pestañas | Qué cambia |
+|---|---|---|
+| **Resumen** | Resumen · Analytics · Reporte | deja de ser una sección de una pestaña; la medición vive junta |
+| **Tu página** | Landing · Publicación · SEO · Proceso de compra | era Event Experience; se va Emails |
+| **Actividades del evento** | Calendario · Torneos · Rueda de negocios · Speakers · Ranking | Frente N |
+| **Zonas del evento** | Zonas de interés · Mapa · Aforo · Stands · Accesos | Frente N |
+| **Entradas y dinero** | Boletas · Promociones · Pagos · Facturación | era Comercial; se va Analytics |
+| **Asistentes** | Clientes · Escanear · Acreditación · Antes de la boleta | Credenciales+Tarjeta juntas; Lista de espera+Invitaciones juntas |
+| **Equipo y tareas** | Equipo y roles · Tareas · Vacantes · Sugerencias · Documentos | era Organización; se va Reporte |
+| **Mensajes** | Chats · Anuncios · Emails | las tres formas de decir algo, juntas |
+| **Configuración** | General · Integraciones · Automatizaciones | fuera los dos placeholders |
+
+**Dónde no tocar:** «Escanear» se queda como está y con su nombre. Ya se
+renombró a propósito —«ya no sólo controla el ingreso»— y es la pantalla que se
+usa de pie, con cola delante. Cambiarle el sitio a esa cuesta caro.
+
+---
+
+# Parte 2 · Los roles
+
+### Lo medido, y es peor que «hay que refactorizarlos»
+
+10 roles de sistema por evento, **273 filas** en `event_roles`, y **29
+miembros, todos con rol asignado**. El catálogo de permisos tiene **21
+permisos** (`src/lib/permisos.js`).
+
+**a) No existe el rol que se pide. Sólo el dueño puede todo, y el dueño no es
+un rol.** Las pantallas más sensibles se guardan con `__solo_owner__`
+(Accesos, Anuncios, Lista de espera, toda Configuración). No hay forma de
+delegar «todo» a una segunda persona: hay que darle el evento.
+
+**b) 6 de los 21 permisos no los comprueba nadie.** El propio catálogo lo marca
+con `aplicado: false`: `gestionar_descuentos`, `vip_zone`, `crear_canales`,
+`borrar_mensajes`, `ver_pagos`, `reembolsar`. Consecuencia directa:
+
+- **«VIP host»** concede `vip_zone` — y `vip_zone` no aparece en ninguna ruta
+  del backend. El rol no da nada.
+- **«Finanzas»** concede `ver_pagos` y `reembolsar`; ninguno se comprueba. Lo
+  único suyo que surte efecto es `ver_analytics`.
+- **«Moderación»** concede `borrar_mensajes` y `crear_canales`, ninguno
+  aplicado. Lo único que le funciona es `gestionar_agenda`, que no tiene nada
+  que ver con moderar.
+
+**c) Nombres que no dicen lo que dan.**
+
+| Rol | Lo que concede | El problema |
+|---|---|---|
+| **Speaker** | `gestionar_agenda` | un ponente puede editar la agenda **entera** |
+| **Expositor** | `gestionar_expositores` | un expositor puede administrar a **todos** los expositores — y el expositor de verdad ya tiene su propio camino público, `/expositor/:codigo`, con su lista corta de campos |
+| **Staff · Logística** | `ver_clientes` y nada más | no puede hacer nada logístico |
+
+**d) Dos semillas que no coinciden.** `modules/eventos/semillas.js` reparte unos
+permisos y lo que hay en producción (de la 0054) reparte otros:
+
+| Rol | En `semillas.js` | En producción |
+|---|---|---|
+| Editor | + `gestionar_imagenes`, `gestionar_agenda` | + `ver_clientes`, `crear_canales` |
+| Coordinador | + `gestionar_agenda`, `ver_analytics` | + `gestionar_tickets`, `ver_pagos` |
+| Staff · Logística | `crear_canales`, `gestionar_agenda` | `ver_clientes` |
+| Staff · Atención | `ver_clientes`, `checkin` | `ver_clientes`, `gestionar_clientes` |
+
+Dos fuentes de verdad para lo mismo. Un evento creado por el camino de MySQL
+(Frente A) tendría **otros roles** que uno creado hoy.
+
+**e) La unión de permisos está escrita tres veces.** `role.permissions ∪
+custom_permissions` se resuelve en `core/permisos/index.js:168`,
+`routes/eventos.js:133` y `routes/eventos.js:289`. Es el patrón que este repo
+ya pagó dos veces esta semana.
+
+### Los roles propuestos
+
+Regla: **el nombre dice quién es la persona; los permisos dicen qué puede.** Y
+un rol no concede permisos que el servidor no comprueba.
+
+| Rol | Permisos | Nota |
+|---|---|---|
+| **Administrador** | todos los `aplicado: true` | **el que falta.** Delegar sin regalar el evento |
+| **Editor** | `editar_evento`, `editar_pagina_publica`, `gestionar_imagenes` | la página, no la gente |
+| **Coordinador** | Editor + `gestionar_agenda`, `gestionar_torneo`, `gestionar_expositores`, `invitar_staff` | arma el evento por dentro |
+| **Programación** | `gestionar_agenda`, `gestionar_torneo` | era **Speaker** |
+| **Coordinación de expositores** | `gestionar_expositores` | era **Expositor** |
+| **Puerta** | `checkin`, `ver_clientes` | era **Staff · Acceso** |
+| **Atención** | `ver_clientes`, `gestionar_clientes` | era **Staff · Atención** |
+| **Taquilla** | `gestionar_tickets`, `ver_clientes`, `gestionar_clientes` | nuevo: hoy vender boletas exige `editar_evento` |
+| **Finanzas** | `ver_analytics` (+ `ver_pagos`, `reembolsar` cuando se apliquen) | |
+| **Moderación** | (`borrar_mensajes`, `crear_canales` cuando se apliquen) | sin `gestionar_agenda` |
+
+**Se van:** «Speaker» y «Expositor» como roles de staff. Un ponente y un
+expositor **no son personal del evento**: sus fichas ya viven en `speakers` y
+en `networking_expositores`, y el expositor ya tiene su enlace propio. Tener
+además un rol con su nombre es lo que hace que conceda de más.
+
+**«Staff · Logística» desaparece** hasta que haya un permiso que signifique
+algo para logística. Un rol que sólo deja ver la lista de clientes no es un rol.
+
+### El riesgo, y cómo se toca
+
+**29 miembros apuntan a un `rol_id`.** Borrar y recrear roles deja gente sin
+permisos en 27 eventos. Va con expand/contract:
+
+1. Crear **Administrador** (nuevo, no toca a nadie) y arreglar la semilla para
+   que las dos coincidan.
+2. **Renombrar** in situ los que cambian de nombre — el `id` no se toca, así
+   que nadie pierde su rol.
+3. **Ajustar permisos** de los que conceden de más, uno por uno y anotado.
+4. **No borrar** un rol que tenga miembros: primero mover a la gente, y eso lo
+   decide el organizador, no la migración.
+
+Y una regla nueva que conviene dejar escrita: **un rol no puede conceder un
+permiso con `aplicado: false`.** Una prueba que compare la semilla contra el
+catálogo lo caza solo, en el estilo de `montaje.test.js`.
+
+---
+
+# Parte 3 · A quién se le asigna
+
+### Lo medido
+
+`tareas` **ya asigna por persona o por rol** (`asignado_user_id`,
+`asignado_rol_id`), y `TareasTab` ya lo ofrece. Eso no hay que rehacerlo — de
+5 tareas, 1 está asignada a un rol.
+
+**El problema está en la puerta, y es exactamente el que se describe.**
+`AccesosSection.jsx:257-268` pinta «Quién registra aquí» como **un botón por
+cada miembro del equipo**, con el nombre y nada más: sin rol, sin buscador, sin
+agrupar. Con 40 personas son 40 fichas seguidas, y no hay forma de saber cuál
+de los cuatro «Juan» es el de puerta.
+
+Y hay **siete sitios** que piden el equipo y arman su propia lista:
+`AccesosSection`, `TareasTab`, `ChatTab`, `EquipoTab`, `ResumenSection`,
+`MiEventoWidget` y `AjustesPage`. Cada uno decide por su cuenta qué enseña de
+cada persona. Por eso uno sabe de roles y otro no.
+
+### La propuesta
+
+**Un solo `<SelectorDePersonas>`**, y que los siete lo usen:
+
+- **Busca** por nombre y por correo (el mismo `sinTildes` de
+  `SelectorBuscable`: nadie escribe «Muñoz» con eñe en un buscador).
+- **Agrupa por rol** y enseña el rol al lado del nombre. Es el dato que
+  distingue a los cuatro «Juan».
+- **Deja elegir un rol entero**: «todos los de Puerta». Es lo que se pide de
+  verdad —no se asigna a Juan, se asigna a quien esté en la puerta— y es lo que
+  hace que el evento con mucha gente sea manejable.
+- **Muestra a los que ya están seleccionados arriba**, como `MultiBuscable`, en
+  vez de obligar a buscarlos entre cuarenta para quitarlos.
+
+En datos: `page_json.accesos[].staff` guarda ids de persona; se le añade
+`roles: [rolId]`, igual que `tareas` ya distingue las dos. Al resolver quién
+atiende una puerta se unen las dos listas.
+
+**Sin backend nuevo:** `equipoApi.list` ya devuelve `rol` y `rol_id` por
+miembro (`routes/equipo.js:26`), y `rolesApi.list` ya da el catálogo. Lo que
+falta es una pantalla que los junte.
+
+---
+
+# Orden
+
+**O1** · El selector de personas compartido, y la puerta usándolo. Frontend
+solo, sin migración, y arregla hoy lo que se pidió. → *empezar por aquí*
+
+**O2** · El menú: las nueve secciones, con las fusiones (Acreditación, Antes de
+la boleta, Resumen+medición, Mensajes). Va junto con la **Fase 1 del Frente N**,
+que parte «Espacio» en dos — es la misma estructura y el mismo mapa de rutas
+viejas; hacerlo en dos pasadas es tocar dos veces lo mismo.
+
+**O3** · El rol **Administrador** y la semilla arreglada. Migración que sólo
+añade: no toca a nadie.
+
+**O4** · Renombrar roles y ajustar los que conceden de más, in situ, sin borrar.
+
+**O5** · La unión de permisos, en un solo sitio; y la prueba de que ningún rol
+concede un permiso con `aplicado: false`.
+
+**O6** · Aplicar de verdad los seis permisos decorativos, o quitarlos del
+catálogo. Es una decisión de producto, no de código: hoy `ver_pagos` esconde una
+pestaña en el navegador y no protege nada en el servidor. Esconder una pestaña
+no es control de acceso — en este caso lo que sí protege esas pantallas es
+`editar_evento`, así que no hay un agujero abierto, pero el rol promete algo que
+no cumple.
 
 ---
 
