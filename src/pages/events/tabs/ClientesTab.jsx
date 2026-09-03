@@ -38,6 +38,7 @@ export default function ClientesTab({ evento }) {
   const [importOpen, setImportOpen] = useState(false);
   const [repartoOpen, setRepartoOpen] = useState(false);
   const [detalleCliente, setDetalleCliente] = useState(null);
+  const [reembolsando, setReembolsando] = useState(null);
   const [exportando, setExportando] = useState(false);
   const { success, error: toastErr } = useToast();
 
@@ -181,6 +182,7 @@ export default function ClientesTab({ evento }) {
               cliente={c}
               currency={evento.currency}
               onCambiarEstado={(e) => cambiarEstado(c.id, e)}
+              onReembolsar={() => setReembolsando(c)}
               onVerDetalle={() => setDetalleCliente(c)}
               style={{ animationDelay: `${i * 25}ms` }}
             />
@@ -198,6 +200,15 @@ export default function ClientesTab({ evento }) {
 
       {repartoOpen && (
         <RepartoSinCorreo evento={evento} onClose={() => setRepartoOpen(false)} />
+      )}
+
+      {reembolsando && (
+        <ReembolsoModal
+          evento={evento}
+          cliente={reembolsando}
+          onClose={() => setReembolsando(null)}
+          onHecho={() => { setReembolsando(null); reload(); }}
+        />
       )}
 
       {detalleCliente && (
@@ -223,7 +234,7 @@ function StatBox({ label, value, hint }) {
   );
 }
 
-function ClienteRow({ cliente, currency, onCambiarEstado, onVerDetalle, style }) {
+function ClienteRow({ cliente, currency, onCambiarEstado, onReembolsar, onVerDetalle, style }) {
   const [openMenu, setOpenMenu] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef(null);
@@ -309,16 +320,34 @@ function ClienteRow({ cliente, currency, onCambiarEstado, onVerDetalle, style })
               className="fixed z-50 w-44 rounded-2xl border border-border-2 bg-surface shadow-2xl py-1 animate-[scaleIn_0.15s_ease_both] origin-top-right"
               style={{ top: menuPos.top, left: menuPos.left }}
             >
-              {Object.entries(ESTADO_LABEL).map(([k, label]) => (
+              {/* Reembolsar sale del menú de estados y se pone aparte.
+
+                  Estaba ahí dentro, como una opción más entre «marcar como
+                  emitido» y «marcar como inválido»: el mismo gesto para cambiar
+                  una etiqueta que para devolver un pago. Ahora pide motivo, deja
+                  rastro y avisa de lo único que la gente da por hecho —que la
+                  plataforma NO mueve el dinero—. */}
+              {Object.entries(ESTADO_LABEL)
+                .filter(([k]) => k !== 'reembolsado')
+                .map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => { onCambiarEstado(k); setOpenMenu(false); }}
+                    disabled={cliente.estado === k}
+                    className="w-full px-3 py-2 text-left text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 disabled:text-text-3 disabled:bg-surface-2/50 transition-colors"
+                  >
+                    Marcar como {label.toLowerCase()}
+                  </button>
+                ))}
+
+              {['pagado', 'usado'].includes(cliente.estado) && (
                 <button
-                  key={k}
-                  onClick={() => { onCambiarEstado(k); setOpenMenu(false); }}
-                  disabled={cliente.estado === k}
-                  className="w-full px-3 py-2 text-left text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 disabled:text-text-3 disabled:bg-surface-2/50 transition-colors"
+                  onClick={() => { setOpenMenu(false); onReembolsar?.(); }}
+                  className="w-full px-3 py-2 text-left text-sm text-warning-light hover:bg-surface-2 transition-colors border-t border-border mt-1 pt-2"
                 >
-                  Marcar como {label.toLowerCase()}
+                  Reembolsar…
                 </button>
-              ))}
+              )}
             </div>
           </>,
           document.body
@@ -557,4 +586,88 @@ function UsersIcon({ className }) {
 }
 function DotsIcon({ className }) {
   return <svg className={className} fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>;
+}
+
+/* Reembolsar, con el aviso que la gente da por hecho al revés.
+ *
+ * ── Lo que hay que decir, y decirlo antes ────────────────────────────────
+ *
+ * Quien pulsa «reembolsar» en un panel supone que el panel devuelve el dinero.
+ * No lo hace, y no puede: el dinero está en Mercado Pago o en Wompi, con sus
+ * credenciales y sus plazos. Lo que hace la plataforma es dejar constancia —la
+ * boleta deja de servir, el cupo se libera y se le ofrece a quien espera, y
+ * queda escrito quién y por qué—.
+ *
+ * Ese aviso va ARRIBA y no en letra pequeña al final: si se lee después de
+ * pulsar, ya no sirve de nada.
+ *
+ * ── Y por qué pide motivo ────────────────────────────────────────────────
+ *
+ * Porque un reembolso se pregunta un mes después —«¿por qué se le devolvió a
+ * éste?»— y el estado solo no lo contesta. Es opcional a propósito: obligar a
+ * escribir con alguien esperando produce «asd», que es peor que el vacío.
+ */
+function ReembolsoModal({ evento, cliente, onClose, onHecho }) {
+  const [motivo, setMotivo] = useState('');
+  const [working, setWorking] = useState(false);
+  const { success, error: toastErr } = useToast();
+
+  const nombre = cliente.usuario?.nombre || cliente.guest_nombre || cliente.guest_email || 'esta persona';
+  const monto = Number(cliente.precio_pagado) || 0;
+
+  const confirmar = async () => {
+    setWorking(true);
+    try {
+      const r = await clientesApi.reembolsar(evento.id, cliente.id, motivo);
+      success(r.aviso || 'Reembolso registrado.');
+      onHecho();
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    } finally { setWorking(false); }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden"
+           onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="text-base font-semibold text-text-1">Reembolsar la boleta de {nombre}</h3>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="rounded-2xl border border-warning/30 bg-warning/5 px-4 py-3">
+            <p className="text-sm text-text-1 font-medium">Esto no devuelve el dinero.</p>
+            <p className="text-xs text-text-2 mt-1 leading-relaxed">
+              El dinero se devuelve desde Mercado Pago o Wompi, con sus plazos. Aquí queda
+              registrado: la boleta deja de servir en la puerta y su cupo se libera para quien
+              esté en lista de espera.
+            </p>
+          </div>
+
+          {monto > 0 && (
+            <p className="text-sm text-text-2">
+              Se cobraron <b className="text-text-1 tabular-nums">${monto.toLocaleString('es-CO')}</b>.
+            </p>
+          )}
+
+          <div className="field">
+            <label className="label">Motivo <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+            <input value={motivo} onChange={e => setMotivo(e.target.value)}
+              placeholder="Pidió cancelar, cobro duplicado…" className="input" />
+            <p className="text-[11px] text-text-3 mt-1.5">
+              Dentro de un mes, «¿por qué se le devolvió a éste?» no lo contesta el estado.
+            </p>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-border flex justify-end gap-2">
+          <button onClick={onClose} className="btn-ghost btn-sm">Cancelar</button>
+          <button onClick={confirmar} disabled={working} className="btn-primary btn-sm">
+            {working ? 'Registrando…' : 'Registrar el reembolso'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 }

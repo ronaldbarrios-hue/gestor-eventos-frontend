@@ -39,7 +39,11 @@ export default function RankingPublicoPage() {
   );
 
   return (
-    <section className="px-5 py-10 max-w-3xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+    <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+      {/* El mismo ancho que el resto del evento y que los bloques de la
+          portada. Cada página elegía el suyo —4xl, 3xl, lg— y al saltar de una a
+          otra el texto cambiaba de anchura: el ojo lee eso como «esto es otro
+          sitio» aunque el menú diga que no. */}
       <BarraEvento actual="ranking" />
       <TablaRanking ranking={ranking} />
     </section>

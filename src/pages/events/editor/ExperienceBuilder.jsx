@@ -23,6 +23,7 @@ import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
 import PublicacionSection from '../workspace/PublicacionSection.jsx';
 import ExportIframeModal from './ExportIframeModal.jsx';
 import VistaDesarrollador from './VistaDesarrollador.jsx';
+import EstadoPagina from './EstadoPagina.jsx';
 import Volver from '../../../components/ui/Volver.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -311,6 +312,12 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
           {dirty && <span className="text-warning"> · cambios sin guardar</span>}
         </p>
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Si la página se ve o no, y qué falta para que valga la pena — aquí,
+              que es donde se termina de montar. Antes eso vivía dos pantallas
+              más atrás, en la cabecera del panel, junto con el botón de
+              publicar: el recorrido natural obligaba a salir del editor justo
+              al final para hacer lo único que quedaba. */}
+          <EstadoPagina evento={evento} dirty={dirty} />
           {onClose && <Volver onClick={onClose}>Volver al preview</Volver>}
           {/* El cambio de modo se fue abajo, a la franja de Páginas: es una
               decisión SOBRE la página que se está editando, no una salida del

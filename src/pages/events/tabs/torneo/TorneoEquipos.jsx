@@ -25,7 +25,10 @@ export default function EquiposView({ evento, torneo, equipos, soyOwner, onReloa
     .then(d => { setCampos(d.campos || []); setSinMigracion(false); })
     .catch(e => { if (e.response?.status === 503) setSinMigracion(true); });
 
-  useEffect(() => { cargarCampos(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [evento.id, torneo.id]);
+  /* `cargarCampos` se rehace en cada render, así que no puede ir en las
+     dependencias: la carga se repetiría sin parar. Lo que la identifica son el
+     evento y el torneo. */
+  useEffect(() => { cargarCampos(); }, [evento.id, torneo.id]);
   const { success, error: toastErr } = useToast();
 
   const puedeEditar = soyOwner && torneo.estado === 'armando';

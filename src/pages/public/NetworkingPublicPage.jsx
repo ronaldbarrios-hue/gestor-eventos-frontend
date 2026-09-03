@@ -52,9 +52,13 @@ export default function NetworkingPublicPage() {
      evento ni pasar a la agenda, que sí es pública. */
   if (!usuario) {
     return (
-      <section className="px-5 py-10 max-w-lg mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
+        {/* El MARCO se queda del ancho de siempre y lo que se estrecha es la
+            tarjeta. Antes se estrechaba la página entera, así que entrar aquí sin
+            sesión encogía también el nombre del evento y las secciones — y eso
+            parece otra web, no otra pantalla del mismo sitio. */}
         <BarraEvento actual="networking" />
-        <div className="rounded-3xl border-2 border-primary/30 bg-primary/5 px-6 py-10 text-center">
+        <div className="max-w-lg mx-auto rounded-3xl border-2 border-primary/30 bg-primary/5 px-6 py-10 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/15 border border-primary/30 mb-5">
             <svg className="w-7 h-7 text-primary-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -80,9 +84,9 @@ export default function NetworkingPublicPage() {
 
   if (bloqueado) {
     return (
-      <section className="px-5 py-10 max-w-lg mx-auto animate-[fadeUp_0.4s_ease_both]">
+      <section className="px-5 py-10 max-w-4xl mx-auto animate-[fadeUp_0.4s_ease_both]">
         <BarraEvento actual="networking" />
-        <div className="rounded-3xl border-2 border-warning/40 bg-warning/10 px-6 py-10 text-center">
+        <div className="max-w-lg mx-auto rounded-3xl border-2 border-warning/40 bg-warning/10 px-6 py-10 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-warning/20 border border-warning/40 mb-5">
             <svg className="w-7 h-7 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-8.25 3.75h.008v.008h-.008v-.008z" />

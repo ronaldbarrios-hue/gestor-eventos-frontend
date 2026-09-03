@@ -7,6 +7,12 @@ export const clientesApi = {
      en la boleta —el servidor no acepta destinatario—, y es el mismo correo que
      sale al pagar, con la plantilla del evento. */
   reenviar     : (eventoId, ticketId)           => client.post(`/eventos/${eventoId}/clientes/${ticketId}/reenviar`).then(r => r.data),
+  /* Cuánto entró, de qué, qué falta por cobrar y qué se devolvió. Permiso
+     `ver_pagos`. */
+  dinero       : (eventoId)                     => client.get(`/eventos/${eventoId}/dinero`).then(r => r.data),
+  /* Deja constancia del reembolso. NO mueve dinero: eso se hace en la pasarela.
+     Permiso `reembolsar`. */
+  reembolsar   : (eventoId, ticketId, motivo)   => client.post(`/eventos/${eventoId}/clientes/${ticketId}/reembolsar`, { motivo }).then(r => r.data),
   checkin      : (eventoId, body)               => client.post(`/eventos/${eventoId}/checkin`, body).then(r => r.data),
   reingreso    : (eventoId, body)               => client.post(`/eventos/${eventoId}/reingreso`, body).then(r => r.data),
   aforoZonas   : (eventoId)                      => client.get(`/eventos/${eventoId}/zonas/aforo`).then(r => r.data),

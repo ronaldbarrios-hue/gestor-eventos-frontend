@@ -269,3 +269,43 @@ test('la ficha de una zona ocupa el ancho, y va debajo de su zona', () => {
   assert.match(src, /z\.id === sel && seleccionada/,
     'la ficha ya no se pinta debajo de su propia zona');
 });
+
+test('el editor dice si la página se ve, y deja publicarla desde ahí', () => {
+  /* Se podía montar la página entera sin enterarse nunca de si estaba viva: el
+     estado —borrador o publicado— y el botón de publicar vivían dos pantallas
+     más atrás, en la cabecera del panel. El recorrido natural —montar, mirar,
+     publicar— obligaba a SALIR del editor justo al final para hacer lo único
+     que quedaba por hacer. */
+  const editor = sinComentarios(readFileSync(join(SRC, 'pages/events/editor/ExperienceBuilder.jsx'), 'utf8'));
+  assert.match(editor, /<EstadoPagina/, 'el editor ya no dice si la página está publicada');
+
+  const estado = sinComentarios(readFileSync(join(SRC, 'pages/events/editor/EstadoPagina.jsx'), 'utf8'));
+  assert.match(estado, /avisosDelEvento/,
+    'publicar dejó de enseñar lo que falta — y esa lista ya existía');
+  /* Recargar al publicar se llevaría por delante los cambios sin guardar del
+     editor. Publicar no toca los bloques: no hay nada que volver a pedir. */
+  assert.ok(!/location\.reload/.test(estado),
+    'publicar recarga la página y se lleva los cambios sin guardar');
+});
+
+test('todas las páginas del evento tienen la misma anchura de columna', () => {
+  /* Cada una eligió el suyo: 4xl en agenda y torneo, 3xl en ranking, lg en la
+     rueda sin sesión. Al saltar de una a otra el texto cambiaba de anchura —y
+     el nombre del evento y las secciones con él—, que el ojo lee como «esto es
+     otro sitio» aunque el menú diga lo contrario.
+
+     4xl porque es el ancho de los bloques de la portada: así la columna no se
+     mueve tampoco al entrar desde la landing. */
+  const paginas = ARCHIVOS.filter(([ruta]) =>
+    /src\/pages\/public\/(Agenda|Mapa|Networking|Ranking|Torneo|TorneosResumen)/.test(ruta));
+  assert.ok(paginas.length >= 6, 'faltan páginas del evento que comprobar');
+
+  const malas = [];
+  for (const [ruta, src] of paginas) {
+    for (const m of sinComentarios(src).matchAll(/py-10 max-w-(\w+) mx-auto/g)) {
+      if (m[1] !== '4xl') malas.push(`${ruta}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(malas, [],
+    'Alguna página del evento volvió a elegir su propia anchura');
+});

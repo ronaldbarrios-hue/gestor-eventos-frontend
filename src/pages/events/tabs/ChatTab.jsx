@@ -213,7 +213,9 @@ function ChannelView({ evento, channel, usuario }) {
       .then(d => { setMessages(d.messages || []); setTimeout(scrollToBottom, 50); })
       .catch(e => { if (conSpinner) toastErr(e.message); })
       .finally(() => { if (conSpinner) setLoading(false); });
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    /* Las dependencias son el evento y el canal a propósito: `scrollToBottom` y
+       los avisos se rehacen en cada render y meterlos aquí recargaría el chat
+       sin parar. */
   }, [evento.id, channel.id]);
 
   /* Carga inicial */

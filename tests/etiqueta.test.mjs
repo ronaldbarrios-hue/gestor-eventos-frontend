@@ -22,8 +22,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 /* `pathToFileURL` y no la ruta a secas: en Windows un `C:\…` no es una URL
    válida para el cargador de módulos y el import revienta. */
-const { medidas, versionParaToken, ETIQUETA, PUNTOS_POR_MM } =
+const { medidas, versionParaToken, ETIQUETA, PUNTOS_POR_MM, normalizarEtiqueta, LIMITES } =
   await import(pathToFileURL(join(RAIZ, 'src/lib/etiquetaTermica.js')).href);
+
+/* El catálogo de piezas, con el mismo `await` de nivel superior: dentro de un
+   `test()` síncrono un `await import` no compila. */
+const piezas = await import(pathToFileURL(join(RAIZ, 'src/lib/piezasBranding.js')).href);
 
 /* 253 es el largo real, medido contra un token de producción el 2026-09-02. */
 const TOKEN_REAL = 'x'.repeat(253);
@@ -35,14 +39,31 @@ test('el token de hoy da un QR de versión 12', () => {
   assert.equal(medidas(TOKEN_REAL).modulos, 65);
 });
 
-test('el QR cabe, y con 3 puntos por módulo', () => {
+test('el QR cabe, y con al menos 3 puntos por módulo', () => {
   const m = medidas(TOKEN_REAL);
   assert.equal(m.cabe, true, m.motivo || '');
 
-  /* 73 módulos (65 + 4 de margen por lado) × 3 puntos = 219 puntos. */
-  assert.equal(m.lado_puntos, 219);
-  assert.equal(m.lado_mm, 219 / PUNTOS_POR_MM);
-  assert.ok(m.lado_mm > 27 && m.lado_mm < 28, `salen ${m.lado_mm} mm`);
+  /* Tres es el SUELO, no el valor. Con el rollo real —100 × 50 mm y un cuadro
+     pedido de 4×4 cm— caben cuatro, y cada punto más es un lector menos que
+     duda con la escarapela doblada. */
+  assert.ok(m.puntos_por_modulo >= 3, `sólo ${m.puntos_por_modulo} puntos por módulo`);
+  assert.equal(m.puntos_por_modulo, 4);
+
+  /* 73 módulos (65 + 4 de margen por lado) × 4 puntos = 292. */
+  assert.equal(m.lado_puntos, 292);
+  assert.equal(m.lado_mm, 292 / PUNTOS_POR_MM);
+});
+
+test('el QR ocupa el cuadrado pedido, aunque el código mida menos', () => {
+  /* Se pidió «4×4 cm centrado». 40 mm exactos darían 4,38 puntos por módulo, y
+     un módulo que no cae en punto entero lo redondea el cabezal a su manera:
+     el borde sale con diente y ahí es donde un lector barato empieza a dudar.
+
+     Así que el código se imprime a 36,5 mm y se CENTRA en los 40 reservados. El
+     hueco es el pedido; lo que cambia es que sale limpio. */
+  const m = medidas(TOKEN_REAL);
+  assert.equal(m.caja_mm, 40);
+  assert.ok(m.lado_mm <= m.caja_mm, 'el código se sale de su cuadrado');
 });
 
 test('cae en punto entero: nada de medias tintas a 203 dpi', () => {
@@ -103,4 +124,74 @@ test('la etiqueta cuelga de una pantalla del panel', () => {
   const acred = readFileSync(join(RAIZ, 'src/pages/events/workspace/asistentes/AcreditacionSection.jsx'), 'utf8');
   assert.match(acred, /EtiquetadoraSection/, 'la etiquetadora ya no cuelga de Acreditación');
   assert.match(acred, /'etiquetas'/, 'la vista de imprimir ya no se puede elegir');
+});
+
+test('las medidas son del evento, no del código', () => {
+  /* Estaban escritas dentro: 100×50 porque nos lo dijeron por WhatsApp. Servía
+     para un rollo y para ninguno más — y el siguiente organizador con otro rollo
+     no tenía nada que tocar. */
+  const e = normalizarEtiqueta({ ancho: 70, alto: 40, qr_objetivo: 30 });
+  assert.equal(e.ancho, 70);
+  assert.equal(e.alto, 40);
+
+  /* Fuera de los topes se acota en vez de aceptarse: una etiqueta de 5 mm o de
+     3 metros no existe, y guardarla dejaría el diseño roto sin decir nada. */
+  const enorme = normalizarEtiqueta({ ancho: 9999, alto: -5 });
+  assert.equal(enorme.ancho, LIMITES.ancho.max);
+  assert.equal(enorme.alto, LIMITES.alto.min);
+
+  /* Y todo cae en punto entero a 203 dpi: 0,1 mm no es imprimible y el cabezal
+     redondearía por su cuenta. */
+  const raro = normalizarEtiqueta({ ancho: 100.07 });
+  assert.equal(Number.isInteger(raro.ancho * 8), true, `${raro.ancho} no cae en punto`);
+});
+
+test('el QR se sube arriba cuando al lado no cabe el nombre', () => {
+  /* La regla de espacio, que es la decisión de verdad: un nombre de dos
+     apellidos necesita unos 35 mm de ancho para dos líneas a 6 mm. En una
+     etiqueta estrecha y alta, al lado no cabe nada y debajo sí. */
+  const ancha = medidas(TOKEN_REAL, { ancho: 100, alto: 50, qr_objetivo: 40 });
+  assert.equal(ancha.disposicion, 'lado');
+
+  const estrecha = medidas(TOKEN_REAL, { ancho: 60, alto: 90, qr_objetivo: 45 });
+  assert.equal(estrecha.disposicion, 'debajo');
+
+  /* Y cuando el organizador fuerza una disposición que no da, se avisa en vez
+     de imprimir mil escarapelas con el nombre a un milímetro. */
+  const forzada = medidas(TOKEN_REAL, { ancho: 100, alto: 50, qr_objetivo: 40, disposicion: 'debajo' });
+  assert.equal(forzada.nombre_cabe, false);
+  assert.match(forzada.aviso, /no se va a leer/i);
+});
+
+test('cada pieza del catálogo se puede imprimir tal como viene', () => {
+  /* El catálogo no vale de nada si un tipo trae medidas con las que no cabe
+     nada. Esto lo comprueba contra un token REAL de 253 caracteres, que es el
+     caso que decide — no contra un valor corto de prueba. */
+  for (const t of piezas.TIPOS_PIEZA) {
+    const r = piezas.revisarPieza(piezas.piezaDesdeTipo(t.id));
+    assert.equal(r.cabe, true, `«${t.nombre}» viene con medidas donde el QR no cabe: ${r.motivo}`);
+  }
+});
+
+test('la manilla se imprime con serial, y con QR firmado no cabría', () => {
+  /* Es la restricción que hay que saber ANTES de comprar el rollo: el QR del
+     token firmado necesita 28 mm de alto y una manilla tiene 25. No es diseño,
+     es que no entra.
+     
+     Y con el código corto sí: 8 caracteres son un QR de versión 1. */
+  const manilla = piezas.piezaDesdeTipo('manilla');
+
+  /* La manilla viene con serial: el código escrito. No es una preferencia
+     estética —el QR firmado necesita 28 mm de alto y una manilla tiene 25— y
+     además el texto aguanta el roce de tres días, que el cuadrado no. */
+  assert.equal(manilla.formato_codigo, 'serial', 'la manilla dejó de venir con serial');
+  assert.equal(piezas.revisarPieza(manilla).cabe, true);
+
+  /* Y si alguien la cambia a QR con la firma, se le dice que no entra en vez de
+     dejarle imprimir dos mil manillas ilegibles. */
+  const conFirma = piezas.revisarPieza({ ...manilla, formato_codigo: 'qr', qr_contenido: 'token' });
+  assert.equal(conFirma.cabe, false, 'la firma cabría en una manilla de 25 mm, y no cabe');
+  /* Y cuando no cabe se dice cómo arreglarlo: «no cabe» a secas deja a alguien
+     creyendo que las manillas no se pueden usar. */
+  assert.match(conFirma.arreglo, /código corto/i);
 });

@@ -1,5 +1,5 @@
 import EtiquetaTermica from './EtiquetaTermica.jsx';
-import { ETIQUETA } from '../../lib/etiquetaTermica.js';
+import { ETIQUETA_DEFECTO, normalizarEtiqueta } from '../../lib/etiquetaTermica.js';
 
 /* Mandar escarapelas a la etiquetadora.
  *
@@ -18,7 +18,7 @@ import { ETIQUETA } from '../../lib/etiquetaTermica.js';
  *
  * El navegador mete un margen por defecto. Sobre una etiqueta de 55 mm de alto,
  * un margen de 10 mm deja el diseño a escala y descentrado, y el QR fuera de la
- * zona imprimible. El margen de verdad va dentro del diseño (`ETIQUETA.margen`),
+ * zona imprimible. El margen de verdad va dentro del diseño (`etiqueta.margen`),
  * donde se puede medir.
  *
  * ── Lo que el navegador NO puede garantizar ──────────────────────────────
@@ -33,16 +33,27 @@ import { ETIQUETA } from '../../lib/etiquetaTermica.js';
  * TT460) y mandárselo por USB o por red. Eso ya no es diseño, es fontanería, y
  * hasta no probar en el aparato no se sabe si hace falta. */
 
-export default function ImprimirEtiquetas({ tickets = [], evento = {}, destacados = [], logoUrl = '', mostrarCodigo = true }) {
+export default function ImprimirEtiquetas({
+  tickets = [], evento = {}, destacados = [], logoUrl = '', mostrarCodigo = true,
+  /* Las medidas del rollo. El `@page` de abajo TIENE que coincidir con ellas:
+     si el papel declarado y el dibujo no miden lo mismo, la impresora escala y
+     el QR pierde la relación puntos↔módulos que lo hace legible. */
+  etiqueta,
+  /* Qué va dentro del QR de cada boleta. Lo decide la pieza —firma o código
+     corto— y no este componente, que sólo maqueta. */
+  qrDe,
+}) {
+  const E = etiqueta ? normalizarEtiqueta(etiqueta) : ETIQUETA_DEFECTO;
   return (
     <>
       <div className="etiquetas-print">
         {tickets.map(t => (
           <div key={t.id || t.codigo} className="etiqueta-hoja">
             <EtiquetaTermica
+              etiqueta={E}
               ticket={t}
               evento={evento}
-              qrValue={t.qr_token || t.codigo}
+              qrValue={qrDe ? qrDe(t) : (t.qr_token || t.codigo)}
               destacados={destacados}
               logoUrl={logoUrl}
               mostrarCodigo={mostrarCodigo}
@@ -54,15 +65,15 @@ export default function ImprimirEtiquetas({ tickets = [], evento = {}, destacado
       <style>{`
         @media print {
           @page {
-            size: ${ETIQUETA.ancho}mm ${ETIQUETA.alto}mm;
+            size: ${E.ancho}mm ${E.alto}mm;
             margin: 0;
           }
           body * { visibility: hidden; }
           .etiquetas-print, .etiquetas-print * { visibility: visible; }
           .etiquetas-print { position: absolute; inset: 0; }
           .etiqueta-hoja {
-            width: ${ETIQUETA.ancho}mm;
-            height: ${ETIQUETA.alto}mm;
+            width: ${E.ancho}mm;
+            height: ${E.alto}mm;
             /* Una por página: sin esto la impresora parte la segunda. */
             page-break-after: always;
             break-after: page;
