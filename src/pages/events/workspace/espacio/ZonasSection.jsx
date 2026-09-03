@@ -315,7 +315,13 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
             : <p className="text-[11px] text-text-3 mt-3">Las crea quien administra el evento.</p>}
         </div></div>
       ) : (
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+        /* La segunda columna sólo existe cuando hay zona elegida.
+
+           Antes estaba siempre: 360 px reservados para una tarjeta que decía
+           «Toca una zona», y la lista —que es donde se trabaja— apretada al
+           lado. El vacío ocupaba lo mismo que lo lleno. Sin selección la lista
+           se queda con el ancho entero. */
+        <div className={`grid gap-4 items-start ${seleccionada ? 'lg:grid-cols-[minmax(0,1fr)_380px]' : 'grid-cols-1'}`}>
           <div className="space-y-2">
             {filas.map(z => (
               <FilaZona key={z._k} z={z} activa={z.id === sel}
@@ -347,8 +353,8 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
             )}
           </div>
 
+          {seleccionada && (
           <div className="lg:sticky lg:top-4 space-y-3">
-            {seleccionada ? (
               <>
                 <DetalleMarcador sel={`zona:${seleccionada.id}`} datos={datosDetalle} />
                 <Puertas evento={evento} lista={puertasPorZona[seleccionada.id] || []} />
@@ -374,15 +380,8 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
                 )}
                 <Acciones evento={evento} z={seleccionada} puedeAgenda={puedeAgenda} puedeStands={puedeStands} />
               </>
-            ) : (
-              <div className="rounded-2xl border border-border bg-surface/40 p-5 text-center">
-                <p className="text-sm text-text-2">Toca una zona</p>
-                <p className="text-xs text-text-3 mt-1.5">
-                  Verás su aforo, qué hay programado dentro y qué stands están montados ahí.
-                </p>
-              </div>
-            )}
           </div>
+          )}
         </div>
       )}
     </div>
@@ -475,8 +474,15 @@ function Acciones({ evento, z, puedeAgenda, puedeStands }) {
   const enZonas = `/eventos/${evento.id}?s=zonas`;
   const enActividades = `/eventos/${evento.id}?s=actividades`;
   return (
-    <div className="rounded-2xl border border-border bg-surface/40 p-3.5 space-y-2">
-      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Ir a</p>
+    /* Plegado, y no por gusto: son hasta seis enlaces —media ficha— para lo
+       que menos se hace desde aquí. Lo que se usa a diario es colgar una
+       actividad o un stand, y eso está justo encima. */
+    <details className="rounded-2xl border border-border bg-surface/40 px-3.5 py-2.5 group">
+      <summary className="text-[11px] uppercase tracking-widest text-text-3 font-semibold cursor-pointer list-none flex items-center justify-between">
+        Ir a
+        <span className="text-text-3 group-open:rotate-180 transition-transform">⌄</span>
+      </summary>
+      <div className="space-y-2 pt-2">
       <Enlace to={`${enZonas}&t=mapa`} texto={z._enPlano ? 'Mover en el plano' : 'Colocar en el plano'} nota="Mapa del evento" />
       <Enlace to={`${enZonas}&t=aforo`} texto="Operar y tomar reporte" nota="Aforo por zonas" />
       {/* Asignar ya se hace arriba, desde la zona. Estos dos enlaces se quedan
@@ -487,7 +493,8 @@ function Acciones({ evento, z, puedeAgenda, puedeStands }) {
       {!puedeStands && <Enlace to={`${enZonas}&t=stands`} texto="Montar un stand" nota="Stands · campo «Zona del plano»" />}
       <Enlace to={`${enActividades}&t=calendario`} texto="Crear una actividad nueva" nota="Calendario" />
       <Enlace to={`${enZonas}&t=accesos`} texto="Puertas del recinto" nota="Accesos e ingresos" />
-    </div>
+      </div>
+    </details>
   );
 }
 

@@ -2628,7 +2628,18 @@ que ocurra en el evento.**
 
 Hoy hay dos puertas y por eso existían 4 torneos sin hueco en el calendario.
 
-### Q4 · La rueda de negocios YA es un stand, y no se dice
+### Q4 · La rueda de negocios YA es un stand — ✅ dicho el 2026-09-03
+
+No se tocó el modelo, que estaba bien: las dos cabeceras se apuntan ahora la una
+a la otra y dicen que es **la misma ficha vista por el otro lado**. Lo que
+cambia entre las dos pantallas no es la lista, son las columnas —citas y
+horarios aquí, número de stand y cuota allí— y eso sí había que decirlo.
+
+De paso, la cabecera de Stands ya no manda a «Asistentes → Escanear» a dar los
+puntos de un stand: después de Q8, un stand da los suyos desde su enlace y el
+panel sólo da los del evento.
+
+#### Lo que decía la ficha original
 
 **Lo observado por Sekkon0906:** «al parecer la rueda de negocios está vinculada
 a los stands, entonces al crear una rueda de negocios se registra como un
@@ -2678,7 +2689,18 @@ zonas de tipo ingreso.
 **Y una zona de evacuación no es un capricho:** un recinto de 7.000 personas
 tiene salidas de emergencia, y hoy no hay dónde declararlas.
 
-### Q7 · El panel de edición de zonas desperdicia la pantalla
+### Q7 · El panel de zonas desperdiciaba la pantalla — ✅ hecho el 2026-09-03
+
+La segunda columna estaba **siempre**: 380 px reservados para una tarjeta que
+decía «Toca una zona», con la lista —que es donde se trabaja— apretada al lado.
+Ahora esa columna sólo existe cuando hay una zona elegida; sin selección, la
+lista se queda con el ancho entero.
+
+Y el bloque «Ir a», que son hasta seis enlaces abiertos —media ficha para lo que
+menos se hace desde aquí—, va plegado. Lo que se usa a diario es colgar una
+actividad o un stand, y eso queda arriba.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** «se pierde mucho espacio mostrando ese modal de las zonas que
 está vacío, toca agrandar la zona de personalización».

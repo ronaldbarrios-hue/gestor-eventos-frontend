@@ -5,7 +5,22 @@ import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 
-/* Tab Rueda de Negocios — gestionado + autogestionado:
+/* Tab Rueda de Negocios.
+ *
+ * ── Un expositor de aquí ES un stand ──────────────────────────────────
+ *
+ * Las dos pantallas escriben en `networking_expositores`. Se unificó en el
+ * Frente J, cuando resultó que había dos altas para la misma tabla y la de la
+ * rueda ni siquiera tenía `PATCH`. **Está bien que sean lo mismo** —quien monta
+ * un stand es con quien se agenda una cita—, lo que estaba mal es que la
+ * interfaz no lo dijera: se creaba un expositor aquí y aparecía en Stands sin
+ * explicación, como si se hubiera duplicado solo.
+ *
+ * Por eso las dos cabeceras se apuntan la una a la otra. Lo que cambia entre
+ * ellas no es la lista, son las columnas: aquí las citas y los horarios, allí
+ * el número de stand y la cuota de puntos.
+ *
+ * Gestionado + autogestionado:
    el organizador crea expositores y sus horarios disponibles; los
    asistentes reservan citas libremente, confirmación automática.
    ExplorarView y MisCitasView se exportan también para poder reutilizarse
@@ -19,7 +34,18 @@ export default function NetworkingTab({ evento, soyOwner }) {
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight">Rueda de Negocios</h2>
-          <p className="text-sm text-text-2 mt-1">Agenda citas cortas de networking con expositores del evento.</p>
+          <p className="text-sm text-text-2 mt-1">
+            Agenda citas cortas de networking con expositores del evento.
+          </p>
+          {/* Que un expositor y un stand son la misma ficha no se adivina: se
+              dice, y con el enlace al lado. */}
+          <p className="text-xs text-text-3 mt-1">
+            Cada expositor de aquí es también un <b className="text-text-2">stand</b>: es la misma ficha
+            vista por el otro lado. Su número de stand y su cuota de puntos se llevan en{' '}
+            <a href={`/eventos/${evento.id}?s=zonas&t=stands`} className="text-primary-light hover:underline">
+              Zonas → Stands
+            </a>.
+          </p>
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
           {soyOwner && (
