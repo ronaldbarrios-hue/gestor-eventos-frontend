@@ -302,6 +302,16 @@ un ajuste chico de backend. Sin migración.
   «Guardar accesos» global; borrar persiste al momento. El `PATCH` mezcla
   `page_json` por clave (0064), así que guardar sólo `accesos` no toca `zonas`.
 
+**Fase 1 — ✅ hecha el 2026-09-02.** Al medirla, casi todo ya estaba:
+`alertarAforo` hace tiempo que no abre una fila de incidente, el botón
+«Resolver» tiene su endpoint y Accesos guarda por fila. **Lo que sí seguía mal
+eran los enlaces de los avisos**, y de una forma que no da error: tres
+notificaciones apuntaban a pantallas que ya no existen con ese nombre y
+**dejaban al organizador en el Resumen**. La peor no era de la reagrupación del
+menú — `?s=vacantes` **nunca** fue una sección, siempre fue una pestaña, así que
+el aviso de que alguien se postuló no ha llevado nunca a las vacantes. Lo
+vigila ahora `tests/menu.test.mjs`, que mira también el repo del backend.
+
 **Fase 2 — «Tomar reporte» manual.** Migración aditiva + endpoint + subida de foto.
 - `zona_cortes` gana `tipo` (`reset` | `auto` | `manual`), `foto_url`, `nota` y
   `contexto` jsonb: ocupación de cada zona + qué sesión de agenda estaba
@@ -1345,7 +1355,19 @@ indica, así que se pueden tomar en paralelo.
 4. **Conectar `oauth_barrer()`** a alguno de los `cron-*.js` que ya corren, o
    documentar que sigue pendiente. Hoy `oauth_codes`/`oauth_tokens` crecen sin
    límite (§3.4).
-5. ~~**Adoptar `StatCard` y añadir `<BarraProgreso>`**~~ — ✅ la barra, hecha:
+5. ~~**Adoptar `StatCard` y añadir `<BarraProgreso>`**~~ — ✅ **hecho**, pero
+   con una corrección a la tarea: **`StatCard` no encajaba y se retiró.** Es una
+   baldosa de tablero —icono, tendencia, paleta de cinco colores— y las tres
+   copias reales no tienen icono ni tendencia; dos tienen una nota debajo que
+   `StatCard` no sabe pintar. Adoptarlo obligaba a las tres a perder algo, y no
+   lo usaba nadie desde que se escribió. La pieza que hacía falta es
+   `components/ui/Kpi.jsx`, sacada de lo que las tres HACÍAN: unifica
+   `KpiCard` (Analytics), `Kpi` (vista del colaborador) y `Stat` (widget), que
+   se habían inventado tres vocabularios distintos para el estado
+   (`accent="success"`, `alerta`, `tono="warning"`). También se fue la clase
+   `.stat-card` del CSS, que se quedó sin consumidor.
+
+   Y la barra:
    `components/ui/BarraProgreso.jsx`, adoptada en Boletas, Stands y Analytics.
    Las siete copias no eran idénticas y las diferencias no las había decidido
    nadie: `bg-surface-2` en unas y `bg-surface-3` en otras, `h-1`/`h-1.5`/`h-2`
