@@ -173,7 +173,7 @@ test('cada pieza del catálogo se puede imprimir tal como viene', () => {
   }
 });
 
-test('en una manilla cabe el código corto y no la firma', () => {
+test('la manilla se imprime con serial, y con QR firmado no cabría', () => {
   /* Es la restricción que hay que saber ANTES de comprar el rollo: el QR del
      token firmado necesita 28 mm de alto y una manilla tiene 25. No es diseño,
      es que no entra.
@@ -181,10 +181,15 @@ test('en una manilla cabe el código corto y no la firma', () => {
      Y con el código corto sí: 8 caracteres son un QR de versión 1. */
   const manilla = piezas.piezaDesdeTipo('manilla');
 
-  assert.equal(manilla.qr_contenido, 'codigo', 'la manilla dejó de venir con código corto');
+  /* La manilla viene con serial: el código escrito. No es una preferencia
+     estética —el QR firmado necesita 28 mm de alto y una manilla tiene 25— y
+     además el texto aguanta el roce de tres días, que el cuadrado no. */
+  assert.equal(manilla.formato_codigo, 'serial', 'la manilla dejó de venir con serial');
   assert.equal(piezas.revisarPieza(manilla).cabe, true);
 
-  const conFirma = piezas.revisarPieza({ ...manilla, qr_contenido: 'token' });
+  /* Y si alguien la cambia a QR con la firma, se le dice que no entra en vez de
+     dejarle imprimir dos mil manillas ilegibles. */
+  const conFirma = piezas.revisarPieza({ ...manilla, formato_codigo: 'qr', qr_contenido: 'token' });
   assert.equal(conFirma.cabe, false, 'la firma cabría en una manilla de 25 mm, y no cabe');
   /* Y cuando no cabe se dice cómo arreglarlo: «no cabe» a secas deja a alguien
      creyendo que las manillas no se pueden usar. */

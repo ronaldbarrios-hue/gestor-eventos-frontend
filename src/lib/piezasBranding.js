@@ -49,6 +49,27 @@ export const CONTENIDOS_QR = [
   { id: 'codigo', label: 'Código corto',   pista: 'Cabe en casi nada. Es adivinable en bloque: conviene sólo donde el otro no entra.' },
 ];
 
+/* ── Cómo se imprime ese dato ──────────────────────────────────────────────
+ *
+ * · **`qr`** — el cuadrado. Se escanea de lejos y en cualquier orientación, pero
+ *   necesita alto: 28 mm con la firma, 9 con el código corto.
+ * · **`serial`** — el código escrito, grande y monoespaciado. No se escanea: se
+ *   lee y se teclea. Es lo único que cabe entero en una manilla, y tiene una
+ *   ventaja que el QR no tiene —se lee aunque la manilla esté doblada, mojada o
+ *   rayada, que es lo que le pasa a una manilla después de tres días—.
+ *
+ * Un código de barras (Code 128) sería lo ideal para una manilla —la forma
+ * encaja: largo y bajo— y el escáner de la puerta **ya lo leería**, porque
+ * `html5-qrcode` acepta ese formato y la cámara no está limitada a QR. No está
+ * aquí todavía por una razón concreta: generar Code 128 exige una tabla de 107
+ * patrones, y un patrón mal copiado produce un código que **parece bien y no
+ * lee**. Eso hay que comprobarlo contra un lector de verdad antes de meterlo, no
+ * después de imprimir dos mil manillas. */
+export const FORMATOS_CODIGO = [
+  { id: 'qr',     label: 'QR',     pista: 'Se escanea con la cámara. Necesita alto.' },
+  { id: 'serial', label: 'Serial', pista: 'El código escrito, para leer y teclear. Cabe donde el QR no, y aguanta el roce.' },
+];
+
 /* Los tipos que conoce la plataforma. Un evento puede partir de uno y cambiarle
    lo que quiera; lo que no puede es inventarse el ancho de un rollo que no
    existe, y por eso cada uno trae medidas reales de material que se compra. */
@@ -73,8 +94,9 @@ export const TIPOS_PIEZA = [
     pista: 'Para los días completos. Ojo: el QR firmado NO cabe — ver el aviso al elegirla.',
     medidas: { ancho: 250, alto: 25, margen: 2, qr_objetivo: 20, disposicion: 'lado' },
     /* Aquí no es una preferencia: con 25 mm de alto y márgenes, el QR firmado no
-       entra ni a tres puntos por módulo. O código corto, o no hay QR. */
+       entra ni a tres puntos por módulo. La manilla se imprime con el serial. */
     qr_contenido: 'codigo',
+    formato_codigo: 'serial',
   },
   {
     id: 'mini',
@@ -108,13 +130,20 @@ export function normalizarPieza(p) {
     tipo: tipo.id,
     nombre: String(base.nombre || tipo.nombre).slice(0, 60),
     qr_contenido: CONTENIDOS_QR.some(c => c.id === base.qr_contenido) ? base.qr_contenido : tipo.qr_contenido,
+    formato_codigo: FORMATOS_CODIGO.some(f => f.id === base.formato_codigo)
+      ? base.formato_codigo
+      : (tipo.formato_codigo || 'qr'),
     ...normalizarEtiqueta({ ...tipo.medidas, ...base }),
   };
 }
 
 export function piezaDesdeTipo(id) {
   const t = tipoPieza(id);
-  return normalizarPieza({ tipo: t.id, nombre: t.nombre, qr_contenido: t.qr_contenido, ...t.medidas });
+  return normalizarPieza({
+    tipo: t.id, nombre: t.nombre,
+    qr_contenido: t.qr_contenido, formato_codigo: t.formato_codigo,
+    ...t.medidas,
+  });
 }
 
 /* Las piezas de un evento. Si no ha armado ninguna, se le da la escarapela: es
@@ -141,6 +170,22 @@ export function valorQr(pieza, ticket = {}) {
  * corto— cuando la pieza lleva firma, porque es el caso que decide. */
 export function revisarPieza(pieza, muestra = 'x'.repeat(253)) {
   const p = normalizarPieza(pieza);
+
+  /* Sin QR no hay nada que medir: el serial es texto y cabe siempre. Se
+     devuelve una medida «todo el ancho para el texto» en vez de un cálculo de
+     módulos que no significaría nada. */
+  if (p.formato_codigo === 'serial') {
+    const anchoUtil = p.ancho - p.margen * 2;
+    const altoUtil = p.alto - p.margen * 2;
+    return {
+      cabe: true, pieza: p, arreglo: null, disposicion: 'debajo',
+      caja_mm: 0, lado_mm: 0, texto_mm: anchoUtil, texto_alto_mm: altoUtil,
+      nombre_cabe: altoUtil >= 7,
+      aviso: altoUtil >= 7 ? null
+        : `Con ${altoUtil.toFixed(0)} mm de alto no cabe el nombre encima del serial.`,
+    };
+  }
+
   const valor = p.qr_contenido === 'codigo' ? 'ABCD2345' : muestra;
   const m = medidas(valor, p);
 

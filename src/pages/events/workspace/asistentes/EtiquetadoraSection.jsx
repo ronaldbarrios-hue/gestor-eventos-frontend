@@ -4,8 +4,8 @@ import ImprimirEtiquetas from '../../../../components/public/ImprimirEtiquetas.j
 import EtiquetaTermica from '../../../../components/public/EtiquetaTermica.jsx';
 import { LIMITES } from '../../../../lib/etiquetaTermica.js';
 import {
-  TIPOS_PIEZA, CONTENIDOS_QR, tipoPieza, piezaDesdeTipo, piezasDelEvento,
-  normalizarPieza, revisarPieza, valorQr,
+  TIPOS_PIEZA, CONTENIDOS_QR, FORMATOS_CODIGO, tipoPieza, piezaDesdeTipo,
+  piezasDelEvento, normalizarPieza, revisarPieza, valorQr,
 } from '../../../../lib/piezasBranding.js';
 import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
@@ -186,8 +186,26 @@ export default function EtiquetadoraSection({ evento }) {
                      onChange={v => cambiar({ margen: v })} />
             </div>
 
-            {/* Qué lleva el QR dentro. Es la decisión que hace que una manilla
-                sea posible o no, y por eso está aquí y no escondida. */}
+            {/* Cómo se imprime el código. En una manilla el QR no cabe, así que
+                va el serial —y de paso aguanta el roce de tres días—. */}
+            <div className="field">
+              <label className="label">Cómo se imprime el código</label>
+              <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit">
+                {FORMATOS_CODIGO.map(f => (
+                  <button key={f.id} onClick={() => cambiar({ formato_codigo: f.id })}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                      ${etq.formato_codigo === f.id ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-text-3 mt-1.5 leading-relaxed">
+                {FORMATOS_CODIGO.find(f => f.id === etq.formato_codigo)?.pista}
+              </p>
+            </div>
+
+            {/* Qué lleva el QR dentro. Sólo tiene sentido si hay QR. */}
+            {etq.formato_codigo === 'qr' && (
             <div className="field">
               <label className="label">Qué lleva el QR</label>
               <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit">
@@ -203,7 +221,9 @@ export default function EtiquetadoraSection({ evento }) {
                 {CONTENIDOS_QR.find(c => c.id === etq.qr_contenido)?.pista}
               </p>
             </div>
+            )}
 
+            {etq.formato_codigo === 'qr' && (
             <div className="field">
               <label className="label">Dónde va el QR</label>
               <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit">
@@ -221,6 +241,7 @@ export default function EtiquetadoraSection({ evento }) {
                 una etiqueta estrecha y alta, al lado no cabría nada.
               </p>
             </div>
+            )}
 
             {/* Lo que queda para el nombre, con las medidas de ahora. Es el
                 número que decide si la escarapela se lee de lejos, y hasta

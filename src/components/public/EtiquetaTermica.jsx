@@ -75,6 +75,35 @@ export default function EtiquetaTermica({
         fontFamily: 'Helvetica, Arial, sans-serif',
       }}
     >
+      {/* Sin QR: el serial, grande, ocupando el sitio que tendría el código.
+
+          Es lo que va en una manilla, donde el QR no cabe. Y tiene una ventaja
+          que el cuadrado no tiene: se lee doblada, mojada y rayada, que es como
+          está una manilla al tercer día. */}
+      {E.formato_codigo === 'serial' ? (
+        <div style={{
+          flex: '1 1 auto', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: '1mm', minWidth: 0,
+        }}>
+          {nombre && (
+            <p style={{
+              fontSize: `${Math.min(ALTURAS_MM.nombre, Math.max(2.5, (E.alto - E.margen * 2) / 3))}mm`,
+              fontWeight: 700, lineHeight: 1, margin: 0,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              maxWidth: '100%',
+            }}>{nombre}</p>
+          )}
+          <p style={{
+            fontFamily: 'Courier, monospace',
+            /* El serial manda: es lo que alguien teclea en la puerta con gente
+               detrás. Ocupa la mitad del alto útil, con tope para que en una
+               pieza grande no salga absurdo. */
+            fontSize: `${Math.min(12, Math.max(3, (E.alto - E.margen * 2) / 2))}mm`,
+            fontWeight: 700, letterSpacing: '0.6mm', lineHeight: 1, margin: 0,
+          }}>{ticket.codigo || '—'}</p>
+        </div>
+      ) : (
+      <>
       {/* El QR, centrado dentro del cuadrado que se le reserva.
 
           Se pidió «4×4 cm centrado», y el código mide 36,5: el resto es blanco
@@ -159,6 +188,8 @@ export default function EtiquetaTermica({
           {evento.titulo || ''}
         </p>
       </div>
+      </>
+      )}
     </div>
   );
 }
