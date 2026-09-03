@@ -269,3 +269,21 @@ test('la ficha de una zona ocupa el ancho, y va debajo de su zona', () => {
   assert.match(src, /z\.id === sel && seleccionada/,
     'la ficha ya no se pinta debajo de su propia zona');
 });
+
+test('el editor dice si la página se ve, y deja publicarla desde ahí', () => {
+  /* Se podía montar la página entera sin enterarse nunca de si estaba viva: el
+     estado —borrador o publicado— y el botón de publicar vivían dos pantallas
+     más atrás, en la cabecera del panel. El recorrido natural —montar, mirar,
+     publicar— obligaba a SALIR del editor justo al final para hacer lo único
+     que quedaba por hacer. */
+  const editor = sinComentarios(readFileSync(join(SRC, 'pages/events/editor/ExperienceBuilder.jsx'), 'utf8'));
+  assert.match(editor, /<EstadoPagina/, 'el editor ya no dice si la página está publicada');
+
+  const estado = sinComentarios(readFileSync(join(SRC, 'pages/events/editor/EstadoPagina.jsx'), 'utf8'));
+  assert.match(estado, /avisosDelEvento/,
+    'publicar dejó de enseñar lo que falta — y esa lista ya existía');
+  /* Recargar al publicar se llevaría por delante los cambios sin guardar del
+     editor. Publicar no toca los bloques: no hay nada que volver a pedir. */
+  assert.ok(!/location\.reload/.test(estado),
+    'publicar recarga la página y se lleva los cambios sin guardar');
+});
