@@ -4,6 +4,9 @@ import { useToast } from '../../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import Spinner from '../../../../components/ui/Spinner.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
+import CampoFormulario, { primerFallo } from '../../../../components/ui/CampoFormulario.jsx';
+import { camposVisibles } from '../../../../lib/camposCondicionales.js';
+import PreguntasSubEvento from '../PreguntasSubEvento.jsx';
 
 /* Los equipos del torneo: la lista, el alta de uno a uno y la importación en
    bloque. FotoEquipoLazy carga el subidor sólo cuando hace falta, que es lo
@@ -12,6 +15,17 @@ import GLoader from '../../../../components/ui/GLoader.jsx';
 export default function EquiposView({ evento, torneo, equipos, soyOwner, onReload }) {
   const [formOpen, setFormOpen] = useState(false);
   const [importarOpen, setImportarOpen] = useState(false);
+  const [camposOpen, setCamposOpen] = useState(false);
+  /* Los campos propios del torneo (0095). Se cargan aquí y no dentro del modal
+     de alta para poder decir cuántos hay antes de abrirlo. */
+  const [campos, setCampos] = useState([]);
+  const [sinMigracion, setSinMigracion] = useState(false);
+
+  const cargarCampos = () => torneosApi.formulario(evento.id, torneo.id)
+    .then(d => { setCampos(d.campos || []); setSinMigracion(false); })
+    .catch(e => { if (e.response?.status === 503) setSinMigracion(true); });
+
+  useEffect(() => { cargarCampos(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [evento.id, torneo.id]);
   const { success, error: toastErr } = useToast();
 
   const puedeEditar = soyOwner && torneo.estado === 'armando';
@@ -45,6 +59,15 @@ export default function EquiposView({ evento, torneo, equipos, soyOwner, onReloa
             <button onClick={() => setImportarOpen(true)} className="btn-secondary btn-sm">
               Importar desde boletas
             </button>
+            {/* Qué se le pide a un equipo además del nombre. Un torneo de fútbol
+                pide dorsal y posición; uno de esports, nick, rango y servidor.
+                Meter esas columnas en la tabla arreglaría uno y dejaría fuera al
+                otro, así que las declara el organizador. */}
+            {!sinMigracion && (
+              <button onClick={() => setCamposOpen(true)} className="btn-ghost btn-sm">
+                Datos que pide {campos.length > 0 ? `(${campos.length})` : ''}
+              </button>
+            )}
           </div>
           {equipos.length >= minRequerido && (
             <button onClick={generar} className="btn-primary btn-sm">
@@ -68,6 +91,18 @@ export default function EquiposView({ evento, torneo, equipos, soyOwner, onReloa
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-text-1 truncate">{eq.nombre}</p>
                 {eq.grupo && <p className="text-[11px] text-text-3">Grupo {eq.grupo}</p>}
+                {/* Lo que el torneo pide se enseña aquí. Un dato que se pide, se
+                    guarda y no se ve en ninguna pantalla es un dato que nadie
+                    vuelve a mirar —y entonces no hacía falta pedirlo. */}
+                {campos.map(c => {
+                  const v = eq.respuestas?.[c.id];
+                  if (v === undefined || v === null || v === '') return null;
+                  return (
+                    <p key={c.id} className="text-[11px] text-text-3 truncate">
+                      {c.etiqueta}: <span className="text-text-2">{Array.isArray(v) ? v.join(', ') : String(v)}</span>
+                    </p>
+                  );
+                })}
               </div>
               {puedeEditar && (
                 <button onClick={() => borrarEquipo(eq)} aria-label="Quitar"
@@ -82,9 +117,30 @@ export default function EquiposView({ evento, torneo, equipos, soyOwner, onReloa
 
       {formOpen && (
         <NuevoEquipoModal
+          campos={campos}
           evento={evento} torneo={torneo}
           onClose={() => setFormOpen(false)}
           onDone={() => { setFormOpen(false); onReload(); }}
+        />
+      )}
+
+      {camposOpen && (
+        <PreguntasSubEvento
+          evento={evento}
+          fuente={{
+            clave: `torneo:${torneo.id}`,
+            titulo: `Datos que pide «${torneo.nombre}»`,
+            ayuda: 'Lo que hay que saber de cada equipo además del nombre. Cambia con la disciplina.',
+            vacio: 'Sólo se pide el nombre del equipo.',
+            vacioAyuda: 'Añade lo que necesites: dorsal y posición, o nick, rango y servidor.',
+            cargar : () => torneosApi.formulario(evento.id, torneo.id),
+            guardar: (cs) => torneosApi.guardarFormulario(evento.id, torneo.id, cs),
+            textoGuardado: (n) => (n
+              ? `Guardado. Cada equipo de «${torneo.nombre}» tendrá que dar ${n} dato${n !== 1 ? 's' : ''} más.`
+              : 'Guardado. A los equipos sólo se les pide el nombre.'),
+          }}
+          onClose={() => setCamposOpen(false)}
+          onGuardado={(d) => setCampos(d?.campos || [])}
         />
       )}
 
@@ -99,20 +155,31 @@ export default function EquiposView({ evento, torneo, equipos, soyOwner, onReloa
   );
 }
 
-function NuevoEquipoModal({ evento, torneo, onClose, onDone }) {
+function NuevoEquipoModal({ evento, torneo, campos = [], onClose, onDone }) {
   const [nombre, setNombre] = useState('');
   const [foto, setFoto] = useState('');
   const [contactoEmail, setContactoEmail] = useState('');
+  const [respuestas, setRespuestas] = useState({});
   const [working, setWorking] = useState(false);
   const { error: toastErr } = useToast();
+
+  /* Los campos condicionales se resuelven con lo ya contestado, igual que en el
+     registro público: un «servidor» que sólo aparece si la modalidad es online
+     no puede exigirse cuando no está en pantalla. */
+  const visibles = camposVisibles(campos, respuestas);
 
   const submit = async (e) => {
     e.preventDefault();
     if (!nombre.trim()) { toastErr('El nombre es requerido.'); return; }
+    /* Se comprueba aquí además de en el servidor: el servidor contesta el
+       primer fallo y esto evita el viaje. */
+    const fallo = primerFallo(visibles, respuestas);
+    if (fallo) { toastErr(fallo); return; }
     setWorking(true);
     try {
       await torneosApi.crearEquipo(evento.id, torneo.id, {
         nombre: nombre.trim(), foto_url: foto || null, contacto_email: contactoEmail.trim() || null,
+        respuestas,
       });
       onDone();
     } catch (e) {
@@ -150,6 +217,12 @@ function NuevoEquipoModal({ evento, torneo, onClose, onDone }) {
               className="input rounded-2xl py-3" placeholder="capitan@correo.com" />
             <p className="text-xs text-text-3 mt-1.5">Se usa para avisarle automáticamente cuándo juega el equipo.</p>
           </div>
+          {visibles.map(c => (
+            <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]}
+              onChange={v => setRespuestas(r => ({ ...r, [c.id]: v }))}
+              eventoId={evento.id} />
+          ))}
+
           <p className="text-xs text-text-3 -mt-1">
             Tip: usa "Importar desde boletas" para traer equipos, foto y contacto automáticamente.
           </p>

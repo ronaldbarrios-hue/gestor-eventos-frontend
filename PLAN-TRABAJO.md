@@ -2577,7 +2577,17 @@ Antes de planear nada, lo que estaba roto a la vista:
 
 ---
 
-### Q1 · La boleta de stand no conecta con el stand
+### Q1 · La boleta declara qué crea — ✅ escrito el 2026-09-03 (migración 0093, sin aplicar)
+
+Una casilla «es de stand» sólo sabe hablar de stands. `crea` es una columna con
+un valor —nada | stand | equipo— y `crea_torneo_id` obligatorio sólo para
+equipo. Con un booleano por cada cosa creable acabarían siendo tres columnas que
+se contradicen en cuanto alguien marque dos.
+
+`es_expositor` **se queda** y un trigger la mantiene sincronizada: cinco sitios
+del backend la leen y producción sirve hoy ese código.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** que la boleta se vincule al stand, para que el expositor se
 registre solo y su información se despliegue — o se haga a mano. Y lo mismo para
@@ -2596,7 +2606,19 @@ es un stand»; se adivina por el nombre.
 camino para los torneos, que es lo que se pide: comprar la inscripción crea el
 equipo, y el capitán completa sus datos por su enlace.
 
-### Q2 · Un equipo de torneo no cabe en la tabla
+### Q2 · El formulario por torneo — ✅ escrito el 2026-09-03 (migración 0095, sin aplicar)
+
+No se añaden columnas: se le apunta a `torneo_equipos` el mismo
+`event_form_fields` que ya define los campos del registro, con su editor, su
+validación y su `respuestas`. El editor de preguntas se **generaliza** en vez de
+copiarse —dos copias se separan hasta que una acepta un tipo de campo que la
+otra no—.
+
+Y con el cuidado que Q8 enseñó el mismo día: los tres diffs borran lo que no
+viene en el payload, así que el formulario del evento lleva ahora
+`torneo_id is null` en la lectura **y** en el borrado.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** poder poner la información del equipo, los rangos, etc. Cada
 evento es distinto: un equipo de fútbol y uno de esports no se presentan igual.
@@ -2725,7 +2747,21 @@ la forma.
 Y el número de stand es texto libre (`networking_expositores.stand`): dos stands
 pueden llamarse «A11» y nadie lo nota.
 
-### Q6 · «Accesos e ingresos» es una zona más
+### Q6 · `zonas.tipo` — ✅ escrito el 2026-09-03 (migración 0094, sin aplicar)
+
+evento | ingreso | evacuación | otra. Las de evacuación **no suman aforo**: no se
+llenan, se vacían por ellas, y sumarlas diría que caben más personas por tener
+más salidas.
+
+**Falta el paso de datos**: mover las puertas de `page_json.accesos` a zonas de
+tipo ingreso. Va aparte porque cada puerta arrastra su conteo de ingresos y hay
+que mirar evento por evento.
+
+Y `leerZonas` ahora **mira el error** de la consulta y reintenta sin la columna,
+en vez de caer al JSON en silencio —que es como se vacía el plano de un evento
+sin que nadie se entere—.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** meterlo dentro de Zonas de interés, y que al añadir una zona se
 elija su **tipo** — zona de evento, zona de ingreso, zona de evacuación, otras —

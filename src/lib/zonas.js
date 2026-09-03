@@ -34,3 +34,23 @@ export function etiquetaZona(z) {
   const nombre = String(z?.nombre || '').trim();
   return z?.aforo_max ? `${nombre} (aforo ${z.aforo_max})` : nombre;
 }
+
+/* Los tipos de zona (migración 0094).
+ *
+ * Una puerta y una zona son la misma cosa —sitios del recinto— y en el menú ya
+ * quedaron juntas porque nadie supo explicar en qué se diferencian. El tipo es
+ * lo que las distingue sin partirlas en dos modelos.
+ *
+ * `evacuacion` no es un adorno: un recinto de 7.000 personas tiene salidas de
+ * emergencia y hasta ahora no había dónde declararlas. */
+export const TIPOS_ZONA = [
+  { id: 'evento',     label: 'Del evento',  ayuda: 'Donde ocurre algo: una tarima, la zona VIP, el patio de comidas.' },
+  { id: 'ingreso',    label: 'De ingreso',  ayuda: 'Una puerta por la que se entra al recinto.' },
+  { id: 'evacuacion', label: 'Evacuación',  ayuda: 'Salida de emergencia. No se llena: se vacía por ella.' },
+  { id: 'otra',       label: 'Otra',        ayuda: 'Almacén, camerinos, zona técnica.' },
+];
+
+export const TIPO_ZONA_DEFECTO = 'evento';
+
+export const tipoDeZona = (z) =>
+  TIPOS_ZONA.find(t => t.id === z?.tipo) || TIPOS_ZONA[0];

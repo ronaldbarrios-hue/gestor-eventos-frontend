@@ -8,7 +8,7 @@ import { useToast } from '../../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
-import { zonasDelEvento } from '../../../../lib/zonas.js';
+import { zonasDelEvento, TIPOS_ZONA, TIPO_ZONA_DEFECTO } from '../../../../lib/zonas.js';
 import BarraProgreso from '../../../../components/ui/BarraProgreso.jsx';
 import {
   nivelDeZona, estaEnLlamas, IconoLlama, DetalleMarcador,
@@ -74,8 +74,9 @@ const zonasConClave = (evento) => zonasDelEvento(evento).map(z => ({ ...z, _k: z
 /* El mismo recorte que se manda al servidor. Sirve para comparar y saber si
    una fila tiene cambios sin guardar: sin esto, un espacio de más en el
    nombre marcaría «sin guardar» para siempre. */
-const limpiar = (l) => (l || []).map(({ id, nombre, aforo_max }) =>
-  ({ id, nombre: (nombre || '').trim(), aforo_max: Number(aforo_max) || null }));
+const limpiar = (l) => (l || []).map(({ id, nombre, aforo_max, tipo }) =>
+  ({ id, nombre: (nombre || '').trim(), aforo_max: Number(aforo_max) || null,
+     tipo: TIPOS_ZONA.some(t => t.id === tipo) ? tipo : TIPO_ZONA_DEFECTO }));
 
 /* Una zona configurada de la que el endpoint en vivo todavía no sabe nada
    —recién creada, o sin un solo movimiento— sale en ceros en vez de
@@ -161,7 +162,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
     } finally { setGuardando(false); }
   }, [configuradas, evento.id, error, success, reload]);
 
-  const agregar = () => setConfiguradas(l => [...l, { _k: uid(), id: uid(), nombre: '', aforo_max: '' }]);
+  const agregar = () => setConfiguradas(l => [...l, { _k: uid(), id: uid(), nombre: '', aforo_max: '', tipo: TIPO_ZONA_DEFECTO }]);
 
   const borrar = async (z) => {
     /* Se pregunta, y no por costumbre: una zona borrada se lleva por delante
@@ -250,6 +251,7 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
       id: c.id,
       _k: c._k,
       nombre: c.nombre,
+      tipo: c.tipo || TIPO_ZONA_DEFECTO,
       aforo_max: c.aforo_max === '' || c.aforo_max == null ? null : Number(c.aforo_max),
       _enPlano: enElPlano.has(c.id),
     }));
@@ -290,7 +292,9 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
      Sin `aforo_total` no hay nada que comparar y no se enseña la barra: un
      porcentaje sobre un total desconocido es peor que ningún dato. */
   const aforoRecinto = Number(evento.aforo_total) || 0;
-  const conTope = filas.filter(z => z.aforo_max > 0);
+  /* Una salida de emergencia no aporta aforo: no se llena, se vacía por ella.
+     Sumarla diría que caben más personas por tener más salidas. */
+  const conTope = filas.filter(z => z.aforo_max > 0 && z.tipo !== 'evacuacion');
   const repartido = conTope.reduce((a, z) => a + z.aforo_max, 0);
   const sinTope = filas.length - conTope.length;
   const pasado = aforoRecinto > 0 && repartido > aforoRecinto;
@@ -460,6 +464,14 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
             <input value={z.nombre} onChange={e => onEditar({ nombre: e.target.value })}
               placeholder="Nombre de la zona" autoFocus={nueva}
               className="input !h-9 text-sm flex-1 min-w-0" />
+            {/* El tipo va junto al nombre y no escondido en la ficha: es lo
+                que decide si esto es una tarima o una salida de emergencia, y
+                se elige al crearla o nunca. */}
+            <select value={z.tipo || TIPO_ZONA_DEFECTO} onChange={e => onEditar({ tipo: e.target.value })}
+              title={TIPOS_ZONA.find(t => t.id === (z.tipo || TIPO_ZONA_DEFECTO))?.ayuda}
+              className="input !h-9 text-sm w-32 flex-shrink-0">
+              {TIPOS_ZONA.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
             <input type="number" min="0" value={z.aforo_max ?? ''}
               onChange={e => onEditar({ aforo_max: e.target.value })}
               placeholder="Aforo" title="Aforo máximo (opcional)"
@@ -470,6 +482,15 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
         ) : (
           <>
             <p className="font-medium text-text-1 flex-1 min-w-0 truncate">{z.nombre}</p>
+            {/* El tipo se enseña también a quien no puede editar: saber cuál es
+                la salida de emergencia no es una tarea de administración. El
+                tipo por defecto no se marca —casi todas son del evento y
+                etiquetarlas todas no distingue nada. */}
+            {z.tipo && z.tipo !== TIPO_ZONA_DEFECTO && (
+              <span className="text-[10px] uppercase tracking-widest text-text-3 flex-shrink-0">
+                {TIPOS_ZONA.find(t => t.id === z.tipo)?.label}
+              </span>
+            )}
             <p className="text-sm font-bold font-display tabular-nums text-text-1 flex-shrink-0">
               {z.dentro}
               {z.aforo_max ? <span className="text-text-3 text-xs font-normal"> / {z.aforo_max}</span> : null}
