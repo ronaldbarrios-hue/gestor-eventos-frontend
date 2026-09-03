@@ -126,11 +126,25 @@ const SECCIONES = [
     { id: 'stands',  label: 'Stands',             perm: 'checkin' },
     { id: 'accesos', label: 'Accesos e ingresos', perm: '__solo_owner__' },
   ]},
+  /* Los permisos de aquí dicen lo que el SERVIDOR comprueba, no lo que suena
+     bien. Antes no coincidían y el menú prometía de más:
+
+     · «Promociones» se abría con `gestionar_tickets` y `routes/promociones.js`
+       es **sólo del dueño** — y lo es a propósito, según dice su propio
+       comentario. Resultado: quien gestiona boletas veía la pestaña, entraba y
+       recibía 403 sin saber por qué.
+     · «Pagos» y «Facturación» pedían `ver_pagos`, que **no lo comprueba
+       ninguna ruta**. Lo que de verdad guarda esas pantallas es
+       `editar_evento` (Pagos escribe en el evento) y `ver_clientes`
+       (Facturación sólo lee clientes y boletas).
+
+     Esconder una pestaña no es control de acceso, y enseñarla cuando el
+     servidor va a decir que no es peor que esconderla. */
   { id: 'comercial', label: 'Entradas y dinero', icon: WalletIcon, tabs: [
     { id: 'boletas',      label: 'Boletas',      perm: 'gestionar_tickets' },
-    { id: 'promociones',  label: 'Promociones',  perm: 'gestionar_tickets' },
-    { id: 'pagos',        label: 'Pagos',        perm: 'ver_pagos' },
-    { id: 'facturacion',  label: 'Facturación',  perm: 'ver_pagos' },
+    { id: 'promociones',  label: 'Promociones',  perm: '__solo_owner__' },
+    { id: 'pagos',        label: 'Pagos',        perm: 'editar_evento' },
+    { id: 'facturacion',  label: 'Facturación',  perm: 'ver_clientes' },
   ]},
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
     { id: 'clientes',     label: 'Clientes',  perm: 'ver_clientes' },
@@ -489,8 +503,8 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'resumen/reporte'     : return <ReporteTab evento={evento} />;
 
     /* Espacio del evento: las cuatro vistas de lo mismo. */
-    case 'actividades/calendario'   : return <AgendaTab evento={evento} />;
-    case 'actividades/speakers'     : return <AgendaTab evento={evento} vistaFija="speakers" />;
+    case 'actividades/calendario'   : return <AgendaTab evento={evento} recargarEvento={reload} />;
+    case 'actividades/speakers'     : return <AgendaTab evento={evento} vistaFija="speakers" recargarEvento={reload} />;
     case 'actividades/torneos'          : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
     case 'actividades/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
     case 'zonas/mapa'             : return <MapaSection evento={evento} />;

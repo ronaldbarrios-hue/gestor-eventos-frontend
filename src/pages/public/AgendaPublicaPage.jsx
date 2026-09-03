@@ -5,7 +5,7 @@ import { eventosApi } from '../../api/eventos.js';
 import { agendaApi } from '../../api/agenda.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
-import { TIPOS_ESPACIO, TIPO_DEFECTO, tipoEspacio, tipoEstilo } from '../../lib/espacio.js';
+import { TIPO_DEFECTO, tipoEspacio, tipoEstilo, tiposDelEvento } from '../../lib/espacio.js';
 import { ymdLocal } from '../../lib/fechaLocal.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import InscripcionSesionModal from './InscripcionSesionModal.jsx';
@@ -117,8 +117,11 @@ export default function AgendaPublicaPage() {
 
   const tiposPresentes = useMemo(() => {
     const set = new Set(sessions.map(s => s.tipo || TIPO_DEFECTO));
-    return TIPOS_ESPACIO.filter(t => set.has(t.id));
-  }, [sessions]);
+    /* Con los tipos propios del evento: si no, un sub-evento de un tipo que
+       el organizador se creó no tendría chip de filtro y además se pintaría
+       como «Charla», que es el tipo por defecto. */
+    return tiposDelEvento(evento).filter(t => set.has(t.id));
+  }, [sessions, evento]);
 
   /* Expositores que tienen franjas en el cronograma. */
   const expositoresPresentes = useMemo(() => {
@@ -200,7 +203,7 @@ export default function AgendaPublicaPage() {
           </button>
           {tiposPresentes.map(t => (
             <button key={t.id} onClick={() => setFiltroTipo(filtroTipo === t.id ? '' : t.id)}
-              style={filtroTipo === t.id ? tipoEstilo(t.id) : undefined}
+              style={filtroTipo === t.id ? tipoEstilo(t.id, evento) : undefined}
               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1
                 ${filtroTipo === t.id ? '' : 'border-border text-text-3 hover:text-text-1'}`}>
               <Icono nombre={t.icono} className="w-3.5 h-3.5" />{t.label}
@@ -267,12 +270,14 @@ export default function AgendaPublicaPage() {
         </div>
       ) : esMultiSala ? (
         <AgendaGridSalas
+          evento={evento}
           sesiones={sesionesDelDia} tracks={tracks} favoritos={favoritos}
           puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito} slug={slug}
           inscritas={inscritas} onInscribir={setInscribiendo}
         />
       ) : (
         <AgendaLista
+          evento={evento}
           sesiones={sesionesDelDia} favoritos={favoritos}
           puedeMarcar={usuario && !bloqueado} onToggle={toggleFavorito} slug={slug}
           inscritas={inscritas} onInscribir={setInscribiendo}
@@ -302,18 +307,18 @@ export default function AgendaPublicaPage() {
   );
 }
 
-function AgendaLista({ sesiones, favoritos, puedeMarcar, onToggle, slug, inscritas, onInscribir }) {
+function AgendaLista({ evento, sesiones, favoritos, puedeMarcar, onToggle, slug, inscritas, onInscribir }) {
   return (
     <div className="rounded-3xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
       {sesiones.map(s => (
-        <SesionRow key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug}
+        <SesionRow key={s.id} evento={evento} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug}
           yaInscrito={inscritas?.has(s.id)} onInscribir={onInscribir} />
       ))}
     </div>
   );
 }
 
-function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle, slug, inscritas, onInscribir }) {
+function AgendaGridSalas({ evento, sesiones, tracks, favoritos, puedeMarcar, onToggle, slug, inscritas, onInscribir }) {
   const horas = [...new Set(sesiones.map(s => new Date(s.inicio).getHours()))].sort((a, b) => a - b);
 
   return (
@@ -337,7 +342,7 @@ function AgendaGridSalas({ sesiones, tracks, favoritos, puedeMarcar, onToggle, s
               return (
                 <div key={t} className="flex-1 min-w-[220px] border-l border-border px-2 py-2 space-y-1.5">
                   {items.map(s => (
-                    <SesionChipPublica key={s.id} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug}
+                    <SesionChipPublica key={s.id} evento={evento} sesion={s} esFavorita={favoritos.has(s.id)} puedeMarcar={puedeMarcar} onToggle={onToggle} slug={slug}
                       yaInscrito={inscritas?.has(s.id)} onInscribir={onInscribir} />
                   ))}
                 </div>
@@ -385,10 +390,10 @@ function BotonInscribir({ sesion, yaInscrito, onInscribir, compacto }) {
   );
 }
 
-function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito, onInscribir }) {
+function SesionRow({ evento, sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito, onInscribir }) {
   const hi = new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   const hf = sesion.fin ? new Date(sesion.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
-  const tip = tipoEspacio(sesion.tipo);
+  const tip = tipoEspacio(sesion.tipo, evento);
   return (
     <div className="flex items-start gap-4 px-5 py-4" style={{ boxShadow: `inset 3px 0 0 ${tip.color}` }}>
       <div className="text-text-1 font-display font-bold tabular-nums text-base w-20 flex-shrink-0 leading-tight">
@@ -397,7 +402,7 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1" style={tipoEstilo(sesion.tipo)}>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1" style={tipoEstilo(sesion.tipo, evento)}>
             <Icono nombre={tip.icono} className="w-3.5 h-3.5" />{tip.label}
           </span>
           <h3 className="text-base font-semibold text-text-1">{sesion.titulo}</h3>
@@ -440,11 +445,11 @@ function SesionRow({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito
   );
 }
 
-function SesionChipPublica({ sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito, onInscribir }) {
-  const tip = tipoEspacio(sesion.tipo);
+function SesionChipPublica({ evento, sesion, esFavorita, puedeMarcar, onToggle, slug, yaInscrito, onInscribir }) {
+  const tip = tipoEspacio(sesion.tipo, evento);
   return (
     <div className="rounded-xl border px-2.5 py-2 relative"
-      style={esFavorita ? { borderColor: 'rgba(234,179,8,0.4)', background: 'rgba(234,179,8,0.1)' } : tipoEstilo(sesion.tipo)}>
+      style={esFavorita ? { borderColor: 'rgba(234,179,8,0.4)', background: 'rgba(234,179,8,0.1)' } : tipoEstilo(sesion.tipo, evento)}>
       <p className="text-[11px] font-mono tabular-nums opacity-80 pr-6">
         <Icono nombre={tip.icono} className="w-3 h-3 inline-block align-[-2px]" /> {new Date(sesion.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
       </p>

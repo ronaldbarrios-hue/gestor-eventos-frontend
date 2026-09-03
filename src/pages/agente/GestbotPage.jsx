@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Icono from '../../components/ui/Iconos.jsx';
-import { Link } from 'react-router-dom';
 import Criatura from '../../components/agente/Criatura.jsx';
 import MonitorGestbot from '../../components/agente/MonitorGestbot.jsx';
 import VolverAlEvento from '../../components/layout/VolverAlEvento.jsx';

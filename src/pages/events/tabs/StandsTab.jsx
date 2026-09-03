@@ -1,17 +1,16 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Icono from '../../../components/ui/Iconos.jsx';
-import { leerQr } from '../../../lib/qrEscaneado.js';
 import { interaccionesApi } from '../../../api/interacciones.js';
 import { networkingApi } from '../../../api/networking.js';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
-import QrScanner from '../../../components/ui/QrScanner.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import { zonasDelEvento, etiquetaZona } from '../../../lib/zonas.js';
 import GalleryUploader from '../../../components/ui/GalleryUploader.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import BarraProgreso from '../../../components/ui/BarraProgreso.jsx';
 
 /* Tab Stands — la CONFIGURACIÓN de los stands y de la mecánica de puntos.
 
@@ -615,10 +614,9 @@ function TarjetaStand({ s, evento, onEditar, onBorrar }) {
         </div>
 
         {pct != null && (
-          <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${agotado ? 'bg-danger' : pct > 80 ? 'bg-warning' : 'bg-success'}`}
-                 style={{ width: `${pct}%` }} />
-          </div>
+          <BarraProgreso pct={pct} fondo="bg-surface-3"
+            color={agotado ? 'bg-danger' : pct > 80 ? 'bg-warning' : 'bg-success'}
+            etiqueta={`${Math.round(pct)}% de la bolsa repartida`} />
         )}
 
         <div className="flex items-center gap-3 text-[10px] text-text-3">

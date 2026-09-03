@@ -5,6 +5,7 @@ import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import BarraProgreso from '../../../components/ui/BarraProgreso.jsx';
 
 /* Tab Tickets — tipos de boleta del evento. Minimalista Apple. */
 
@@ -194,9 +195,7 @@ function TicketCard({ ticket, isEditing, onStartEdit, onCancelEdit, onSave, onDe
             <span className="text-text-2">{ticket.vendidos || 0} / {ticket.cupo} vendidos</span>
             <span className="text-text-3 tabular-nums">{cupoPct}%</span>
           </div>
-          <div className="h-1 bg-surface-2 rounded-full overflow-hidden">
-            <div className="h-full bg-text-1 rounded-full transition-all duration-500" style={{ width: `${cupoPct}%` }} />
-          </div>
+          <BarraProgreso pct={cupoPct} alto="h-1" etiqueta={`${cupoPct}% del cupo vendido`} />
         </div>
       ) : (
         <p className="text-xs text-text-3">{ticket.vendidos || 0} vendidos · cupo ilimitado</p>

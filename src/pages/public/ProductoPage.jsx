@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import CierrePublico from './landing/CierrePublico.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';

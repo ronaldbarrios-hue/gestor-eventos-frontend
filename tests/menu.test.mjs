@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -110,4 +110,67 @@ test('los enlaces internos del código apuntan a pestañas que existen', () => {
   recorrer(join(RAIZ, 'src'));
 
   assert.deepEqual(malos, [], 'estos enlaces no llevan a ninguna parte');
+});
+
+/* ── Los enlaces que salen del BACKEND ───────────────────────────────────
+ *
+ * Las notificaciones llevan dentro un `/eventos/:id?s=…&t=…` escrito a mano:
+ * «alguien se postuló a esta vacante», «la zona gamer está llena». Cuando el
+ * menú se reagrupa, esos enlaces **no fallan: dejan al organizador en el
+ * Resumen**. Ni error, ni 404, ni nada en un log. Pulsa el aviso, ve otra
+ * pantalla y asume que no había nada que ver.
+ *
+ * Encontrados tres malos el 2026-09-02. El peor no era de la reagrupación:
+ * `?s=vacantes` **nunca** fue una sección —vacantes siempre fue una pestaña—,
+ * así que el aviso de una postulación no ha llevado a las vacantes en su vida.
+ *
+ * Vive aquí y no en el backend porque aquí está el menú, que es la verdad. El
+ * repo del backend se busca hacia arriba para que funcione también desde un
+ * worktree; si no está, la prueba se salta. */
+function repoBackend() {
+  let dir = RAIZ;
+  for (let i = 0; i < 6; i++) {
+    const cand = join(dir, '..', 'gestor-eventos-backend');
+    if (existsSync(join(cand, 'routes'))) return cand;
+    dir = join(dir, '..');
+  }
+  return null;
+}
+
+test('los avisos del backend llevan a una pantalla que existe', (t) => {
+  const backend = repoBackend();
+  if (!backend) { t.skip('el repo del backend no está cerca: nada que comparar'); return; }
+
+  const menu = new Set(delMenu());
+  const viejas = new Set(reubicadas.map((r) => r.vieja));
+  const secciones = new Set([...menu].map((p) => p.split('/')[0]));
+
+  const malos = [];
+  const recorrer = (dir) => {
+    for (const nombre of readdirSync(dir)) {
+      if (nombre === 'node_modules' || nombre === '.claude') continue;
+      const abs = join(dir, nombre);
+      if (statSync(abs).isDirectory()) { recorrer(abs); continue; }
+      if (!nombre.endsWith('.js')) continue;
+      const txt = readFileSync(abs, 'utf8');
+      const rel = abs.slice(backend.length + 1).split(/[\\/]/).join('/');
+      for (const m of txt.matchAll(/\?s=([\w-]+)(?:&t=([\w-]+))?/g)) {
+        const [, sec, tab] = m;
+        if (!tab) {
+          /* Sin pestaña sólo vale si `sec` ES una sección: el panel abre su
+             primera. `?s=vacantes` no lo es. */
+          if (!secciones.has(sec)) malos.push(`${rel}: ?s=${sec} (no es una sección)`);
+          continue;
+        }
+        const par = `${sec}/${tab}`;
+        if (!menu.has(par) && !viejas.has(par)) malos.push(`${rel}: ?s=${sec}&t=${tab}`);
+      }
+    }
+  };
+  for (const c of ['routes', 'lib', 'modules', 'core', 'scripts']) {
+    const d = join(backend, c);
+    if (existsSync(d)) recorrer(d);
+  }
+
+  assert.deepEqual(malos, [], 'estos avisos dejan al organizador en el Resumen sin decirle por qué');
 });

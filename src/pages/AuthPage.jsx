@@ -7,7 +7,6 @@ import logoG from '../assets/logo-g.svg';
 import GestekMark from '../components/layout/GestekMark.jsx';
 import { InlineLoader } from '../components/ui/PageLoader.jsx';
 import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploader.jsx';
-import { supabase } from '../lib/supabase.js';
 import { PAISES, bandera, INDICATIVOS } from '../lib/paises.js';
 import { verificar } from '../lib/validarDato.js';
 import { auth } from '../lib/sesion.js';

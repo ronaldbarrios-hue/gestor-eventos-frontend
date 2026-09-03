@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useInicioData } from '../../inicio/InicioDataContext.jsx';
+import Kpi from '../../ui/Kpi.jsx';
 
 export default function MiTrabajoWidget() {
   const { solicitudes, loading } = useInicioData();
@@ -9,8 +10,8 @@ export default function MiTrabajoWidget() {
   return (
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-2 gap-3 p-4 pb-3">
-        <Stat label="Pendientes" valor={loading ? '—' : pendientes.length} tono="warning" />
-        <Stat label="Totales" valor={loading ? '—' : solicitudes.length} tono="primary" />
+        <Kpi label="Pendientes" valor={loading ? '—' : pendientes.length} tono="aviso" />
+        <Kpi label="Totales" valor={loading ? '—' : solicitudes.length} tono="primario" />
       </div>
       <div className="flex-1 divide-y divide-border overflow-hidden">
         {items.map((s, i) => (
@@ -30,12 +31,3 @@ export default function MiTrabajoWidget() {
   );
 }
 
-function Stat({ label, valor, tono }) {
-  const tonos = { warning: 'text-warning bg-warning/10', primary: 'text-primary bg-primary/10' };
-  return (
-    <div className={`rounded-2xl px-4 py-3 ${tonos[tono] || tonos.primary}`}>
-      <p className="text-2xl font-bold font-display tabular-nums">{valor}</p>
-      <p className="text-xs opacity-80">{label}</p>
-    </div>
-  );
-}

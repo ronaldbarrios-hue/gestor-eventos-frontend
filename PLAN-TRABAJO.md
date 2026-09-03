@@ -302,6 +302,16 @@ un ajuste chico de backend. Sin migración.
   «Guardar accesos» global; borrar persiste al momento. El `PATCH` mezcla
   `page_json` por clave (0064), así que guardar sólo `accesos` no toca `zonas`.
 
+**Fase 1 — ✅ hecha el 2026-09-02.** Al medirla, casi todo ya estaba:
+`alertarAforo` hace tiempo que no abre una fila de incidente, el botón
+«Resolver» tiene su endpoint y Accesos guarda por fila. **Lo que sí seguía mal
+eran los enlaces de los avisos**, y de una forma que no da error: tres
+notificaciones apuntaban a pantallas que ya no existen con ese nombre y
+**dejaban al organizador en el Resumen**. La peor no era de la reagrupación del
+menú — `?s=vacantes` **nunca** fue una sección, siempre fue una pestaña, así que
+el aviso de que alguien se postuló no ha llevado nunca a las vacantes. Lo
+vigila ahora `tests/menu.test.mjs`, que mira también el repo del backend.
+
 **Fase 2 — «Tomar reporte» manual.** Migración aditiva + endpoint + subida de foto.
 - `zona_cortes` gana `tipo` (`reset` | `auto` | `manual`), `foto_url`, `nota` y
   `contexto` jsonb: ocupación de cada zona + qué sesión de agenda estaba
@@ -918,6 +928,85 @@ propio que ya usa `baseDelEvento`.
 
 ---
 
+## Estudio del flujo de registro — 2026-09-02, contra producción
+
+Medido contra **FESTECH IBAGUÉ** (`festech2026`), publicado, y con el frontend
+local apuntando al backend desplegado. Sirve de base para el **Frente H**
+(impresión de escarapelas el día del evento).
+
+### Lo que está sano
+
+| Pieza | Medido |
+|---|---|
+| Estado del evento | `publicado`, aforo **41 / 7.000** |
+| Boletas emitidas | **41**, todas `pagado`, **0 sin `qr_token`** |
+| Tipo de boleta | uno, gratis, cupo 7.000, activo |
+| Formulario | 11 preguntas, **9 obligatorias**, 4 pasos |
+| Recordatorios por correo | activados |
+| Página pública | carga y el registro avanza; **cero errores en consola** |
+| Selector de «Comuna» | 48 opciones, fuera del recorte, dentro de pantalla |
+
+**La cadena del QR es coherente de punta a punta**, que es lo que importa para
+la impresora:
+
+1. Al emitir, la boleta guarda un `qr_token` **firmado** (253 caracteres, sin
+   barras — no es una URL).
+2. La API pública de la boleta lo devuelve, junto con `evento.page_json`, así
+   que las tres salidas resuelven el mismo diseño y **el mismo valor de QR**
+   (`DescargarEntrada` lo reparte desde un solo sitio).
+3. `resolverTicket()` acepta **las dos formas**: el token firmado —verificado y
+   acotado al evento— y el código corto de 8 caracteres, también acotado.
+
+Es decir: el fallo histórico —la escarapela que imprimía la URL y no pasaba el
+control de ingreso— **está cerrado de origen y con un traductor para las
+impresas antes**.
+
+### Lo que NO está listo, y bloquea o condiciona la impresora
+
+1. **El padrón previo no prellena nada.** `page_json.padron` sigue en `NULL`, así
+   que de las 11 preguntas cruza una. Y de las 4.124 personas del archivo, sólo
+   500 traen datos. **No es un problema de código.**
+2. **Sin captcha y sin términos.** `terminos_activo` está en falso y no hay
+   Turnstile. Para un evento de 7.000 personas con 9 campos obligatorios, el
+   formulario está abierto a envíos automáticos. Es una decisión, no un fallo,
+   pero conviene tomarla a propósito.
+3. **El panel no se ha visto en navegador.** Todo lo del organizador —el menú
+   reagrupado, el selector de personas, la pantalla de mapeo— sigue verificado
+   sólo por código: este entorno no tiene credenciales de sesión.
+
+### Para el Frente H · lo que este estudio deja decidido
+
+**Qué imprimir en el QR: el `qr_token`, no el código corto.** Los dos funcionan,
+pero el token va firmado y el código de 8 caracteres sobre un alfabeto de 32
+(~40 bits) es adivinable. El código corto se queda donde ya está: impreso en
+texto debajo, como respaldo para teclear cuando el QR no lee.
+
+**El tamaño físico, que es la decisión de verdad.** 253 caracteres en QR nivel M
+piden alrededor de una versión 11–12, es decir **unos 61–65 módulos por lado**.
+La SAT TT460 es de **203 dpi** (8 puntos/mm), y un lector fiable quiere ≥ 3
+puntos por módulo:
+
+> 65 módulos × 3 puntos = 195 puntos ÷ 8 = **≈ 24 mm de lado, mínimo**.
+
+Con 4 puntos por módulo son ~33 mm. En una etiqueta de 50 mm de ancho cabe, pero
+**hay que probarlo físicamente antes del evento**: el cálculo dice que es
+viable, no que lea bien con esa cinta y ese papel.
+
+**Si no lee a ese tamaño**, la salida no es bajar a nivel L —menos corrección de
+errores en un papel que se dobla y se moja es peor—, sino **acortar el
+contenido**: un token más corto emitido para impresión, o el código corto con el
+riesgo asumido. Esa es una decisión de producto y va antes de programar nada.
+
+### Antes de la impresora, en este orden
+
+1. **Aplicar `0089`, `0090` y `0091`** — están escritas, probadas y reversibles.
+2. **Verificar el panel en navegador**, que es lo único construido a ciegas.
+3. **Decidir captcha y términos** para Festech.
+4. **Subir el padrón con los datos completos**, o asumir que 3.624 personas
+   escriben todo a mano — con 9 campos obligatorios, eso es cola en la puerta.
+
+---
+
 ## FRENTE H · Impresión de escarapelas el día del evento
 
 **Sin empezar, a propósito — anotado el 2026-09-01, se retoma más adelante.**
@@ -1266,9 +1355,27 @@ indica, así que se pueden tomar en paralelo.
 4. **Conectar `oauth_barrer()`** a alguno de los `cron-*.js` que ya corren, o
    documentar que sigue pendiente. Hoy `oauth_codes`/`oauth_tokens` crecen sin
    límite (§3.4).
-5. **Adoptar `StatCard.jsx`** donde el layout ya coincide, y añadir un
-   `<BarraProgreso>` para las 7 copias a mano (§3.4, §3.6). Empezar por dos o
-   tres pantallas, no por las 18 de golpe.
+5. ~~**Adoptar `StatCard` y añadir `<BarraProgreso>`**~~ — ✅ **hecho**, pero
+   con una corrección a la tarea: **`StatCard` no encajaba y se retiró.** Es una
+   baldosa de tablero —icono, tendencia, paleta de cinco colores— y las tres
+   copias reales no tienen icono ni tendencia; dos tienen una nota debajo que
+   `StatCard` no sabe pintar. Adoptarlo obligaba a las tres a perder algo, y no
+   lo usaba nadie desde que se escribió. La pieza que hacía falta es
+   `components/ui/Kpi.jsx`, sacada de lo que las tres HACÍAN: unifica
+   `KpiCard` (Analytics), `Kpi` (vista del colaborador) y `Stat` (widget), que
+   se habían inventado tres vocabularios distintos para el estado
+   (`accent="success"`, `alerta`, `tono="warning"`). También se fue la clase
+   `.stat-card` del CSS, que se quedó sin consumidor.
+
+   Y la barra:
+   `components/ui/BarraProgreso.jsx`, adoptada en Boletas, Stands y Analytics.
+   Las siete copias no eran idénticas y las diferencias no las había decidido
+   nadie: `bg-surface-2` en unas y `bg-surface-3` en otras, `h-1`/`h-1.5`/`h-2`
+   según el día. Lo que **sí** varía de verdad —alto y color— son props, y el
+   color acepta clase o color CSS porque los tres casos existen (fijo, según el
+   valor, y venido de un dato). Y acota el porcentaje: el aforo permite
+   excederse a propósito, así que un 140 llega hasta aquí y sin acotar se
+   pintaba fuera del carril.
 6. **Limpieza mecánica:** los 10 comentarios huérfanos, los 11 imports sin
    usar, los 11 exports sin consumidor y el estado no leído de
    `AuthPage.jsx:440` (§3.6). Un solo PR, sin decisiones.
@@ -1770,6 +1877,29 @@ zona» pasa a ser un join.
 Va **después** de la Fase 2 a propósito: hacer que la relación se use no
 necesita la tabla, y al revés la tabla nacería con 2 de 11 filas apuntando a
 algo. Primero que el dato exista, después que la base lo sostenga.
+
+### Fases 3, 4 y 5 — ✅ hechas el 2026-09-02
+
+**Fase 3 (zonas como tabla)** aplicada en producción en tres pasos:
+la 0091 creó y copió; el código pasó a **leer de la tabla y escribir en las
+dos**. `zonasDelEvento` resultó ser la única puerta de lectura del backend
+—nueve llamadas en cinco archivos—, así que cambiarla lo cambió todo, incluida
+`zonaInvalida()`, que ahora valida contra la misma tabla que la clave foránea.
+**Falta el paso 3** (dejar de escribir el JSON): mientras siga ahí, revertir es
+gratis, y conviene dejarlo correr.
+
+**Fase 4:** `agendaPorZona` trae ya el speaker, el expositor y el tipo de
+boleta de cada sesión, y la ficha de zona dice **quién habla aquí** sin repetir
+a quien da dos charlas. Es la pregunta que obligaba a recorrer el calendario
+entero mirando cuál cae en esta zona.
+
+**Fase 5:** los tipos de sub-evento son un dato (`page_json.tipos_extra`), con
+pantalla para crearlos donde antes sólo se podían pedir. **La firma de
+`tipoEspacio(id)` no cambió** — el segundo argumento es opcional, así que los
+seis consumidores siguen funcionando y los que tienen el evento ven los tipos
+propios. El icono se elige de una lista cerrada y `competitivo` no se ofrece:
+lo primero porque un trazo inventado dejaría el hueco en el panel, la agenda
+pública y el embed; lo segundo porque engancha con las llaves de un torneo.
 
 ### Fase 4 · La ficha de zona, completada
 

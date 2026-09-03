@@ -5,7 +5,7 @@ import { rolesApi }  from '../../../api/roles.js';
 import { useToast }  from '../../../context/ToastContext.jsx';
 import Spinner       from '../../../components/ui/Spinner.jsx';
 import GLoader       from '../../../components/ui/GLoader.jsx';
-import { permisosPorGrupo, labelFor } from '../../../lib/permisos.js';
+import { permisosPorGrupo } from '../../../lib/permisos.js';
 
 /* Tab Equipo y roles — flujo en dos pasos:
    1. Definir los roles del evento (vienen 6 defaults, puedes editar/crear/borrar)

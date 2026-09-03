@@ -6,7 +6,6 @@ import { equipoApi } from '../../api/equipo.js';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import ConectarClaude from './ConectarClaude.jsx';
-import { supabase } from '../../lib/supabase.js';
 import { useI18n, IDIOMAS } from '../../context/I18nContext.jsx';
 import { pantallaInicial, setPantallaInicial } from '../../lib/prefs.js';
 import SettingsPage, { NotificacionesTab, PagosTab, WhiteLabelTab, AparienciaCard } from '../settings/SettingsPage.jsx';
