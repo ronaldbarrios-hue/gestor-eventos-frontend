@@ -95,7 +95,6 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
     /* `f` se reconstruye en cada render, así que no puede ir en las
        dependencias: la carga se repetiría sin parar. Lo que la identifica son
        el evento y de quién son las preguntas. */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evento.id, sesion?.id, fuente?.clave, toastErr]);
 
   const set = (k, patch) => setCampos(cs => cs.map(c => (c._k === k ? { ...c, ...patch } : c)));
