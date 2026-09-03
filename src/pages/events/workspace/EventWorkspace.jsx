@@ -77,8 +77,9 @@ const CATEGORIAS_NETWORKING = ['negocios', 'marketing', 'tecnologia'];
  * sitio aunque tenga horario.
  *
  * Lo que se juntó porque era lo mismo partido en dos:
- *   · Credenciales + Tarjeta → Acreditación (qué lleva encima el asistente)
- *   · Lista de espera + Invitaciones → Antes de la boleta
+ *   · Credenciales + Tarjeta → Escarapelas y carnés (qué lleva encima el
+ *     asistente), con la impresión en etiquetadora como tercera vista
+ *   · Lista de espera + Invitaciones → Invitaciones
  *   · Analytics + Reporte → dentro de Resumen, que era una sección de una sola
  *     pestaña
  *   · Emails + Anuncios + Chats → Mensajes, las tres formas de decir algo
@@ -156,8 +157,8 @@ const SECCIONES = [
     /* Los dos permisos, no uno: la escarapela la imprime quien está en la
        puerta y el carné lo diseña quien lleva los clientes. La pantalla
        comprueba dentro cuál de las dos vistas puede ver cada quien. */
-    { id: 'acreditacion', label: 'Acreditación',       perm: ['checkin', 'ver_clientes'] },
-    { id: 'previos',      label: 'Antes de la boleta', perm: 'ver_clientes' },
+    { id: 'acreditacion', label: 'Escarapelas y carnés', perm: ['checkin', 'ver_clientes'] },
+    { id: 'previos',      label: 'Invitaciones',        perm: 'ver_clientes' },
   ]},
   { id: 'equipo', label: 'Equipo y tareas', icon: UsersIcon, tabs: [
     { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },

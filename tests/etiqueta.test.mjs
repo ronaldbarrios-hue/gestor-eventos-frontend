@@ -88,3 +88,19 @@ test('la etiqueta se imprime una por página y sin margen del navegador', () => 
   assert.match(src, /break-after:\s*page/, 'las etiquetas ya no salen una por página');
   assert.match(src, /print-color-adjust:\s*exact/, 'sin esto el navegador baja el contraste del QR');
 });
+
+test('la etiqueta cuelga de una pantalla del panel', () => {
+  /* Estuvo construida entera —medidas, QR, CSS de impresión y estas mismas
+     pruebas— y sin ninguna pantalla desde la que llegar a ella. Para quien usa
+     la plataforma, eso es lo mismo que no existir: las pruebas pasaban y no
+     había forma de imprimir una escarapela.
+
+     Por eso no basta con que el componente esté bien: tiene que estar
+     ENCHUFADO. Se comprueba el camino entero, sección → vista → componente. */
+  const seccion = readFileSync(join(RAIZ, 'src/pages/events/workspace/asistentes/EtiquetadoraSection.jsx'), 'utf8');
+  assert.match(seccion, /ImprimirEtiquetas/, 'la pantalla ya no manda a imprimir');
+
+  const acred = readFileSync(join(RAIZ, 'src/pages/events/workspace/asistentes/AcreditacionSection.jsx'), 'utf8');
+  assert.match(acred, /EtiquetadoraSection/, 'la etiquetadora ya no cuelga de Acreditación');
+  assert.match(acred, /'etiquetas'/, 'la vista de imprimir ya no se puede elegir');
+});

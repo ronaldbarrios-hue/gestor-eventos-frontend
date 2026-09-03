@@ -2734,7 +2734,39 @@ entrar** —check-in, reingreso, sub-evento—, y puntos y canje viven donde ya
 funcionan, en el portal del expositor. Eso quita la duplicación y, de paso,
 quita la razón para dar acceso al panel a quien no es del evento.
 
-### Q9 · «Acreditación» y «Antes de la boleta» no se llaman como lo que hacen
+### Q9 · Los nombres, y la etiqueta que no colgaba de ninguna pantalla — ✅ hecho el 2026-09-03
+
+**El hallazgo gordo no era el nombre.** La escarapela térmica del Frente H
+estaba construida entera —medidas, QR comprobado contra el token real, CSS de
+impresión, seis pruebas en verde— y **no colgába de ninguna pantalla**. Existía
+en el repositorio y no en la plataforma, que para quien la usa es lo mismo que
+no existir: las pruebas pasaban y no había forma de imprimir una escarapela.
+
+Ahora hay `EtiquetadoraSection`, y una prueba comprueba el camino entero
+—sección → vista → componente— porque el fallo no fue que el componente
+estuviera mal, fue que no estaba enchufado.
+
+**Es vista aparte del diseñador, y no el mismo diseño con otro botón.** El
+diseñador compone una hoja con varias, a color, para cortar a mano; la
+etiquetadora saca una por etiqueta, a tamaño exacto, en un bit. Mezclarlas
+obligaría a enseñar ahí opciones que en térmica no hacen nada —color por tipo,
+marca de agua, logo a color—, y una opción que no hace nada es peor que no
+tenerla.
+
+**Los nombres, que era lo pedido:** las vistas decían el soporte —«Escarapela
+impresa», «Carné digital»— y no lo que la persona viene a hacer. Ahora son tres
+verbos: diseñar escarapela, diseñar carné, imprimir en etiquetadora. Y la
+sección pasó de «Acreditación» a **«Escarapelas y carnés»**; «Antes de la
+boleta» —nombre que puse yo y no se entendía— a **«Invitaciones»**.
+
+**Imprimir va con `checkin` y no con `ver_clientes`**: quien imprime es quien
+está en la puerta, no quien lleva los clientes.
+
+Falta el número del rollo real para cerrar las medidas —ver
+`09 — Impresora de escarapelas (traspaso)`—, pero eso es un objeto de una línea
+y una prueba que dice si el QR sigue cabiendo.
+
+#### Lo que decía la ficha original
 
 **Acreditación** debería separar **diseñar** (escarapela y carné) de
 **imprimir**, que hoy están mezclados. Y el imprimir tiene que enlazar con la
