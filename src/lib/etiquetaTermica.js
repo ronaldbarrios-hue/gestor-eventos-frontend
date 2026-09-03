@@ -68,16 +68,31 @@ const CAPACIDAD_M = [
 
 const MODULOS = (version) => version * 4 + 17;
 const QUIET = 4;                 // margen obligatorio, en módulos
-const PUNTOS_POR_MODULO = 3;
 
-/* La etiqueta, en milímetros. Todo múltiplo de 0,125 para caer en punto entero. */
+/* El mínimo con el que un lector barato acierta a la primera. Con dos puntos
+   por módulo se lee en un móvil bueno y falla en la puerta, que es donde
+   importa. Es un SUELO, no el valor: si cabe más, se usa más. */
+const PUNTOS_POR_MODULO_MIN = 3;
+
+/* La etiqueta, en milímetros. Todo múltiplo de 0,125 para caer en punto entero.
+ *
+ * ── De dónde salen estas medidas ─────────────────────────────────────────
+ *
+ * Del rollo real, dicho por quien lo tiene delante el 2026-09-03:
+ * «10 cm × 5 cm, la idea es que el QR salga de 4×4 centrado». Antes esto decía
+ * 90 × 55 porque era el tamaño por defecto del diseñador de escarapelas — una
+ * medida razonable inventada, que es exactamente lo que había que sustituir por
+ * una medida real. */
 export const ETIQUETA = {
-  ancho: 90,
-  alto: 55,
+  ancho: 100,
+  alto: 50,
   margen: 3,
   /* El hueco entre el QR y el texto. Menos de 2 mm y el lector se come parte
      del nombre como si fuera código. */
   separacion: 3,
+  /* Lo pedido: un cuadrado de 4 cm. Es un OBJETIVO y no una imposición —ver
+     `medidas()`—, porque forzar el milímetro exacto rompe algo peor. */
+  qr_objetivo: 40,
 };
 
 export function versionParaToken(largo) {
@@ -98,9 +113,33 @@ export function medidas(token = '') {
   }
 
   const modulos = MODULOS(version) + QUIET * 2;
-  const puntos = modulos * PUNTOS_POR_MODULO;
-  const mm = puntos / PUNTOS_POR_MM;
   const alturaUtil = ETIQUETA.alto - ETIQUETA.margen * 2;
+
+  /* ── Por qué el QR no mide 40,0 mm exactos ─────────────────────────────
+   *
+   * Se pidió 4×4 cm. 40 mm son 320 puntos, y este token ocupa 73 módulos: eso
+   * da 4,38 puntos por módulo. Un módulo que no cae en punto entero lo redondea
+   * el cabezal por su cuenta, unos sí y otros no, y el borde del código sale
+   * con diente — que es justo lo que hace que un lector barato dude.
+   *
+   * Así que se toma el mayor entero que quepa en los 40 mm: **4 puntos por
+   * módulo**, 36,5 mm de lado. Y el QR se centra dentro de un cuadrado blanco
+   * de 40 mm, así que **el hueco que ocupa en la etiqueta sí es el pedido** y
+   * lo que cambia es que el código de dentro está impreso limpio.
+   *
+   * De paso mejora: veníamos de 3 puntos por módulo. Cada punto más es un
+   * lector menos que duda con la escarapela doblada.
+   */
+  const objetivo = ETIQUETA.qr_objetivo || alturaUtil;
+  const cabenEnObjetivo = Math.floor((objetivo * PUNTOS_POR_MM) / modulos);
+  const porModulo = Math.max(PUNTOS_POR_MODULO_MIN, cabenEnObjetivo);
+
+  const puntos = modulos * porModulo;
+  const mm = puntos / PUNTOS_POR_MM;
+
+  /* El cuadrado que el QR ocupa en la etiqueta: lo pedido, salvo que el código
+     no quepa dentro y haya que dejarle más. */
+  const caja = Math.min(alturaUtil, Math.max(mm, ETIQUETA.qr_objetivo || 0));
 
   return {
     cabe: mm <= alturaUtil,
@@ -108,8 +147,11 @@ export function medidas(token = '') {
     modulos: MODULOS(version),
     lado_mm: mm,
     lado_puntos: puntos,
+    puntos_por_modulo: porModulo,
+    /* Lo que la caja del QR ocupa, que es lo que hay que reservar al maquetar. */
+    caja_mm: caja,
     /* Lo que queda para el nombre y lo demás. */
-    texto_mm: ETIQUETA.ancho - ETIQUETA.margen * 2 - mm - ETIQUETA.separacion,
+    texto_mm: ETIQUETA.ancho - ETIQUETA.margen * 2 - caja - ETIQUETA.separacion,
     motivo: mm <= alturaUtil
       ? null
       : `El QR necesita ${mm.toFixed(1)} mm de lado y en la etiqueta caben ${alturaUtil} mm.`,

@@ -35,14 +35,31 @@ test('el token de hoy da un QR de versión 12', () => {
   assert.equal(medidas(TOKEN_REAL).modulos, 65);
 });
 
-test('el QR cabe, y con 3 puntos por módulo', () => {
+test('el QR cabe, y con al menos 3 puntos por módulo', () => {
   const m = medidas(TOKEN_REAL);
   assert.equal(m.cabe, true, m.motivo || '');
 
-  /* 73 módulos (65 + 4 de margen por lado) × 3 puntos = 219 puntos. */
-  assert.equal(m.lado_puntos, 219);
-  assert.equal(m.lado_mm, 219 / PUNTOS_POR_MM);
-  assert.ok(m.lado_mm > 27 && m.lado_mm < 28, `salen ${m.lado_mm} mm`);
+  /* Tres es el SUELO, no el valor. Con el rollo real —100 × 50 mm y un cuadro
+     pedido de 4×4 cm— caben cuatro, y cada punto más es un lector menos que
+     duda con la escarapela doblada. */
+  assert.ok(m.puntos_por_modulo >= 3, `sólo ${m.puntos_por_modulo} puntos por módulo`);
+  assert.equal(m.puntos_por_modulo, 4);
+
+  /* 73 módulos (65 + 4 de margen por lado) × 4 puntos = 292. */
+  assert.equal(m.lado_puntos, 292);
+  assert.equal(m.lado_mm, 292 / PUNTOS_POR_MM);
+});
+
+test('el QR ocupa el cuadrado pedido, aunque el código mida menos', () => {
+  /* Se pidió «4×4 cm centrado». 40 mm exactos darían 4,38 puntos por módulo, y
+     un módulo que no cae en punto entero lo redondea el cabezal a su manera:
+     el borde sale con diente y ahí es donde un lector barato empieza a dudar.
+
+     Así que el código se imprime a 36,5 mm y se CENTRA en los 40 reservados. El
+     hueco es el pedido; lo que cambia es que sale limpio. */
+  const m = medidas(TOKEN_REAL);
+  assert.equal(m.caja_mm, 40);
+  assert.ok(m.lado_mm <= m.caja_mm, 'el código se sale de su cuadrado');
 });
 
 test('cae en punto entero: nada de medias tintas a 203 dpi', () => {

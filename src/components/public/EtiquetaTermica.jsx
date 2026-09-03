@@ -68,7 +68,18 @@ export default function EtiquetaTermica({
         fontFamily: 'Helvetica, Arial, sans-serif',
       }}
     >
-      <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {/* El QR, centrado dentro del cuadrado que se le reserva.
+
+          Se pidió «4×4 cm centrado», y el código mide 36,5: el resto es blanco
+          a su alrededor. No es un ajuste a la baja por pereza —ver `medidas()`—:
+          40 mm exactos darían 4,38 puntos por módulo, y un módulo que no cae en
+          punto entero lo redondea el cabezal a su manera, dejando el borde con
+          diente. Reservar los 40 y centrar dentro deja el hueco pedido con el
+          código impreso limpio. */}
+      <div style={{
+        flex: `0 0 ${m.caja_mm}mm`, width: `${m.caja_mm}mm`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      }}>
         <QRCodeSVG
           value={valor}
           level="M"
