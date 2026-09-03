@@ -44,3 +44,12 @@ export const expositorApi = {
   editarFranja  : (codigo, id, body) => client.patch(`${EXPO(codigo)}/franjas/${id}`, body).then(r => r.data),
   borrarFranja  : (codigo, id)      => client.delete(`${EXPO(codigo)}/franjas/${id}`).then(r => r.data),
 };
+
+/* Portal del CAPITÁN de un equipo de torneo — autenticado por el código de su
+   boleta de inscripción, igual que el expositor con la suya. Base pública
+   /eventos/publicos/equipo/:codigo/… */
+const EQUIPO = (codigo) => `/eventos/publicos/equipo/${codigo}`;
+export const equipoTorneoApi = {
+  panel   : (codigo)       => client.get(`${EQUIPO(codigo)}/panel`).then(r => r.data),
+  guardar : (codigo, body) => client.put(`${EQUIPO(codigo)}/ficha`, body).then(r => r.data),
+};

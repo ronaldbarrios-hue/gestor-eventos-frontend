@@ -91,12 +91,28 @@ export default function MiTicketPage() {
         </span>
       </div>
 
+      {/* Si la boleta trae un equipo de torneo, el capitán lo completa por aquí.
+
+          Sin este enlace, el equipo se queda con lo único que el trigger sabía
+          al crearlo —el nombre de quien compró— y los datos que el torneo pide
+          acaban llegando por WhatsApp a alguien del staff. */}
+      {ticket.tipo?.crea === 'equipo' && (
+        <Link to={`/equipo/${ticket.codigo}`}
+          className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 hover:bg-accent/10 transition-colors">
+          <span className="text-sm text-text-1">
+            <Icono nombre="trofeo" className="w-4 h-4 inline-block align-[-3px]" />{' '}
+            <strong>Tienes un equipo.</strong> Completa sus datos y mira cuándo juegas.
+          </span>
+          <span className="text-accent-light text-sm font-medium whitespace-nowrap">Abrir</span>
+        </Link>
+      )}
+
       {/* Si es una boleta de stand, la empresa edita su ficha de expositor */}
       {ticket.tipo?.es_expositor && (
         <Link to={`/expositor/${ticket.codigo}`}
           className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 hover:bg-accent/10 transition-colors">
           <span className="text-sm text-text-1"><Icono nombre="empresa" className="w-4 h-4 inline-block align-[-3px]" /> <strong>Tienes un stand.</strong> Edita tu ficha de expositor.</span>
-          <span className="text-accent-light text-sm font-medium whitespace-nowrap">Editar →</span>
+          <span className="text-accent-light text-sm font-medium whitespace-nowrap">Editar</span>
         </Link>
       )}
 

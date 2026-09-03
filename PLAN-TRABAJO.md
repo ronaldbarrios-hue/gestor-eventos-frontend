@@ -2587,6 +2587,18 @@ se contradicen en cuanto alguien marque dos.
 `es_expositor` **se queda** y un trigger la mantiene sincronizada: cinco sitios
 del backend la leen y producción sirve hoy ese código.
 
+**Y el enlace del capitán, que era la mitad que faltaba** (2026-09-03). La ficha
+del equipo nacía con lo único que el trigger sabe —el nombre de quien compró— y
+no había por dónde completarla: la promesa era «el capitán completa sus datos
+por su enlace» y ese enlace no existía. Ahora es `/equipo/:código`, con la misma
+forma que el portal del expositor —mismo caso, y resolverlo de dos maneras sería
+equivocarse de dos maneras—.
+
+No puede tocar lo que decide el torneo (grupo, cuadro), el nombre se congela en
+cuanto hay fixture, y las respuestas se validan con el mismo código que el
+registro: un formulario que se puede saltar por otra puerta no es un
+formulario.
+
 #### Lo que decía la ficha original
 
 **Lo pedido:** que la boleta se vincule al stand, para que el expositor se
