@@ -4,6 +4,8 @@ import Spinner from '../../../../components/ui/Spinner.jsx';
 import { TIPO_DEFECTO, tipoEspacio, tipoEstilo, esCompetitivo, tiposDelEvento } from '../../../../lib/espacio.js';
 import { zonasDelEvento, etiquetaZona } from '../../../../lib/zonas.js';
 import PreguntasSubEvento from '../PreguntasSubEvento.jsx';
+import { torneosApi } from '../../../../api/torneos.js';
+import { networkingApi } from '../../../../api/networking.js';
 import { toLocalInput, withDefaultTime } from './agendaComun.jsx';
 
 /* El formulario de un sub-evento. Es la pieza más grande de la agenda con
@@ -73,8 +75,77 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
     formulario_modo: initial?.formulario_modo || 'ninguno',
   });
   const [saving, setSaving] = useState(false);
+  /* Las llaves creadas SIN salir de aquí. La lista que llega por props se
+     recarga cuando el padre vuelve a pedir la agenda; hasta entonces el torneo
+     recién creado tiene que poder elegirse, o el formulario diría que no
+     existe algo que se acaba de crear en él. */
+  const [torneosNuevos, setTorneosNuevos] = useState([]);
+  const [creandoTorneo, setCreandoTorneo] = useState(false);
+  const [falloTorneo, setFalloTorneo] = useState('');
+  /* Lo mismo para el expositor: un stand creado sin salir de aquí. */
+  const [expositoresNuevos, setExpositoresNuevos] = useState([]);
+  const [creandoExpositor, setCreandoExpositor] = useState(false);
+  const [falloExpositor, setFalloExpositor] = useState('');
+  const [nombreExpositor, setNombreExpositor] = useState(null); // null = ni siquiera se está creando
   const [preguntasOpen, setPreguntasOpen] = useState(false);
   const competitivo = esCompetitivo(form.tipo);
+  const torneosTodos = [...torneos, ...torneosNuevos];
+
+  /* Crear las llaves desde aquí, y no mandar a otra pestaña.
+     ──────────────────────────────────────────────────────
+     Había dos puertas para crear un torneo y ninguna llevaba a la otra: por
+     eso existían cuatro torneos sin hueco en el calendario. Con el sub-evento
+     ya escrito —nombre, fecha y sitio— pedir que se vaya a otra pestaña a
+     escribir el nombre otra vez es lo que produce esos huérfanos.
+
+     Se crea con el formato más simple, `eliminacion`, y no se pregunta: los
+     grupos, la disciplina y las categorías se ajustan en la pestaña de Torneo,
+     que es donde se trabajan las llaves. Aquí sólo hace falta que EXISTAN para
+     poder vincularlas. */
+  const expositoresTodos = [...expositores, ...expositoresNuevos];
+
+  /* Crear el expositor con el nombre que se pida en el momento. Se pregunta y
+     no se copia el título del sub-evento, al revés que las llaves: unas llaves
+     son de ESTA actividad y se llaman como ella, pero un expositor es una
+     empresa que existe por su cuenta y da la charla. Llamarlo como la sesión
+     dejaría un stand llamado «Charla de apertura» en el directorio público. */
+  const crearExpositor = async () => {
+    const nombre = (nombreExpositor || '').trim();
+    if (!nombre) { setFalloExpositor('Escribe el nombre de la empresa.'); return; }
+    setCreandoExpositor(true);
+    setFalloExpositor('');
+    try {
+      const r = await networkingApi.crearExpositor(evento.id, { nombre });
+      const exp = r?.expositor || r;
+      setExpositoresNuevos(x => [...x, exp]);
+      setForm(f => ({ ...f, expositor_id: exp.id }));
+      setNombreExpositor(null);
+    } catch (e) {
+      setFalloExpositor(e.response?.data?.error || e.message);
+    } finally {
+      setCreandoExpositor(false);
+    }
+  };
+
+  const crearLlaves = async () => {
+    const nombre = form.titulo.trim();
+    if (!nombre) { setFalloTorneo('Ponle título al sub-evento primero: las llaves se llaman igual.'); return; }
+    setCreandoTorneo(true);
+    setFalloTorneo('');
+    try {
+      const { torneo } = await torneosApi.crear(evento.id, {
+        nombre,
+        formato: 'eliminacion',
+        disciplina: form.subcategoria.trim() || null,
+      });
+      setTorneosNuevos(t => [...t, torneo]);
+      setForm(f => ({ ...f, torneo_id: torneo.id }));
+    } catch (e) {
+      setFalloTorneo(e.response?.data?.error || e.message);
+    } finally {
+      setCreandoTorneo(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -151,15 +222,25 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
       {competitivo && (
         <div className="field">
           <label className="label">Llaves del torneo <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
-          {torneos.length > 0 ? (
-            <select value={form.torneo_id} onChange={e => setForm(f => ({...f, torneo_id: e.target.value}))}
-              className="input bg-surface-2 rounded-2xl py-3 text-base">
-              <option value="">Sin llaves vinculadas</option>
-              {torneos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
-          ) : (
-            <p className="text-[11px] text-text-3">Crea un torneo en la pestaña «Torneo» y podrás vincular sus llaves aquí para que aparezcan en la página pública.</p>
-          )}
+          <div className="flex items-center gap-2">
+            {torneosTodos.length > 0 && (
+              <select value={form.torneo_id} onChange={e => setForm(f => ({...f, torneo_id: e.target.value}))}
+                className="input bg-surface-2 rounded-2xl py-3 text-base flex-1 min-w-0">
+                <option value="">Sin llaves vinculadas</option>
+                {torneosTodos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+              </select>
+            )}
+            <button type="button" onClick={crearLlaves} disabled={creandoTorneo}
+              className="btn-secondary btn-sm flex-shrink-0">
+              {creandoTorneo ? 'Creando…' : '+ Crear llaves'}
+            </button>
+          </div>
+          {falloTorneo
+            ? <p className="text-[11px] text-warning-light mt-1">{falloTorneo}</p>
+            : <p className="text-[11px] text-text-3 mt-1">
+                Se crean con el nombre de este sub-evento y por eliminación directa. Los grupos, los
+                equipos y los resultados se llevan en la pestaña «Torneo».
+              </p>}
         </div>
       )}
 
@@ -215,21 +296,50 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
           Las dos columnas viven en `agenda_sessions` desde hace tiempo y NINGUNA
           pantalla las escribía: medido en producción, 0 de 11 sesiones tenían
           una u otra. No faltaba modelo, faltaba el campo. */}
-      {(expositores.length > 0 || tiposBoleta.length > 0) && (
-        <div className="grid sm:grid-cols-2 gap-3">
-          {expositores.length > 0 && (
+      <div className="grid sm:grid-cols-2 gap-3">
+          {/* El expositor también se puede CREAR desde aquí. Antes el campo ni
+              siquiera salía si el evento no tenía ninguno: para decir quién da
+              una charla había que abandonar el formulario a medias, irse a la
+              Rueda de negocios y volver a empezar. Y quien se crea aquí es la
+              misma ficha que un stand —misma tabla—, así que la puerta de
+              entrada da igual. */}
             <div className="field">
               <label className="label">La da <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
-              <select value={form.expositor_id} onChange={e => setForm(f => ({...f, expositor_id: e.target.value}))}
-                className="input bg-surface-2 rounded-2xl py-3 text-base">
-                <option value="">Nadie en concreto</option>
-                {expositores.map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
-              </select>
-              <p className="text-[11px] text-text-3 mt-1">
-                Un expositor del evento. Distinto del speaker: aquí va la empresa, arriba la persona.
-              </p>
+              <div className="flex items-center gap-2">
+                {nombreExpositor === null ? (<>
+                  {expositoresTodos.length > 0 && (
+                    <select value={form.expositor_id} onChange={e => setForm(f => ({...f, expositor_id: e.target.value}))}
+                      className="input bg-surface-2 rounded-2xl py-3 text-base flex-1 min-w-0">
+                      <option value="">Nadie en concreto</option>
+                      {expositoresTodos.map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}
+                    </select>
+                  )}
+                  <button type="button" onClick={() => { setFalloExpositor(''); setNombreExpositor(''); }}
+                    className="btn-secondary btn-sm flex-shrink-0">+ Nuevo</button>
+                </>) : (<>
+                  {/* Un campo aquí dentro y no un `prompt` del navegador: el
+                      formulario está a medio escribir y un diálogo del sistema
+                      lo tapa entero. */}
+                  <input value={nombreExpositor} autoFocus
+                    onChange={e => setNombreExpositor(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); crearExpositor(); } }}
+                    placeholder="Nombre de la empresa"
+                    className="input bg-surface-2 rounded-2xl py-3 text-base flex-1 min-w-0" />
+                  <button type="button" onClick={crearExpositor} disabled={creandoExpositor}
+                    className="btn-secondary btn-sm flex-shrink-0">
+                    {creandoExpositor ? 'Creando…' : 'Crear'}
+                  </button>
+                  <button type="button" onClick={() => { setNombreExpositor(null); setFalloExpositor(''); }}
+                    className="btn-ghost btn-sm flex-shrink-0">Cancelar</button>
+                </>)}
+              </div>
+              {falloExpositor
+                ? <p className="text-[11px] text-warning-light mt-1">{falloExpositor}</p>
+                : <p className="text-[11px] text-text-3 mt-1">
+                    Un expositor del evento —que es también su stand—. Distinto del speaker: aquí va la
+                    empresa, arriba la persona.
+                  </p>}
             </div>
-          )}
           {tiposBoleta.length > 0 && (
             <div className="field">
               <label className="label">Hace falta boleta <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
@@ -243,8 +353,7 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
               </p>
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       <div className="grid sm:grid-cols-3 gap-3">
         <div className="field">

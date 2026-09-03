@@ -2614,7 +2614,38 @@ condicionales incluidos). Un torneo de fútbol pide dorsal y posición; uno de
 esports pide nick, rango y servidor. **No hay que inventar el mecanismo, hay que
 apuntarlo a otra tabla.**
 
-### Q3 · Torneos y Rueda de negocios deberían nacer como sub-evento
+### Q3 · Una sola puerta para crear — ✅ hecho el 2026-09-03 (la mitad que faltaba)
+
+**Lo que había que arreglar no era el selector de tipo, era el callejón sin
+salida.** El tipo `competencia` ya existía y ya marcaba «competitivo»; lo que
+pasaba es que, al llegar al campo de las llaves, el formulario decía «crea un
+torneo en la pestaña Torneo». Con el sub-evento ya escrito —nombre, fecha y
+sitio—, pedir que se abandone el formulario a medias y se escriba el nombre otra
+vez en otra pantalla es exactamente lo que produce los cuatro torneos sin hueco
+en el calendario.
+
+Ahora las llaves se crean **desde aquí**, con el nombre del sub-evento y por
+eliminación directa. Los grupos, los equipos y los resultados se siguen llevando
+en la pestaña de Torneo, que es donde se trabajan: lo único que hacía falta en
+el formulario era que EXISTIERAN para poder vincularlas.
+
+**Y lo mismo con el expositor**, que tenía el callejón peor: el campo «la da» ni
+siquiera aparecía si el evento no tenía ningún expositor. Ahora se crea en
+línea. Con una diferencia deliberada: el expositor **se pregunta** en vez de
+copiar el título del sub-evento, porque unas llaves son de esta actividad y se
+llaman como ella, pero un expositor es una empresa que existe por su cuenta —y
+llamarlo como la sesión dejaría un stand llamado «Charla de apertura» en el
+directorio público.
+
+Con un campo dentro del formulario y no un `prompt` del navegador: el formulario
+está a medio escribir y un diálogo del sistema lo tapa entero.
+
+**Lo que NO se hizo:** meter «torneo» y «rueda» como tipos en el selector. Con
+esto, crear un torneo desde el sub-evento ya es un camino entero, y añadir dos
+tipos que en realidad son «competencia» con otro nombre traería de vuelta la
+duplicación que Q4 acaba de explicar.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** que en «Nuevo sub-evento», el selector de TIPO ofrezca también
 torneo y rueda de negocios; y que las secciones aparte queden para editar los
