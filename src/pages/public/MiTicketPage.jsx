@@ -7,10 +7,7 @@ import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx
 import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import { googleCalendarUrl } from '../../lib/calendario.js';
-import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
-import { descargarQrPng } from '../../lib/qrPng.jsx';
-import { descargarTarjetaPng } from '../../lib/tarjetaPng.jsx';
-import { baseEnlaces } from '../../lib/enlacesPublicos.js';
+import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 
 /* Página pública /mi-ticket/:codigo
    Cualquiera con el código puede ver su QR. */
@@ -114,30 +111,16 @@ export default function MiTicketPage() {
             className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
             <Icono nombre="imprimir" className="w-4 h-4" />Imprimir mi escarapela
           </button>
-          {/* La misma descarga que se ofrece al terminar el registro. Si sólo
-              estuviera allí, quien vuelve por el enlace —que es el caso normal
-              el día del evento— no podría guardar su tarjeta. */}
-          <button onClick={async () => {
-            const ok = await descargarTarjetaPng({
-              design: walletConfig(ticket.evento?.page_json, { publico: 'asistentes', tipo: ticket.tipo?.nombre }),
-              evento: ticket.evento || {}, ticket,
-            }, `tarjeta-${ticket.codigo}`);
-            if (!ok) alert('No se pudo generar la imagen de la tarjeta. Descargá la boleta en PDF, que lleva el QR dentro.');
-          }}
-            className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
-            <Icono nombre="descargar" className="w-4 h-4" />Descargar mi tarjeta
-          </button>
-          {/* La escarapela es para colgarse; el PDF es la boleta con sus datos,
-              que es lo que se guarda y se reenvía cuando en la puerta no hay
-              señal para abrir esta página. */}
-          <button onClick={() => descargarBoletaPdf({
-            evento: ticket.evento || {}, ticket, tipo: ticket.tipo,
-            respuestas: ticket.respuestas, campos: ticket.evento?.campos_formulario,
-            qrValue, origen: baseEnlaces(ticket.evento),
-          })}
-            className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors">
-            <Icono nombre="descargar" className="w-4 h-4" />Descargar boleta (PDF)
-          </button>
+          {/* Eran tres acciones sueltas para el mismo objeto —«Descargar mi
+              tarjeta» y «Descargar boleta (PDF)»—, que es justo lo que M6 quitó
+              de la confirmación del registro y no llegó aquí. Y aquí es donde
+              más se usa: quien vuelve por el enlace el día del evento. */}
+          <DescargarEntrada
+            evento={ticket.evento || {}} ticket={ticket} qrValue={qrValue}
+            respuestas={ticket.respuestas} campos={ticket.evento?.campos_formulario}
+            etiqueta="Descargar mi entrada"
+            className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors disabled:opacity-60"
+          />
         </div>
         <p className="text-[11px] text-text-3 text-center mt-1">Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.</p>
       </div>
@@ -148,14 +131,11 @@ export default function MiTicketPage() {
           <QRCodeSVG value={qrValue} size={220} level="M" includeMargin={false} />
         </div>
         <p className="font-mono text-2xl font-bold text-text-1 tabular-nums tracking-widest mt-4">{ticket.codigo}</p>
-        {/* Guardar el QR como imagen. El PDF ya estaba arriba; esto es lo que
-            se reenvía por WhatsApp y lo que se enseña en la puerta sin abrir
-            un lector de PDF. */}
-        <button
-          onClick={() => descargarQrPng(qrValue, `qr-${ticket.codigo}`)}
-          className="mt-3 text-xs font-semibold text-text-2 hover:text-text-1 underline underline-offset-4">
-          Descargar el QR como imagen
-        </button>
+        {/* Aquí había un cuarto botón, «Descargar el QR como imagen». Con las
+            otras tres arriba eran CUATRO acciones en la misma página para el
+            mismo objeto. El QR suelto sigue estando —es lo que se reenvía por
+            WhatsApp—, pero como un formato de «Descargar mi entrada», que es
+            donde se busca. */}
       </div>
 
       {/* Pasaporte gamificado */}

@@ -22,6 +22,37 @@ const BORDE = [226, 232, 240];
 
 const limpio = (s) => String(s ?? '').trim();
 
+/* El color de la marca, en lo que jsPDF entiende.
+ *
+ * Hasta ahora esta hoja se pintaba SIEMPRE con `NEGRO`. Es decir: un evento con
+ * White Label —su logo, sus colores, su nombre— entregaba un PDF gris neutro.
+ * Y justo éste es el archivo que más se reenvía y más se imprime, así que era
+ * el único de las tres salidas de la entrada que no llevaba la marca de quien
+ * organiza.
+ *
+ * Devuelve `null` —y no negro— si el color no se entiende: quien llama decide
+ * el reemplazo, que no es lo mismo que un color válido que resulta ser oscuro. */
+function aRgb(hex) {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex ?? '').trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/* Blanco o negro sobre el color de la marca, según cuál se lea.
+ *
+ * Sin esto, un organizador con marca clara —amarillo, beige— se encontraba el
+ * título en blanco sobre su propio color, ilegible. La fórmula es la luminancia
+ * relativa de WCAG; el umbral 0.55 está medido contra el dorado de GESTEK
+ * (#C9A227), que cae del lado del texto oscuro. */
+function textoSobre(rgb) {
+  const [r, g, b] = rgb.map((c) => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  });
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.55 ? [15, 23, 42] : [255, 255, 255];
+}
+
 function fechaLarga(iso) {
   if (!iso) return '';
   try {
@@ -70,6 +101,18 @@ export function descargarBoletaPdf({
   evento = {}, ticket = {}, tipo = null,
   asistente = {}, respuestas = null, campos = null,
   qrValue = null, origen = null,
+  /* La variante de la tarjeta del organizador, ya resuelta por público y por
+     tipo de boleta (`walletConfig`). Opcional: sin ella la hoja sale como
+     siempre, y así quien todavía llame sin diseño no se rompe.
+
+     Lo que se toma de ella es la IDENTIDAD —color y logo—, no la forma. Una
+     hoja no es una pantalla: el degradado a sangre y los puntos de
+     gamificación no ayudan en papel, y el PDF tiene algo que las otras dos
+     salidas no tienen —la tabla de respuestas del formulario, que es lo que se
+     revisa en la fila—. Mismo criterio que usó `lib/wallet.js` al separar lo
+     que sólo tiene sentido impreso: la variante manda qué marca, cada salida
+     decide cómo se ve. */
+  design = null,
 }) {
   /* Comprimido: sin esto el PNG del QR deja un archivo de ~2 MB, que es
      absurdo para una hoja y pesa de verdad cuando se reenvía por correo o se
@@ -81,22 +124,46 @@ export function descargarBoletaPdf({
   const valorQr = qrValue || ticket.qr_token || codigo;
   const base = origen || (typeof window !== 'undefined' ? window.location.origin : '');
 
-  /* ── Cabecera: de qué evento es esta boleta ── */
-  doc.setFillColor(...NEGRO);
+  /* ── Cabecera: de qué evento es esta boleta, y de quién ── */
+  const marca = aRgb(design?.color1) || NEGRO;
+  const sobreMarca = textoSobre(marca);
+  /* El gris del subtítulo se calcula desde el color del texto y no es una
+     constante: sobre una marca clara el texto es oscuro, y un gris claro
+     encima sería invisible. */
+  const suave = sobreMarca[0] > 128
+    ? [210, 210, 210]
+    : [90, 100, 115];
+
+  doc.setFillColor(...marca);
   doc.rect(0, 0, A, 34, 'F');
-  doc.setTextColor(255);
+
+  /* El logo, si la variante trae uno. Va a la derecha para no pelearse con el
+     título, que es lo que se lee primero en la fila.
+     Envuelto: `addImage` revienta con un formato que no reconoce, y perder la
+     boleta entera por un logo mal subido no tiene sentido — sin él la hoja
+     sigue sirviendo para entrar. */
+  const logo = limpio(design?.logo);
+  let anchoTitulo = ancho;
+  if (logo) {
+    try {
+      doc.addImage(logo, M + ancho - 22, 7, 22, 20, undefined, 'FAST');
+      anchoTitulo = ancho - 28;
+    } catch { /* logo ilegible: la hoja sale sin él */ }
+  }
+
+  doc.setTextColor(...sobreMarca);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(limpio(evento.titulo) || 'Evento', M, 15, { maxWidth: ancho });
+  doc.text(limpio(evento.titulo) || 'Evento', M, 15, { maxWidth: anchoTitulo });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   const sub = [fechaLarga(evento.fecha_inicio), limpio(evento.location_nombre)].filter(Boolean).join('  ·  ');
-  if (sub) doc.text(sub, M, 23, { maxWidth: ancho });
+  if (sub) doc.text(sub, M, 23, { maxWidth: anchoTitulo });
   const org = limpio(evento.organizador?.empresa || evento.organizador?.nombre);
   if (org) {
     doc.setFontSize(8);
-    doc.setTextColor(190);
-    doc.text(`Organiza: ${org}`, M, 29.5, { maxWidth: ancho });
+    doc.setTextColor(...suave);
+    doc.text(`Organiza: ${org}`, M, 29.5, { maxWidth: anchoTitulo });
   }
 
   /* ── El QR, que es a lo que viene todo el mundo ── */

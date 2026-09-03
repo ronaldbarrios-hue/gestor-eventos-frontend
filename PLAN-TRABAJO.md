@@ -2162,6 +2162,34 @@ enlace en la puerta se encuentra tres botones para el mismo objeto.
 
 ---
 
+### Fases 1, 2 y 4 — ✅ hechas el 2026-09-02
+
+`components/public/DescargarEntrada.jsx`: las tres salidas se piden **desde un
+solo sitio**, y por eso el `qrValue` es el mismo para las tres — que es la
+lección de `qrEscaneado.js`, ahora estructural y no de memoria.
+
+- **`/mi-ticket` tenía CUATRO acciones para el mismo objeto**, no tres:
+  «Imprimir mi escarapela», «Descargar mi tarjeta», «Descargar boleta (PDF)» y,
+  más abajo, «Descargar el QR como imagen». Ahora es un «Descargar mi entrada»
+  con el formato después.
+- **El PDF ya lleva la marca del organizador** (Fase 2): recibe `design` —la
+  misma variante que resuelve `walletConfig`— y usa su color y su logo. Antes
+  pintaba siempre con `NEGRO`, así que un evento con White Label entregaba un
+  PDF gris: el archivo que más se reenvía era el único sin su marca.
+- Dos detalles que salían al hacerlo: el texto de la cabecera se elige por
+  **luminancia** (una marca clara con título blanco era ilegible), y el logo va
+  dentro de un `try` — perder la boleta entera por un logo mal subido no tiene
+  sentido, sin él la hoja sigue sirviendo para entrar.
+- `tests/entrada.test.mjs` (Fase 4): que **nadie más** llame a las tres
+  funciones de salida, que el `qrValue` sea uno solo, y que el PDF acepte y use
+  el diseño. Comprobado que muerde. Y se quitó la única excepción de la lista
+  al ver que no excusaba nada: el panel no llama a ninguna.
+
+**Queda la Fase 3** (una sola palabra en la interfaz) y una cosa anotada al
+pasar: `ClientesTab` dibuja su propio QR desde un `<canvas>` — no usa ninguna de
+las tres, así que la prueba no lo ve. Es el panel del organizador y otro caso de
+uso, pero es una cuarta forma de producir la misma imagen.
+
 ### Fase 1 · El «Descargar» único, también en /mi-ticket
 
 Llevar el menú de formatos de M6 a `MiTicketPage`. Es el mismo componente y el
