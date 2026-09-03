@@ -2688,7 +2688,30 @@ decir «Sin gente», «Ninguna actividad», «Ningún stand». **El vacío ocupa
 mismo que lo lleno.** La lista de la izquierda, que es donde se trabaja, va
 apretada.
 
-### Q8 · El escáner de puntos no es del organizador — **el más importante**
+### Q8 · El escáner de puntos no es del organizador — ✅ hecho el 2026-09-03
+
+**Y al medirlo, la solución no era la que parecía.** Quitar «Puntos» y
+«Canjear» del panel habría roto **lo único que se usa**: las 5 recompensas y los
+5 motivos que existen son **del evento**, no de expositores (0 de expositor). El
+escáner del panel es la herramienta del staff para los puntos del evento; el
+portal del expositor es la del stand. No sobra ninguno.
+
+Lo que sí estaba mal:
+
+- **El panel ofrecía los motivos de los stands.** `evento_motivos` guarda los del
+  evento y los de cada stand, y el endpoint no filtraba: el staff podía dar
+  puntos **en nombre de un stand**, con su motivo y contra su cuota. Justo la
+  frontera que separa al evento de un tercero.
+- **Y arreglarlo destapó algo peor:** el guardado del catálogo **borra todo lo
+  que no venga en la lista**. Con el filtro puesto sólo en la lectura, guardar
+  un motivo desde el panel habría borrado de golpe **los motivos de todos los
+  stands**, que ni siquiera se ven en esa pantalla. Filtrado también ahí.
+- **La barra mezclaba entrar y premiar** en cinco botones seguidos. Ahora son
+  dos grupos —«Ingreso» y «Puntos del evento»— y el texto dice que un stand da
+  los suyos por su enlace. De ahí salía la idea de que un expositor necesita
+  esta pantalla: no la necesita, y por eso no hay que meterlo en el equipo.
+
+#### Lo que decía la ficha original
 
 **Lo pedido, y es un problema de permisos, no de comodidad:** dar puntos y
 canjear deberían estar en «mi espacio», en el stand de quien se registró.
@@ -2743,6 +2766,84 @@ de zona), Q1 (qué crea un tipo de boleta).
 importe menos —es lo que hace que la plataforma sirva para algo que no sea
 fútbol— sino porque conviene hacerlo cuando Q3 ya haya dejado una sola puerta
 para crear un torneo.
+
+---
+
+## FRENTE R · La landing y la navegación — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-03**, después del Frente Q y mirando la
+página pública: «remodelar todo el sistema de landing page, tanto visual como el
+cómo funciona y todas las funciones que tiene». Y aparte: «analizar todos los
+botones e interacciones que hay en GESTEK, dado que muchos son ← atrás o flecha
+y salir, eso se ve horrible».
+
+**Orden explícito suyo: la landing va DESPUÉS de conectar la plataforma.**
+Primero el Frente Q, luego esto. Queda aquí escrito para que no se pierda, no
+para hacerlo ya.
+
+---
+
+### R1 · La navegación: «atrás» no es una forma de moverse
+
+**Lo medido:** hay **al menos 16 vueltas atrás escritas a mano**, cada una con
+su propio texto: «← Volver a explorar» (6 veces), «← Volver a vacantes» (2),
+«← Volver al preview», «← Volver al evento», «← Volver a eventos», «Atrás»,
+«Volver», y un «Salir del evento» en el menú lateral.
+
+Y no es sólo que sean feas: **cada una es una decisión distinta sobre a dónde se
+vuelve**, tomada por separado. Nadie decidió el conjunto.
+
+El problema de fondo es que una flecha «atrás» es lo que se pone cuando no está
+claro dónde estás. En un panel con un evento activo, un menú lateral y un
+buscador global, volver atrás casi nunca es lo que la persona quiere: quiere ir
+a otro sitio concreto.
+
+**Lo que hay que decidir antes de tocar nada** (es diseño, no código):
+
+- ¿Qué papel juega la miga de pan de arriba —«Eventos › Detalle»— que hoy está
+  y nadie usa? Si funcionara, sobran la mitad de esas vueltas.
+- ¿«Salir del evento» es salir, o es cambiar de evento? Son dos cosas
+  distintas y hoy comparten botón.
+- ¿La página pública debe tener «← Volver a explorar» cuando se llega desde
+  Google, que es de donde llega casi todo el mundo? Ahí no hay «atrás».
+
+### R2 · La landing pública
+
+Lo visto en las capturas del evento real:
+
+- **El directorio de expositores está roto de layout.** La galería de un
+  expositor se sale de su tarjeta y pisa las de al lado; una tarjeta con
+  descripción larga y tres fotos desborda sobre la vecina. Se ve en DevUP.
+- **«STAND STAND C10»** — el dato trae la palabra «Stand» y la etiqueta le
+  añade otra. *(Arreglado el 2026-09-03; se deja anotado porque salió de aquí.)*
+- **La página pública de un torneo está casi vacía:** el nombre, la disciplina,
+  el formato y dos equipos. Ni fecha, ni hora, ni sede, ni marcador, ni cuándo
+  se juega la final. Es la pantalla que un asistente abre para saber si le
+  interesa, y no contesta nada.
+- **Huecos grandes de espacio muerto** entre bloques.
+
+**Lo que R2 tiene que resolver, y es más que pintar:**
+
+1. **Qué información expone cada bloque.** El torneo es el ejemplo claro: la
+   información existe (`torneo_partidos` tiene `fecha_hora`, `cancha`,
+   marcadores) y la página no la enseña.
+2. **Qué pasa cuando un bloque va vacío o casi.** Hoy se pinta igual: un
+   apartado con un dato se ve como un apartado completo.
+3. **El desbordamiento del directorio**, que es un fallo y no una preferencia.
+
+**Y lo que conviene NO rehacer:** el editor por bloques y el catálogo
+(`lib/bloquesLanding.js`, validado en el servidor desde que Claude escribe por
+MCP) funcionan y son la parte cara. Lo que se rehace es cómo se ven y qué
+enseñan, no el mecanismo.
+
+---
+
+### Por qué va después del Frente Q, y no es sólo porque lo pidió
+
+La landing **enseña** lo que la plataforma tiene conectado. Si un torneo
+todavía no sabe qué equipos lo juegan con qué datos (Q2), ni cuándo se juega
+(Q3), rediseñar cómo se muestra un torneo es decidir la vitrina antes que la
+mercancía. Se haría dos veces.
 
 ---
 

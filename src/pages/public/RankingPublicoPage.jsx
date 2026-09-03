@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { numeroDeStand } from '../../lib/expositoresUi.js';
 import { Medalla } from '../../components/ui/Iconos.jsx';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
@@ -90,7 +91,7 @@ export function TablaRanking({ ranking, titulo = 'Ranking de expositores' }) {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-text-1 truncate">{x.nombre}</p>
               <p className="text-[11px] text-text-3">
-                {x.stand ? `Stand ${x.stand} · ` : ''}
+                {x.stand ? `Stand ${numeroDeStand(x.stand)} · ` : ''}
                 {x.interacciones} {x.interacciones === 1 ? 'interacción' : 'interacciones'}
               </p>
               {/* La barra da la distancia real entre puestos, que un número

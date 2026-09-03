@@ -4,6 +4,7 @@
    Cada uno expone: label, icon, defaults, Editor, Preview, category. */
 
 import { useState, useEffect } from 'react';
+import { numeroDeStand } from '../../../lib/expositoresUi.js';
 import { Seccion, ControlesPresentacion, Grupo, Opciones, Interruptor } from './presentacion.jsx';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -1405,7 +1406,7 @@ function MapaEventoPreview({ data, evento }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-semibold text-text-1">{sel.data.nombre}</p>
                   {sel.data.categoria_negocio && <p className="text-xs text-text-3">{sel.data.categoria_negocio}</p>}
-                  {sel.data.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {sel.data.stand}</span>}
+                  {sel.data.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {numeroDeStand(sel.data.stand)}</span>}
                 </div>
                 <button onClick={() => setSel(null)} className="text-text-3 hover:text-text-1">✕</button>
               </div>
@@ -1579,7 +1580,7 @@ function ExpositoresPreview({ data, evento }) {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text-1 truncate">{x.nombre}</p>
                   {x.categoria_negocio && <p className="text-[11px] text-text-3">{x.categoria_negocio}</p>}
-                  {x.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {x.stand}</span>}
+                  {x.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {numeroDeStand(x.stand)}</span>}
                 </div>
               </div>
               {x.descripcion && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{x.descripcion}</p>}
