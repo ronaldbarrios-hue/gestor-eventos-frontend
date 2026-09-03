@@ -2543,6 +2543,209 @@ que la 3 porque la 3 es texto y la 4 evita que vuelva el fallo del QR.
 
 ---
 
+## FRENTE Q · Lo que se vio al usar el panel — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-03**, mirando el panel desplegado por primera
+vez. Es el frente más grande de todos: no son arreglos sueltos, son **cuatro
+cosas que deberían estar conectadas y no lo están**, más dos que están en el
+sitio equivocado.
+
+Cada punto lleva **lo que se comprobó en el código**, porque varias
+suposiciones cambiaron al medirlas.
+
+---
+
+### Q0 · Los tres fallos que se vieron en las capturas — ✅ arreglados el 2026-09-03
+
+Antes de planear nada, lo que estaba roto a la vista:
+
+1. **Facturación reventaba entera.** `c.tipo` llega del servidor como OBJETO
+   —`tipo:ticket_types(id, nombre, precio, currency)`, exactamente las cuatro
+   claves del error #31 de React— y se pintaba como texto. De paso, la factura
+   usaba el precio ACTUAL del tipo en vez de `precio_pagado`: una venta de hace
+   un mes salía con el precio de hoy, que es una factura falsa.
+2. **«Este evento todavía no tiene tipos de boleta» salía SIEMPRE.**
+   `GET /eventos/:id` no traía `ticket_types`, así que la lista llegaba
+   `undefined` y el aviso saltaba en todos los eventos, tuvieran cuatro o
+   ninguno. **Un consejero que se equivoca siempre enseña a ignorar también los
+   avisos que sí aciertan.** Ahora el backend lo trae, y el aviso distingue «no
+   hay» de «no lo sé».
+3. **El rol salía con el nombre viejo.** Regresión de la 0090: se renombraron
+   los roles y `event_members.rol` —columna de texto heredada— se quedó con el
+   nombre de cuando se invitó. Quien es «Puerta» seguía saliendo como
+   «Staff · Acceso». El nombre bueno es el de la tabla, siempre.
+
+---
+
+### Q1 · La boleta de stand no conecta con el stand
+
+**Lo pedido:** que la boleta se vincule al stand, para que el expositor se
+registre solo y su información se despliegue — o se haga a mano. Y lo mismo para
+el resto de actividades (torneos, etc.).
+
+**Lo medido:** el camino existe —un trigger de la 0036 crea la ficha cuando se
+paga una boleta-stand— y **nunca ha corrido**: 0 stands creados desde una
+boleta, 5 a mano. Hay 1 tipo de boleta «Stand comercial» con 0 vendidas.
+
+Así que no es que falte el enganche: es que **nadie lo ha visto funcionar** y no
+hay nada en la pantalla que diga que existe. Un tipo de boleta no declara «esto
+es un stand»; se adivina por el nombre.
+
+**Lo que hay que hacer:** que un tipo de boleta diga **qué crea al venderse**
+—nada, un stand, un equipo de torneo— en vez de deducirlo. Eso abre el mismo
+camino para los torneos, que es lo que se pide: comprar la inscripción crea el
+equipo, y el capitán completa sus datos por su enlace.
+
+### Q2 · Un equipo de torneo no cabe en la tabla
+
+**Lo pedido:** poder poner la información del equipo, los rangos, etc. Cada
+evento es distinto: un equipo de fútbol y uno de esports no se presentan igual.
+«Todo el flujo está hecho para un torneo de fútbol.»
+
+**Lo medido, y confirma el diagnóstico:** `torneo_equipos` tiene `nombre`,
+`foto_url`, `posicion_bracket`, `contacto_email`, `contacto_user_id`, `grupo`.
+**Y nada más.** No hay jugadores, ni roles dentro del equipo, ni rango, ni
+nickname, ni país, ni nada que dependa de la disciplina.
+
+**Lo que hay que hacer:** lo mismo que ya se resolvió para el registro de
+asistentes — **un formulario por torneo**. `event_form_fields` ya existe y ya
+resuelve exactamente este problema (campos definidos por el organizador,
+condicionales incluidos). Un torneo de fútbol pide dorsal y posición; uno de
+esports pide nick, rango y servidor. **No hay que inventar el mecanismo, hay que
+apuntarlo a otra tabla.**
+
+### Q3 · Torneos y Rueda de negocios deberían nacer como sub-evento
+
+**Lo pedido:** que en «Nuevo sub-evento», el selector de TIPO ofrezca también
+torneo y rueda de negocios; y que las secciones aparte queden para editar los
+datos propios de cada uno.
+
+**Por qué encaja:** `agenda_sessions` ya tiene `tipo` y `torneo_id`, y el tipo
+`competencia` ya está marcado como `competitivo`. La N-Fase 2 ya puso el
+«¿cuándo se juega?» dentro del alta del torneo — esto es el mismo movimiento en
+la otra dirección, y el que faltaba: **una sola puerta para crear cualquier cosa
+que ocurra en el evento.**
+
+Hoy hay dos puertas y por eso existían 4 torneos sin hueco en el calendario.
+
+### Q4 · La rueda de negocios YA es un stand, y no se dice
+
+**Lo observado por Sekkon0906:** «al parecer la rueda de negocios está vinculada
+a los stands, entonces al crear una rueda de negocios se registra como un
+stand».
+
+**Es exacto, y está bien que lo sea:** las dos escriben en
+`networking_expositores`. Se unificó en J3 el 2-sep, cuando resultó que había
+dos altas para la misma tabla y la de la rueda ni siquiera tenía `PATCH`.
+
+**El problema es que la interfaz no lo cuenta.** Se crea un expositor en una
+pantalla y aparece en otra sin explicación. No hay que cambiar el modelo: hay
+que **decirlo** — y que las dos pantallas enseñen que están mirando lo mismo
+desde dos lados.
+
+### Q5 · El aforo no dice cuánto está repartido
+
+**Lo pedido:** ver el aforo total y el **aforo predispuesto** (lo distribuido
+entre las zonas). Y que el stand se elija de una lista en vez de escribir su
+número.
+
+**Lo medido:** el evento tiene `aforo_total` (1500 en TechNova) y cada zona su
+`aforo_max`. **Nadie compara los dos.** Se pueden declarar zonas que sumen 3000
+en un recinto de 1500 y nada avisa.
+
+Es el mismo patrón que la bolsa de puntos, que se acaba de arreglar: un total,
+un reparto, y lo que queda sin repartir. Ahí ya está resuelto y se puede copiar
+la forma.
+
+Y el número de stand es texto libre (`networking_expositores.stand`): dos stands
+pueden llamarse «A11» y nadie lo nota.
+
+### Q6 · «Accesos e ingresos» es una zona más
+
+**Lo pedido:** meterlo dentro de Zonas de interés, y que al añadir una zona se
+elija su **tipo** — zona de evento, zona de ingreso, zona de evacuación, otras —
+con su edición propia.
+
+**Encaja con lo que ya pasó:** en la reagrupación del menú los dos quedaron
+juntos en «Zonas del evento» justamente porque son lo mismo —sitios—. Esto es el
+paso siguiente: que también sean lo mismo **en el modelo**, no sólo vecinos en
+el menú.
+
+Hoy las puertas viven en `page_json.accesos` y las zonas en la tabla `zonas`
+(desde la 0091). Unificar quiere decir: `zonas.tipo`, y las puertas pasan a ser
+zonas de tipo ingreso.
+
+**Y una zona de evacuación no es un capricho:** un recinto de 7.000 personas
+tiene salidas de emergencia, y hoy no hay dónde declararlas.
+
+### Q7 · El panel de edición de zonas desperdicia la pantalla
+
+**Lo pedido:** «se pierde mucho espacio mostrando ese modal de las zonas que
+está vacío, toca agrandar la zona de personalización».
+
+Se ve en la captura: la ficha de la derecha ocupa un tercio de la pantalla para
+decir «Sin gente», «Ninguna actividad», «Ningún stand». **El vacío ocupa lo
+mismo que lo lleno.** La lista de la izquierda, que es donde se trabaja, va
+apretada.
+
+### Q8 · El escáner de puntos no es del organizador — **el más importante**
+
+**Lo pedido, y es un problema de permisos, no de comodidad:** dar puntos y
+canjear deberían estar en «mi espacio», en el stand de quien se registró.
+«Escanear» sólo debería salirle al staff. **Quien no es del evento no puede
+tener permiso de entrar a las ediciones del evento.**
+
+**Lo medido:** ya existen las dos cosas y ahí está el lío.
+
+| Dónde | Quién entra | Qué hace |
+|---|---|---|
+| `Asistentes → Escanear` | miembro con permiso `checkin` | check-in, reingreso, sub-evento, **puntos**, canjear |
+| `/expositor/:codigo` | el expositor, con el código de su boleta | su ficha, cronograma, **dar puntos**, sus premios |
+
+**Dar puntos está en los dos.** Y para que un expositor use el del panel habría
+que meterlo en el equipo del evento, que es exactamente lo que no debe pasar: un
+expositor es un tercero, no personal.
+
+**Lo que hay que hacer:** `Asistentes → Escanear` se queda **sólo con lo de
+entrar** —check-in, reingreso, sub-evento—, y puntos y canje viven donde ya
+funcionan, en el portal del expositor. Eso quita la duplicación y, de paso,
+quita la razón para dar acceso al panel a quien no es del evento.
+
+### Q9 · «Acreditación» y «Antes de la boleta» no se llaman como lo que hacen
+
+**Acreditación** debería separar **diseñar** (escarapela y carné) de
+**imprimir**, que hoy están mezclados. Y el imprimir tiene que enlazar con la
+etiqueta térmica del Frente H, que ya está construida y no está conectada a
+ninguna pantalla.
+
+**«Antes de la boleta»** — nombre que puse yo en la reagrupación — no se
+entiende. Junté ahí Invitaciones y Lista de espera porque las dos son «gente que
+todavía no tiene boleta», y visto en uso el nombre no lo dice. Va a
+**«Invitaciones»**, con la lista de espera dentro.
+
+---
+
+### Orden
+
+**Primero lo que quita permisos de más:** Q8. Es el único con consecuencia de
+seguridad —hoy la única forma de que un expositor dé puntos es meterlo en el
+equipo del evento— y además borra una duplicación.
+
+**Después lo barato y visible:** Q9 (nombres y separar diseñar de imprimir, que
+además conecta el Frente H), Q7 (el espacio de la pantalla), Q4 (decir que la
+rueda y los stands son lo mismo).
+
+**Luego lo de modelo, de menor a mayor:** Q5 (aforo repartido, copiando la forma
+de la bolsa de puntos), Q3 (una sola puerta para crear), Q6 (la puerta como tipo
+de zona), Q1 (qué crea un tipo de boleta).
+
+**Y al final Q2**, que es el más grande: el formulario por torneo. No porque
+importe menos —es lo que hace que la plataforma sirva para algo que no sea
+fútbol— sino porque conviene hacerlo cuando Q3 ya haya dejado una sola puerta
+para crear un torneo.
+
+---
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en

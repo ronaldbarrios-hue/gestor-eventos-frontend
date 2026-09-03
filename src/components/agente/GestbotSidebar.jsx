@@ -31,8 +31,12 @@ export function avisosDelEvento(evento, { solicitudesPendientes = 0 } = {}) {
   if (!evento) return [];
   const avisos = [];
 
-  const tipos = evento.ticket_types || [];
-  if (tipos.length === 0) {
+  /* `undefined` no es «no hay»: es «no lo sé». La petición del panel no traía
+     `ticket_types`, así que este aviso saltaba en TODOS los eventos, tuvieran
+     cuatro tipos o ninguno. Se avisa sólo cuando la lista llegó y viene vacía:
+     un consejero que se equivoca siempre enseña a ignorar también los avisos
+     que sí aciertan. */
+  if (Array.isArray(evento.ticket_types) && evento.ticket_types.length === 0) {
     avisos.push({ id: 'boletas', texto: 'Este evento todavía no tiene tipos de boleta. Sin eso nadie puede inscribirse.' });
   }
   /* Alguien esperando respuesta es lo único de la lista que le pasa a una

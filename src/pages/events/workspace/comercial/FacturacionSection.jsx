@@ -19,14 +19,27 @@ export default function FacturacionSection({ evento }) {
 
   const filas = useMemo(() => (Array.isArray(clientes) ? clientes : []).map(c => {
     const lista = Array.isArray(tipos) ? tipos : [];
-    const tipo = lista.find(t => t.id === c.ticket_id || t.id === c.tipo_id || t.nombre === c.tipo);
+    /* `c.tipo` viene del servidor como OBJETO, no como texto:
+       `tipo:ticket_types!ticket_type_id(id, nombre, precio, currency)`.
+       Pintarlo tal cual reventaba la pestaña entera con el error #31 de React
+       —«objects are not valid as a React child», con esas cuatro claves— y
+       dejaba Facturación inservible. El resto de nombres alternativos se
+       conservan porque esta pantalla también lee listados más viejos. */
+    const delServidor = c.tipo && typeof c.tipo === 'object' ? c.tipo : null;
+    const porId = lista.find(t => t.id === c.ticket_type_id || t.id === c.ticket_id || t.id === c.tipo_id);
+    const porNombre = typeof c.tipo === 'string' ? lista.find(t => t.nombre === c.tipo) : null;
+    const tipo = delServidor || porId || porNombre || null;
+
     return {
-      nombre : c.nombre || c.cliente_nombre || '—',
-      email  : c.email || c.cliente_email || '—',
-      tipo   : c.tipo || c.ticket_nombre || tipo?.nombre || 'General',
+      nombre : c.usuario?.nombre || c.guest_nombre || c.nombre || c.cliente_nombre || '—',
+      email  : c.usuario?.email || c.guest_email || c.email || c.cliente_email || '—',
+      tipo   : tipo?.nombre || (typeof c.tipo === 'string' ? c.tipo : null) || c.ticket_nombre || 'General',
       estado : c.estado || 'confirmada',
-      precio : Number(c.precio ?? tipo?.precio ?? 0),
-      fecha  : c.created_at || c.fecha || null,
+      /* `precio_pagado` es lo que se cobró de verdad; el precio del tipo puede
+         haber cambiado desde entonces, y una factura con el precio de hoy sobre
+         una venta de hace un mes es una factura falsa. */
+      precio : Number(c.precio_pagado ?? c.precio ?? tipo?.precio ?? 0),
+      fecha  : c.pagado_at || c.created_at || c.fecha || null,
       codigo : c.codigo || c.qr || '',
     };
   }), [clientes, tipos]);
