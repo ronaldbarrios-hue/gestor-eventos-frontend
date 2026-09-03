@@ -9,6 +9,7 @@ import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 import GLoader from '../../../../components/ui/GLoader.jsx';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
 import { zonasDelEvento } from '../../../../lib/zonas.js';
+import BarraProgreso from '../../../../components/ui/BarraProgreso.jsx';
 import {
   nivelDeZona, estaEnLlamas, IconoLlama, DetalleMarcador,
 } from '../../../../components/aforo/MapaAforo.jsx';
@@ -276,6 +277,24 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
 
   const sinColocar = filas.filter(z => !z._enPlano).length;
 
+  /* El aforo del recinto contra lo repartido entre las zonas.
+
+     Nadie comparába los dos: se podían declarar zonas que sumaran 3.000 en un
+     recinto de 1.500 y nada avisaba. Es el mismo patrón que la bolsa de puntos
+     —un total, un reparto, y lo que queda sin repartir— y se copia la forma a
+     propósito para que las dos pantallas se lean igual.
+
+     Diferencia con la bolsa: aquí **no se bloquea**. Una zona sin `aforo_max`
+     es «sin límite» y no cero, así que la suma nunca es una cuenta cerrada; y
+     el aforo del evento avisa, no impide entrar. Lo que hacía falta era verlo.
+     Sin `aforo_total` no hay nada que comparar y no se enseña la barra: un
+     porcentaje sobre un total desconocido es peor que ningún dato. */
+  const aforoRecinto = Number(evento.aforo_total) || 0;
+  const conTope = filas.filter(z => z.aforo_max > 0);
+  const repartido = conTope.reduce((a, z) => a + z.aforo_max, 0);
+  const sinTope = filas.length - conTope.length;
+  const pasado = aforoRecinto > 0 && repartido > aforoRecinto;
+
   if (zonas === null) return <GLoader message="Cargando zonas…" />;
 
   return (
@@ -302,6 +321,33 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
           </p>
         )}
       </div>
+
+      {aforoRecinto > 0 && configuradas.length > 0 && (
+        <div className="card"><div className="card-body space-y-2">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <p className="text-sm text-text-1">
+              Aforo del recinto: <b className="tabular-nums">{aforoRecinto.toLocaleString('es-CO')}</b>
+            </p>
+            <p className="text-xs text-text-3 tabular-nums">
+              {repartido.toLocaleString('es-CO')} repartidos entre {conTope.length} zona{conTope.length !== 1 ? 's' : ''}
+              {aforoRecinto > repartido && ` · ${(aforoRecinto - repartido).toLocaleString('es-CO')} sin repartir`}
+            </p>
+          </div>
+          <BarraProgreso pct={Math.round((repartido / aforoRecinto) * 100)} color={pasado ? 'bg-warning' : 'bg-text-1'} />
+          {pasado && (
+            <p className="text-xs text-warning-light">
+              Las zonas suman {(repartido - aforoRecinto).toLocaleString('es-CO')} más de lo que cabe en el recinto.
+              No bloquea nada —el aforo avisa, no cierra la puerta— pero es una de las dos cifras que está mal.
+            </p>
+          )}
+          {sinTope > 0 && (
+            <p className="text-[11px] text-text-3">
+              {sinTope === 1 ? 'Una zona no tiene' : `${sinTope} zonas no tienen`} aforo máximo: cuentan como
+              sin límite y no suman aquí.
+            </p>
+          )}
+        </div></div>
+      )}
 
       {configuradas.length === 0 ? (
         <div className="card"><div className="card-body text-center py-10">

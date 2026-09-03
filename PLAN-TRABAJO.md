@@ -2654,7 +2654,30 @@ pantalla y aparece en otra sin explicación. No hay que cambiar el modelo: hay
 que **decirlo** — y que las dos pantallas enseñen que están mirando lo mismo
 desde dos lados.
 
-### Q5 · El aforo no dice cuánto está repartido
+### Q5 · El aforo repartido, y el stand — ✅ hecho el 2026-09-03
+
+**El aforo.** Se podían declarar zonas que sumaran 3.000 en un recinto de 1.500
+y nada avisaba. Ahora Zonas enseña el total del recinto, lo repartido y lo que
+queda sin repartir, con la misma forma que la bolsa de puntos —a propósito, para
+que las dos pantallas se lean igual—.
+
+**Con dos diferencias respecto a la bolsa, y las dos importan:** aquí no se
+bloquea (el aforo avisa, no cierra la puerta) y una zona **sin** aforo máximo es
+«sin límite» y no cero, así que la suma nunca es una cuenta cerrada y se dice
+cuántas zonas quedan fuera de ella. Sin `aforo_total` no se enseña la barra: un
+porcentaje sobre un total desconocido es peor que ningún dato.
+
+**El stand: no es un desplegable, y no por pereza.** Los puestos **no existen
+como catálogo** —no hay tabla de stands del recinto, sólo un texto en cada
+expositor—. Un desplegable cerrado daría por bueno un catálogo inventado y
+dejaría sin poder escribir el primer stand de cada evento. Lo que sí se puede
+hacer sin mentir: ofrecer los ya puestos y **avisar del repetido**.
+
+Y el número se normaliza **al guardar** y no sólo al pintar, que era el arreglo
+de esta mañana: así «C10» y «Stand C10» se reconocen como el mismo puesto en
+vez de contar como dos.
+
+#### Lo que decía la ficha original
 
 **Lo pedido:** ver el aforo total y el **aforo predispuesto** (lo distribuido
 entre las zonas). Y que el stand se elija de una lista en vez de escribir su
