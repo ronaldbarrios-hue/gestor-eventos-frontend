@@ -37,7 +37,7 @@ export default function MiTicketPage() {
   useEffect(() => { setLoading(true); cargar(); /* eslint-disable-next-line */ }, [codigo]);
 
   if (loading) return (
-    <section className="px-5 py-20 max-w-md mx-auto"><GLoader message="Buscando tu boleta..." /></section>
+    <section className="px-5 py-20 max-w-md mx-auto"><GLoader message="Buscando tu entrada..." /></section>
   );
 
   if (error || !ticket) return (
@@ -85,7 +85,7 @@ export default function MiTicketPage() {
       )}
 
       <div className="text-center">
-        <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">Tu boleta</p>
+        <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">Tu entrada</p>
         <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{ticket.evento?.titulo}</h1>
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${estado.cls}`}>
           {estado.label}
@@ -385,7 +385,7 @@ function FormularioPendiente({ ticket, campos, onListo }) {
       )}
 
       <div className="text-center mb-6">
-        <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mb-2">¡Esta boleta es tuya ahora!</p>
+        <p className="text-xs uppercase tracking-widest text-primary-light font-semibold mb-2">¡Esta entrada es tuya ahora!</p>
         <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1 mb-2">{ticket.evento?.titulo}</h1>
         <p className="text-sm text-text-2 leading-relaxed">
           Antes de mostrarte tu QR, completa estos datos que pide el organizador.

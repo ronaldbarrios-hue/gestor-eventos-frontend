@@ -1233,7 +1233,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
               || (fechaEvento ? `Te esperamos el ${fechaEvento}.` : 'Te esperamos en el evento.')}
           </p>
           <p className="text-xs text-text-3 mb-6">
-            Tu boleta queda guardada en <span className="font-mono text-text-2">{ticket.codigo}</span>.
+            Tu entrada queda guardada en <span className="font-mono text-text-2">{ticket.codigo}</span>.
             {' '}Puedes volver a verla cuando quieras en{' '}
             <a href={urlBoleta} {...(enlacePropio ? { target: '_blank', rel: 'noreferrer noopener' } : {})}
               className="text-primary-light hover:underline break-all">{textoBoleta}</a>.
@@ -1247,7 +1247,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
         <div className="py-2">
           <button type="button" onClick={() => setVista('boleta')}
             className="text-xs text-text-3 hover:text-text-1 mb-3 inline-flex items-center gap-1 transition-colors">
-            ← Volver a mi boleta
+            ← Volver a mi entrada
           </button>
           <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Actividades con inscripción</h2>
           <p className="text-sm text-text-2 mb-4 leading-relaxed">
