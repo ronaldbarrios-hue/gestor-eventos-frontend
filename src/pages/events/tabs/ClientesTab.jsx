@@ -11,6 +11,8 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import { exportar } from '../../../lib/hojaEscribir.js';
 import { ymdLocal } from '../../../lib/fechaLocal.js';
+import DescargarEntrada from '../../../components/public/DescargarEntrada.jsx';
+import EnviarEntrada from '../../../components/public/EnviarEntrada.jsx';
 
 const ESTADO_LABEL = {
   emitido    : 'Emitido',
@@ -201,6 +203,7 @@ export default function ClientesTab({ evento }) {
       {detalleCliente && (
         <DetalleModal
           cliente={detalleCliente}
+          evento={evento}
           currency={evento.currency}
           camposFormulario={camposFormulario}
           onClose={() => setDetalleCliente(null)}
@@ -326,7 +329,7 @@ function ClienteRow({ cliente, currency, onCambiarEstado, onVerDetalle, style })
 }
 
 /* ─────────── Detalle de un asistente (incluye QR + formulario que diligenció) ─────────── */
-function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
+function DetalleModal({ cliente, evento = {}, currency, camposFormulario, onClose }) {
   const nombre = cliente.usuario?.nombre || cliente.guest_nombre || cliente.guest_email;
   const email  = cliente.usuario?.email || cliente.guest_email;
   const initials = (nombre || 'U').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -335,19 +338,6 @@ function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
      firmado si existe, o el código de la boleta como respaldo. */
   const qrValue = cliente.qr_token || cliente.codigo;
 
-  const descargarQR = () => {
-    const canvasWrap = qrCanvasRef.current;
-    if (!canvasWrap) return;
-    const canvas = canvasWrap.querySelector('canvas');
-    if (!canvas) return;
-    const url = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `qr-${cliente.codigo}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
 
   /* respuestas se guarda como { "<id_del_campo>": valor }. Usamos el id
      para buscar la etiqueta real en camposFormulario (ej. "Cédula", "Edad")
@@ -401,10 +391,28 @@ function DetalleModal({ cliente, currency, camposFormulario, onClose }) {
               <QRCodeCanvas value={qrValue} size={160} level="M" includeMargin={false} />
             </div>
             <p className="font-mono text-sm font-bold text-text-1 tabular-nums tracking-widest">{cliente.codigo}</p>
-            <button onClick={descargarQR}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-2 text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
-              <DownloadIcon className="w-3.5 h-3.5" /> Descargar QR
-            </button>
+
+            {/* Aquí sólo se podía bajar el QR —una imagen suelta, sin nombre, sin
+                evento y sin instrucciones—, mientras el asistente tiene desde
+                hace tiempo su tarjeta, su PDF y su QR en `/mi-ticket`. El panel
+                se había quedado con la mitad más pobre de lo que ya existía, y
+                escrita a mano por cuarta vez.
+
+                Son los mismos componentes que usa el público, así que lo que el
+                organizador manda es exactamente lo que la persona recibiría por
+                su cuenta —mismo QR incluido, que es lo que evita el papel que no
+                abre ninguna puerta—. */}
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              <DescargarEntrada
+                evento={evento}
+                ticket={cliente}
+                qrValue={qrValue}
+                respuestas={cliente.respuestas}
+                campos={camposFormulario}
+                etiqueta="Descargar"
+              />
+              <EnviarEntrada evento={evento} ticket={cliente} qrValue={qrValue} />
+            </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-2.5">

@@ -10,6 +10,7 @@ import GLoader from '../../../../components/ui/GLoader.jsx';
 import { useSondeo } from '../../../../hooks/useSondeo.js';
 import { zonasDelEvento, TIPOS_ZONA, TIPO_ZONA_DEFECTO } from '../../../../lib/zonas.js';
 import BarraProgreso from '../../../../components/ui/BarraProgreso.jsx';
+import { numeroDeStand } from '../../../../lib/expositoresUi.js';
 import {
   nivelDeZona, estaEnLlamas, IconoLlama, DetalleMarcador,
 } from '../../../../components/aforo/MapaAforo.jsx';
@@ -365,20 +366,58 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
             : <p className="text-[11px] text-text-3 mt-3">Las crea quien administra el evento.</p>}
         </div></div>
       ) : (
-        /* La segunda columna sólo existe cuando hay zona elegida.
+        /* Una sola columna, y la ficha DEBAJO de su zona.
 
-           Antes estaba siempre: 360 px reservados para una tarjeta que decía
-           «Toca una zona», y la lista —que es donde se trabaja— apretada al
-           lado. El vacío ocupaba lo mismo que lo lleno. Sin selección la lista
-           se queda con el ancho entero. */
-        <div className={`grid gap-4 items-start ${seleccionada ? 'lg:grid-cols-[minmax(0,1fr)_380px]' : 'grid-cols-1'}`}>
+           Antes esto era una rejilla con la lista a la izquierda y una columna
+           de 380 px a la derecha. Dos problemas a la vez: la lista —que es
+           donde se escribe el nombre y el aforo— trabajaba en dos tercios de
+           pantalla, y la ficha metía cinco bloques en una tira estrecha donde
+           todo salía a una línea por renglón.
+
+           Ahora la lista ocupa el ancho entero SIEMPRE, y al abrir una zona su
+           ficha aparece justo debajo, también al ancho entero y repartida en
+           columnas. Es la misma información con sitio para respirar, y además
+           queda pegada a la zona de la que habla —que en una lista de diez es
+           la diferencia entre saber de cuál estabas mirando y no saberlo. */
+        <div className="space-y-4">
           <div className="space-y-2">
             {filas.map(z => (
-              <FilaZona key={z._k} z={z} activa={z.id === sel}
-                editable={puedeEditar}
-                onSelect={() => setSel(z.id === sel ? null : z.id)}
-                onEditar={(patch) => editar(z._k, patch)}
-                onBorrar={() => borrar(z)} />
+              <div key={z._k} className="space-y-2">
+                <FilaZona z={z} activa={z.id === sel}
+                  editable={puedeEditar}
+                  onSelect={() => setSel(z.id === sel ? null : z.id)}
+                  onEditar={(patch) => editar(z._k, patch)}
+                  onBorrar={() => borrar(z)} />
+
+                {z.id === sel && seleccionada && (
+                  <div className="rounded-2xl border border-primary-light/40 bg-surface-2/30 p-3
+                                  grid gap-3 md:grid-cols-2 xl:grid-cols-3 items-start">
+                    <DetalleMarcador sel={`zona:${seleccionada.id}`} datos={datosDetalle} />
+                    <Puertas evento={evento} lista={puertasPorZona[seleccionada.id] || []} />
+                    {puedeAgenda && (
+                      <Colgar titulo="Actividades aquí" vacio="Ninguna actividad programada en esta zona."
+                        ocupando={asignando}
+                        dentro={(agendaTodo || []).filter(x => x.zona_id === seleccionada.id)}
+                        fuera={(agendaTodo || []).filter(x => x.zona_id !== seleccionada.id)}
+                        etiqueta={x => x.titulo || 'Sin título'}
+                        nota={x => x.zona_id ? 'en otra zona' : null}
+                        onMeter={id => mover('agenda', id, seleccionada.id)}
+                        onSacar={id => mover('agenda', id, null)} />
+                    )}
+                    {puedeStands && (
+                      <Colgar titulo="Stands aquí" vacio="Ningún stand montado en esta zona."
+                        ocupando={asignando}
+                        dentro={(standsTodo || []).filter(x => x.zona_id === seleccionada.id)}
+                        fuera={(standsTodo || []).filter(x => x.zona_id !== seleccionada.id)}
+                        etiqueta={x => `${x.nombre}${x.stand ? ` · ${numeroDeStand(x.stand)}` : ''}`}
+                        nota={x => x.zona_id ? 'en otra zona' : null}
+                        onMeter={id => mover('stands', id, seleccionada.id)}
+                        onSacar={id => mover('stands', id, null)} />
+                    )}
+                    <Acciones evento={evento} z={seleccionada} puedeAgenda={puedeAgenda} puedeStands={puedeStands} />
+                  </div>
+                )}
+              </div>
             ))}
 
             {puedeEditar && (
@@ -403,35 +442,6 @@ export default function ZonasSection({ evento, soyOwner = false, permisos, reloa
             )}
           </div>
 
-          {seleccionada && (
-          <div className="lg:sticky lg:top-4 space-y-3">
-              <>
-                <DetalleMarcador sel={`zona:${seleccionada.id}`} datos={datosDetalle} />
-                <Puertas evento={evento} lista={puertasPorZona[seleccionada.id] || []} />
-                {puedeAgenda && (
-                  <Colgar titulo="Actividades aquí" vacio="Ninguna actividad programada en esta zona."
-                    ocupando={asignando}
-                    dentro={(agendaTodo || []).filter(s => s.zona_id === seleccionada.id)}
-                    fuera={(agendaTodo || []).filter(s => s.zona_id !== seleccionada.id)}
-                    etiqueta={s => s.titulo || 'Sin título'}
-                    nota={s => s.zona_id ? 'en otra zona' : null}
-                    onMeter={id => mover('agenda', id, seleccionada.id)}
-                    onSacar={id => mover('agenda', id, null)} />
-                )}
-                {puedeStands && (
-                  <Colgar titulo="Stands aquí" vacio="Ningún stand montado en esta zona."
-                    ocupando={asignando}
-                    dentro={(standsTodo || []).filter(s => s.zona_id === seleccionada.id)}
-                    fuera={(standsTodo || []).filter(s => s.zona_id !== seleccionada.id)}
-                    etiqueta={s => `${s.nombre}${s.stand ? ` · ${s.stand}` : ''}`}
-                    nota={s => s.zona_id ? 'en otra zona' : null}
-                    onMeter={id => mover('stands', id, seleccionada.id)}
-                    onSacar={id => mover('stands', id, null)} />
-                )}
-                <Acciones evento={evento} z={seleccionada} puedeAgenda={puedeAgenda} puedeStands={puedeStands} />
-              </>
-          </div>
-          )}
         </div>
       )}
     </div>
