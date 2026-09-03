@@ -22,7 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 /* `pathToFileURL` y no la ruta a secas: en Windows un `C:\…` no es una URL
    válida para el cargador de módulos y el import revienta. */
-const { medidas, versionParaToken, ETIQUETA, PUNTOS_POR_MM } =
+const { medidas, versionParaToken, ETIQUETA, PUNTOS_POR_MM, normalizarEtiqueta, LIMITES } =
   await import(pathToFileURL(join(RAIZ, 'src/lib/etiquetaTermica.js')).href);
 
 /* 253 es el largo real, medido contra un token de producción el 2026-09-02. */
@@ -120,4 +120,41 @@ test('la etiqueta cuelga de una pantalla del panel', () => {
   const acred = readFileSync(join(RAIZ, 'src/pages/events/workspace/asistentes/AcreditacionSection.jsx'), 'utf8');
   assert.match(acred, /EtiquetadoraSection/, 'la etiquetadora ya no cuelga de Acreditación');
   assert.match(acred, /'etiquetas'/, 'la vista de imprimir ya no se puede elegir');
+});
+
+test('las medidas son del evento, no del código', () => {
+  /* Estaban escritas dentro: 100×50 porque nos lo dijeron por WhatsApp. Servía
+     para un rollo y para ninguno más — y el siguiente organizador con otro rollo
+     no tenía nada que tocar. */
+  const e = normalizarEtiqueta({ ancho: 70, alto: 40, qr_objetivo: 30 });
+  assert.equal(e.ancho, 70);
+  assert.equal(e.alto, 40);
+
+  /* Fuera de los topes se acota en vez de aceptarse: una etiqueta de 5 mm o de
+     3 metros no existe, y guardarla dejaría el diseño roto sin decir nada. */
+  const enorme = normalizarEtiqueta({ ancho: 9999, alto: -5 });
+  assert.equal(enorme.ancho, LIMITES.ancho.max);
+  assert.equal(enorme.alto, LIMITES.alto.min);
+
+  /* Y todo cae en punto entero a 203 dpi: 0,1 mm no es imprimible y el cabezal
+     redondearía por su cuenta. */
+  const raro = normalizarEtiqueta({ ancho: 100.07 });
+  assert.equal(Number.isInteger(raro.ancho * 8), true, `${raro.ancho} no cae en punto`);
+});
+
+test('el QR se sube arriba cuando al lado no cabe el nombre', () => {
+  /* La regla de espacio, que es la decisión de verdad: un nombre de dos
+     apellidos necesita unos 35 mm de ancho para dos líneas a 6 mm. En una
+     etiqueta estrecha y alta, al lado no cabe nada y debajo sí. */
+  const ancha = medidas(TOKEN_REAL, { ancho: 100, alto: 50, qr_objetivo: 40 });
+  assert.equal(ancha.disposicion, 'lado');
+
+  const estrecha = medidas(TOKEN_REAL, { ancho: 60, alto: 90, qr_objetivo: 45 });
+  assert.equal(estrecha.disposicion, 'debajo');
+
+  /* Y cuando el organizador fuerza una disposición que no da, se avisa en vez
+     de imprimir mil escarapelas con el nombre a un milímetro. */
+  const forzada = medidas(TOKEN_REAL, { ancho: 100, alto: 50, qr_objetivo: 40, disposicion: 'debajo' });
+  assert.equal(forzada.nombre_cabe, false);
+  assert.match(forzada.aviso, /no se va a leer/i);
 });

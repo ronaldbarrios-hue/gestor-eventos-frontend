@@ -1,5 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react';
-import { ETIQUETA, ALTURAS_MM, medidas } from '../../lib/etiquetaTermica.js';
+import { ETIQUETA_DEFECTO, ALTURAS_MM, medidas, normalizarEtiqueta } from '../../lib/etiquetaTermica.js';
 
 /* Una escarapela para la etiquetadora térmica, a tamaño real.
  *
@@ -33,9 +33,12 @@ export default function EtiquetaTermica({
   destacados = [],
   logoUrl = '',
   mostrarCodigo = true,
+  /* Las medidas del rollo que el organizador tenga. Sin esto, las de siempre. */
+  etiqueta,
 }) {
+  const E = etiqueta ? normalizarEtiqueta(etiqueta) : ETIQUETA_DEFECTO;
   const valor = qrValue || ticket.qr_token || ticket.codigo || '';
-  const m = medidas(valor);
+  const m = medidas(valor, E);
 
   const nombre = (ticket.asistente?.nombre || ticket.guest_nombre || '').trim();
   const tipo = (ticket.tipo?.nombre || '').trim();
@@ -55,12 +58,16 @@ export default function EtiquetaTermica({
     <div
       className="etiqueta-termica"
       style={{
-        width: `${ETIQUETA.ancho}mm`,
-        height: `${ETIQUETA.alto}mm`,
-        padding: `${ETIQUETA.margen}mm`,
+        width: `${E.ancho}mm`,
+        height: `${E.alto}mm`,
+        padding: `${E.margen}mm`,
         boxSizing: 'border-box',
         display: 'flex',
-        gap: `${ETIQUETA.separacion}mm`,
+        /* Al lado o debajo, según lo que quepa. Lo decide `medidas()` con las
+           reglas de espacio, no este archivo: aquí sólo se dibuja. */
+        flexDirection: m.disposicion === 'debajo' ? 'column' : 'row',
+        alignItems: m.disposicion === 'debajo' ? 'center' : 'stretch',
+        gap: `${E.separacion}mm`,
         background: '#fff',
         color: '#000',
         /* Sin sombras, sin bordes redondeados y sin opacidades: nada de eso
@@ -77,7 +84,7 @@ export default function EtiquetaTermica({
           diente. Reservar los 40 y centrar dentro deja el hueco pedido con el
           código impreso limpio. */}
       <div style={{
-        flex: `0 0 ${m.caja_mm}mm`, width: `${m.caja_mm}mm`,
+        flex: `0 0 ${m.caja_mm}mm`, width: `${m.caja_mm}mm`, height: `${m.caja_mm}mm`,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       }}>
         <QRCodeSVG
@@ -103,6 +110,10 @@ export default function EtiquetaTermica({
       <div style={{
         flex: '1 1 auto', minWidth: 0, width: `${anchoTexto}mm`,
         display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.5mm',
+        /* Con el QR arriba, el texto se centra: si no, un nombre corto queda
+           pegado al borde izquierdo y la etiqueta parece torcida. */
+        textAlign: m.disposicion === 'debajo' ? 'center' : 'left',
+        alignItems: m.disposicion === 'debajo' ? 'center' : 'stretch',
       }}>
         {logoUrl && (
           <img src={logoUrl} alt="" style={{ height: '5mm', objectFit: 'contain', objectPosition: 'left', filter: 'grayscale(1) contrast(3)' }} />

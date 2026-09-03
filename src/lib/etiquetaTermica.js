@@ -83,7 +83,7 @@ const PUNTOS_POR_MODULO_MIN = 3;
  * 90 × 55 porque era el tamaño por defecto del diseñador de escarapelas — una
  * medida razonable inventada, que es exactamente lo que había que sustituir por
  * una medida real. */
-export const ETIQUETA = {
+export const ETIQUETA_DEFECTO = {
   ancho: 100,
   alto: 50,
   margen: 3,
@@ -93,7 +93,62 @@ export const ETIQUETA = {
   /* Lo pedido: un cuadrado de 4 cm. Es un OBJETIVO y no una imposición —ver
      `medidas()`—, porque forzar el milímetro exacto rompe algo peor. */
   qr_objetivo: 40,
+  /* 'lado' | 'debajo' | 'auto'. Ver `disposicionQueCabe()`. */
+  disposicion: 'auto',
 };
+
+/* Compatibilidad: había código leyendo `ETIQUETA` directamente. Sigue siendo el
+   valor por defecto, que es lo que esos sitios querían decir. */
+export const ETIQUETA = ETIQUETA_DEFECTO;
+
+/* ── Los topes, y por qué son éstos ────────────────────────────────────────
+ *
+ * No son gustos: salen del aparato y del ojo.
+ *
+ * · **Mínimo 25 mm de ancho o alto.** Por debajo no cabe ni el QR más pequeño
+ *   que este token puede tener, y la etiqueta sería un adorno.
+ * · **Máximo 210 mm.** Es el ancho de un A4: por encima ya no es una etiquetadora.
+ * · **El margen entre 0 y 10.** A cero se imprime hasta el borde y el corte del
+ *   rollo se come parte del QR; más de 10 en una etiqueta de 50 no deja nada.
+ */
+export const LIMITES = {
+  ancho:  { min: 25, max: 210 },
+  alto:   { min: 25, max: 210 },
+  margen: { min: 0,  max: 10 },
+  qr:     { min: 15, max: 200 },
+};
+
+const acotar = (v, { min, max }, porDefecto) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return porDefecto;
+  return Math.min(max, Math.max(min, n));
+};
+
+/* Lo que el organizador guardó, puesto en forma y dentro de los topes.
+ *
+ * Todo se redondea a 0,125 mm —un punto a 203 dpi— porque una medida que no cae
+ * en punto entero la redondea el cabezal por su cuenta, y entonces lo impreso no
+ * es lo que se midió. */
+export function normalizarEtiqueta(cfg) {
+  const c = cfg && typeof cfg === 'object' ? cfg : {};
+  const aPunto = (mm) => Math.round(mm * PUNTOS_POR_MM) / PUNTOS_POR_MM;
+
+  const ancho = aPunto(acotar(c.ancho, LIMITES.ancho, ETIQUETA_DEFECTO.ancho));
+  const alto  = aPunto(acotar(c.alto,  LIMITES.alto,  ETIQUETA_DEFECTO.alto));
+  /* El margen no puede comerse la etiqueta: se acota también contra el lado
+     corto, o una etiqueta de 25 mm con margen 10 se quedaría sin nada dentro. */
+  const margenMax = Math.max(0, Math.min(LIMITES.margen.max, Math.min(ancho, alto) / 4));
+  const margen = aPunto(acotar(c.margen, { min: LIMITES.margen.min, max: margenMax }, Math.min(ETIQUETA_DEFECTO.margen, margenMax)));
+
+  return {
+    ancho,
+    alto,
+    margen,
+    separacion: aPunto(acotar(c.separacion, { min: 1, max: 10 }, ETIQUETA_DEFECTO.separacion)),
+    qr_objetivo: aPunto(acotar(c.qr_objetivo, LIMITES.qr, ETIQUETA_DEFECTO.qr_objetivo)),
+    disposicion: ['lado', 'debajo', 'auto'].includes(c.disposicion) ? c.disposicion : 'auto',
+  };
+}
 
 export function versionParaToken(largo) {
   const fila = CAPACIDAD_M.find(([, cap]) => largo <= cap);
@@ -101,7 +156,8 @@ export function versionParaToken(largo) {
 }
 
 /* Cuánto ocupa el QR de un token concreto, y si la etiqueta le da. */
-export function medidas(token = '') {
+export function medidas(token = '', etiqueta) {
+  const E = etiqueta ? normalizarEtiqueta(etiqueta) : ETIQUETA_DEFECTO;
   const largo = String(token || '').length;
   const version = versionParaToken(largo);
 
@@ -113,7 +169,8 @@ export function medidas(token = '') {
   }
 
   const modulos = MODULOS(version) + QUIET * 2;
-  const alturaUtil = ETIQUETA.alto - ETIQUETA.margen * 2;
+  const alturaUtil = E.alto - E.margen * 2;
+  const anchoUtil  = E.ancho - E.margen * 2;
 
   /* ── Por qué el QR no mide 40,0 mm exactos ─────────────────────────────
    *
@@ -130,19 +187,49 @@ export function medidas(token = '') {
    * De paso mejora: veníamos de 3 puntos por módulo. Cada punto más es un
    * lector menos que duda con la escarapela doblada.
    */
-  const objetivo = ETIQUETA.qr_objetivo || alturaUtil;
+  const objetivo = Math.min(E.qr_objetivo || alturaUtil, alturaUtil, anchoUtil);
   const cabenEnObjetivo = Math.floor((objetivo * PUNTOS_POR_MM) / modulos);
   const porModulo = Math.max(PUNTOS_POR_MODULO_MIN, cabenEnObjetivo);
 
   const puntos = modulos * porModulo;
   const mm = puntos / PUNTOS_POR_MM;
 
-  /* El cuadrado que el QR ocupa en la etiqueta: lo pedido, salvo que el código
-     no quepa dentro y haya que dejarle más. */
-  const caja = Math.min(alturaUtil, Math.max(mm, ETIQUETA.qr_objetivo || 0));
+  /* El cuadrado que el QR ocupa: lo pedido, salvo que el código no quepa dentro
+     y haya que dejarle más, o que la etiqueta no dé para tanto. */
+  const caja = Math.min(alturaUtil, anchoUtil, Math.max(mm, objetivo));
+
+  /* ── Cómo se reparte el espacio, que es la decisión de verdad ──────────
+   *
+   * Con el QR al LADO, al texto le queda el ancho que sobra. Con el QR ARRIBA,
+   * le queda el alto que sobra. Y son dos cosas muy distintas:
+   *
+   * · Un nombre de dos apellidos necesita **unos 35 mm de ancho** para caber en
+   *   dos líneas a 6 mm de altura. Con menos, se corta.
+   * · Y necesita **al menos 7 mm de alto** para una línea de 6 mm con su
+   *   interlineado. Con menos, no cabe ni una.
+   *
+   * Por eso «auto» no elige por gusto: pone el QR al lado mientras al texto le
+   * queden esos 35 mm, y lo sube arriba cuando no. En una etiqueta estrecha y
+   * alta —60 × 90, por ejemplo— al lado no cabría nada y debajo sí. */
+  const anchoSiLado   = anchoUtil - caja - E.separacion;
+  const altoSiDebajo  = alturaUtil - caja - E.separacion;
+
+  const ANCHO_MINIMO_TEXTO = 35;
+  const ALTO_MINIMO_TEXTO  = 7;
+
+  const disposicion = E.disposicion !== 'auto'
+    ? E.disposicion
+    : (anchoSiLado >= ANCHO_MINIMO_TEXTO ? 'lado' : 'debajo');
+
+  const textoAncho = disposicion === 'lado' ? anchoSiLado : anchoUtil;
+  const textoAlto  = disposicion === 'lado' ? alturaUtil  : altoSiDebajo;
+
+  /* Que el QR quepa es una cosa; que el nombre se lea es otra, y la segunda se
+     rompe mucho antes. Un aviso vale más que una etiqueta impresa a ciegas. */
+  const nombreCabe = textoAncho >= 20 && textoAlto >= ALTO_MINIMO_TEXTO;
 
   return {
-    cabe: mm <= alturaUtil,
+    cabe: mm <= alturaUtil && mm <= anchoUtil,
     version,
     modulos: MODULOS(version),
     lado_mm: mm,
@@ -150,11 +237,17 @@ export function medidas(token = '') {
     puntos_por_modulo: porModulo,
     /* Lo que la caja del QR ocupa, que es lo que hay que reservar al maquetar. */
     caja_mm: caja,
+    disposicion,
     /* Lo que queda para el nombre y lo demás. */
-    texto_mm: ETIQUETA.ancho - ETIQUETA.margen * 2 - caja - ETIQUETA.separacion,
-    motivo: mm <= alturaUtil
+    texto_mm: textoAncho,
+    texto_alto_mm: textoAlto,
+    nombre_cabe: nombreCabe,
+    aviso: !nombreCabe && mm <= alturaUtil
+      ? `Con esta medida al nombre le quedan ${textoAncho.toFixed(0)} × ${textoAlto.toFixed(0)} mm: no se va a leer de lejos. Haz el QR más pequeño o la etiqueta más grande.`
+      : null,
+    motivo: (mm <= alturaUtil && mm <= anchoUtil)
       ? null
-      : `El QR necesita ${mm.toFixed(1)} mm de lado y en la etiqueta caben ${alturaUtil} mm.`,
+      : `El QR necesita ${mm.toFixed(1)} mm de lado y en la etiqueta caben ${Math.min(alturaUtil, anchoUtil)} mm.`,
   };
 }
 
