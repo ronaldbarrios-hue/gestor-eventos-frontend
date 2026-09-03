@@ -73,6 +73,16 @@ function PreviewSortable({ id, children }) {
  *
  * El subtítulo va con el título y no suelto: separarlos era lo que producía
  * `mb-2` en unos sitios y `mb-5` en otros según si había subtítulo o no. */
+/* Y el hueco ENTRE secciones lo pone la página, no el bloque.
+ *
+ * Cuatro de los doce se envolvían en `<section className="py-4">`, encima del
+ * `space-y-8` que ya pone la página pública. Así que esos cuatro —premios,
+ * expositores, mapa y torneos— quedaban separados 2 rem más que los demás. Son
+ * los huecos grandes que se venían en el evento real, y no eran de diseño:
+ * eran dos capas sumando margen sin saber la una de la otra.
+ *
+ * El elemento `<section>` se queda, que eso sí dice algo; lo que se va es el
+ * relleno. */
 function CabeceraSeccion({ titulo, subtitulo, centrado = false }) {
   if (!titulo && !subtitulo) return null;
   return (
@@ -1288,7 +1298,7 @@ function RecompensasPreview({ data, evento, isEditor }) {
      entre secciones. */
   if (items.length === 0 && !isEditor) return null;
   return (
-    <section className="py-4">
+    <section>
       <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
@@ -1360,7 +1370,7 @@ function MapaEventoPreview({ data, evento, isEditor }) {
        organizador no lo ha subido: eso es un recado interno. */
     if (!isEditor) return null;
     return (
-      <section className="py-4">
+      <section>
         <CabeceraSeccion titulo={data.titulo} />
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
           <p className="text-sm text-text-3">El mapa aún no está configurado.</p>
@@ -1370,7 +1380,7 @@ function MapaEventoPreview({ data, evento, isEditor }) {
   }
 
   return (
-    <section className="py-4">
+    <section>
       <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       <div className="rounded-2xl overflow-auto border border-border bg-surface-2 flex justify-center">
         <div className="relative">
@@ -1609,7 +1619,7 @@ function ExpositoresPreview({ data, evento, isEditor }) {
   if (items.length === 0 && !isEditor) return null;
   const hora = (s) => new Date(s).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   return (
-    <section className="py-4">
+    <section>
       <CabeceraSeccion titulo={data.titulo} subtitulo={data.subtitulo} />
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
