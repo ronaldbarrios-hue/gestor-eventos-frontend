@@ -275,6 +275,18 @@ export function ProgramaZona({ z }) {
                 {s.fin_estimado ? ' (fin sin definir)' : ''}
                 {s.requiere_inscripcion && s.cupo != null ? ` · ${s.inscritos}/${s.cupo}` : ''}
               </span>
+              {/* Quién la da y con qué boleta se entra. Las tres relaciones ya
+                  estaban en la tabla y ninguna pantalla las llenaba; ahora que
+                  el formulario las ofrece, esto se puede contestar aquí en vez
+                  de recorriendo el calendario. */}
+              {(s.speaker?.nombre || s.expositor?.nombre || s.boleta?.nombre) && (
+                <span className="block text-[11px] text-text-2 mt-0.5">
+                  {s.speaker?.nombre && <>Con <span className="text-text-1">{s.speaker.nombre}</span></>}
+                  {s.speaker?.nombre && s.expositor?.nombre ? ' · ' : ''}
+                  {s.expositor?.nombre && <>Stand: {s.expositor.nombre}</>}
+                  {s.boleta?.nombre && <span className="text-text-3"> · boleta {s.boleta.nombre}</span>}
+                </span>
+              )}
             </p>
           ))}
         </div>
@@ -297,6 +309,26 @@ export function ProgramaZona({ z }) {
             ))}
           </ul>
           {pendientes.length > 4 && <p className="text-[11px] text-text-3 mt-0.5">y {pendientes.length - 4} más</p>}
+        </div>
+      )}
+      {(z.speakers || []).length > 0 && (
+        <div>
+          {/* Quién habla HOY en esta zona, sin repetir a quien da dos charlas.
+              Era la pregunta que obligaba a recorrer el calendario entero
+              mirando cuál cae aquí. */}
+          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">
+            Habla{z.speakers.length === 1 ? '' : 'n'} aquí
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {z.speakers.map(sp => (
+              <span key={sp.id} className="inline-flex items-center gap-1.5 text-xs text-text-2 bg-surface-2/60 border border-border rounded-full pl-1 pr-2.5 py-0.5">
+                {sp.foto_url
+                  ? <img src={sp.foto_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                  : <span className="w-4 h-4 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-[9px] font-bold">{sp.nombre?.charAt(0)}</span>}
+                {sp.nombre}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
