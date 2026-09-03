@@ -2053,6 +2053,141 @@ no cumple.
 
 ---
 
+## FRENTE P · Una entrada, tres salidas — sin empezar
+
+**Pedido por Sekkon0906 el 2026-09-02**: «plantea la relación de la tarjeta con
+la entrada de la persona y demás, ya que, como dije en su momento, se estaba
+dándole manejo como si fueran diferentes modalidades, cuando literalmente
+sirven para lo mismo».
+
+Tiene razón, y ya se pagó una vez.
+
+---
+
+### La prueba de que no son modalidades distintas
+
+Está escrita en `lib/qrEscaneado.js`, y es el mejor argumento del frente:
+
+> El diseñador de credenciales imprimía la URL `https://…/mi-ticket/ABCD1234`,
+> mientras la boleta digital imprimía el **token firmado**. Así que **la
+> escarapela impresa no pasaba el control de ingreso**: el servidor recibía una
+> URL donde esperaba una firma y contestaba «QR inválido». Ni servía para dar
+> puntos en un stand, ni para canjear. **Un papel con un QR que no abre ninguna
+> puerta.**
+
+Está corregido de origen, y quedó un traductor permanente para las escarapelas
+impresas antes —a nadie se le puede pedir que reimprima cien la mañana del
+evento—. Pero la causa no fue un descuido de programación: fue que **dos
+pantallas trataban el mismo objeto como si fueran dos cosas**, y cada una
+decidió por su cuenta qué meter en el QR.
+
+### Lo que hay hoy, medido
+
+Una sola cosa —**la entrada de una persona**, fila en `tickets` con su `codigo`
+y su `qr_token`— sale por **tres puertas**:
+
+| Salida | Quién la dibuja | Diseño del organizador |
+|---|---|---|
+| **Tarjeta en pantalla** (`WalletCard`) | `components/public/WalletCard.jsx` | ✅ `page_json.wallet`, por variante |
+| **Escarapela impresa** | mismo componente, mitad `IMPRESION_DEFECTO` | ✅ la misma variante |
+| **Boleta en PDF** | `lib/boletaPdf.jsx` | ❌ **ninguno** |
+
+**Las dos primeras ya están unificadas** y conviene no replanificarlo:
+`lib/wallet.js` fusionó `page_json.credenciales` dentro de la variante, y su
+propio comentario explica por qué no se metió todo en el mismo saco —«el tamaño
+físico y los campos que se imprimen no significan nada en una pantalla, igual
+que el degradado y los puntos no significan nada en papel. Son la MISMA tarjeta
+con dos salidas»—. Ésa es exactamente la forma correcta, y es la que le falta a
+la tercera.
+
+**La que se quedó fuera es el PDF.** `descargarBoletaPdf()` no recibe `design`
+ni llama a `walletConfig`: pinta con tres constantes fijas al principio del
+archivo (`NEGRO`, `GRIS`, `BORDE`). Consecuencias medibles:
+
+- Un evento con **White Label** —marca propia, logo propio, colores propios—
+  entrega un PDF gris neutro. El archivo que **más se reenvía y más se
+  imprime** es el único que no lleva la marca del organizador.
+- Cambiar el logo en la tarjeta no lo cambia en el PDF. Es el mismo problema que
+  ya se arregló entre escarapela y tarjeta, un archivo más allá.
+- Las **variantes por público y por tipo** (`staff`, `VIP`) no existen para el
+  PDF: todos reciben el mismo.
+
+### Y el vocabulario, que es la mitad del problema
+
+En la interfaz hay **cinco palabras para un objeto**: «boleta», «tarjeta»,
+«escarapela», «credencial» y «carné digital». Los propios comentarios del código
+las tratan como cosas distintas —«La escarapela es para colgarse; el PDF es la
+boleta con sus datos»— y ahí es donde nace la sensación de modalidades.
+
+**La forma de nombrarlo, y de ahí sale todo lo demás:**
+
+> **La entrada** es el objeto. Tiene **tres salidas**: en pantalla, en papel y
+> en PDF. No son tipos de entrada: son formas de llevarla encima.
+
+Ya hay dos señales de que el sistema iba solo hacia ahí: la fusión de
+Credenciales+Tarjeta en **Acreditación** (hecho hoy) y el «Descargar» único con
+el formato después (M6). Falta decirlo también en el modelo.
+
+### Dónde se nota hoy, además del PDF
+
+**`MiTicketPage` —la página a la que vuelve el asistente el día del evento—
+todavía tiene las tres acciones sueltas**: «Imprimir mi escarapela», «Descargar
+mi tarjeta» y «Descargar boleta (PDF)». M6 unificó esto en la confirmación del
+registro y **no aquí**, que es justo donde más se usa: quien vuelve por el
+enlace en la puerta se encuentra tres botones para el mismo objeto.
+
+---
+
+### Fase 1 · El «Descargar» único, también en /mi-ticket
+
+Llevar el menú de formatos de M6 a `MiTicketPage`. Es el mismo componente y el
+mismo `FORMATOS_BOLETA`; hoy están escritos dos veces con distinta forma. Barato
+y es donde el asistente de verdad entra.
+
+### Fase 2 · El PDF, con el diseño del organizador
+
+`descargarBoletaPdf()` recibe `design` —la misma variante que ya resuelve
+`walletConfig(page_json, { publico, tipo })`— y usa su logo, sus dos colores y
+sus campos.
+
+**Lo que NO hay que hacer:** volcar la tarjeta entera en el PDF. Una hoja no es
+una pantalla: el degradado a sangre y los puntos de gamificación no ayudan en
+papel, y el PDF tiene algo que las otras dos no —la tabla de respuestas del
+formulario, que es lo que se revisa en la fila—. Mismo criterio que ya usó
+`wallet.js` al separar `IMPRESION_DEFECTO`: **la variante manda la identidad
+(logo, colores, qué campos), cada salida decide su forma.**
+
+### Fase 3 · Una sola palabra en la interfaz
+
+Renombrar a **«tu entrada»** con sus tres salidas, en las cuatro pantallas que
+hoy dicen cinco cosas distintas: la confirmación del registro, `/mi-ticket`,
+Acreditación y el escáner. Es texto, no modelo — pero es lo que hace que deje
+de sentirse como modalidades.
+
+### Fase 4 · Una prueba que impida que se vuelvan a separar
+
+La lección de `qrEscaneado.js` merece un guardarraíl: **las tres salidas tienen
+que llevar el mismo `qrValue`**. Hoy eso depende de que quien toque una se
+acuerde de las otras dos. Una prueba que compruebe que las tres lo piden a la
+misma función lo caza — en el estilo de `tests/menu.test.mjs`.
+
+### Lo que este frente no toca
+
+- **`ticket_types`** (VIP, general, stand). Ésos **sí** son modalidades de
+  verdad: cambian precio, cupo y a qué da derecho. No confundirlos con las
+  salidas de una entrada ya emitida.
+- **La variante por público** (`asistentes` / `staff`). También es real: la
+  tarjeta del staff no es la del asistente. Lo que se unifica es la salida, no
+  el público.
+
+### Orden
+
+**1 → 2 → 4 → 3.** La 1 es de un rato y se nota. La 2 es la que arregla el
+agravio de verdad (el White Label que no llega al archivo más usado). La 4 antes
+que la 3 porque la 3 es texto y la 4 evita que vuelva el fallo del QR.
+
+---
+
 ## Cómo repartirlo
 
 Los frentes **A, B, C, D, E** no comparten archivos. Se pueden llevar en
