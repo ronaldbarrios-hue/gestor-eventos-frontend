@@ -42,6 +42,11 @@ export const emailsApi = {
      que se quedó a medias porque el proceso murió— no se reenvía solo a
      propósito: insistir con una dirección que rebota quema la reputación del
      dominio, y reenviar lo interrumpido duplicaría la boleta. */
+  /* Quién recibió qué. La cola dice CUÁNTOS no salieron; esto dice A QUIÉN, que
+     es la pregunta de verdad cuando alguien avisa de que no le llegó. */
+  envios: (eventoId, limit = 50) =>
+    client.get(`/eventos/${eventoId}/emails/envios`, { params: { limit } }).then(r => r.data),
+
   cola: (eventoId) =>
     client.get(`/eventos/${eventoId}/emails/cola`).then(r => r.data),
   reintentarCola: (eventoId) =>

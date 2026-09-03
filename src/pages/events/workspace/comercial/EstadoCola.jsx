@@ -25,6 +25,7 @@ import { useToast } from '../../../../context/ToastContext.jsx';
 export default function EstadoCola({ evento }) {
   const { success, error } = useToast();
   const [estado, setEstado] = useState(null);
+  const [envios, setEnvios] = useState([]);
   const [trabajando, setTrabajando] = useState(false);
 
   const cargar = useCallback(() => {
@@ -33,6 +34,14 @@ export default function EstadoCola({ evento }) {
       /* Sin cola montada, esta tarjeta simplemente no sale. No es un error que
          merezca un aviso rojo en la pantalla del organizador. */
       .catch(() => setEstado(null));
+
+    /* El registro de envios va aparte de la cola a propósito: hay correos que
+       salen directos, sin pasar por ella, y esos también hay que poder
+       buscarlos. Si la tabla no está, la lista queda vacía y la sección no
+       aparece. */
+    emailsApi.envios(evento.id, 50)
+      .then(d => setEnvios(d.envios || []))
+      .catch(() => setEnvios([]));
   }, [evento.id]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -59,7 +68,7 @@ export default function EstadoCola({ evento }) {
 
   /* Sin nada en la cola y sin fallidos no hay nada que contar: la tarjeta
      desaparece en vez de ocupar sitio para decir «cero». */
-  if (!pendientes && !fallidos && !enCurso && !enviados) return null;
+  if (!pendientes && !fallidos && !enCurso && !enviados && envios.length === 0) return null;
 
   return (
     <div className={`rounded-2xl border overflow-hidden ${fallidos ? 'border-danger/40 bg-danger/5' : 'border-border bg-surface/40'}`}>
@@ -85,6 +94,42 @@ export default function EstadoCola({ evento }) {
         <Dato n={enviados}   etiqueta="Enviados" />
         <Dato n={fallidos}   etiqueta="Sin salir" alerta={fallidos > 0} />
       </div>
+
+      {/* A quién le llegó, que es la pregunta de verdad.
+
+          Los contadores dicen cuántos no salieron; quien viene aquí viene
+          porque UNA persona concreta dice que no le llegó, y con un número no
+          se puede contestar eso. El registro estaba en el servidor desde el
+          principio y no lo pintaba nadie. Va plegado: se abre cuando hay que
+          buscar a alguien. */}
+      {envios.length > 0 && (
+        <details className="border-t border-border group">
+          <summary className="px-4 py-3 text-sm text-text-2 hover:text-text-1 cursor-pointer list-none flex items-center justify-between">
+            ¿A quién le llegó? · últimos {envios.length}
+            <span className="text-text-3 group-open:rotate-180 transition-transform">⌄</span>
+          </summary>
+          <ul className="max-h-64 overflow-y-auto divide-y divide-border">
+            {envios.map(e => (
+              <li key={e.id} className="px-4 py-2 flex items-center gap-3">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.ok ? 'bg-success' : 'bg-danger'}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-text-1 truncate">{e.destinatario}</p>
+                  {/* El motivo sólo cuando falló: en un envío correcto no hay
+                      nada que explicar y repetir el asunto no ayuda a nadie. */}
+                  <p className="text-[11px] text-text-3 truncate">
+                    {e.ok ? (e.asunto || e.tipo) : (e.motivo || 'No se pudo enviar')}
+                  </p>
+                </div>
+                <span className="text-[11px] text-text-3 flex-shrink-0 tabular-nums">
+                  {e.created_at
+                    ? new Date(e.created_at).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                    : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {fallidos > 0 && (
         <p className="px-4 py-3 text-[11px] text-text-2 leading-relaxed border-t border-border">
