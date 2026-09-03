@@ -287,3 +287,25 @@ test('el editor dice si la página se ve, y deja publicarla desde ahí', () => {
   assert.ok(!/location\.reload/.test(estado),
     'publicar recarga la página y se lleva los cambios sin guardar');
 });
+
+test('todas las páginas del evento tienen la misma anchura de columna', () => {
+  /* Cada una eligió el suyo: 4xl en agenda y torneo, 3xl en ranking, lg en la
+     rueda sin sesión. Al saltar de una a otra el texto cambiaba de anchura —y
+     el nombre del evento y las secciones con él—, que el ojo lee como «esto es
+     otro sitio» aunque el menú diga lo contrario.
+
+     4xl porque es el ancho de los bloques de la portada: así la columna no se
+     mueve tampoco al entrar desde la landing. */
+  const paginas = ARCHIVOS.filter(([ruta]) =>
+    /src\/pages\/public\/(Agenda|Mapa|Networking|Ranking|Torneo|TorneosResumen)/.test(ruta));
+  assert.ok(paginas.length >= 6, 'faltan páginas del evento que comprobar');
+
+  const malas = [];
+  for (const [ruta, src] of paginas) {
+    for (const m of sinComentarios(src).matchAll(/py-10 max-w-(\w+) mx-auto/g)) {
+      if (m[1] !== '4xl') malas.push(`${ruta}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(malas, [],
+    'Alguna página del evento volvió a elegir su propia anchura');
+});
