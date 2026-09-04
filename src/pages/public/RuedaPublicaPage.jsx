@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import client from '../../api/client.js';
 import GLoader from '../../components/ui/GLoader.jsx';
 import Volver from '../../components/ui/Volver.jsx';
+import { mensajePublico } from '../../lib/mensajeDeError.js';
 
 /* La rueda de negocios, para quien todavía no es nadie aquí.
  *
@@ -32,20 +33,35 @@ import Volver from '../../components/ui/Volver.jsx';
 export default function RuedaPublicaPage() {
   const { slug } = useParams();
   const [datos, setDatos] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let vivo = true;
+    setError(null);
     client.get(`/eventos/publicos/slug/${slug}/rueda`)
       .then(r => { if (vivo) setDatos(r.data); })
-      .catch(e => { if (vivo) setError(e.response?.data?.error || e.message); });
+      /* El texto del servidor NO se pinta tal cual.
+         Esta página está hecha para quien no tiene cuenta, y a esa persona le
+         estaba diciendo «Token requerido.» — la conversación entre dos
+         máquinas, delante de quien vino a mirar si le interesa el evento. */
+      .catch(e => {
+        if (vivo) setError(mensajePublico(e, 'La rueda de negocios no está disponible ahora mismo.'));
+      });
     return () => { vivo = false; };
-  }, [slug]);
+  }, [slug, intento]);
 
   if (error) return (
-    <section className="px-5 sm:px-8 py-16 max-w-3xl mx-auto text-center">
-      <p className="text-sm text-danger">{error}</p>
-      <Volver a={`/explorar/${slug}`} tono="chip" className="mt-4">Ver el evento</Volver>
+    <section className="px-5 sm:px-8 py-16 max-w-3xl mx-auto text-center space-y-3">
+      <p className="text-sm text-text-1">{error.texto}</p>
+      {error.reintentable && (
+        <button onClick={() => setIntento(n => n + 1)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
+                     text-sm text-text-1 hover:bg-surface-2 transition-colors">
+          Reintentar
+        </button>
+      )}
+      <div><Volver a={`/explorar/${slug}`} tono="chip">Ver el evento</Volver></div>
     </section>
   );
   if (!datos) return <GLoader message="Cargando la rueda…" />;
