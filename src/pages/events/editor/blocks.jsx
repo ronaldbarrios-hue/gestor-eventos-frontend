@@ -490,6 +490,12 @@ function GaleriaEventoPreview({ data, evento, isEditor }) {
 /* TICKETS */
 function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
   const tickets = (evento.ticket_types || evento.tipos_ticket || []).filter(t => t.activo);
+
+  /* Un evento cancelado no vende. El servidor ya rechaza las cuatro rutas de
+     compra, así que esto no es el candado: es no hacerle rellenar veinte
+     preguntas y un captcha a alguien para decirle al final que no. El aviso de
+     por qué está arriba del todo de la página. */
+  if (evento.cancelado && !isEditor) return null;
   if (tickets.length === 0) {
     if (!isEditor) return null;
     return (

@@ -291,6 +291,23 @@ export default function EventoPublicoPage() {
     <BrandingProvider organizador={organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-6xl mx-auto">
 
+      {/* Evento cancelado.
+          Va lo primero y no se puede cerrar: quien llega aquí con una boleta
+          comprada viene a preguntar exactamente esto, y hasta hoy la respuesta
+          era un 404 de «este evento no existe» — con el dinero cobrado y el
+          correo en la bandeja. Las boletas siguen abriéndose desde su enlace;
+          lo que ya no hay es venta, y el servidor rechaza las cuatro rutas de
+          compra por su cuenta, así que esto es el aviso, no el candado. */}
+      {evento.cancelado && (
+        <div role="alert" className="mb-6 rounded-2xl border border-danger/40 bg-danger/10 px-5 py-4">
+          <p className="text-xs uppercase tracking-widest text-danger font-semibold">Evento cancelado</p>
+          <p className="text-sm text-text-1 mt-1 leading-relaxed">
+            {evento.titulo} no se va a realizar. Si ya tenías una boleta, sigue funcionando el enlace
+            que te llegó por correo — para lo del reembolso, escribe a quien organiza.
+          </p>
+        </div>
+      )}
+
       {/* Barra secundaria: volver + Rueda de Negocios/Torneo/Agenda (si aplican)
           + compartir (oculta "Explorar eventos" en modo standalone).
 
