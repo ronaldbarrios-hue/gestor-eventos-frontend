@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
@@ -287,6 +288,62 @@ function NotasCita({ evento, cita }) {
   );
 }
 
+/* Cómo se agenda en esta rueda: la persona reserva y ya, o lo pide y el
+ * equipo aprueba.
+ *
+ * Se puede cambiar a mitad del evento y es a propósito: hay ruedas que
+ * empiezan abiertas y se cierran cuando la agenda se llena, y al revés. Lo que
+ * ya está reservado no se toca — cambiar el modo decide lo que pase de aquí en
+ * adelante, no reabre lo confirmado.
+ */
+function ModoRueda({ evento }) {
+  const [modo, setModo] = useState(evento?.networking_modo || 'auto');
+  const [guardando, setGuardando] = useState(false);
+  const { success, error: toastErr } = useToast();
+
+  const cambiar = async (nuevo) => {
+    if (nuevo === modo) return;
+    const antes = modo;
+    setModo(nuevo);            // se pinta ya: es un interruptor, no un formulario
+    setGuardando(true);
+    try {
+      await eventosApi.update(evento.id, { networking_modo: nuevo });
+      success(nuevo === 'solicitud'
+        ? 'Ahora las citas se piden y las apruebas tú.'
+        : 'Ahora quien reserva queda confirmado en el acto.');
+    } catch (e) {
+      setModo(antes);
+      toastErr(e.response?.data?.error || e.message);
+    } finally { setGuardando(false); }
+  };
+
+  const OPCIONES = [
+    { id: 'auto',      label: 'Reserva directa', pista: 'Quien reserva queda confirmado en el acto.' },
+    { id: 'solicitud', label: 'Con aprobación',  pista: 'La cita queda pedida hasta que alguien del equipo la acepte.' },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 px-4 py-3">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Cómo se agenda</p>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {OPCIONES.map(o => (
+          <button key={o.id} type="button" onClick={() => cambiar(o.id)} disabled={guardando}
+            className={`text-left px-3 py-2 rounded-xl border transition-colors max-w-xs ${
+              modo === o.id
+                ? 'border-primary/40 bg-primary/10 text-text-1'
+                : 'border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+            <span className="text-sm font-medium block">{o.label}</span>
+            <span className="text-[11px] text-text-3 block leading-snug">{o.pista}</span>
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+        Se puede cambiar en cualquier momento. Lo ya reservado no se toca.
+      </p>
+    </div>
+  );
+}
+
 /* ─────────── Vista Admin (organizador) ─────────── */
 function AdminView({ evento }) {
   const [data, setData] = useState(null);
@@ -327,6 +384,13 @@ function AdminView({ evento }) {
 
   return (
     <div className="space-y-4">
+      {/* Cómo se agenda en esta rueda.
+          La columna `networking_modo` existe en la base y el servidor la
+          consulta en cada reserva — pero sin este selector era un ajuste sin
+          pantalla, que es lo mismo que no existir: nadie podía cambiarlo salvo
+          entrando a la base. */}
+      <ModoRueda evento={evento} />
+
       <div className="flex justify-end">
         <button onClick={() => setEditando('nuevo')} className="btn-gradient btn-sm">+ Agregar expositor</button>
       </div>
