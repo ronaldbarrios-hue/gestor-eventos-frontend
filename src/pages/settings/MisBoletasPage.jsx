@@ -21,6 +21,8 @@ export default function MisBoletasPage() {
   const [error, setError]     = useState('');
   const [abierta, setAbierta] = useState(null);
   const [transferirId, setTransferirId] = useState(null);
+  /* Código de una boleta que se transfirió pero cuyo correo no salió. */
+  const [avisoTransferencia, setAvisoTransferencia] = useState(null);
   const { success } = useToast();
 
   const cargar = () => {
@@ -140,13 +142,36 @@ export default function MisBoletasPage() {
         </div>
       )}
 
+      {avisoTransferencia !== null && (
+        <div role="alert" className="rounded-2xl border border-warning/50 bg-warning/10 px-5 py-4">
+          <p className="text-sm font-semibold text-text-1">La boleta se transfirió, pero el correo no salió.</p>
+          <p className="text-sm text-text-2 mt-1 leading-relaxed">
+            Ya no es tuya y la otra persona todavía no tiene cómo abrirla. Pásale este código
+            tú mismo — con él entra desde «Mi boleta»:
+          </p>
+          {avisoTransferencia
+            ? <p className="text-lg font-mono font-bold text-text-1 mt-2 tracking-wider">{avisoTransferencia}</p>
+            : <p className="text-sm text-text-3 mt-2">El servidor no devolvió el código. Escríbenos para recuperarlo.</p>}
+          <button onClick={() => setAvisoTransferencia(null)} className="btn-ghost btn-sm mt-3">
+            Ya lo anoté
+          </button>
+        </div>
+      )}
+
       {boletaATransferir && (
         <TransferirModal
           boleta={boletaATransferir}
           onClose={() => setTransferirId(null)}
-          onDone={() => {
+          onDone={(r) => {
             setTransferirId(null);
-            success('Boleta transferida. Le enviamos su entrada por correo.');
+            if (r?.email_enviado === false) {
+              /* Un aviso que se queda, no un toast que se va: hay que copiar el
+                 código antes de cerrarlo, y es la única forma de que la otra
+                 persona reciba la boleta. */
+              setAvisoTransferencia(r.nuevo_codigo || null);
+            } else {
+              success('Boleta transferida. Le enviamos su entrada por correo.');
+            }
             setLoading(true);
             cargar();
           }}
@@ -171,8 +196,14 @@ function TransferirModal({ boleta, onClose, onDone }) {
 
     setWorking(true);
     try {
-      await meApi.transferir(boleta.id, { email: email.trim(), nombre: nombre.trim() || undefined });
-      onDone();
+      const r = await meApi.transferir(boleta.id, { email: email.trim(), nombre: nombre.trim() || undefined });
+      /* El servidor dice si el correo salió (`email_enviado`) y con qué código
+         quedó la boleta (`nuevo_codigo`). Los dos viajaban y aquí se tiraban:
+         se contestaba «le enviamos su entrada por correo» pasara lo que
+         pasara. Y esto no se puede deshacer — quien transfiere ya perdió su
+         boleta—, así que si el correo no salió, la otra persona se queda sin
+         nada y sin saberlo. */
+      onDone(r);
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
       setConfirmando(false);
