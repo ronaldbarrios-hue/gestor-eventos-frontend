@@ -18,6 +18,11 @@ export const agendaApi = {
   /* Quién se apuntó a qué. */
   participacion     : (eventoId)                      => client.get(`/eventos/${eventoId}/sesiones/participacion`).then(r => r.data),
   inscripciones     : (eventoId, sesionId)            => client.get(`/eventos/${eventoId}/sesiones/${sesionId}/inscripciones`).then(r => r.data),
+  /* Cambiar a mano el estado de UNA inscripción: apuntado, asistió, cancelado.
+     Es la salida de emergencia del escáner — alguien que se quedó sin batería,
+     una plaza que se libera— y sin ella la lista sólo se puede mirar. */
+  estadoInscripcion : (eventoId, sesionId, id, estado) =>
+    client.patch(`/eventos/${eventoId}/sesiones/${sesionId}/inscripciones/${id}`, { estado }).then(r => r.data),
   /* Lo ÚNICO que suma asistencia a un sub-evento: la persona ya inscrita
      vuelve a pasar su QR en la puerta de ESE taller. El check-in del evento no
      toca esto —entrar al recinto no es asistir a una charla—. */

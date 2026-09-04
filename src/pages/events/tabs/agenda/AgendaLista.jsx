@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import Icono from '../../../../components/ui/Iconos.jsx';
 import { tipoEspacio, tipoEstilo } from '../../../../lib/espacio.js';
 import { EditIcon, TrashIcon } from './agendaComun.jsx';
 import SessionForm from './SessionForm.jsx';
+import InscritosSesion from './InscritosSesion.jsx';
 import { zonasDelEvento } from '../../../../lib/zonas.js';
 
 /* La vista de lista y la fila de cada sub-evento. Es la vista por defecto:
@@ -9,6 +11,11 @@ import { zonasDelEvento } from '../../../../lib/zonas.js';
    importen. */
 
 export default function SessionsList({ sessions, editing, speakers, torneos, evento, expositores = [], tiposBoleta = [], onEdit, onSave, onDelete }) {
+  /* Qué actividad tiene la lista de inscritos abierta. El servidor contesta
+     esa lista desde hace tiempo y no la pedía nadie: aquí sólo se veía el
+     número, y para un taller de cupo 15 el número no sirve — hace falta la
+     lista con la que se planta uno en la puerta. */
+  const [verInscritos, setVerInscritos] = useState(null);
   const grupos = sessions.reduce((acc, s) => {
     const d = new Date(s.inicio).toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     (acc[d] = acc[d] || []).push(s);
@@ -31,16 +38,21 @@ export default function SessionsList({ sessions, editing, speakers, torneos, eve
               ? <SessionForm key={s.id} initial={s} speakers={speakers} torneos={torneos} evento={evento} sessions={sessions}
                   expositores={expositores} tiposBoleta={tiposBoleta}
                   onCancel={() => onEdit(null)} onSave={(p) => onSave(s.id, p)} />
-              : <SessionRow key={s.id} session={s} hayZonas={hayZonas} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s)} isLast={i === items.length - 1} />
+              : <SessionRow key={s.id} session={s} hayZonas={hayZonas} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s)} onVerInscritos={() => setVerInscritos(s)} isLast={i === items.length - 1} />
             )}
           </div>
         </div>
       ))}
+
+      {verInscritos && (
+        <InscritosSesion evento={evento} sesion={verInscritos}
+          onClose={() => setVerInscritos(null)} />
+      )}
     </div>
   );
 }
 
-function SessionRow({ session, hayZonas = false, onEdit, onDelete, isLast }) {
+function SessionRow({ session, hayZonas = false, onEdit, onDelete, onVerInscritos, isLast }) {
   const hi = new Date(session.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   const hf = session.fin ? new Date(session.fin).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
   const tip = tipoEspacio(session.tipo);
@@ -66,12 +78,18 @@ function SessionRow({ session, hayZonas = false, onEdit, onDelete, isLast }) {
           {/* Que pida inscripción cambia lo que ve el público: sin decirlo
               aquí, el organizador tiene que abrir cada sub-evento para saber
               cuáles la piden y cuáles no. */}
+          {/* El contador es el botón. Es donde se mira el número, así que es
+              donde se pregunta «¿y quiénes son?» — un botón aparte en otra
+              esquina obligaría a buscarlo. */}
           {session.requiere_inscripcion && (
-            <span className="text-[10px] uppercase tracking-wide text-accent border border-accent/40 bg-accent/10 px-2 py-0.5 rounded-full">
+            <button type="button"
+              onClick={(e) => { e.stopPropagation(); onVerInscritos?.(); }}
+              title="Ver quién se apuntó"
+              className="text-[10px] uppercase tracking-wide text-accent border border-accent/40 bg-accent/10 px-2 py-0.5 rounded-full hover:bg-accent/20 transition-colors">
               Inscripción
               {session.cupo != null && ` · ${session.inscritos || 0}/${session.cupo}`}
               {session.cupo == null && (session.inscritos || 0) > 0 && ` · ${session.inscritos}`}
-            </span>
+            </button>
           )}
         </div>
         {session.descripcion && <p className="text-sm text-text-2 mt-1 leading-relaxed">{session.descripcion}</p>}
