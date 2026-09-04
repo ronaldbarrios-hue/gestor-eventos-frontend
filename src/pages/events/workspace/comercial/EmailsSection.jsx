@@ -6,6 +6,7 @@ import { useToast } from '../../../../context/ToastContext.jsx';
 import ImagePicker from '../../../../components/ui/ImagePicker.jsx';
 import BuzonPropio from './BuzonPropio.jsx';
 import EstadoCola from './EstadoCola.jsx';
+import { confirmDialog } from '../../../../components/ui/Confirm.jsx';
 
 /* Event Experience · Emails — editor de las plantillas de correo por tipo,
    con variables y segmentación de destinatarios. Se guarda en
@@ -108,6 +109,28 @@ export default function EmailsSection({ evento, reload }) {
     setSaving(true);
     try { await persistir(); success('Plantillas de correo guardadas.'); }
     catch (e) { error(e.response?.data?.error || e.message); }
+    finally { setSaving(false); }
+  };
+
+  /* Volver a la de fábrica.
+     Se podía escribir y guardar, no deshacer: quien dejaba una plantilla hecha
+     un lío tenía que reconstruir el texto original a mano. Borrar la fila es
+     justo eso — el servidor cae a la plantilla de fábrica, que es la que
+     manda cuando no hay ninguna escrita. Por eso el botón no dice «borrar». */
+  const volverAFabrica = async () => {
+    if (!(await confirmDialog({
+      title: 'Volver a la plantilla de fábrica',
+      message: 'Se pierde lo que escribiste en este correo y vuelve el texto original. Los demás tipos no se tocan.',
+      confirmLabel: 'Volver a la de fábrica',
+      danger: true,
+    }))) return;
+    setSaving(true);
+    try {
+      await emailsApi.borrarPlantilla(evento.id, tipo);
+      const d = await emailsApi.plantillas(evento.id);
+      setData(d.plantillas || {});
+      success('Vuelve la plantilla de fábrica.');
+    } catch (e) { error(e.response?.data?.error || e.message); }
     finally { setSaving(false); }
   };
 
@@ -319,6 +342,14 @@ export default function EmailsSection({ evento, reload }) {
         )}
 
         <div className="flex justify-end gap-2">
+          {/* Sólo si hay algo escrito que deshacer: en una plantilla que nunca
+              se tocó, «volver a la de fábrica» no hace nada y ocupa sitio. */}
+          {almacenListo && data[tipo] && (
+            <button onClick={volverAFabrica} disabled={saving}
+              className="btn-ghost text-danger/80 hover:text-danger mr-auto">
+              Volver a la de fábrica
+            </button>
+          )}
           {meta?.soportado && (
             <button onClick={enviarPrueba} disabled={enviando || saving} className="btn-secondary">{enviando ? 'Enviando…' : 'Enviarme una prueba'}</button>
           )}

@@ -7,6 +7,7 @@ import { useAuth } from '../../../context/AuthContext.jsx';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
+import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { uploadEventImage } from '../../../components/ui/CoverUploader.jsx';
 
 /* Chat staff por evento — sidebar de canales + área de mensajes con Realtime. */
@@ -75,6 +76,43 @@ export default function ChatTab({ evento }) {
     } catch (e) { toastErr(e.message); }
   };
 
+  /* Renombrar y borrar un canal. Las dos rutas existían desde siempre y no las
+     llamaba nadie: un canal mal escrito se quedaba mal escrito para el resto
+     del evento, y uno que sobraba seguía ahí ocupando la barra.
+
+     El canal `general` no lleva ninguna de las dos: es donde cae el equipo por
+     defecto y no hay forma de volver a crearlo desde el panel. El servidor
+     también lo rechaza — esconder el botón no es la regla, es la cortesía. */
+  const onRenombrar = async (canal, nombre) => {
+    if (!nombre?.trim() || nombre.trim() === canal.nombre) return;
+    try {
+      const d = await chatApi.editarChannel(evento.id, canal.id, { nombre: nombre.trim() });
+      setChannels(c => c.map(x => (x.id === canal.id ? { ...x, ...d.channel } : x)));
+      success('Canal renombrado.');
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
+  const onBorrarCanal = async (canal) => {
+    /* Se dice cuántos subgrupos se lleva por delante. Borrar un padre y
+       descubrir después que desaparecieron cuatro hijos es la clase de sorpresa
+       que no se puede deshacer. */
+    const hijos = channels.filter(c => c.parent_id === canal.id).length;
+    if (!(await confirmDialog({
+      title: `Borrar «${canal.nombre}»`,
+      message: hijos > 0
+        ? `Se borra el canal y sus ${hijos} subgrupo${hijos === 1 ? '' : 's'}, con todos sus mensajes. No se puede deshacer.`
+        : 'Se borra el canal con todos sus mensajes. No se puede deshacer.',
+      confirmLabel: 'Borrar',
+      danger: true,
+    }))) return;
+    try {
+      await chatApi.borrarChannel(evento.id, canal.id);
+      setChannels(c => c.filter(x => x.id !== canal.id && x.parent_id !== canal.id));
+      setActiveId(id => (id === canal.id ? null : id));
+      success('Canal borrado.');
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
   const activeChannel = channels.find(c => c.id === activeId);
 
   /* Construye el árbol: padres con sus hijos (los DM van aparte) */
@@ -108,6 +146,8 @@ export default function ChatTab({ evento }) {
                 active={activeId === padre.id}
                 onClick={() => setActiveId(padre.id)}
                 onAddSub={puedeCrear ? () => setCreating(padre.id) : null}
+                onRenombrar={puedeCrear ? (n) => onRenombrar(padre, n) : null}
+                onBorrar={puedeCrear ? () => onBorrarCanal(padre) : null}
               />
               {/* Subgrupos */}
               {hijosDe(padre.id).map(hijo => (
@@ -116,6 +156,8 @@ export default function ChatTab({ evento }) {
                   channel={hijo}
                   active={activeId === hijo.id}
                   onClick={() => setActiveId(hijo.id)}
+                  onRenombrar={puedeCrear ? (n) => onRenombrar(hijo, n) : null}
+                  onBorrar={puedeCrear ? () => onBorrarCanal(hijo) : null}
                   indent
                 />
               ))}
@@ -518,8 +560,33 @@ function MicIcon({ className }) {
 
 /* ─────────── Crear canal inline form ─────────── */
 
-function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
+function ChannelButton({ channel, active, onClick, onAddSub, onRenombrar, onBorrar, indent }) {
   const esDM = channel.tipo === 'dm';
+  /* Ni el general ni un directo se tocan: el general es el sitio por defecto
+     del equipo, y un directo no es un canal que alguien haya montado. */
+  const editable = !esDM && channel.tipo !== 'general';
+  /* Renombrar es un campo en la propia fila y no un `window.prompt`: no hay ni
+     uno en todo el proyecto, y dentro de una PWA un cuadro del navegador se ve
+     como lo que es — algo que no es de esta aplicación. */
+  const [renombrando, setRenombrando] = useState(null);
+
+  if (renombrando !== null) {
+    return (
+      <form
+        onSubmit={(e) => { e.preventDefault(); onRenombrar(renombrando); setRenombrando(null); }}
+        className={`flex items-center gap-1 px-2.5 py-1 ${indent ? 'pl-5' : ''}`}>
+        <input
+          autoFocus
+          value={renombrando}
+          onChange={(e) => setRenombrando(e.target.value)}
+          onBlur={() => setRenombrando(null)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setRenombrando(null); }}
+          aria-label="Nuevo nombre del canal"
+          className="input flex-1 text-sm py-1 px-2" />
+      </form>
+    );
+  }
+
   const restringido = channel.rol_ids?.length > 0;
   const nombre = esDM ? (channel.dm_nombre || 'Directo') : channel.nombre;
   return (
@@ -555,6 +622,30 @@ function ChannelButton({ channel, active, onClick, onAddSub, indent }) {
           className="w-6 h-6 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-1"
         >
           <PlusIcon className="w-3 h-3" />
+        </button>
+      )}
+      {editable && onRenombrar && (
+        <button
+          onClick={() => setRenombrando(channel.nombre)}
+          aria-label={`Renombrar ${nombre}`}
+          title="Renombrar"
+          className="w-6 h-6 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.86 3.86a2.6 2.6 0 113.68 3.68L8.5 19.6 3.5 21l1.4-5z" />
+          </svg>
+        </button>
+      )}
+      {editable && onBorrar && (
+        <button
+          onClick={onBorrar}
+          aria-label={`Borrar ${nombre}`}
+          title="Borrar canal"
+          className="w-6 h-6 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       )}
     </div>

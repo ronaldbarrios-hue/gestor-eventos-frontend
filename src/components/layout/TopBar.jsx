@@ -101,6 +101,20 @@ export default function TopBar({ onMenu }) {
     if (n.link) navigate(n.link);
   };
 
+  /* Quitar una de la lista. Se podían marcar como leídas y nada más, así que
+     la bandeja sólo crecía: treinta avisos viejos tapan el que llegó hace un
+     minuto, que es el único que importa.
+
+     Se quita de la pantalla antes de que conteste el servidor, y si el
+     servidor dice que no, se vuelve a pedir la lista: al que borra un aviso le
+     molesta más la espera que el riesgo de verlo reaparecer. */
+  const borrarNotif = async (id) => {
+    const antes = notifs;
+    setNotifs(l => l.filter(x => x.id !== id));
+    try { await notificacionesApi.borrar(id); }
+    catch { setNotifs(antes); cargar(); }
+  };
+
   const handleLogout = () => { setAccountOpen(false); logout(); navigate('/login'); };
 
   /* El conmutador Organizar/Explorar se quitó. Partía la aplicación en dos
@@ -196,21 +210,35 @@ export default function TopBar({ onMenu }) {
                   )}
                 </div>
                 <div className="divide-y divide-border max-h-80 overflow-y-auto no-scrollbar">
+                  {/* La fila es un `div` y no un `button`: dentro va el botón
+                      de abrir la notificación y el de quitarla, y un botón
+                      dentro de otro botón no es HTML válido. */}
                   {notifs.map(n => (
-                    <button
-                      key={n.id}
-                      onClick={() => onClickNotif(n)}
-                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-surface-2/50 ${n.leida ? 'opacity-55' : ''}`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        {!n.leida && <span className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 flex-shrink-0" />}
-                        <div className={`flex-1 min-w-0 ${n.leida ? 'pl-4' : ''}`}>
-                          <p className="text-sm text-text-1 font-medium leading-snug">{n.titulo}</p>
-                          {n.cuerpo && <p className="text-xs text-text-2 leading-relaxed mt-0.5">{n.cuerpo}</p>}
-                          <p className="text-[10px] text-text-3 mt-1">{tiempoRelativo(n.created_at)}</p>
+                    <div key={n.id}
+                      className={`group flex items-start transition-colors hover:bg-surface-2/50 ${n.leida ? 'opacity-55' : ''}`}>
+                      <button
+                        onClick={() => onClickNotif(n)}
+                        className="flex-1 min-w-0 text-left px-4 py-3"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          {!n.leida && <span className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 flex-shrink-0" />}
+                          <div className={`flex-1 min-w-0 ${n.leida ? 'pl-4' : ''}`}>
+                            <p className="text-sm text-text-1 font-medium leading-snug">{n.titulo}</p>
+                            {n.cuerpo && <p className="text-xs text-text-2 leading-relaxed mt-0.5">{n.cuerpo}</p>}
+                            <p className="text-[10px] text-text-3 mt-1">{tiempoRelativo(n.created_at)}</p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+                      <button
+                        onClick={() => borrarNotif(n.id)}
+                        aria-label={`Quitar ${n.titulo}`}
+                        title="Quitar"
+                        className="shrink-0 mt-3 mr-2 w-7 h-7 rounded-lg text-text-3 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-danger hover:bg-danger/10 flex items-center justify-center transition-opacity">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   ))}
                 </div>
                 {notifs.length === 0 && (

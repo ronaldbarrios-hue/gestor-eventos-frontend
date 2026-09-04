@@ -31,17 +31,18 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 /* Lo que hoy está desconectado y por qué. Cada línea es una pantalla que falta
    o una función que sobra — no una excepción permanente. */
 const SUELTAS = {
-  'agendaApi.participacion'     : 'Resumen de quién se apuntó a qué, del evento entero. La lista por actividad ya está montada; ésta es la vista global y no tiene sitio todavía.',
-  'chatApi.editarChannel'       : 'Renombrar un canal. Falta el botón.',
-  'chatApi.borrarChannel'       : 'Borrar un canal. Falta el botón.',
-  'emailsApi.borrarPlantilla'   : 'Borrar una plantilla de correo. Se pueden crear y editar, no borrar.',
-  'expositorApi.historial'      : 'Historial del expositor. El portal enseña la ficha, no lo anterior.',
-  'notificacionesApi.borrar'    : 'Borrar una notificación. Se marcan como leídas y ya.',
-  'sugerenciasApi.mias'         : 'Las sugerencias que mandó uno mismo.',
-  'vacantesApi.perfilPublico'   : 'Ficha pública de alguien de talento.',
-  'vacantesApi.talento'         : 'Buscador de talento.',
-  'vacantesApi.destacar'        : 'Destacar una vacante.',
+  'agendaApi.participacion'   : 'Resumen de quién se apuntó a qué, del evento entero. La lista por actividad ya está montada; ésta es la vista global y no tiene sitio todavía.',
+  'expositorApi.historial'    : 'Historial del expositor. El portal enseña la ficha, no lo anterior.',
+  'sugerenciasApi.mias'       : 'Las sugerencias que mandó uno mismo. Se pueden enviar y no volver a ver.',
+  'vacantesApi.perfilPublico' : 'Ficha pública de alguien de talento.',
+  'vacantesApi.talento'       : 'Buscador de talento.',
+  'vacantesApi.destacar'      : 'Destacar una vacante.',
 };
+
+/* Las tres últimas son el módulo de talento: no son botones que falten, es una
+   pantalla entera que no existe. Se anotan juntas a propósito — cuando se monte
+   se caen las tres de golpe, y si no se monta nunca, lo que sobra son las tres
+   funciones. */
 
 function archivos(dir, out = []) {
   for (const f of readdirSync(dir)) {
