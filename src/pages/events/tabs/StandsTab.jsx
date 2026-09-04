@@ -118,6 +118,7 @@ export default function StandsTab({ evento, soyOwner }) {
 function StandsEditor({ evento, soyOwner }) {
   const { success, error: toastErr } = useToast();
   const [stands, setStands] = useState([]);
+  const [sinConsumo, setSinConsumo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState(null);   // null | 'nuevo' | <id>
   const [form, setForm] = useState(null);
@@ -132,6 +133,12 @@ function StandsEditor({ evento, soyOwner }) {
     try {
       const d = await networkingApi.expositoresAdmin(evento.id);
       setStands(d.expositores || []);
+      /* El servidor dice si la vista `v_consumo_puntos_stand` está en la base.
+         Sin ella, `puntos` viene vacío en todas las tarjetas y la pantalla se
+         ve idéntica a un evento donde nadie ha dado un punto todavía. Ese es
+         el fallo de siempre en este proyecto: no falla nada, simplemente no
+         hay nada. El servidor mandaba la bandera y aquí se tiraba. */
+      setSinConsumo(d.consumo_disponible === false);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setLoading(false); }
   }, [evento.id, toastErr]);
@@ -171,6 +178,19 @@ function StandsEditor({ evento, soyOwner }) {
 
   return (
     <div className="space-y-4">
+      {/* Decirlo, en vez de enseñar ceros que se leen como «no ha pasado
+          nada». Es la diferencia entre «nadie ha dado puntos» y «la base no
+          sabe contarlos», y sin este aviso las dos se ven igual. */}
+      {sinConsumo && (
+        <div className="rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3">
+          <p className="text-sm text-text-1">Los puntos repartidos no se pueden contar todavía.</p>
+          <p className="text-xs text-text-2 mt-1 leading-relaxed">
+            Falta la vista <code className="font-mono">v_consumo_puntos_stand</code> en la base de datos.
+            Los stands funcionan igual y siguen dando puntos; lo que no se ve es cuánto lleva cada uno.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-text-3 leading-relaxed max-w-2xl">
           Estos son los stands/expositores del evento. Se crean solos cuando alguien compra una

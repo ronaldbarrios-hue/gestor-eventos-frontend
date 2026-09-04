@@ -488,16 +488,31 @@ function ColorField({ label, value, onChange }) {
 }
 
 /* ──────────── Integraciones (API + Webhooks) ──────────── */
-const WH_TIPOS = [
-  { id: 'ticket.pagado',      label: 'Boleta pagada' },
-  { id: 'checkin.realizado',  label: 'Check-in realizado' },
-  { id: 'evento.publicado',   label: 'Evento publicado' },
-];
+
+/* Los nombres bonitos, y SÓLO los nombres.
+ *
+ * La lista de tipos la manda el servidor —`tipos_webhook`, en la respuesta de
+ * los tokens— y aquí estaba escrita a mano y entera. Hoy coinciden; el día que
+ * alguien añada un cuarto tipo en el backend, el panel no lo ofrecería y nadie
+ * se enteraría: el servidor filtra en silencio lo que no conoce
+ * (`filter(e => TIPOS_WEBHOOK.includes(e))`), así que tampoco habría error.
+ *
+ * Un tipo nuevo sin traducción sale con su id crudo. Es feo y es correcto:
+ * poder suscribirse a algo con nombre feo es mejor que no poder. */
+const WH_ETIQUETA = {
+  'ticket.pagado'    : 'Boleta pagada',
+  'checkin.realizado': 'Check-in realizado',
+  'evento.publicado' : 'Evento publicado',
+};
 
 function IntegracionesTab() {
   const { success, error: toastErr } = useToast();
   const [tokens, setTokens]     = useState([]);
   const [webhooks, setWebhooks] = useState([]);
+  /* Vacía hasta que conteste el servidor: sin lista no se puede crear un
+     webhook, y eso es correcto — mejor un momento sin botones que ofrecer un
+     tipo que el servidor va a descartar. */
+  const [whTipos, setWhTipos]   = useState([]);
   const [pro, setPro]           = useState(false);
   const [loading, setLoading]   = useState(true);
   const [nuevoToken, setNuevoToken] = useState(null); // {valor} mostrado una vez
@@ -520,6 +535,7 @@ function IntegracionesTab() {
       const { integracionesApi } = await import('../../api/integraciones.js');
       const [t, w] = await Promise.all([integracionesApi.listTokens(), integracionesApi.listWebhooks()]);
       setTokens(t.tokens || []); setPro(Boolean(t.pro));
+      setWhTipos(t.tipos_webhook || []);
       setWebhooks(w.webhooks || []);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally     { setLoading(false); }
@@ -661,13 +677,13 @@ function IntegracionesTab() {
               <div>
                 <label className="label">Eventos</label>
                 <div className="flex flex-wrap gap-2">
-                  {WH_TIPOS.map(t => {
-                    const on = whEventos.includes(t.id);
+                  {whTipos.map(id => {
+                    const on = whEventos.includes(id);
                     return (
-                      <button key={t.id} type="button"
-                        onClick={() => setWhEventos(s => on ? s.filter(x => x !== t.id) : [...s, t.id])}
+                      <button key={id} type="button"
+                        onClick={() => setWhEventos(s => on ? s.filter(x => x !== id) : [...s, id])}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${on ? 'border-primary/40 bg-primary/15 text-primary-light' : 'border-border text-text-3 hover:text-text-2'}`}>
-                        {t.label}
+                        {WH_ETIQUETA[id] || id}
                       </button>
                     );
                   })}
