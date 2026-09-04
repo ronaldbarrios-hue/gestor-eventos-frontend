@@ -83,6 +83,36 @@ function PreviewSortable({ id, children }) {
  *
  * El elemento `<section>` se queda, que eso sí dice algo; lo que se va es el
  * relleno. */
+/* El hueco que sólo ve quien monta la página.
+ *
+ * ── Por qué hacía falta ──────────────────────────────────────────────────
+ *
+ * Doce bloques devolvían `null` cuando no tenían nada que enseñar, y lo
+ * devolvían para TODOS — también para el editor. El efecto: añades «Speakers»,
+ * el bloque se pinta con alto cero y queda una franja invisible que no se puede
+ * pulsar. El bloque está ahí, guardado en la página, y no hay forma de
+ * seleccionarlo para llenarlo. La única salida era borrarlo y empezar de nuevo.
+ *
+ * Así que el vacío se enseña a quien monta y se esconde a quien visita. Es la
+ * regla que ya seguían la portada, la descripción, la dirección, los enlaces,
+ * la galería y las boletas; estos doce se habían quedado fuera.
+ *
+ * ── Por qué uno solo y no doce huecos ────────────────────────────────────
+ *
+ * Porque doce huecos escritos por separado acaban con doce bordes, doce
+ * radios y doce maneras de decir lo mismo — que es exactamente cómo esta
+ * página llegó a tener secciones que no se parecen entre sí.
+ */
+function VacioEditor({ titulo, pista }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border-2 bg-surface/20 px-5 py-8 text-center">
+      <p className="text-sm text-text-2 font-medium">{titulo}</p>
+      {pista && <p className="text-xs text-text-3 mt-1.5 max-w-sm mx-auto leading-relaxed">{pista}</p>}
+      <p className="text-[10px] uppercase tracking-widest text-text-3 mt-3">Sólo lo ves tú, aquí</p>
+    </div>
+  );
+}
+
 function CabeceraSeccion({ titulo, subtitulo, centrado = false }) {
   if (!titulo && !subtitulo) return null;
   return (
@@ -290,7 +320,7 @@ const CAMPOS_INFO = [
   ['aforo',      'Cupos disponibles'],
 ];
 
-function InfoPreview({ data = {}, evento }) {
+function InfoPreview({ data = {}, evento, isEditor }) {
   const fecha = evento.fecha_fin
     ? `${fmtFecha(evento.fecha_inicio)} — ${fmtFecha(evento.fecha_fin)}`
     : `${fmtFecha(evento.fecha_inicio)} · ${fmtHora(evento.fecha_inicio)}`;
@@ -306,6 +336,17 @@ function InfoPreview({ data = {}, evento }) {
     ['organiza',  'Organiza',  evento.organizador?.empresa || evento.organizador?.nombre],
     ['aforo',     'Cupos',     evento.aforo_total ? `${libres} de ${evento.aforo_total}` : null],
   ].filter(([id, , valor]) => activos.includes(id) && valor);
+
+  /* Un evento sin fecha, sin lugar y sin organizador pintaba la rejilla vacía:
+     el hueco de cuatro casillas sin una sola casilla. Es el mismo caso que los
+     demás bloques —el vacío se enseña a quien monta y se esconde a quien
+     visita—, sólo que aquí los datos no se escriben en el bloque sino en la
+     ficha del evento, y por eso la pista manda allí. */
+  if (celdas.length === 0) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin datos que enseñar"
+      pista="La fecha, el lugar y quién organiza salen de la ficha del evento, no de aquí. Rellénalos en Editar info administrativa." />;
+  }
 
   const disposicion = data.disposicion || 'rejilla';
   const clase = disposicion === 'lista' ? 'flex flex-col gap-2'
@@ -543,6 +584,21 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
         const isFree = precio === 0;
         const ventaCerr = t.venta_hasta && new Date(t.venta_hasta) < new Date();
         const agotado  = aforoLleno || (t.cupo != null && t.vendidos >= t.cupo);
+        /* Las tres cosas que ya se sabían y no se decían.
+           `early_bird_hasta`, `venta_hasta` y el cupo se usaban para DECIDIR
+           —tachar el precio, apagar el botón, poner «Agotado»— y no se
+           enseñaban. Así que la tarjeta ponía «Early» con el precio tachado y
+           no decía hasta cuándo, y quien volvía al día siguiente se encontraba
+           otro precio sin que nadie se lo hubiera advertido.
+           Una fecha límite que no se ve no es una fecha límite. */
+        const dia = (f) => new Date(f).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+        const quedan = t.cupo != null ? Math.max(0, t.cupo - (t.vendidos || 0)) : null;
+        const avisos = [];
+        if (hasEarly && !ventaCerr) avisos.push(`Este precio hasta el ${dia(t.early_bird_hasta)}`);
+        if (!ventaCerr && t.venta_hasta) avisos.push(`La venta cierra el ${dia(t.venta_hasta)}`);
+        /* El cupo sólo cuando aprieta: «quedan 87» de 100 no cambia lo que hace
+           nadie, y un número por decir algo entrena a no leer los avisos. */
+        if (!agotado && quedan != null && quedan <= 10) avisos.push(`Quedan ${quedan}`);
         return (
           <div key={t.id} className="rounded-2xl border border-border bg-surface/50 p-4">
             <div className="flex items-start justify-between gap-3 mb-2">
@@ -552,6 +608,9 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
                   {hasEarly && !ventaCerr && <span className="text-[9px] uppercase tracking-widest text-warning font-semibold">Early</span>}
                 </div>
                 {t.descripcion && <p className="text-[11px] text-text-3 mt-0.5">{t.descripcion}</p>}
+                {avisos.length > 0 && (
+                  <p className="text-[11px] text-warning mt-1 leading-snug">{avisos.join(' · ')}</p>
+                )}
               </div>
             </div>
             <div className="flex items-end justify-between gap-3 mt-2">
@@ -705,8 +764,11 @@ function TextoEditor({ data, onChange }) {
     </div>
   );
 }
-function TextoPreview({ data }) {
-  if (!data.titulo && !data.texto) return null;
+function TextoPreview({ data, isEditor }) {
+  if (!data.titulo && !data.texto) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Bloque de texto vacío" pista="Puede llevar sólo título, sólo texto, o los dos." />;
+  }
   const ps = (data.texto || '').split(/\n\s*\n/).filter(Boolean);
   return (
     <div>
@@ -742,10 +804,13 @@ function GaleriaEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function GaleriaPreview({ data, reorder }) {
+function GaleriaPreview({ data, reorder, isEditor }) {
   const all = data.urls || [];
   const visibleIndices = all.map((_, i) => i).filter(i => Boolean(all[i]));
-  if (visibleIndices.length === 0) return null;
+  if (visibleIndices.length === 0) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Galería vacía" pista="Añade imágenes desde el panel. Se colocan en rejilla y se pueden reordenar arrastrándolas aquí." />;
+  }
   const grid = 'grid grid-cols-2 sm:grid-cols-3 gap-3';
   const cell = (i) => (
     <a key={i} href={all[i]} target="_blank" rel="noreferrer noopener"
@@ -780,9 +845,12 @@ function VideoEditor({ data, onChange }) {
     </div>
   );
 }
-function VideoPreview({ data }) {
+function VideoPreview({ data, isEditor }) {
   const embed = getEmbed(data.url);
-  if (!embed) return null;
+  if (!embed) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin vídeo" pista="Pega un enlace de YouTube o Vimeo. Otros enlaces no se pueden incrustar." />;
+  }
   return (
     <div>
       <CabeceraSeccion titulo={data.titulo} />
@@ -823,10 +891,13 @@ function FAQEditor({ data, onChange }) {
     </div>
   );
 }
-function FAQPreview({ data, reorder }) {
+function FAQPreview({ data, reorder, isEditor }) {
   const all = data.items || [];
   const visibleIndices = all.map((_, i) => i).filter(i => all[i]?.q?.trim());
-  if (visibleIndices.length === 0) return null;
+  if (visibleIndices.length === 0) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin preguntas todavía" pista="Las que más te escriben por WhatsApp suelen ser las que van aquí." />;
+  }
   const item = (i) => <FAQItem key={i} q={all[i].q} a={all[i].a} />;
   return (
     <div>
@@ -923,8 +994,11 @@ function HeroEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function HeroPreview({ data }) {
-  if (!data.titulo) return null;
+function HeroPreview({ data, isEditor }) {
+  if (!data.titulo) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Banner sin titular" pista="El titular es lo único imprescindible; la imagen y el botón son opcionales." />;
+  }
   return (
     <div className="relative rounded-3xl overflow-hidden border border-border flex items-center px-8 py-12"
       style={{ minHeight: data.alto ?? 320 }}>
@@ -980,10 +1054,13 @@ function SpeakersEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function SpeakersPreview({ data, reorder }) {
+function SpeakersPreview({ data, reorder, isEditor }) {
   const all = data.items || [];
   const visibleIndices = all.map((_, i) => i).filter(i => all[i]?.nombre?.trim());
-  if (visibleIndices.length === 0) return null;
+  if (visibleIndices.length === 0) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin ponentes todavía" pista="Añádelos desde el panel de la derecha: nombre, cargo y foto." />;
+  }
   const card = (i) => {
     const s = all[i];
     return (
@@ -1057,9 +1134,12 @@ function SponsorsEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function SponsorsPreview({ data }) {
+function SponsorsPreview({ data, isEditor }) {
   const items = (data.items || []).filter(it => it.logo || it.nombre);
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin patrocinadores todavía" pista="Cada uno lleva su logo, su nivel y el enlace a su web." />;
+  }
   const grouped = TIERS.map(t => ({ ...t, items: items.filter(it => (it.tier || 'silver') === t.id) })).filter(g => g.items.length > 0);
   return (
     <div>
@@ -1105,9 +1185,12 @@ function MapaEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function MapaPreview({ data, evento }) {
+function MapaPreview({ data, evento, isEditor }) {
   const direccion = data.direccion || evento?.location_direccion || evento?.location_nombre;
-  if (!direccion) return null;
+  if (!direccion) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin dirección" pista="Coge la del evento o escribe otra. Sin dirección no hay mapa que enseñar." />;
+  }
   const embedSrc = `https://www.google.com/maps?q=${encodeURIComponent(direccion)}&output=embed`;
   const linkSrc  = `https://www.google.com/maps?q=${encodeURIComponent(direccion)}`;
   return (
@@ -1151,9 +1234,12 @@ function CountdownEditor({ data, onChange, evento }) {
     </div>
   );
 }
-function CountdownPreview({ data, evento }) {
+function CountdownPreview({ data, evento, isEditor }) {
   const target = data.fecha || evento?.fecha_inicio;
-  if (!target) return null;
+  if (!target) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin fecha a la que contar" pista="Usa la fecha del evento o pon una propia en el panel." />;
+  }
   return (
     <div className="text-center py-4">
       {data.titulo && <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-3">{data.titulo}</p>}
@@ -1226,10 +1312,13 @@ function RedesEditor({ data, onChange }) {
     </div>
   );
 }
-function RedesPreview({ data, reorder }) {
+function RedesPreview({ data, reorder, isEditor }) {
   const all = data.items || [];
   const visibleIndices = all.map((_, i) => i).filter(i => all[i]?.url?.trim());
-  if (visibleIndices.length === 0) return null;
+  if (visibleIndices.length === 0) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin redes todavía" pista="Pega la dirección de cada perfil en el panel de la derecha." />;
+  }
   const chip = (i) => {
     const l = all[i];
     return (
@@ -1644,7 +1733,24 @@ function ExpositoresPreview({ data, evento, isEditor }) {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-text-1 truncate">{x.nombre}</p>
                   {x.categoria_negocio && <p className="text-[11px] text-text-3">{x.categoria_negocio}</p>}
-                  {x.stand && <span className="inline-block mt-1 text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">Stand {numeroDeStand(x.stand)}</span>}
+                  {/* El stand y la ZONA, juntos.
+                      `zona_nombre` llegaba del servidor —que lo resuelve a
+                      propósito para que aquí se lea «Zona Gamer» y no un
+                      identificador— y la tarjeta no lo enseñaba. En un recinto
+                      con siete mil personas, «C10» sin zona no sirve para
+                      encontrar a nadie: dice el número de la casa sin la calle. */}
+                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                    {x.stand && (
+                      <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">
+                        Stand {numeroDeStand(x.stand)}
+                      </span>
+                    )}
+                    {x.zona_nombre && (
+                      <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-1.5 py-0.5 rounded">
+                        {x.zona_nombre}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               {x.descripcion && <p className="text-xs text-text-2 mt-2 leading-relaxed line-clamp-3">{x.descripcion}</p>}
@@ -1721,6 +1827,14 @@ function AgendaPreview({ data = {}, evento, isEditor }) {
   const cuando = (s) => (s
     ? new Date(s).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
     : null);
+  /* La hora de FIN, que llegaba del servidor y no se enseñaba.
+     Saber que algo empieza a las 10 sin saber cuándo acaba no deja planear el
+     día: quien mira la agenda está decidiendo si le da tiempo a lo siguiente.
+     Se enseña sólo la hora —el día ya lo dice el inicio— porque repetirlo
+     entero convierte la línea en un párrafo. */
+  const hasta = (f) => (f
+    ? new Date(f).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+    : null);
 
   return (
     <section>
@@ -1736,16 +1850,30 @@ function AgendaPreview({ data = {}, evento, isEditor }) {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-text-1">{s.titulo}</p>
                 <p className="text-[11px] text-text-3 mt-0.5">
-                  {cuando(s.inicio) || 'Sin fecha'}{s.ubicacion ? ` · ${s.ubicacion}` : ''}
+                  {cuando(s.inicio) || 'Sin fecha'}
+                  {hasta(s.fin) ? ` – ${hasta(s.fin)}` : ''}
+                  {s.ubicacion ? ` · ${s.ubicacion}` : ''}
+                  {/* La sala. Con varias en paralelo —y FESTECH las tiene— sin
+                      esto no hay forma de saber qué choca con qué. */}
+                  {s.track ? ` · ${s.track}` : ''}
                 </p>
               </div>
               {/* Sólo se marca lo que cambia lo que la persona tiene que hacer:
-                  si hay que apuntarse, el resto es ruido. */}
-              {s.requiere_inscripcion && (
-                <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded flex-shrink-0">
-                  Con inscripción
-                </span>
-              )}
+                  si hay que apuntarse, el resto es ruido.
+                  Y por eso el aforo va AQUÍ y no como un número suelto: «quedan
+                  3» y «completo» son decisiones distintas, y «cupo 40» no es
+                  ninguna de las dos — no dice si todavía cabes. */}
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                {s.lleno ? (
+                  <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-3 px-2 py-0.5 rounded">
+                    Completo
+                  </span>
+                ) : s.requiere_inscripcion && (
+                  <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded">
+                    {s.libres != null && s.libres <= 10 ? `Quedan ${s.libres}` : 'Con inscripción'}
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -1902,8 +2030,11 @@ function CodigoPreview({ data = {}, isEditor }) {
   );
 }
 
-function CTAPreview({ data }) {
-  if (!data.texto || !data.url) return null;
+function CTAPreview({ data, isEditor }) {
+  if (!data.texto || !data.url) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Botón sin texto o sin destino" pista="Hacen falta los dos: un botón sin destino no lleva a ninguna parte." />;
+  }
   const cls = data.estilo === 'secondary'
     ? 'border border-border-2 text-text-1 hover:bg-surface-2'
     : data.estilo === 'ghost'
@@ -2008,8 +2139,11 @@ function CitaEditor({ data, onChange }) {
     </div>
   );
 }
-function CitaPreview({ data }) {
-  if (!data.texto?.trim()) return null;
+function CitaPreview({ data, isEditor }) {
+  if (!data.texto?.trim()) {
+    if (!isEditor) return null;
+    return <VacioEditor titulo="Sin cita" pista="Escribe el testimonio y, si quieres, de quién es." />;
+  }
   return (
     <blockquote className="border-l-2 border-text-1 pl-6 py-2 max-w-2xl mx-auto">
       <p className="text-xl sm:text-2xl font-display text-text-1 italic leading-snug mb-3">"{data.texto}"</p>
