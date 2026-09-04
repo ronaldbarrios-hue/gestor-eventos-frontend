@@ -103,3 +103,41 @@ test('una fecha límite que no se ve no es una fecha límite', () => {
   assert.match(cuerpo, /Este precio hasta el/, 'no se dice hasta cuándo dura el precio de lanzamiento');
   assert.match(cuerpo, /La venta cierra el/, 'no se dice cuándo cierra la venta');
 });
+
+test('un bloque escondido no deja su hueco', () => {
+  /* Cuando la vista devuelve `null`, su envoltorio se pinta igual: un div sin
+     nada dentro. Y como los bloques se apilan con `space-y-8`, ese div vacío se
+     lleva sus 2 rem — un bloque escondido ocupaba lo mismo que una raya en
+     blanco. Medido en TechNova: 66 px de nada en una sola página, y aparecen
+     más ahora que los bloques vacíos se esconden bien. */
+  const css = readFileSync('src/index.css', 'utf8');
+  assert.match(css, /\.gk-bloque:empty \{ display: none; \}/,
+    'volvió el hueco de los bloques escondidos');
+  const pagina = readFileSync('src/pages/public/EventoPublicoPage.jsx', 'utf8');
+  assert.match(pagina, /className=\{`gk-bloque /,
+    'el envoltorio del bloque perdió la clase: la regla existe y no se aplica a nadie');
+});
+
+test('el aire entre secciones se aprieta en el móvil', () => {
+  /* La escala era fija: los mismos píxeles en 1.400 y en 375. En el móvil
+     «amplio» eran 224 px de nada entre dos secciones, más de un cuarto de la
+     pantalla. */
+  const src = readFileSync('src/pages/events/editor/presentacion.jsx', 'utf8');
+  for (const [nombre, clase] of [['compacto', 'py-2.5 sm:py-4'],
+                                 ['normal', 'py-5 sm:py-8'],
+                                 ['amplio', 'py-8 sm:py-14']]) {
+    assert.ok(src.includes(`'${clase}'`),
+      `el espaciado «${nombre}» volvió a ser fijo: en un móvil eso es pantalla en blanco`);
+  }
+});
+
+test('la navegación del evento no envuelve en el móvil', () => {
+  /* Siete secciones envolvían en cinco filas: la barra medía 260 px —un tercio
+     de la pantalla— y está pegada arriba, así que se los comía todo el rato. El
+     nombre del evento aparecía al 76 % de la pantalla. */
+  const src = readFileSync('src/pages/public/EventoPublicoPage.jsx', 'utf8');
+  assert.match(src, /flex-nowrap overflow-x-auto no-scrollbar/,
+    'la barra de secciones vuelve a envolver en el móvil');
+  assert.match(src, /sm:flex-wrap sm:overflow-visible/,
+    'la fila deslizable se quedó también en el escritorio, donde una lista completa es mejor');
+});

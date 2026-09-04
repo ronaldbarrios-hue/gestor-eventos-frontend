@@ -361,10 +361,19 @@ export default function EventoPublicoPage() {
           </Link>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* En el móvil, UNA fila que se desliza; envolviendo, no.
+            Medido en un iPhone: siete secciones envolvían en cinco filas y la
+            barra medía 260 px — un tercio de la pantalla— y como está pegada
+            arriba, se los comía todo el rato, no sólo al principio. El nombre
+            del evento aparecía al 76 % de la pantalla: había que desplazarse
+            para ver a qué evento se había entrado.
+            De `sm` para arriba sigue envolviendo, que ahí sí caben y una fila
+            deslizable en un ratón es peor que una lista completa. */}
+        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar
+                        -mx-5 px-5 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
           {nav.enlaces.map((l, i) => (
             <a key={i} href={l.url || '#'} target={l.url?.startsWith('http') ? '_blank' : undefined} rel="noreferrer noopener"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0 whitespace-nowrap">
               {l.label}
             </a>
           ))}
@@ -381,7 +390,8 @@ export default function EventoPublicoPage() {
           {seccionesDe(evento, nav).filter(x => x.id !== 'inicio').map(x => (
             <Link key={x.id} to={`/explorar/${slug}/${x.ruta}`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
-                         text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+                         text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors
+                         flex-shrink-0 whitespace-nowrap">
               <Icono nombre={x.icono} className="w-4 h-4" />{x.label}
             </Link>
           ))}
@@ -482,7 +492,7 @@ export default function EventoPublicoPage() {
             const animStyle = block.data?._anim ? { animationDuration: `${block.data?._animDur || 0.8}s`, animationDelay: `${block.data?._animDelay || 0}s` } : undefined;
             const ancho = block.data?._ancho === 'full' ? '' : block.data?._ancho === 'angosto' ? 'max-w-xl mx-auto' : 'max-w-4xl mx-auto';
             return (
-              <div key={block.id} className={`${animCls} ${ancho}`} style={animStyle}>
+              <div key={block.id} className={`gk-bloque ${animCls} ${ancho}`} style={animStyle}>
                 <Preview data={block.data || {}} evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />
               </div>
             );
