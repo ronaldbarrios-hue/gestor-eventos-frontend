@@ -6,6 +6,7 @@ import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import { numeroDeStand } from '../../../lib/expositoresUi.js';
+import ParrillaRueda from './ParrillaRueda.jsx';
 
 /* Tab Rueda de Negocios.
  *
@@ -29,7 +30,11 @@ import { numeroDeStand } from '../../../lib/expositoresUi.js';
    desde la página pública (src/pages/public/NetworkingPublicPage.jsx). */
 
 export default function NetworkingTab({ evento, soyOwner }) {
-  const [sub, setSub] = useState(soyOwner ? 'admin' : 'explorar'); // admin | explorar | mis-citas
+  /* Quien organiza entra por la parrilla, no por «Gestionar». El día del
+     evento lo que se mira es el tablero —quién está sentado, qué hueco quedó
+     libre—; crear mesas y generar franjas es trabajo de antes. */
+  const [sub, setSub] = useState(soyOwner ? 'parrilla' : 'explorar');
+  // parrilla | admin | explorar | mis-citas
 
   return (
     <div className="space-y-5">
@@ -51,6 +56,12 @@ export default function NetworkingTab({ evento, soyOwner }) {
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
           {soyOwner && (
+            <button onClick={() => setSub('parrilla')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'parrilla' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+              Parrilla
+            </button>
+          )}
+          {soyOwner && (
             <button onClick={() => setSub('admin')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'admin' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               Gestionar
@@ -67,6 +78,7 @@ export default function NetworkingTab({ evento, soyOwner }) {
         </div>
       </div>
 
+      {sub === 'parrilla' && soyOwner && <ParrillaRueda evento={evento} soyOwner={soyOwner} />}
       {sub === 'admin'    && soyOwner && <AdminView evento={evento} />}
       {sub === 'explorar' && <ExplorarView evento={evento} />}
       {sub === 'mis-citas' && <MisCitasView evento={evento} />}

@@ -32,4 +32,19 @@ export const networkingApi = {
   borrarExpositor : (eventoId, expositorId) => client.delete(`/eventos/${eventoId}/networking/expositores/${expositorId}`).then(r => r.data),
   generarHorarios : (eventoId, expositorId, body) => client.post(`/eventos/${eventoId}/networking/expositores/${expositorId}/horarios`, body).then(r => r.data),
   borrarHorario   : (eventoId, horarioId) => client.delete(`/eventos/${eventoId}/networking/horarios/${horarioId}`).then(r => r.data),
+
+  /* La parrilla. Existía entera en el servidor —ver, aprobar, mover, sentar— y
+     no la llamaba nadie: quien organiza tenía las rutas y ninguna pantalla.
+     Un hueco que se abría porque una empresa no llegaba se quedaba muerto toda
+     la jornada, porque una cita sólo la podía soltar quien la reservó. */
+  citas       : (eventoId) => client.get(`/eventos/${eventoId}/networking/citas`).then(r => r.data),
+  /* Aprobar, mover de casilla y anotar son la misma acción —tocar una casilla—
+     y por eso van por la misma ruta. Contesta 409 si la casilla de destino ya
+     está ocupada, que al reorganizar es lo normal, no un fallo. */
+  tocarCita   : (eventoId, citaId, body) =>
+    client.patch(`/eventos/${eventoId}/networking/citas/${citaId}`, body).then(r => r.data),
+  /* Sentar a alguien a mano: nace confirmada, porque pedirle que apruebe una
+     cita que le acaban de poner sería devolverle el trabajo. */
+  sentar      : (eventoId, horarioId, userId) =>
+    client.post(`/eventos/${eventoId}/networking/citas`, { horario_id: horarioId, user_id: userId }).then(r => r.data),
 };
