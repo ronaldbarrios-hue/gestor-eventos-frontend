@@ -72,16 +72,48 @@ export function MisTareasWidget() {
 
 /* ── Mis solicitudes ── */
 export function MisSolicitudesWidget() {
-  const { solicitudes, loading } = useEspacioData();
-  const items = solicitudes.slice(0, 6);
+  const { solicitudes, sugerencias, loading } = useEspacioData();
+
+  /* Este widget se anuncia como «Sugerencias y solicitudes que has enviado» y
+     enseñaba sólo las solicitudes: prometía dos cosas y daba una. Las
+     sugerencias del buzón —«busco un evento de X y no lo encontré»— se
+     mandaban y no se volvían a ver nunca, aunque el servidor las devolvía.
+
+     Van en la misma lista y no en dos: desde donde se mira, las dos contestan
+     lo mismo, «qué he pedido yo y en qué quedó». */
+  const items = [
+    ...solicitudes.map(s => ({
+      k: `sol-${s.id}`,
+      texto: s.titulo || s.contenido?.slice(0, 60) || '(sin texto)',
+      /* `mia` lo dice el servidor. Antes esta lista mezclaba sin decirlo: el
+         dueño de un evento veía aquí las peticiones de OTROS bajo el rótulo
+         «lo que has enviado», y quien colabora en un evento ajeno —que es
+         justo quien pide cosas— no veía nunca la suya. */
+      pie: s.mia === false
+        ? `Te la mandaron · ${s.evento_titulo}`
+        : s.evento_titulo,
+      estado: s.estado,
+      cuando: s.created_at,
+    })),
+    ...sugerencias.map(s => ({
+      k: `sug-${s.id}`,
+      texto: s.texto || '(sin texto)',
+      pie: s.catalogo ? `Buzón · ${s.catalogo}` : 'Buzón',
+      estado: s.estado,
+      cuando: s.created_at,
+    })),
+  ].sort((a, b) => new Date(b.cuando || 0) - new Date(a.cuando || 0)).slice(0, 6);
+
   if (loading) return <p className="text-sm text-text-3 p-5">Cargando…</p>;
-  if (items.length === 0) return <p className="text-sm text-text-2 text-center py-8 px-5">No has enviado solicitudes.</p>;
+  if (items.length === 0) return <p className="text-sm text-text-2 text-center py-8 px-5">No has enviado nada todavía.</p>;
   return (
     <ul className="divide-y divide-border">
-      {items.map((s, i) => (
-        <li key={s.id || i} className="px-5 py-2.5">
-          <p className="text-sm text-text-1 truncate">{s.titulo || s.contenido?.slice(0, 60) || '(sin texto)'}</p>
-          <p className="text-[11px] text-text-3 truncate">{s.evento_titulo} · <span className="capitalize">{s.estado}</span></p>
+      {items.map(i => (
+        <li key={i.k} className="px-5 py-2.5">
+          <p className="text-sm text-text-1 truncate">{i.texto}</p>
+          <p className="text-[11px] text-text-3 truncate">
+            {i.pie}{i.pie && i.estado ? ' · ' : ''}<span className="capitalize">{i.estado}</span>
+          </p>
         </li>
       ))}
     </ul>

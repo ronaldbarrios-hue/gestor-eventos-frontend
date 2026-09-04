@@ -35,7 +35,7 @@ const ESPACIO_WIDGETS = [
   { id: 'mi-calendario',   titulo: 'Mi calendario',   descripcion: 'Próximos eventos en los que participas.',                       defaultSize: 'sm', defaultVisible: true  },
   { id: 'mis-recursos',    titulo: 'Mis recursos',    descripcion: 'PDFs, diapositivas y archivos para tu trabajo.',                defaultSize: 'sm', defaultVisible: true  },
   { id: 'mis-notas',       titulo: 'Mis notas',       descripcion: 'Notas rápidas personales.',                                     defaultSize: 'sm', defaultVisible: true  },
-  { id: 'mis-solicitudes', titulo: 'Mis solicitudes', descripcion: 'Sugerencias y solicitudes que has enviado.',                    defaultSize: 'sm', defaultVisible: true  },
+  { id: 'mis-solicitudes', titulo: 'Mis solicitudes', descripcion: 'Lo que has pedido y lo que te han pedido, con el buzón incluido.',                    defaultSize: 'sm', defaultVisible: true  },
   { id: 'mi-actividad',    titulo: 'Mi actividad',    descripcion: 'Lo último que te ha pasado en GESTEK.',                         defaultSize: 'sm', defaultVisible: false },
   { id: 'mis-logros',      titulo: 'Mis logros',      descripcion: 'Puntos, nivel y recompensas de gamificación.',                  defaultSize: 'sm', defaultVisible: false },
   { id: 'mis-boletas',     titulo: 'Mis boletas',     descripcion: 'Entradas a eventos donde eres asistente.',                      defaultSize: 'sm', defaultVisible: false },

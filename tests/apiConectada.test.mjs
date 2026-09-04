@@ -31,10 +31,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 /* Lo que hoy está desconectado y por qué. Cada línea es una pantalla que falta
    o una función que sobra — no una excepción permanente. */
 const SUELTAS = {
-  'agendaApi.participacion'   : 'Resumen de quién se apuntó a qué, del evento entero. La lista por actividad ya está montada; ésta es la vista global y no tiene sitio todavía.',
-  'expositorApi.historial'    : 'Historial del expositor. El portal enseña la ficha, no lo anterior.',
-  'sugerenciasApi.mias'       : 'Las sugerencias que mandó uno mismo. Se pueden enviar y no volver a ver.',
-  'vacantesApi.destacar'      : 'Destacar una vacante.',
+  /* La única, y no es una pantalla que falte: es media función. Su propio
+     comentario en `routes/vacantes.js` dice que registra el cobro como
+     pendiente y que el destacado se activará «cuando el pago se confirme
+     (webhook de pagos)». Ponerle un botón hoy cobraría por algo que no pasa. */
+  'vacantesApi.destacar': 'STUB declarado en el servidor: registra un cobro pendiente y no hay pasarela que lo confirme.',
 };
 
 /* `destacar` es un STUB declarado: su propio comentario en `routes/vacantes.js`

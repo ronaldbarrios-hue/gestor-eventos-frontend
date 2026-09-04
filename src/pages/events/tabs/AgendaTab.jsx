@@ -17,6 +17,7 @@ import {
   PlusIcon, ChevL, ChevR, EmptyState,
 } from './agenda/agendaComun.jsx';
 import SessionForm from './agenda/SessionForm.jsx';
+import ParticipacionResumen from './agenda/ParticipacionResumen.jsx';
 import TipoPropioModal from './agenda/TipoPropioModal.jsx';
 import { networkingApi } from '../../../api/networking.js';
 import { ticketsApi } from '../../../api/tickets.js';
@@ -292,6 +293,12 @@ export default function AgendaTab({ evento, vistaFija = null, recargarEvento = n
           )}
         </div>
       )}
+
+      {/* Cómo va la agenda, antes de la agenda. La pregunta de mitad de evento
+          no es cuántas boletas se vendieron —eso ya se sabe— sino si la gente
+          está entrando a las actividades. Sólo en la vista de sesiones: en
+          Speakers no viene a cuento. */}
+      {view === 'sessions' && <ParticipacionResumen evento={evento} />}
 
       {/* Form de creación */}
       {creating && view === 'sessions' && (

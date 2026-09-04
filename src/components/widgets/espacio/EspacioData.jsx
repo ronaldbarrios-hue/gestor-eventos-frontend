@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { solicitudesApi } from '../../../api/solicitudes.js';
+import { sugerenciasApi } from '../../../api/sugerencias.js';
 import { tareasApi } from '../../../api/tareas.js';
 import { eventosApi } from '../../../api/eventos.js';
 import { notificacionesApi } from '../../../api/notificaciones.js';
@@ -13,6 +14,11 @@ const Ctx = createContext(null);
 export function EspacioDataProvider({ children }) {
   const [tareas, setTareas]           = useState([]); /* [{...tarea, evento}] */
   const [solicitudes, setSolicitudes] = useState([]);
+  /* Lo que alguien escribió en el buzón —«busco un evento de X y no lo
+     encontré»— y no volvía a ver nunca. `sugerenciasApi.mias` existía y no la
+     llamaba nadie, aunque este widget se anuncia como «Sugerencias y
+     solicitudes que has enviado». Prometía las dos y enseñaba una. */
+  const [sugerencias, setSugerencias] = useState([]);
   const [eventos, setEventos]         = useState([]);
   const [notifs, setNotifs]           = useState([]);
   const [boletas, setBoletas]         = useState([]);
@@ -21,10 +27,16 @@ export function EspacioDataProvider({ children }) {
 
   const cargar = useCallback(async () => {
     setLoading(true);
-    const [mios, equipo, sol, no, bo, loy] = await Promise.allSettled([
+    /* Cada nombre al lado de su llamada, y no una lista de seis nombres
+       arriba y siete llamadas abajo: al añadir `sugerenciasApi.mias()` en
+       medio, el destructuring posicional dejó a `no` con las sugerencias, a
+       `bo` con las notificaciones y a `loyalty` sin nada. No falla, no avisa:
+       simplemente el widget de logros se queda vacío para siempre. */
+    const [mios, equipo, sol, sug, no, bo, loy] = await Promise.allSettled([
       eventosApi.list({ limit: 50 }),
       solicitudesApi.misEventos(),
       solicitudesApi.misSolicitudes(),
+      sugerenciasApi.mias(),
       notificacionesApi.list(20),
       meApi.boletas(),
       loyaltyApi.empleado(),
@@ -53,6 +65,7 @@ export function EspacioDataProvider({ children }) {
     setEventos(todos);
 
     if (sol.status === 'fulfilled') setSolicitudes(sol.value.solicitudes || []);
+    if (sug.status === 'fulfilled') setSugerencias(sug.value.sugerencias || []);
     if (no.status  === 'fulfilled') setNotifs(no.value.notificaciones || []);
     if (bo.status  === 'fulfilled') setBoletas(bo.value.boletas || bo.value.tickets || []);
     if (loy.status === 'fulfilled') setLoyalty(loy.value);
@@ -80,7 +93,7 @@ export function EspacioDataProvider({ children }) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  return <Ctx.Provider value={{ tareas, solicitudes, eventos, notifs, boletas, loyalty, loading, refrescar: cargar }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ tareas, solicitudes, sugerencias, eventos, notifs, boletas, loyalty, loading, refrescar: cargar }}>{children}</Ctx.Provider>;
 }
 
 export const useEspacioData = () => {
