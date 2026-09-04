@@ -169,6 +169,23 @@ export default function MiTicketPage() {
         <Row label="Tipo de boleta" value={ticket.tipo?.nombre} />
         {fecha && <Row label="Fecha" value={fecha} />}
         {ticket.evento?.location_nombre && <Row label="Lugar" value={ticket.evento.location_nombre} />}
+        {/* El enlace del evento en línea.
+            `url_virtual` estaba en la base, la mandaba la página pública del
+            evento, y no lo enseñaba nadie en toda la aplicación. Alguien
+            compraba entrada a un evento en línea y no tenía por dónde entrar:
+            la boleta le decía la fecha y el código, y nada más.
+            Va aquí y no en la página pública porque el enlace es lo que se
+            compra. Esta pantalla ya pide el código de la boleta, que es la
+            misma credencial que el QR. */}
+        {ticket.evento?.url_virtual && (
+          <div className="flex items-start justify-between gap-4 py-1.5">
+            <span className="text-xs uppercase tracking-wide text-text-3 flex-shrink-0">Se conecta en</span>
+            <a href={ticket.evento.url_virtual} target="_blank" rel="noreferrer noopener"
+               className="text-sm text-primary-light hover:underline text-right break-all min-w-0">
+              {ticket.evento.url_virtual.replace(/^https?:\/\//, '')}
+            </a>
+          </div>
+        )}
         {ticket.checked_in_at && (
           <Row label="Check-in" value={new Date(ticket.checked_in_at).toLocaleString('es-CO')} />
         )}

@@ -154,13 +154,29 @@ function VisibilityToggle({ data, onChange }) {
   );
 }
 
-function fmtFecha(d, opts) {
-  if (!d) return '';
-  return new Date(d).toLocaleDateString('es-CO', opts || { day: '2-digit', month: 'long', year: 'numeric' });
+/* Las fechas, en la hora DEL EVENTO y no en la de quien mira.
+ *
+ * `toLocaleString` sin zona usa la del navegador. Para quien está en Ibagué
+ * mirando un evento en Ibagué da igual; para quien lo mira desde Madrid, la
+ * página decía una hora y la puerta abría a otra — siete horas después.
+ *
+ * `timezone` llegaba del servidor en cada evento desde siempre y no lo leía
+ * nadie. Se cae al comportamiento de antes si el evento no la trae, que es lo
+ * único que se puede hacer sin inventarse una zona.
+ */
+function conZona(evento, opts) {
+  const tz = evento?.timezone;
+  return tz ? { ...opts, timeZone: tz } : opts;
 }
-function fmtHora(d) {
+function fmtFecha(d, opts, evento) {
   if (!d) return '';
-  return new Date(d).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  return new Date(d).toLocaleDateString('es-CO',
+    conZona(evento, opts || { day: '2-digit', month: 'long', year: 'numeric' }));
+}
+function fmtHora(d, evento) {
+  if (!d) return '';
+  return new Date(d).toLocaleTimeString('es-CO',
+    conZona(evento, { hour: '2-digit', minute: '2-digit' }));
 }
 
 /* ============================================================
@@ -318,15 +334,21 @@ const CAMPOS_INFO = [
   ['modalidad',  'Modalidad'],
   ['organiza',   'Organiza'],
   ['aforo',      'Cupos disponibles'],
+  /* Se puede apagar, pero nace encendida: una condición para entrar que sólo
+     aparece al final del formulario de pago no es una condición, es una
+     sorpresa. */
+  ['edad',       'Edad mínima'],
 ];
 
 function InfoPreview({ data = {}, evento, isEditor }) {
   const fecha = evento.fecha_fin
-    ? `${fmtFecha(evento.fecha_inicio)} — ${fmtFecha(evento.fecha_fin)}`
-    : `${fmtFecha(evento.fecha_inicio)} · ${fmtHora(evento.fecha_inicio)}`;
+    ? `${fmtFecha(evento.fecha_inicio, null, evento)} — ${fmtFecha(evento.fecha_fin, null, evento)}`
+    : `${fmtFecha(evento.fecha_inicio, null, evento)} · ${fmtHora(evento.fecha_inicio, evento)}`;
   const modalidad = { fisico: 'Físico', virtual: 'Virtual', hibrido: 'Híbrido' }[evento.modalidad] || evento.modalidad;
   /* Por defecto se muestran los cuatro de siempre; aforo entra solo si se pide. */
-  const activos = data.campos || ['fecha', 'lugar', 'modalidad', 'organiza'];
+  /* `edad` entra por defecto —es una condición para entrar, no un extra— y
+     desaparece sola si el evento no la tiene. `aforo` sigue siendo opcional. */
+  const activos = data.campos || ['fecha', 'lugar', 'modalidad', 'organiza', 'edad'];
   const libres = Math.max(0, (evento.aforo_total || 0) - (evento.aforo_vendido || 0));
 
   const celdas = [
@@ -335,6 +357,12 @@ function InfoPreview({ data = {}, evento, isEditor }) {
     ['modalidad', 'Modalidad', modalidad],
     ['organiza',  'Organiza',  evento.organizador?.empresa || evento.organizador?.nombre],
     ['aforo',     'Cupos',     evento.aforo_total ? `${libres} de ${evento.aforo_total}` : null],
+    /* La edad mínima estaba SÓLO en el paso de pago, como una casilla que
+       confirmar. O sea que alguien miraba el evento, decidía ir, rellenaba
+       veinte preguntas y se enteraba al final de que no podía entrar. Es una
+       condición para venir, y las condiciones para venir van con la fecha y el
+       lugar, no al final del formulario. */
+    ['edad',      'Edad mínima', evento.edad_minima > 0 ? `${evento.edad_minima} años` : null],
   ].filter(([id, , valor]) => activos.includes(id) && valor);
 
   /* Un evento sin fecha, sin lugar y sin organizador pintaba la rejilla vacía:
@@ -591,7 +619,7 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
            no decía hasta cuándo, y quien volvía al día siguiente se encontraba
            otro precio sin que nadie se lo hubiera advertido.
            Una fecha límite que no se ve no es una fecha límite. */
-        const dia = (f) => new Date(f).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+        const dia = (f) => fmtFecha(f, { day: 'numeric', month: 'short' }, evento);
         const quedan = t.cupo != null ? Math.max(0, t.cupo - (t.vendidos || 0)) : null;
         const avisos = [];
         if (hasEarly && !ventaCerr) avisos.push(`Este precio hasta el ${dia(t.early_bird_hasta)}`);
@@ -1825,16 +1853,15 @@ function AgendaPreview({ data = {}, evento, isEditor }) {
   if (items.length === 0 && !isEditor) return null;
 
   const cuando = (s) => (s
-    ? new Date(s).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    ? new Date(s).toLocaleString('es-CO', conZona(evento,
+        { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))
     : null);
   /* La hora de FIN, que llegaba del servidor y no se enseñaba.
      Saber que algo empieza a las 10 sin saber cuándo acaba no deja planear el
      día: quien mira la agenda está decidiendo si le da tiempo a lo siguiente.
      Se enseña sólo la hora —el día ya lo dice el inicio— porque repetirlo
      entero convierte la línea en un párrafo. */
-  const hasta = (f) => (f
-    ? new Date(f).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-    : null);
+  const hasta = (f) => (f ? fmtHora(f, evento) : null);
 
   return (
     <section>
