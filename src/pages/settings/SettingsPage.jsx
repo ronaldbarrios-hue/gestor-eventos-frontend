@@ -509,10 +509,13 @@ function IntegracionesTab() {
   const { success, error: toastErr } = useToast();
   const [tokens, setTokens]     = useState([]);
   const [webhooks, setWebhooks] = useState([]);
-  /* Vacía hasta que conteste el servidor: sin lista no se puede crear un
-     webhook, y eso es correcto — mejor un momento sin botones que ofrecer un
-     tipo que el servidor va a descartar. */
-  const [whTipos, setWhTipos]   = useState([]);
+  /* Arranca con los tres que se conocen, no vacía.
+     Vacía era «más puro» y rompía: la API desplegada todavía no manda
+     `tipos_webhook` —lo añade el backend de este mismo cambio— y sin lista no
+     hay ni un tipo que marcar, así que no se podría crear un webhook hasta que
+     el servidor se actualice. Un despliegue no puede quitar una función que ya
+     estaba. En cuanto el servidor conteste, mandan los suyos. */
+  const [whTipos, setWhTipos]   = useState(Object.keys(WH_ETIQUETA));
   const [pro, setPro]           = useState(false);
   const [loading, setLoading]   = useState(true);
   const [nuevoToken, setNuevoToken] = useState(null); // {valor} mostrado una vez
@@ -535,7 +538,9 @@ function IntegracionesTab() {
       const { integracionesApi } = await import('../../api/integraciones.js');
       const [t, w] = await Promise.all([integracionesApi.listTokens(), integracionesApi.listWebhooks()]);
       setTokens(t.tokens || []); setPro(Boolean(t.pro));
-      setWhTipos(t.tipos_webhook || []);
+      /* Sólo si de verdad viene una lista con algo: `|| []` habría dejado los
+         botones en blanco contra la API vieja. */
+      if (Array.isArray(t.tipos_webhook) && t.tipos_webhook.length) setWhTipos(t.tipos_webhook);
       setWebhooks(w.webhooks || []);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally     { setLoading(false); }
