@@ -102,11 +102,22 @@ export function ExplorarView({ evento }) {
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [evento.id]);
 
+  /* Con la rueda en modo «solicitud» la cita nace pendiente de que el equipo
+     la apruebe. Decía «¡Cita confirmada!» igual, así que la persona se iba
+     creyendo que tenía una hora que nadie le había dado. */
+  const porSolicitud = evento?.networking_modo === 'solicitud';
+
   const reservar = async (horarioId) => {
     setBusy(horarioId);
     try {
-      await networkingApi.reservar(evento.id, horarioId);
-      success('¡Cita confirmada!');
+      /* El estado lo dice el SERVIDOR, no el modo que esta pantalla creía
+         tener: el modo puede haber cambiado mientras estaba abierta. */
+      const r = await networkingApi.reservar(evento.id, horarioId);
+      if (r?.estado === 'solicitada') {
+        success('Solicitud enviada. El equipo la revisa y te avisa.');
+      } else {
+        success('¡Cita confirmada!');
+      }
       cargar();
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
@@ -140,7 +151,9 @@ export function ExplorarView({ evento }) {
           {exp.descripcion && <p className="text-sm text-text-2 leading-relaxed">{exp.descripcion}</p>}
 
           <div>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">Horarios disponibles</p>
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">
+              {porSolicitud ? 'Horarios que puedes pedir' : 'Horarios disponibles'}
+            </p>
             {exp.horarios.length === 0 ? (
               <p className="text-xs text-text-3">Sin horarios publicados aún.</p>
             ) : (
@@ -148,9 +161,17 @@ export function ExplorarView({ evento }) {
                 {exp.horarios.map(h => {
                   const hora = new Date(h.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
                   if (h.esMio) {
+                    /* «Pedida» y «Reservada» no son lo mismo para quien está
+                       mirando su agenda del día: una obliga a estar ahí, la
+                       otra todavía no. */
+                    const pedida = h.estado === 'solicitada';
                     return (
-                      <span key={h.id} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-success/15 text-success border border-success/25">
-                        {hora} · Reservada
+                      <span key={h.id}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                          pedida
+                            ? 'bg-warning/15 text-warning border-warning/25'
+                            : 'bg-success/15 text-success border-success/25'}`}>
+                        {hora} · {pedida ? 'Pedida' : 'Reservada'}
                       </span>
                     );
                   }
