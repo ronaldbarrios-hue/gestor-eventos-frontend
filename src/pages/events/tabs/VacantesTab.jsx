@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import BuscarTalento from './vacantes/BuscarTalento.jsx';
 import { vacantesApi, formatoPago, ETAPAS_VACANTE } from '../../../api/vacantes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
@@ -19,6 +20,11 @@ const PERIODOS = [['evento', 'por el evento'], ['dia', 'por día'], ['hora', 'po
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 export default function VacantesTab({ evento, soyOwner }) {
+  /* Dos formas de conseguir gente, y hasta hoy sólo estaba una.
+     «Publicar» es esperar a que vengan; «Buscar» es ir. La bolsa de talento
+     existía entera en el servidor —y la gente marca su perfil como público
+     justo para salir ahí— y no había pantalla que la mirara. */
+  const [modo, setModo] = useState('vacantes');
   const { success, error: toastErr } = useToast();
   const [vacantes, setVacantes] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -60,6 +66,19 @@ export default function VacantesTab({ evento, soyOwner }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-1 border-b border-border">
+        {[['vacantes', 'Mis vacantes'], ['talento', 'Buscar talento']].map(([id, label]) => (
+          <button key={id} onClick={() => setModo(id)}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              modo === id ? 'border-primary text-text-1' : 'border-transparent text-text-3 hover:text-text-1'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {modo === 'talento' && <BuscarTalento evento={evento} />}
+
+      {modo === 'vacantes' && <>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-text-3 max-w-2xl">Publica qué personal necesitas para este evento. La gente se postula desde «Explorar vacantes» y aquí revisas y contratas. GESTEK retiene una comisión del contrato; el pago del sueldo se arregla por fuera.</p>
         <button onClick={() => setEditando('nueva')} className="btn-primary btn-sm flex-shrink-0">+ Nueva vacante</button>
@@ -99,6 +118,7 @@ export default function VacantesTab({ evento, soyOwner }) {
           ))}
         </div>
       )}
+      </>}
     </div>
   );
 }
