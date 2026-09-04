@@ -27,6 +27,7 @@ export default function ChatTab({ evento }) {
   const [activeId, setActiveId] = useState(null);
   const [loadingChannels, setLoadingChannels] = useState(true);
   const [creating, setCreating] = useState(null); // null | 'root' | parentId
+  const [verArchivados, setVerArchivados] = useState(false);
   const [puedeCrear, setPuedeCrear] = useState(false);
   const [roles, setRoles] = useState([]);
   const [miembros, setMiembros] = useState([]);
@@ -115,10 +116,37 @@ export default function ChatTab({ evento }) {
 
   const activeChannel = channels.find(c => c.id === activeId);
 
-  /* Construye el árbol: padres con sus hijos (los DM van aparte) */
-  const padres = channels.filter(c => !c.parent_id && c.tipo !== 'dm');
-  const hijosDe = (pid) => channels.filter(c => c.parent_id === pid);
-  const dms = channels.filter(c => c.tipo === 'dm');
+  /* Anclar y archivar, que estaban enteros en el servidor y no los miraba
+     nadie: la lista de canales viene con `anclado` y `archivado` POR PERSONA
+     desde la migración 0058, y esta pantalla los tiraba. En producción hay
+     133 canales; sin poder anclar cuatro y esconder los que ya no van, la
+     barra lateral es una lista por la que hay que buscar cada vez.
+
+     Son de quien mira, no del canal: anclar no se lo ancla a nadie más. */
+  const alternarPref = async (canal, campo) => {
+    const valor = !canal[campo];
+    /* Se pinta antes de que conteste el servidor. Anclar es un gesto de
+       ordenar la barra: si tarda medio segundo en moverse, se vuelve a pulsar. */
+    setChannels(c => c.map(x => (x.id === canal.id ? { ...x, [campo]: valor } : x)));
+    try {
+      await chatApi.prefs(evento.id, canal.id, { [campo]: valor });
+    } catch (e) {
+      setChannels(c => c.map(x => (x.id === canal.id ? { ...x, [campo]: !valor } : x)));
+      toastErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  /* Construye el árbol: padres con sus hijos (los DM van aparte).
+     Los anclados suben, y los archivados sólo salen si se piden. Un hijo
+     archivado se esconde también: si no, el padre archivado desaparece y sus
+     subgrupos se quedan colgando sin nada encima. */
+  const visible = (c) => verArchivados || !c.archivado;
+  const ordenar = (lista) => [...lista].sort((a, b) => (b.anclado === true) - (a.anclado === true));
+
+  const padres = ordenar(channels.filter(c => !c.parent_id && c.tipo !== 'dm' && visible(c)));
+  const hijosDe = (pid) => ordenar(channels.filter(c => c.parent_id === pid && visible(c)));
+  const dms = ordenar(channels.filter(c => c.tipo === 'dm' && visible(c)));
+  const archivados = channels.filter(c => c.archivado).length;
 
   if (loadingChannels) return (
     <GLoader message="Cargando canales..." />
@@ -130,6 +158,12 @@ export default function ChatTab({ evento }) {
       <aside className="rounded-3xl border border-border bg-surface/40 p-3 flex flex-col">
         <div className="flex items-center justify-between px-2 py-1.5 mb-2">
           <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Canales</p>
+          {archivados > 0 && (
+            <button onClick={() => setVerArchivados(v => !v)}
+              className="text-[10px] text-text-3 hover:text-text-1 ml-auto mr-2">
+              {verArchivados ? 'Ocultar archivados' : `Archivados (${archivados})`}
+            </button>
+          )}
           {puedeCrear && (
             <button onClick={() => setCreating('root')} aria-label="Nuevo canal"
               className="w-6 h-6 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center">
@@ -148,6 +182,8 @@ export default function ChatTab({ evento }) {
                 onAddSub={puedeCrear ? () => setCreating(padre.id) : null}
                 onRenombrar={puedeCrear ? (n) => onRenombrar(padre, n) : null}
                 onBorrar={puedeCrear ? () => onBorrarCanal(padre) : null}
+                onAnclar={() => alternarPref(padre, 'anclado')}
+                onArchivar={() => alternarPref(padre, 'archivado')}
               />
               {/* Subgrupos */}
               {hijosDe(padre.id).map(hijo => (
@@ -158,6 +194,8 @@ export default function ChatTab({ evento }) {
                   onClick={() => setActiveId(hijo.id)}
                   onRenombrar={puedeCrear ? (n) => onRenombrar(hijo, n) : null}
                   onBorrar={puedeCrear ? () => onBorrarCanal(hijo) : null}
+                  onAnclar={() => alternarPref(hijo, 'anclado')}
+                  onArchivar={() => alternarPref(hijo, 'archivado')}
                   indent
                 />
               ))}
@@ -207,7 +245,9 @@ export default function ChatTab({ evento }) {
           <div className="space-y-0.5">
             {dms.length === 0 && <p className="px-2 text-[11px] text-text-3">Escribe en privado a un miembro con el +.</p>}
             {dms.map(dm => (
-              <ChannelButton key={dm.id} channel={dm} active={activeId === dm.id} onClick={() => setActiveId(dm.id)} />
+              <ChannelButton key={dm.id} channel={dm} active={activeId === dm.id} onClick={() => setActiveId(dm.id)}
+                onAnclar={() => alternarPref(dm, 'anclado')}
+                onArchivar={() => alternarPref(dm, 'archivado')} />
             ))}
           </div>
         </div>
@@ -560,7 +600,7 @@ function MicIcon({ className }) {
 
 /* ─────────── Crear canal inline form ─────────── */
 
-function ChannelButton({ channel, active, onClick, onAddSub, onRenombrar, onBorrar, indent }) {
+function ChannelButton({ channel, active, onClick, onAddSub, onRenombrar, onBorrar, onAnclar, onArchivar, indent }) {
   const esDM = channel.tipo === 'dm';
   /* Ni el general ni un directo se tocan: el general es el sitio por defecto
      del equipo, y un directo no es un canal que alguien haya montado. */
@@ -606,6 +646,10 @@ function ChannelButton({ channel, active, onClick, onAddSub, onRenombrar, onBorr
             : restringido
               ? <LockIcon className="w-3.5 h-3.5 text-warning flex-shrink-0" />
               : <HashIcon className="w-3.5 h-3.5 text-text-3 flex-shrink-0" />}
+        {/* La chincheta va DENTRO del botón y no entre los de la derecha:
+            los de la derecha aparecen al pasar el ratón, y un canal anclado
+            tiene que verse anclado sin pasar por encima. */}
+        {channel.anclado && <span className="text-[10px] text-accent flex-shrink-0" title="Anclado">📌</span>}
         <span className="text-sm font-medium truncate">{nombre}</span>
         {!esDM && channel.tipo !== 'general' && !restringido && (
           <span className="ml-auto text-[10px] uppercase tracking-widest text-text-3">{TIPO_LABEL[channel.tipo] || channel.tipo}</span>
@@ -622,6 +666,33 @@ function ChannelButton({ channel, active, onClick, onAddSub, onRenombrar, onBorr
           className="w-6 h-6 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-1"
         >
           <PlusIcon className="w-3 h-3" />
+        </button>
+      )}
+      {onAnclar && (
+        <button
+          onClick={onAnclar}
+          aria-label={channel.anclado ? `Desanclar ${nombre}` : `Anclar ${nombre}`}
+          title={channel.anclado ? 'Desanclar' : 'Anclar arriba'}
+          className={`w-6 h-6 rounded-lg flex items-center justify-center transition-opacity ${
+            channel.anclado
+              ? 'text-accent opacity-100'
+              : 'text-text-3 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-text-1 hover:bg-surface-2'}`}
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z" />
+          </svg>
+        </button>
+      )}
+      {onArchivar && (
+        <button
+          onClick={onArchivar}
+          aria-label={channel.archivado ? `Sacar ${nombre} del archivo` : `Archivar ${nombre}`}
+          title={channel.archivado ? 'Sacar del archivo' : 'Archivar (sólo para ti)'}
+          className="w-6 h-6 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 7v12h16V7M4 7l1-3h14l1 3M10 12h4" />
+          </svg>
         </button>
       )}
       {editable && onRenombrar && (

@@ -8,4 +8,12 @@ export const chatApi = {
   messages       : (eventoId, channelId, params={})  => client.get(`/eventos/${eventoId}/chat/channels/${channelId}/messages`, { params }).then(r => r.data),
   enviar         : (eventoId, channelId, body)       => client.post(`/eventos/${eventoId}/chat/channels/${channelId}/messages`, body).then(r => r.data),
   abrirDM        : (eventoId, user_id)               => client.post(`/eventos/${eventoId}/chat/dm`, { user_id }).then(r => r.data),
+  /* Anclar, archivar y marcar leído. Son de QUIEN LLAMA, no del canal: si
+     fueran del canal, anclar una conversación se la anclaría a todo el equipo.
+
+     La ruta y su tabla (`chat_channel_prefs`, migración 0058) llevaban tiempo
+     montadas, y la lista de canales ya devolvía `anclado` y `archivado` por
+     persona en cada fila. Aquí no había ni función que las pidiera, así que el
+     servidor calculaba dos banderas que nadie miraba. */
+  prefs          : (eventoId, channelId, body)       => client.patch(`/eventos/${eventoId}/chat/channels/${channelId}/prefs`, body).then(r => r.data),
 };
