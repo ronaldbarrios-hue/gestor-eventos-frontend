@@ -102,7 +102,11 @@ const SECCIONES = [
     { id: 'landing',     label: 'Landing',            perm: 'editar_pagina_publica' },
     { id: 'publicacion', label: 'Publicación',        perm: 'editar_pagina_publica' },
     { id: 'seo',         label: 'SEO',                perm: 'editar_pagina_publica' },
-    { id: 'checkout',    label: 'Proceso de compra',  perm: 'gestionar_tickets' },
+    /* «Proceso de compra» se fue a «Entradas y dinero». Estaba aquí porque se
+       edita como se edita la landing —con un formulario y una previa—, pero lo
+       que decide no es cómo se ve: es qué datos se piden para cobrar y qué pasa
+       al pagar. Su propio permiso lo decía: pedía `gestionar_tickets`, que es
+       de Entradas, viviendo en la sección de la página. */
   ]},
   /* Actividades del evento: QUÉ pasa.
      `agenda_sessions` ya tiene un `tipo` competitivo y un `torneo_id`, así que
@@ -143,14 +147,19 @@ const SECCIONES = [
 
      Esconder una pestaña no es control de acceso, y enseñarla cuando el
      servidor va a decir que no es peor que esconderla. */
+  /* Y el orden de aquí dentro es el del dinero, de principio a fin: qué vendes,
+     cómo se compra, qué descuentos hay, con qué se cobra, cuánto entró y qué se
+     factura. Antes «Proceso de compra» estaba en otra sección y «Dinero» salía
+     antes que «Pagos» — el resultado se lee, no se explica. */
   { id: 'comercial', label: 'Entradas y dinero', icon: WalletIcon, tabs: [
-    { id: 'boletas',      label: 'Boletas',      perm: 'gestionar_tickets' },
-    { id: 'promociones',  label: 'Promociones',  perm: 'gestionar_descuentos' },
+    { id: 'boletas',      label: 'Boletas',           perm: 'gestionar_tickets' },
+    { id: 'checkout',     label: 'Proceso de compra', perm: 'gestionar_tickets' },
+    { id: 'promociones',  label: 'Promociones',       perm: 'gestionar_descuentos' },
+    { id: 'pagos',        label: 'Pagos',             perm: 'editar_evento' },
     /* `ver_pagos` prometía un «dashboard financiero» que no existía; ésta es esa
        pantalla, y por eso la pestaña pide justo ese permiso. */
-    { id: 'dinero',       label: 'Dinero',       perm: 'ver_pagos' },
-    { id: 'pagos',        label: 'Pagos',        perm: 'editar_evento' },
-    { id: 'facturacion',  label: 'Facturación',  perm: 'ver_clientes' },
+    { id: 'dinero',       label: 'Dinero',            perm: 'ver_pagos' },
+    { id: 'facturacion',  label: 'Facturación',       perm: 'ver_clientes' },
   ]},
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
     { id: 'clientes',     label: 'Clientes',  perm: 'ver_clientes' },
@@ -248,7 +257,10 @@ export default function EventWorkspace() {
     'experience/landing'     : ['pagina', 'landing'],
     'experience/publicacion' : ['pagina', 'publicacion'],
     'experience/seo'         : ['pagina', 'seo'],
-    'experience/checkout'    : ['pagina', 'checkout'],
+    /* Y la de antes de HOY, que llevaba a «Tu página»: un enlace guardado o
+       pegado en un correo tiene que seguir abriendo la pantalla, no un 404. */
+    'experience/checkout'    : ['comercial', 'checkout'],
+    'pagina/checkout'        : ['comercial', 'checkout'],
     'experience/formularios' : ['pagina', 'formularios'],
     'experience/whitelabel'  : ['pagina', 'whitelabel'],
     'experience/emails'      : ['mensajes', 'emails'],
@@ -517,7 +529,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'pagina/landing'       : return <PaginaPublicaTab evento={evento} />;
     case 'pagina/publicacion'   : return <PublicacionSection evento={evento} reload={reload} />;
     case 'pagina/formularios'   : return <FormularioTab evento={evento} />;
-    case 'pagina/checkout'      : return <CheckoutSection evento={evento} />;
+    case 'comercial/checkout'   : return <CheckoutSection evento={evento} />;
     case 'pagina/seo'           : return <SeoSection evento={evento} />;
     case 'mensajes/emails'        : return <EmailsSection evento={evento} reload={reload} />;
     case 'pagina/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;

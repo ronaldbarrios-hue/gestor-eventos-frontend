@@ -43,8 +43,15 @@ export default function EstadoPagina({ evento, dirty }) {
      sin guardar del editor—. Publicar no toca los bloques, así que no hay nada
      que volver a pedir: lo único que cambia es esto. */
   const [reciénPublicada, setReciénPublicada] = useState(false);
+  /* Cancelar es lo único de aquí que no se deshace con otro clic, así que pide
+     escribir CANCELAR. No es ceremonia: un evento cancelado deja de venderse y
+     a quien ya compró se le queda una boleta de algo que no va a pasar. */
+  const [cancelando, setCancelando] = useState(false);
+  const [confirmaCancelar, setConfirmaCancelar] = useState('');
+  const [reciénCancelada, setReciénCancelada] = useState(false);
 
-  const publicada = evento.estado === 'publicado' || reciénPublicada;
+  const cancelado = evento.estado === 'cancelado' || reciénCancelada;
+  const publicada = (evento.estado === 'publicado' || reciénPublicada) && !cancelado;
   const fuera = (evento.modo_publico || 'gestek') !== 'gestek' && Boolean(evento.url_externa);
   const enlace = enlaceEvento(evento);
   const faltan = avisosDelEvento(evento).filter(a => a.id !== 'publicar');
@@ -60,15 +67,33 @@ export default function EstadoPagina({ evento, dirty }) {
     } finally { setPublicando(false); }
   };
 
+  /* El endpoint existía desde siempre y `eventosApi.cancelar` también: lo que
+     no había era un botón. Se podía publicar y no se podía dar marcha atrás
+     — y la palabra «Cancelado» ya estaba en las etiquetas de la plataforma,
+     así que el estado se pintaba en sitios a los que nadie podía llegar. */
+  const cancelar = async () => {
+    setCancelando(true);
+    try {
+      await eventosApi.cancelar(evento.id);
+      success('Evento cancelado. La página lo dice y ya no se vende.');
+      setReciénCancelada(true);
+      setConfirmaCancelar('');
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    } finally { setCancelando(false); }
+  };
+
   return (
     <>
       <button onClick={() => setAbierto(true)}
         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12.5px] font-medium border transition-colors
-          ${publicada
-            ? 'border-success/40 bg-success/10 text-text-1'
-            : 'border-warning/40 bg-warning/10 text-text-1'}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${publicada ? 'bg-success' : 'bg-warning'}`} aria-hidden="true" />
-        {publicada ? 'Publicada' : 'Borrador'}
+          ${cancelado
+            ? 'border-danger/40 bg-danger/10 text-text-1'
+            : publicada
+              ? 'border-success/40 bg-success/10 text-text-1'
+              : 'border-warning/40 bg-warning/10 text-text-1'}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${cancelado ? 'bg-danger' : publicada ? 'bg-success' : 'bg-warning'}`} aria-hidden="true" />
+        {cancelado ? 'Cancelado' : publicada ? 'Publicada' : 'Borrador'}
       </button>
 
       {abierto && (
@@ -78,12 +103,15 @@ export default function EstadoPagina({ evento, dirty }) {
                onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-border">
               <h3 className="text-base font-semibold text-text-1">
-                {publicada ? 'Esta página está publicada' : 'Todavía no la ve nadie'}
+                {cancelado ? 'Este evento está cancelado'
+                  : publicada ? 'Esta página está publicada' : 'Todavía no la ve nadie'}
               </h3>
               <p className="text-xs text-text-3 mt-1 leading-relaxed">
-                {publicada
-                  ? 'Cualquiera con el enlace puede abrirla.'
-                  : 'Puedes seguir montándola con calma: en borrador sólo la ves tú.'}
+                {cancelado
+                  ? 'La página sigue abierta y lo dice de frente: quien compró entra y se entera. No se vende nada más.'
+                  : publicada
+                    ? 'Cualquiera con el enlace puede abrirla.'
+                    : 'Puedes seguir montándola con calma: en borrador sólo la ves tú.'}
               </p>
             </div>
 
@@ -136,19 +164,46 @@ export default function EstadoPagina({ evento, dirty }) {
                 </div>
               )}
 
-              {faltan.length === 0 && !publicada && (
+              {faltan.length === 0 && !publicada && !cancelado && (
                 <p className="text-sm text-text-2">Está completa. Cuando quieras.</p>
+              )}
+
+              {/* Cancelar sólo tiene sentido si hay algo que cancelar: en un
+                  borrador que nadie ha visto no hay nada que deshacer, se
+                  edita y ya. */}
+              {publicada && (
+                <div className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Cancelar el evento</p>
+                  <p className="text-xs text-text-2 mt-1 leading-relaxed">
+                    Deja de venderse y la página lo anuncia. <b>No devuelve el dinero</b> de lo ya
+                    vendido: los reembolsos se hacen uno a uno desde Asistentes, y avisar a la gente
+                    también es cosa tuya — Mensajes → Emails.
+                  </p>
+                  <div className="flex gap-2 mt-3">
+                    <input
+                      value={confirmaCancelar}
+                      onChange={e => setConfirmaCancelar(e.target.value.toUpperCase())}
+                      placeholder="Escribe CANCELAR"
+                      aria-label="Escribe CANCELAR para confirmar"
+                      className="input flex-1 text-xs font-mono" />
+                    <button onClick={cancelar}
+                      disabled={confirmaCancelar !== 'CANCELAR' || cancelando}
+                      className="btn-danger btn-sm shrink-0">
+                      {cancelando ? 'Cancelando…' : 'Cancelar'}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
             <div className="px-5 py-4 border-t border-border flex justify-end gap-2">
               <button onClick={() => setAbierto(false)} className="btn-ghost btn-sm">Cerrar</button>
-              {!publicada && (
+              {!publicada && !cancelado && (
                 <button onClick={publicar} disabled={publicando} className="btn-gradient btn-sm">
                   {publicando ? 'Publicando…' : 'Publicar el evento'}
                 </button>
               )}
-              {publicada && (
+              {(publicada || cancelado) && (
                 <a href={enlace} target="_blank" rel="noreferrer noopener" className="btn-secondary btn-sm">
                   Abrir la página
                 </a>

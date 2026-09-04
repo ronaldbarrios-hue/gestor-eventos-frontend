@@ -51,7 +51,7 @@ export const PERMISOS = [
   { id: 'ver_clientes',          grupo: 'Clientes',  label: 'Ver lista de clientes',   desc: 'Acceso a la lista de inscritos.', aplicado: true },
   { id: 'gestionar_clientes',    grupo: 'Clientes',  label: 'Editar clientes',         desc: 'Cambiar el estado de una boleta, invalidarla, importar y exportar.', aplicado: true },
   { id: 'checkin',               grupo: 'Clientes',  label: 'Hacer check-in',          desc: 'Escanear QR y marcar asistencia.', aplicado: true },
-  { id: 'vip_zone',              grupo: 'Clientes',  label: 'Acceso zona VIP',         desc: 'Sin efecto todavía: no hay ninguna zona marcada como VIP en el modelo. Está pendiente de decidir qué significa.', aplicado: false },
+  { id: 'vip_zone',              grupo: 'Clientes',  label: 'Atender cualquier puerta', desc: 'Llave maestra: marca entradas por puertas restringidas sin estar en la lista de staff de cada una. Sin esto, sólo atiende las puertas donde esté apuntado.', aplicado: true },
 
   /* Chat */
   { id: 'crear_canales',         grupo: 'Chat',      label: 'Crear canales',           desc: 'Crear chats principales y subgrupos.', aplicado: true },

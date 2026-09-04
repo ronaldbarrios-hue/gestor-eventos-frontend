@@ -3,6 +3,7 @@ import Icono from '../../components/ui/Iconos.jsx';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import { pagosApi }   from '../../api/pagos.js';
+import { promocionesApi } from '../../api/promociones.js';
 import { waitlistApi } from '../../api/waitlist.js';
 import { BLOCKS, BLOCK_TYPES_SISTEMA } from '../events/editor/blocks.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/public/Branding.jsx';
@@ -289,6 +290,23 @@ export default function EventoPublicoPage() {
   return (
     <BrandingProvider organizador={organizador}>
     <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-6xl mx-auto">
+
+      {/* Evento cancelado.
+          Va lo primero y no se puede cerrar: quien llega aquí con una boleta
+          comprada viene a preguntar exactamente esto, y hasta hoy la respuesta
+          era un 404 de «este evento no existe» — con el dinero cobrado y el
+          correo en la bandeja. Las boletas siguen abriéndose desde su enlace;
+          lo que ya no hay es venta, y el servidor rechaza las cuatro rutas de
+          compra por su cuenta, así que esto es el aviso, no el candado. */}
+      {evento.cancelado && (
+        <div role="alert" className="mb-6 rounded-2xl border border-danger/40 bg-danger/10 px-5 py-4">
+          <p className="text-xs uppercase tracking-widest text-danger font-semibold">Evento cancelado</p>
+          <p className="text-sm text-text-1 mt-1 leading-relaxed">
+            {evento.titulo} no se va a realizar. Si ya tenías una boleta, sigue funcionando el enlace
+            que te llegó por correo — para lo del reembolso, escribe a quien organiza.
+          </p>
+        </div>
+      )}
 
       {/* Barra secundaria: volver + Rueda de Negocios/Torneo/Agenda (si aplican)
           + compartir (oculta "Explorar eventos" en modo standalone).
@@ -670,7 +688,22 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   const [acepta, setAcepta] = useState(false);
   const [confirmaEdad, setConfirmaEdad] = useState(false);
   const hasEarly = tipo.early_bird_precio != null && tipo.early_bird_hasta && new Date(tipo.early_bird_hasta) > new Date();
-  const precio = hasEarly ? Number(tipo.early_bird_precio) : Number(tipo.precio);
+  const precioLista = hasEarly ? Number(tipo.early_bird_precio) : Number(tipo.precio);
+
+  /* Código de descuento.
+     El panel deja crear promociones desde hace tiempo y aquí no había dónde
+     escribirlas: el organizador anunciaba un código y la página cobraba el
+     precio entero. Lo que se manda al servidor es el CÓDIGO; el importe lo
+     calcula él y lo vuelve a calcular al cobrar. Esto de aquí sólo pinta. */
+  const [promoCodigo, setPromoCodigo] = useState('');
+  const [promo, setPromo] = useState(null);
+  const [promoErr, setPromoErr] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
+
+  const precio = promo ? promo.precio : precioLista;
+  /* Gratis de salida o gratis por un código del 100 %: en los dos casos no hay
+     nada que cobrar y la boleta se reserva sin pasar por la pasarela —que
+     rechaza cobros de cero—. */
   const isFree = precio === 0;
   const tienePagoSimple = Boolean(evento?.pago_llave || evento?.pago_qr_url);
   const pagoWompi = Boolean(evento?.pago_wompi);
@@ -784,6 +817,49 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
     irAPaso(Math.min(paso + 1, pasos.length - 1));
   };
 
+  /* Comprobar el código antes de pagar. Contesta el servidor —con la MISMA
+     función con la que va a cobrar un minuto después—, así que lo que se
+     enseña aquí y lo que se cobra no pueden discrepar. Si el código no vale,
+     dice por qué: «no existe», «ya venció» y «es para otra boleta» son
+     problemas distintos y con arreglos distintos. */
+  const aplicarPromo = async () => {
+    const codigo = promoCodigo.trim().toUpperCase();
+    if (!codigo) return;
+    setPromoBusy(true); setPromoErr('');
+    try {
+      const r = await promocionesApi.validar(slug, { codigo, ticket_id: tipo.id, cantidad: 1 });
+      if (!r.valida) { setPromo(null); setPromoErr(r.motivo || 'Ese código no vale para esta boleta.'); return; }
+
+      /* El precio tiene que venir del servidor, y tiene que ser un número.
+       *
+       * Esto no es paranoia: es la ventana entre desplegar esta pantalla y
+       * desplegar la API. La versión anterior de `/promocion/validar` contesta
+       * `{ valida: true, tipo, valor, min_cantidad }` y **no manda `precio`**.
+       * Sin esta guarda, `promo.precio` sería `undefined`, y la cabecera hace
+       * `precio.toLocaleString(...)` — o sea que el modal de compra reventaría
+       * entero en vez de cobrar mal, que es lo único peor que cobrar mal.
+       *
+       * Calcularlo aquí con `tipo` y `valor` sería peor todavía: enseñaría un
+       * descuento que la API vieja no va a aplicar al cobrar. Mejor decir que
+       * ahora no se puede. */
+      const precioServidor = Number(r.precio);
+      if (!Number.isFinite(precioServidor)) {
+        setPromo(null);
+        setPromoErr('Los códigos no se pueden aplicar ahora mismo. Vuelve a intentarlo en un rato.');
+        return;
+      }
+      setPromo({
+        ...r,
+        codigo,
+        precio: precioServidor,
+        precio_lista: Number.isFinite(Number(r.precio_lista)) ? Number(r.precio_lista) : precioLista,
+        ahorro: Number(r.ahorro) || Math.max(0, precioLista - precioServidor),
+      });
+    } catch (e) {
+      setPromoErr(e.response?.data?.error || 'No se pudo comprobar el código.');
+    } finally { setPromoBusy(false); }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     /* Con módulos, pulsar Enter dentro de un campo también llega aquí. Si
@@ -840,6 +916,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
           captcha_token: captcha, respuestas,
           ...(acepta ? { legal_aceptado: true } : {}),
           ...(cupoToken ? { waitlist_token: cupoToken } : {}),
+          ...(promo ? { promocion_codigo: promo.codigo } : {}),
         });
         /* El PDF de la boleta se arma en el navegador con lo que se acaba de
            escribir: la respuesta de `reservar` sólo trae id, código y estado.
@@ -853,7 +930,11 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
       } else {
         const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas,
           ...(acepta ? { legal_aceptado: true } : {}),
-          ...(cupoToken ? { waitlist_token: cupoToken } : {}) };
+          ...(cupoToken ? { waitlist_token: cupoToken } : {}),
+          /* El código, no el precio. Si aquí viajara el importe, cambiarlo en
+             las herramientas del navegador sería comprar a lo que uno quisiera:
+             a la pasarela le decimos nosotros cuánto cobrar. */
+          ...(promo ? { promocion_codigo: promo.codigo } : {}) };
         /* `irAPagar` navega igual que siempre en la página pública. Dentro del
            botón incrustado en la web de otro, en cambio, le pide al anfitrión
            que abra la pasarela en una pestaña de verdad: un checkout dentro de
@@ -894,12 +975,53 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
             {isFree ? 'Reserva tu cupo' : 'Compra tu boleta'}
           </p>
           <h2 className="text-2xl sm:text-3xl font-bold font-display text-text-1 tracking-tight">{tipo.nombre}</h2>
-          <div className="flex items-baseline gap-2 mt-2">
+          <div className="flex items-baseline gap-2 mt-2 flex-wrap">
+            {/* Con descuento se enseñan los dos: el de antes tachado y el de
+                ahora. Enseñar sólo el nuevo esconde justo lo que la persona
+                quiere ver, que es cuánto se ahorró. */}
+            {promo && promo.precio_lista > promo.precio && (
+              <p className="text-lg text-text-3 line-through tabular-nums">
+                ${promo.precio_lista.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+              </p>
+            )}
             <p className="text-3xl font-bold font-display text-text-1 tabular-nums">
               {isFree ? 'Gratis' : `$${precio.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`}
             </p>
             {!isFree && <span className="text-xs text-text-3">{tipo.currency || currency}</span>}
+            {promo && (
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                {promo.codigo} · ahorras ${Number(promo.ahorro || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+              </span>
+            )}
           </div>
+          {/* Sólo si hay algo que descontar: en una boleta gratis un campo de
+              código es una pregunta sin respuesta posible. */}
+          {precioLista > 0 && (
+            <div className="mt-3">
+              {promo ? (
+                <button type="button"
+                  onClick={() => { setPromo(null); setPromoCodigo(''); setPromoErr(''); }}
+                  className="text-xs text-text-3 underline hover:text-text-1">
+                  Quitar el código {promo.codigo}
+                </button>
+              ) : (
+                <div className="flex gap-2 items-start">
+                  <input
+                    value={promoCodigo}
+                    onChange={(e) => { setPromoCodigo(e.target.value.toUpperCase()); setPromoErr(''); }}
+                    placeholder="¿Tienés un código?"
+                    aria-label="Código de descuento"
+                    className="input flex-1 max-w-[14rem] font-mono uppercase" />
+                  <button type="button" disabled={!promoCodigo.trim() || promoBusy}
+                    onClick={aplicarPromo}
+                    className="btn-ghost text-sm shrink-0">
+                    {promoBusy ? 'Comprobando…' : 'Aplicar'}
+                  </button>
+                </div>
+              )}
+              {promoErr && <p className="text-xs text-danger mt-1">{promoErr}</p>}
+            </div>
+          )}
         </div>
         {/* Dónde estoy y cuánto falta. Con veintidós preguntas repartidas, un
             formulario sin esto se siente infinito: no se sabe si quedan dos

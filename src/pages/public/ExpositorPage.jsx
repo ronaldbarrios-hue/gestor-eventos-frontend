@@ -84,7 +84,12 @@ export default function ExpositorPage() {
       </div>
 
       <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 mb-6 w-fit">
-        {[['ficha', 'Mi ficha'], ['cronograma', 'Cronograma'], ['puntos', 'Dar puntos'], ['premios', 'Mis premios']].map(([k, l]) => (
+        {/* «Mis contactos» faltaba, y era la mitad que importa: el stand
+            registraba gente todo el día y no tenía dónde verla. El servidor
+            devolvía los últimos 100 desde siempre —`expositorApi.historial`—
+            y no lo llamaba nadie. Un stand se monta para llevarse los
+            contactos, no para repartir puntos. */}
+        {[['ficha', 'Mi ficha'], ['cronograma', 'Cronograma'], ['puntos', 'Dar puntos'], ['contactos', 'Mis contactos'], ['premios', 'Mis premios']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
             {l}
@@ -94,6 +99,7 @@ export default function ExpositorPage() {
 
       {tab === 'cronograma' && <CronogramaTab codigo={codigo} />}
       {tab === 'puntos'  && <PuntosTab codigo={codigo} nombre={f.nombre} />}
+      {tab === 'contactos' && <ContactosTab codigo={codigo} />}
       {tab === 'premios' && <PremiosTab codigo={codigo} />}
 
       {tab === 'ficha' && (<>
