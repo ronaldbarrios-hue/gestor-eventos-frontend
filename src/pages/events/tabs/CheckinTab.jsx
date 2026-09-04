@@ -181,7 +181,8 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     const pend = leerCola(evento.id);
     if (!pend.length) return;
     setSincronizando(true);
-    let ok = 0, fallidas = 0;
+    let ok = 0, fallidas = 0, enEspera = 0;
+    const motivos = [];
     for (const item of pend) {
       try {
         const { offline_id, ...payload } = item;
@@ -189,14 +190,35 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
         quitar(evento.id, offline_id);
         ok++;
       } catch (e) {
-        if (e.response) { quitar(evento.id, item.offline_id); fallidas++; }  // el server la rechazó (ya usada/ inválida): se descarta
-        /* sin respuesta = sigue sin red: se deja en la cola para el próximo intento */
+        if (!e.response) continue;   // sigue sin red: se queda para el próximo intento
+
+        /* No todo rechazo es definitivo, y antes se trataban todos igual: se
+           tiraba el escaneo y el resumen decía «N fallidas» sin más.
+           En un evento eso puede ser doscientas entradas perdidas sin saber ni
+           de quién eran.
+
+           Definitivo (400, 404, 409): la boleta ya se usó, no existe o es de
+           otro evento. Reintentar no cambia nada, así que se descarta.
+
+           Arreglable (401, 403, 5xx): la sesión caducó, quien escanea no está
+           asignado a esta puerta —lo comprueba `puedeAtenderPuerta` desde hoy—
+           o el servidor se cayó un momento. Las tres se arreglan y luego la
+           cola se vacía sola. Tirarlas sería perder entradas por un permiso. */
+        const st = e.response.status;
+        if (st === 401 || st === 403 || st >= 500) {
+          enEspera++;
+          const m = e.response.data?.error;
+          if (m && !motivos.includes(m)) motivos.push(m);
+          continue;
+        }
+        quitar(evento.id, item.offline_id);
+        fallidas++;
       }
     }
     setCola(cantidadCola(evento.id));
     setSincronizando(false);
-    if (ok || fallidas) {
-      setLast({ ok: true, syncResumen: { ok, fallidas } });
+    if (ok || fallidas || enEspera) {
+      setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, motivos } });
       bumpOptimista();
     }
   }, [evento.id, sincronizando, bumpOptimista]);
@@ -576,14 +598,44 @@ function ResultadoCard({ result, compact }) {
       </div>
     </div>
   );
-  if (result.syncResumen) return (
-    <div className={`rounded-3xl border-2 border-success/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-success/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-success text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">✓</div>
-        <div><h3 className="text-xl font-bold font-display text-text-1">Sincronizado</h3><p className="text-sm text-text-2">{result.syncResumen.ok} registrados{result.syncResumen.fallidas ? ` · ${result.syncResumen.fallidas} rechazados (ya usados o inválidos)` : ''}.</p></div>
+  if (result.syncResumen) {
+    const r = result.syncResumen;
+    /* En espera NO es éxito: son entradas que siguen sin registrar y que
+       dependen de que alguien arregle algo. Pintarlo en verde con un ✓ sería
+       decirle a quien está en la puerta que ya puede olvidarse. */
+    const pendiente = r.enEspera > 0;
+    return (
+      <div className={`rounded-3xl border-2 ${pendiente ? 'border-warning/50' : 'border-success/40'} ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : (pendiente ? 'bg-warning/10 p-6' : 'bg-success/10 p-6')} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+        <div className="flex items-start gap-4">
+          <div className={`w-12 h-12 rounded-2xl ${pendiente ? 'bg-warning' : 'bg-success'} text-white flex items-center justify-center text-2xl font-bold flex-shrink-0`}>
+            {pendiente ? '!' : '✓'}
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-xl font-bold font-display text-text-1">
+              {pendiente ? 'Falta parte de la cola' : 'Sincronizado'}
+            </h3>
+            <p className="text-sm text-text-2">
+              {r.ok} registrados
+              {r.fallidas ? ` · ${r.fallidas} rechazados (ya usados o inválidos)` : ''}
+              {r.enEspera ? ` · ${r.enEspera} sin registrar todavía` : ''}.
+            </p>
+            {pendiente && (
+              <>
+                {/* El motivo, que es lo único accionable: se arregla y la cola
+                    se vacía sola en el siguiente intento. */}
+                {r.motivos?.length > 0 && (
+                  <p className="text-sm text-text-1 mt-1 leading-relaxed">{r.motivos.join(' · ')}</p>
+                )}
+                <p className="text-xs text-text-3 mt-1 leading-relaxed">
+                  Esos escaneos siguen guardados. No se pierden: en cuanto se arregle, se registran solos.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
   const ok = result.ok && !result.ya_usada;
   const yaUsada = result.ya_usada;
   const cls = ok
