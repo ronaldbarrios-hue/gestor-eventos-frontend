@@ -90,3 +90,32 @@ test('ninguna opción borra lo escrito a mano por la espalda', () => {
       `un control llama a \`${crudo}\` directamente y se salta la guarda`);
   }
 });
+
+test('el modo Código alcanza también la marca y el navbar', () => {
+  /* «Personalización total desde código» quiere decir eso: todo lo que se
+     puede tocar mirándolo se tiene que poder tocar escribiéndolo. Si la marca
+     y el navbar sólo se editan por la interfaz, el modo código es media
+     herramienta y hay que salir a buscar lo que falta. */
+  const src = sinComentarios(leer('src/pages/events/editor/VistaDesarrollador.jsx'));
+  assert.match(src, /ALCANCE_MARCA/, 'el modo código no llega a la marca');
+  assert.match(src, /ALCANCE_NAVBAR/, 'el modo código no llega al navbar');
+
+  /* Y se tienen que APLICAR, no sólo mostrar. */
+  assert.match(src, /\(esMarca \? onAplicarMarca : onAplicarNavbar\)/,
+    'se pueden mirar pero no aplicar: entonces es un visor, no un editor');
+
+  /* Con prefijo, para que no choquen con el id de un bloque. */
+  assert.match(src, /const ALCANCE_MARCA\s*=\s*'__marca__'/,
+    'el alcance de marca podría chocar con el id de un bloque');
+});
+
+test('el padre le pasa de verdad la marca y el navbar', () => {
+  /* La otra mitad del cable. Sin esto el selector ofrece dos opciones que
+     abren un objeto vacío — que es peor que no ofrecerlas. */
+  const src = sinComentarios(leer(BUILDER));
+  const i = src.indexOf('<VistaDesarrollador');
+  const bloque = src.slice(i, src.indexOf('/>', i));
+  for (const prop of ['branding=', 'navbar=', 'onAplicarMarca=', 'onAplicarNavbar=']) {
+    assert.ok(bloque.includes(prop), `no se le pasa \`${prop}\` al modo código`);
+  }
+});

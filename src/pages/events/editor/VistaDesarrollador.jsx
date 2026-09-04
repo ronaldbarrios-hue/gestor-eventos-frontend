@@ -32,18 +32,35 @@ import { BLOCKS, BLOCK_TYPES_SISTEMA, BLOCK_TYPES_CUSTOM } from './blocks.jsx';
 
 function uid(p = 'b') { return `${p}_${Math.random().toString(36).slice(2, 10)}`; }
 
-export default function VistaDesarrollador({ pages, pageId, onAplicar, onExportar }) {
+/* Los dos alcances que no son bloques. Van con prefijo `__` para que no
+   puedan chocar nunca con el id de un bloque, que se genera con otra forma. */
+const ALCANCE_MARCA  = '__marca__';
+const ALCANCE_NAVBAR = '__navbar__';
+
+export default function VistaDesarrollador({
+  pages, pageId, onAplicar, onExportar,
+  branding, navbar, onAplicarMarca, onAplicarNavbar,
+}) {
   const pagina = pages.find(p => p.id === pageId) || pages[0] || { blocks: [] };
   const bloques = pagina.blocks || [];
 
-  /* '' = la página entera; si no, el id del bloque. */
+  /* '' = la página entera · `__marca__` y `__navbar__` = los ajustes del sitio ·
+     cualquier otra cosa = el id de un bloque.
+
+     La marca y el navbar están aquí porque «personalización total desde
+     código» quiere decir eso: todo lo que se puede tocar mirándolo, se tiene
+     que poder tocar escribiéndolo. Si no, el modo código es media herramienta
+     y hay que salir a la interfaz para lo que falta. */
   const [alcance, setAlcance] = useState('');
   const bloque = bloques.find(b => b.id === alcance) || null;
+  const esMarca  = alcance === ALCANCE_MARCA;
+  const esNavbar = alcance === ALCANCE_NAVBAR;
 
-  const datos = useMemo(
-    () => (bloque ? bloque : { ...pagina, blocks: bloques }),
-    [bloque, pagina, bloques],
-  );
+  const datos = useMemo(() => {
+    if (esMarca)  return branding || {};
+    if (esNavbar) return navbar || {};
+    return bloque ? bloque : { ...pagina, blocks: bloques };
+  }, [esMarca, esNavbar, branding, navbar, bloque, pagina, bloques]);
 
   const [texto, setTexto] = useState(() => JSON.stringify(datos, null, 2));
   const [tocado, setTocado] = useState(false);
@@ -56,8 +73,10 @@ export default function VistaDesarrollador({ pages, pageId, onAplicar, onExporta
   const cambiarAlcance = (v) => {
     if (tocado && !window.confirm('Tienes cambios sin aplicar en el cuadro. ¿Los descartas?')) return;
     setAlcance(v);
-    const b = bloques.find(x => x.id === v);
-    setTexto(JSON.stringify(b || { ...pagina, blocks: bloques }, null, 2));
+    const siguiente = v === ALCANCE_MARCA  ? (branding || {})
+      : v === ALCANCE_NAVBAR ? (navbar || {})
+      : (bloques.find(x => x.id === v) || { ...pagina, blocks: bloques });
+    setTexto(JSON.stringify(siguiente, null, 2));
     setTocado(false);
     setFallo('');
   };
@@ -66,6 +85,20 @@ export default function VistaDesarrollador({ pages, pageId, onAplicar, onExporta
     let leido;
     try { leido = JSON.parse(texto); }
     catch (e) { setFallo(`No es JSON válido: ${e.message}`); return; }
+
+    /* La marca y el navbar son objetos sueltos: se validan aquí lo justo
+       —que sean un objeto— y el resto lo comprueba el servidor al guardar,
+       igual que con los bloques. Inventar aquí una segunda validación sería
+       tener dos opiniones sobre el mismo contrato. */
+    if (esMarca || esNavbar) {
+      if (!leido || typeof leido !== 'object' || Array.isArray(leido)) {
+        setFallo(`${esMarca ? 'La marca' : 'El navbar'} tiene que ser un objeto.`); return;
+      }
+      (esMarca ? onAplicarMarca : onAplicarNavbar)?.(leido);
+      setFallo('');
+      setTocado(false);
+      return;
+    }
 
     if (bloque) {
       if (!leido || typeof leido !== 'object' || Array.isArray(leido)) {
@@ -97,7 +130,10 @@ export default function VistaDesarrollador({ pages, pageId, onAplicar, onExporta
   };
 
   const descargar = () => {
-    const nombre = bloque ? `${bloque.type}.json` : `${(pagina.nombre || 'pagina')}.json`;
+    const nombre = esMarca ? 'marca.json'
+      : esNavbar ? 'navbar.json'
+      : bloque ? `${bloque.type}.json`
+      : `${(pagina.nombre || 'pagina')}.json`;
     const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url; a.download = nombre.replace(/\s+/g, '-').toLowerCase();
@@ -122,9 +158,18 @@ export default function VistaDesarrollador({ pages, pageId, onAplicar, onExporta
           <select value={alcance} onChange={e => cambiarAlcance(e.target.value)}
             className="input !h-9 text-sm max-w-[240px]">
             <option value="">Toda la página · {bloques.length} bloque{bloques.length !== 1 ? 's' : ''}</option>
-            {bloques.map(b => (
-              <option key={b.id} value={b.id}>{BLOCKS[b.type]?.label || b.type}</option>
-            ))}
+            {/* Los ajustes del sitio, agrupados aparte: no son bloques de esta
+                página, son de todo el sitio. Mezclarlos en la misma lista sin
+                separar haría pensar que se borran al borrar la página. */}
+            <optgroup label="Ajustes del sitio">
+              <option value={ALCANCE_MARCA}>Marca · colores, tipografía, footer</option>
+              <option value={ALCANCE_NAVBAR}>Navbar · botones y enlaces</option>
+            </optgroup>
+            <optgroup label="Bloques de esta página">
+              {bloques.map(b => (
+                <option key={b.id} value={b.id}>{BLOCKS[b.type]?.label || b.type}</option>
+              ))}
+            </optgroup>
           </select>
           <button onClick={copiar} className="btn-secondary btn-sm">{copiado ? 'Copiado' : 'Copiar'}</button>
           <button onClick={descargar} className="btn-secondary btn-sm">Descargar</button>

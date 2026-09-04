@@ -466,6 +466,14 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
               ? { ...p, blocks: typeof updater === 'function' ? updater(p.blocks || []) : updater }
               : p)))}
           onExportar={(idBloque) => setEmbedId(idBloque)}
+          /* Marca y navbar: lo mismo que edita el cajon de ajustes, para que
+             el modo codigo no sea media herramienta. Los setters son los que
+             ya existen, asi que lo escrito aqui se guarda con el mismo boton
+             que todo lo demas. */
+          branding={branding}
+          navbar={navbar}
+          onAplicarMarca={setBranding}
+          onAplicarNavbar={setNavbar}
         />
       )}
 
