@@ -206,7 +206,8 @@ export function MisCitasView({ evento }) {
         const inicio = new Date(c.horario?.inicio);
         const fin = new Date(c.horario?.fin);
         return (
-          <div key={c.id} className={`flex items-center gap-3 px-5 py-3.5 ${i > 0 ? 'border-t border-border' : ''}`}>
+          <div key={c.id} className={i > 0 ? 'border-t border-border' : ''}>
+          <div className="flex items-center gap-3 px-5 py-3.5">
             <div className="w-11 h-11 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold flex-shrink-0">
               {c.horario?.expositor?.logo_url
                 ? <img src={c.horario.expositor.logo_url} alt="" className="w-full h-full object-cover" />
@@ -219,13 +220,69 @@ export function MisCitasView({ evento }) {
                 {c.horario?.expositor?.stand ? ` · Stand ${numeroDeStand(c.horario.expositor.stand)}` : ''}
               </p>
             </div>
+            {/* Una cita pedida y todavia sin aprobar tiene que verse distinta de
+                una confirmada: son dos situaciones y hasta ahora se pintaban
+                igual. */}
+            {c.estado === 'solicitada' && (
+              <span className="text-[10px] uppercase tracking-wide text-warning border border-warning/40 bg-warning/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                Pedida
+              </span>
+            )}
             <button onClick={() => cancelar(c.id)} disabled={busy === c.id}
               className="btn-ghost btn-sm text-danger/80 hover:text-danger disabled:opacity-50">
               {busy === c.id ? <Spinner size="sm" /> : 'Cancelar'}
             </button>
           </div>
+
+          {/* Las anotaciones de la cita.
+              Una rueda son quince reuniones de veinte minutos, y al dia
+              siguiente no hay forma de saber cual era cual. La libreta de
+              papel que todo el mundo saca es exactamente esto — con la
+              empresa, la hora y el stand al lado, que es lo que le da
+              sentido. */}
+          <NotasCita evento={evento} cita={c} />
+          </div>
         );
       })}
+    </div>
+  );
+}
+
+/* Lo que anotaste de una cita.
+ *
+ * Se guarda al salir del campo y no con un boton: quien escribe esto lo hace
+ * entre reunion y reunion, de pie y con prisa. Un boton de guardar es un paso
+ * mas y una nota perdida cada vez que alguien se olvida de pulsarlo.
+ *
+ * Y se guarda solo si cambio algo: sin esa comprobacion, cada vez que el foco
+ * pasa por encima se manda una peticion que no escribe nada. */
+function NotasCita({ evento, cita }) {
+  const [texto, setTexto] = useState(cita.notas || '');
+  const [guardado, setGuardado] = useState(null);
+  const { error: toastErr } = useToast();
+
+  const guardar = async () => {
+    if (texto === (cita.notas || '')) return;
+    try {
+      await networkingApi.guardarNotas(evento.id, cita.id, texto);
+      cita.notas = texto;
+      setGuardado(Date.now());
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  return (
+    <div className="px-5 pb-3.5 -mt-1">
+      <textarea
+        value={texto}
+        onChange={e => setTexto(e.target.value)}
+        onBlur={guardar}
+        rows={texto ? 3 : 1}
+        maxLength={4000}
+        placeholder="Anota lo que hablaron, lo que quedó pendiente, con quién seguir…"
+        className="input w-full text-sm resize-y" />
+      {guardado && <p className="text-[11px] text-success mt-1">Guardado.</p>}
     </div>
   );
 }
