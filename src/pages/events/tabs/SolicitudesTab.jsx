@@ -11,7 +11,7 @@ const ESTADOS = [
   { v: 'resuelta',    l: 'Resuelta',     c: 'border-success/40 text-success' },
   { v: 'descartada',  l: 'Descartada',   c: 'border-border-2 text-text-3' },
 ];
-const TIPO_LABEL = { sugerencia: 'Sugerencia', solicitud: 'Solicitud', mensaje: 'Mensaje', reporte: 'Reporte' };
+const TIPO_LABEL = { sugerencia: 'Sugerencia', solicitud: 'Solicitud', mensaje: 'Mensaje', reporte: 'Reporte', cambio: 'Cambio de ficha' };
 
 export default function SolicitudesTab({ evento }) {
   const [items, setItems]   = useState([]);
@@ -79,6 +79,36 @@ export default function SolicitudesTab({ evento }) {
                     </div>
                     {it.titulo && <p className="font-semibold text-text-1 mt-2">{it.titulo}</p>}
                     <p className="text-sm text-text-2 mt-1 whitespace-pre-wrap">{it.contenido}</p>
+
+                    {/* Una solicitud de cambio lleva el cambio DENTRO: qué
+                        campo, qué dice hoy y qué debería decir. Se pinta como
+                        lo que es —un antes y un después— para poder decidir sin
+                        leer prosa, y se aplica de un clic. Antes había que
+                        entender el texto, abrir Equipo, buscar a la persona y
+                        transcribirlo: dos pantallas y un sitio donde
+                        equivocarse. */}
+                    {it.tipo === 'cambio' && it.cambio?.campo && (
+                      <div className="mt-2 rounded-xl border border-border bg-surface-2/40 px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-wide text-text-3">
+                          {it.cambio.etiqueta || it.cambio.campo}
+                        </p>
+                        <p className="text-sm mt-0.5">
+                          <span className="text-text-3 line-through">{it.cambio.valor_actual || '(vacío)'}</span>
+                          <span className="text-text-3 mx-2">→</span>
+                          <span className="text-text-1 font-medium">{it.cambio.valor_propuesto}</span>
+                        </p>
+                        {it.cambio.aplicado_at ? (
+                          <p className="text-[11px] text-success mt-1.5">
+                            Aplicado el {new Date(it.cambio.aplicado_at).toLocaleDateString('es-CO')}
+                          </p>
+                        ) : (
+                          <button onClick={() => cambiar(it, { aplicar: true })}
+                            className="btn-primary btn-sm mt-2">
+                            Aplicar el cambio
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <p className="text-[11px] text-text-3 mt-2">
                       {it.autor?.nombre || 'Miembro'} · {new Date(it.created_at).toLocaleString('es')}
                     </p>
