@@ -481,6 +481,12 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone, ocupados = [] })
   const [nombre, setNombre] = useState(expositor?.nombre || '');
   const [stand, setStand] = useState(numeroDeStand(expositor?.stand) || '');
   const [descripcion, setDescripcion] = useState(expositor?.descripcion || '');
+  /* Quién recibe y quién pasa. `comprador` por defecto porque es lo que se
+     crea casi siempre: en una rueda se sientan pocos y pasan muchos. */
+  const [rol, setRol] = useState(expositor?.rol || 'comprador');
+  /* Si su contacto se enseña en la rueda pública. Nace apagado y se enciende a
+     mano: son datos de una persona y publicarlos no se deshace. */
+  const [contactoPublico, setContactoPublico] = useState(Boolean(expositor?.contacto_publico));
   const [working, setWorking] = useState(false);
   const { error: toastErr } = useToast();
 
@@ -507,6 +513,8 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone, ocupados = [] })
          «Stand C10»— se reconozcan como repetidas. */
       stand: numeroDeStand(stand) || null,
       descripcion: descripcion.trim() || null,
+      rol,
+      contacto_publico: contactoPublico,
     };
     try {
       if (editando) await networkingApi.editarExpositor(eventoId, expositor.id, cuerpo);
@@ -558,6 +566,49 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone, ocupados = [] })
                 </p>
               : <p className="text-xs text-text-3 mt-1.5">Número o código del puesto físico donde estará el día del evento. Sin la palabra «stand»: esa la pone la plataforma.</p>}
           </div>
+          <div className="field">
+            <label className="label">Su papel en la rueda</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'comprador', label: 'Recibe',  pista: 'Se sienta en una mesa y le llegan.' },
+                { id: 'vendedor',  label: 'Visita',  pista: 'Pasa por las mesas de otros.' },
+              ].map(o => (
+                <button key={o.id} type="button" onClick={() => setRol(o.id)}
+                  className={`text-left px-3 py-2 rounded-2xl border transition-colors ${
+                    rol === o.id
+                      ? 'border-accent bg-accent/10 text-text-1'
+                      : 'border-border text-text-2 hover:text-text-1'}`}>
+                  <span className="text-sm font-medium block">{o.label}</span>
+                  <span className="text-[11px] text-text-3 block leading-snug">{o.pista}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-text-3 mt-1.5">
+              En la rueda pública sólo salen los que reciben, con su mesa y sus horas.
+            </p>
+          </div>
+
+          {/* El contacto público.
+              Va con su aviso y no como una casilla más: encenderlo publica el
+              correo y el teléfono de una persona en una página que ve
+              cualquiera, y eso no se deshace del todo — una vez indexado, ya
+              está fuera. Quien lo pulsa tiene que saber qué está haciendo. */}
+          <div className="field">
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={contactoPublico}
+                onChange={e => setContactoPublico(e.target.checked)}
+                className="accent-[#8B5CF6] w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span className="min-w-0">
+                <span className="text-sm text-text-1 block">Enseñar su contacto en la rueda pública</span>
+                <span className="text-xs text-text-3 block leading-snug mt-0.5">
+                  Su correo y su teléfono los verá cualquiera que abra la página, sin cuenta.
+                  Enciéndelo sólo si esa persona lo autorizó — publicar un dato no se deshace
+                  del todo.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="field">
             <label className="label">Descripción <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
             <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={2} className="input rounded-2xl py-3 resize-none" placeholder="A qué se dedican, qué ofrecen..." />

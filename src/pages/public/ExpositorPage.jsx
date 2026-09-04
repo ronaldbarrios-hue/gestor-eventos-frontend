@@ -165,6 +165,24 @@ export default function ExpositorPage() {
               <div className="field"><label className="label">Sitio web</label>
                 <input className="input" value={f.sitio_web} onChange={e => set({ sitio_web: e.target.value })} placeholder="https://" /></div>
             </div>
+            {/* Publicar el contacto es una decisión de quien lo da, no del
+                formulario. Va con su explicación y no como una casilla suelta:
+                lo que se enciende aquí lo ve cualquiera, sin cuenta, y un dato
+                publicado no se recoge del todo. */}
+            <label className="flex items-start gap-2.5 cursor-pointer rounded-2xl border border-border bg-surface-2/40 p-3">
+              <input type="checkbox" checked={Boolean(f.contacto_publico)}
+                onChange={e => set({ contacto_publico: e.target.checked })}
+                className="accent-[#8B5CF6] w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span className="min-w-0">
+                <span className="text-sm text-text-1 block">Que me puedan contactar desde la rueda pública</span>
+                <span className="text-xs text-text-3 block leading-snug mt-0.5">
+                  Tu correo y tu teléfono saldrán en la página de la rueda, que se abre sin
+                  cuenta. Sirve para que te escriban quienes quieran reunirse contigo. Puedes
+                  apagarlo cuando quieras, pero lo que ya se copió no vuelve.
+                </span>
+              </span>
+            </label>
+
             <div className="grid sm:grid-cols-2 gap-3">
               {REDES.map(r => (
                 <div className="field" key={r.key}>
@@ -580,6 +598,9 @@ function normaliza(ficha) {
     sitio_web: ficha?.sitio_web || '',
     categoria_negocio: ficha?.categoria_negocio || '',
     redes: ficha?.redes || {},
+    /* Si su contacto sale en la rueda pública. Son SUS datos y por eso lo
+       decide aquí, no sólo el organizador. Nace apagado. */
+    contacto_publico: Boolean(ficha?.contacto_publico),
     estado_ficha: ficha?.estado_ficha || 'borrador',
   };
 }
