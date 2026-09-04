@@ -75,3 +75,25 @@ test('el descuento se pide dentro del modal de compra, no en otro componente', (
       `«${pieza}» quedó fuera de ReservaModal: el botón llamaría a una función que no existe en su componente`);
   }
 });
+
+test('un `validar` sin precio no se aplica: la API vieja no puede reventar el modal', () => {
+  /* Medido contra la API desplegada el 2026-09-04: la versión anterior de
+     `/promocion/validar` contesta
+
+       { valida: true, promocion_id, tipo, valor, descripcion, min_cantidad }
+
+     y NO manda `precio`. Sin guarda, `promo.precio` es undefined, y la
+     cabecera hace `precio.toLocaleString(...)` — el modal de compra revienta
+     entero en vez de cobrar mal, que es lo único peor que cobrar mal.
+
+     Esto es la ventana entre desplegar la pantalla y desplegar la API, y en
+     este proyecto esa ventana ya costó una tarde con las zonas. */
+  const src = sinComentarios(leer(COMPRA));
+  assert.match(src, /Number\.isFinite\(precioServidor\)/,
+    'no se comprueba que el precio del servidor sea un número');
+
+  /* Y no se calcula aquí a partir de `tipo` y `valor`: eso enseñaría un
+     descuento que la API vieja no va a aplicar al cobrar. */
+  assert.doesNotMatch(src, /valor\s*\/\s*100/,
+    'la pantalla está calculando el descuento por su cuenta: el precio lo pone el servidor');
+});

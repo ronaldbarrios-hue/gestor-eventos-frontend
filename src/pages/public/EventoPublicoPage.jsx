@@ -829,7 +829,32 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
     try {
       const r = await promocionesApi.validar(slug, { codigo, ticket_id: tipo.id, cantidad: 1 });
       if (!r.valida) { setPromo(null); setPromoErr(r.motivo || 'Ese código no vale para esta boleta.'); return; }
-      setPromo({ ...r, codigo });
+
+      /* El precio tiene que venir del servidor, y tiene que ser un número.
+       *
+       * Esto no es paranoia: es la ventana entre desplegar esta pantalla y
+       * desplegar la API. La versión anterior de `/promocion/validar` contesta
+       * `{ valida: true, tipo, valor, min_cantidad }` y **no manda `precio`**.
+       * Sin esta guarda, `promo.precio` sería `undefined`, y la cabecera hace
+       * `precio.toLocaleString(...)` — o sea que el modal de compra reventaría
+       * entero en vez de cobrar mal, que es lo único peor que cobrar mal.
+       *
+       * Calcularlo aquí con `tipo` y `valor` sería peor todavía: enseñaría un
+       * descuento que la API vieja no va a aplicar al cobrar. Mejor decir que
+       * ahora no se puede. */
+      const precioServidor = Number(r.precio);
+      if (!Number.isFinite(precioServidor)) {
+        setPromo(null);
+        setPromoErr('Los códigos no se pueden aplicar ahora mismo. Vuelve a intentarlo en un rato.');
+        return;
+      }
+      setPromo({
+        ...r,
+        codigo,
+        precio: precioServidor,
+        precio_lista: Number.isFinite(Number(r.precio_lista)) ? Number(r.precio_lista) : precioLista,
+        ahorro: Number(r.ahorro) || Math.max(0, precioLista - precioServidor),
+      });
     } catch (e) {
       setPromoErr(e.response?.data?.error || 'No se pudo comprobar el código.');
     } finally { setPromoBusy(false); }
