@@ -18,6 +18,27 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
   const [autoAlto, setAutoAlto] = useState(true);
   const [heredarEstilo, setHeredarEstilo] = useState(true);
 
+  /* El código, cuando alguien lo ha tocado a mano.
+   *
+   * `null` = tal y como sale de las opciones. Un texto = lo que escribió la
+   * persona, y entonces manda ése.
+   *
+   * ── Por qué se puede tocar ───────────────────────────────────────────────
+   *
+   * Porque esto se pega en la web de otro y esa web tiene sus propias reglas:
+   * una clase que hay que añadir, un `style` que el CMS exige, un atributo que
+   * pide su plantilla. Obligar a copiar, pegar fuera y editar allí convierte
+   * un ajuste de diez segundos en una ida y vuelta — y lo que se pega acaba
+   * siendo distinto de lo que aquí se vio.
+   *
+   * ── Y por qué cambiar una opción lo descarta ────────────────────────────
+   *
+   * Porque las opciones REGENERAN el código entero. Intentar conservar lo
+   * escrito a mano encima de una plantilla nueva es adivinar qué parte era
+   * suya, y adivinar mal aquí deja un iframe roto en la web de un cliente. Se
+   * descarta, y se avisa antes. */
+  const [tocado, setTocado] = useState(null);
+
   const slug = evento?.slug;
   const seccion = modo === 'exacta'
     ? bloque?.id
@@ -42,6 +63,32 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
       : embedSnippet({ slug, seccion, titulo: `${label} — ${evento?.nombre || 'Evento'}`, tema, fondo, alto, autoAlto, heredarEstilo })),
     [alcance, slug, seccion, label, evento?.nombre, tema, fondo, alto, autoAlto, heredarEstilo]
   );
+
+  /* Lo que se ve y lo que se copia son lo mismo: si se ha tocado, manda lo
+     tocado. Copiar el generado mientras la pantalla enseña otra cosa sería la
+     peor versión de esto. */
+  const codigoFinal = tocado ?? snippet;
+
+  /* Cambiar una opción regenera. Si hay algo escrito a mano, se avisa antes en
+     vez de borrarlo por la espalda. */
+  const conOpcion = (fn) => (...args) => {
+    if (tocado !== null && tocado !== snippet
+        && !window.confirm('Editaste el código a mano. Cambiar esta opción lo vuelve a generar y se pierde lo escrito. ¿Sigo?')) {
+      return;
+    }
+    setTocado(null);
+    fn(...args);
+  };
+
+  /* Las opciones, cada una envuelta. Se hace aqui y no en el JSX para que no
+     haya forma de añadir un control nuevo y olvidarse: si se llama al setter
+     crudo desde abajo, lo escrito a mano desaparece sin avisar. */
+  const opcModo      = conOpcion(setModo);
+  const opcAlcance   = conOpcion(setAlcance);
+  const opcTema      = conOpcion(setTema);
+  const opcAlto      = conOpcion(setAlto);
+  const opcAutoAlto  = conOpcion(setAutoAlto);
+  const opcHeredar   = conOpcion(setHeredarEstilo);
 
   const copiar = async (texto, que) => {
     try {
@@ -106,14 +153,14 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
               decisión: ¿la sección entera, sólo su contenido, o sólo el botón? */}
           <Campo label="Cuánto se lleva">
             <div className="space-y-1.5">
-              <Radio checked={alcance === 'bloque'} onChange={() => setAlcance('bloque')}
+              <Radio checked={alcance === 'bloque'} onChange={() => opcAlcance('bloque')}
                 titulo="La sección completa"
                 nota="Con su fondo y su espaciado, tal como se ve en la landing." />
-              <Radio checked={alcance === 'contenido'} onChange={() => setAlcance('contenido')}
+              <Radio checked={alcance === 'contenido'} onChange={() => opcAlcance('contenido')}
                 titulo="Sólo el contenido, sin fondo"
                 nota="Para meterlo dentro de una sección que ya tiene su propio diseño." />
               {tieneBoton && (
-                <Radio checked={alcance === 'boton'} onChange={() => setAlcance('boton')}
+                <Radio checked={alcance === 'boton'} onChange={() => opcAlcance('boton')}
                   titulo="Sólo el botón de registro"
                   nota="Sin iframe: el botón se pinta con el estilo de tu web y abre la ventana encima." />
               )}
@@ -123,10 +170,10 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
           {alcance !== 'boton' && (
           <Campo label="Qué se exporta">
             <div className="space-y-1.5">
-              <Radio checked={modo === 'tipo'} onChange={() => setModo('tipo')}
+              <Radio checked={modo === 'tipo'} onChange={() => opcModo('tipo')}
                 titulo={`Por tipo · /${EMBED_SLUG_AMIGABLE[bloque?.type] || bloque?.type}`}
                 nota="Recomendado: si borras y vuelves a crear la sección, el embed sigue vivo." />
-              <Radio checked={modo === 'exacta'} onChange={() => setModo('exacta')}
+              <Radio checked={modo === 'exacta'} onChange={() => opcModo('exacta')}
                 titulo="Esta sección exacta"
                 nota="Útil si tienes dos secciones del mismo tipo y quieres una en concreto." />
             </div>
@@ -145,19 +192,19 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
             </p>
           ) : (<>
           <Campo label="Tema">
-            <select value={tema} onChange={e => setTema(e.target.value)} className="input text-sm w-full">
+            <select value={tema} onChange={e => opcTema(e.target.value)} className="input text-sm w-full">
               {EMBED_TEMAS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </Campo>
 
           <Campo label="Alto inicial (px)">
             <input type="number" min={200} max={2000} value={alto}
-              onChange={e => setAlto(Number(e.target.value) || 600)}
+              onChange={e => opcAlto(Number(e.target.value) || 600)}
               className="input text-sm w-full" />
           </Campo>
 
           <label className="flex items-start gap-2 cursor-pointer">
-            <input type="checkbox" checked={autoAlto} onChange={e => setAutoAlto(e.target.checked)} className="mt-0.5" />
+            <input type="checkbox" checked={autoAlto} onChange={e => opcAutoAlto(e.target.checked)} className="mt-0.5" />
             <span className="text-xs text-text-2">
               <span className="font-medium text-text-1">Ajustar el alto solo</span><br />
               Añade unas líneas de JavaScript para que el iframe crezca con el contenido.
@@ -165,7 +212,7 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
           </label>
 
           <label className="flex items-start gap-2 cursor-pointer">
-            <input type="checkbox" checked={heredarEstilo} onChange={e => setHeredarEstilo(e.target.checked)} className="mt-0.5" />
+            <input type="checkbox" checked={heredarEstilo} onChange={e => opcHeredar(e.target.checked)} className="mt-0.5" />
             <span className="text-xs text-text-2">
               <span className="font-medium text-text-1">Heredar la tipografía de mi web</span><br />
               La sección usa la misma fuente que el resto de tu página, para que no parezca traída de fuera.
@@ -174,13 +221,31 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
           </>)}
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
               <p className="text-xs font-semibold text-text-2">Código para pegar</p>
-              <button onClick={() => copiar(snippet, 'Código')} className="btn btn-sm">Copiar código</button>
+              <div className="flex items-center gap-2">
+                {tocado !== null && (
+                  <button onClick={() => setTocado(null)} className="btn-ghost btn-sm">
+                    Volver al generado
+                  </button>
+                )}
+                <button onClick={() => copiar(codigoFinal, 'Código')} className="btn btn-sm">Copiar código</button>
+              </div>
             </div>
-            <textarea readOnly value={snippet} rows={alcance === 'boton' ? 6 : 10}
-              onFocus={e => e.target.select()}
+            {/* Editable: se pega en la web de otro y esa web tiene sus reglas.
+                Se copia lo que se ve, no lo que se generó — si no, tocarlo
+                sería un adorno. */}
+            <textarea
+              value={codigoFinal}
+              onChange={e => setTocado(e.target.value)}
+              rows={alcance === 'boton' ? 6 : 10}
+              spellCheck={false}
               className="input w-full font-mono text-[11px] leading-relaxed resize-y" />
+            <p className="text-[11px] text-text-3 mt-1 leading-snug">
+              {tocado !== null
+                ? 'Lo estás editando. Si cambias una opción de arriba, se vuelve a generar y se pierde lo escrito.'
+                : 'Puedes editarlo antes de copiar — añadir una clase, un estilo o lo que pida tu web.'}
+            </p>
           </div>
 
           {alcance !== 'boton' && (
