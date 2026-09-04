@@ -505,6 +505,12 @@ function IntegracionesTab() {
   const [whUrl, setWhUrl]           = useState('');
   const [whEventos, setWhEventos]   = useState([]);
   const [busy, setBusy]             = useState(false);
+  /* Qué webhook tiene abierto su registro de envíos, y qué trajo.
+     La ruta contesta los últimos 30 desde siempre y no la llamaba nadie: sin
+     esto, un webhook que no llega no se puede diagnosticar desde aquí — no hay
+     forma de saber si salió, si el otro lado contestó 500 o si nunca se
+     intentó. */
+  const [envios, setEnvios]         = useState({});
 
   const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3000');
 
@@ -549,6 +555,30 @@ function IntegracionesTab() {
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally     { setBusy(false); }
   };
+  /* Apagar un webhook sin borrarlo. La pantalla YA pintaba los inactivos en
+     gris (`w.activo ? '' : 'opacity-50'`), o sea que dibujaba un estado al que
+     no se podía llegar ni del que se podía volver. Apagar es lo que se quiere
+     cuando el otro lado está caído: borrarlo pierde la URL y el secreto. */
+  const alternarWebhook = async (w) => {
+    try {
+      const { integracionesApi } = await import('../../api/integraciones.js');
+      await integracionesApi.editarWebhook(w.id, { activo: !w.activo });
+      success(w.activo ? 'Webhook apagado.' : 'Webhook encendido.');
+      cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
+  const verEnvios = async (id) => {
+    if (envios[id]) { setEnvios(e => ({ ...e, [id]: null })); return; }
+    try {
+      const { integracionesApi } = await import('../../api/integraciones.js');
+      const r = await integracionesApi.deliveries(id);
+      /* Lista vacía y «todavía no cargó» no se pueden ver igual, que es
+         justamente el fallo que se viene a diagnosticar aquí. */
+      setEnvios(e => ({ ...e, [id]: r.deliveries || [] }));
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
   const borrarWebhook = async (id) => {
     if (!(await confirmDialog({ message:('¿Borrar webhook?'), danger:true }))) return;
     try {
@@ -659,12 +689,46 @@ function IntegracionesTab() {
                       <p className="text-sm font-mono text-text-1 truncate">{w.url}</p>
                       <p className="text-xs text-text-3">{w.eventos.join(' · ')}</p>
                     </div>
+                    <button onClick={() => alternarWebhook(w)}
+                      className="btn-ghost btn-sm shrink-0">
+                      {w.activo ? 'Apagar' : 'Encender'}
+                    </button>
                     <button onClick={() => borrarWebhook(w.id)} aria-label="Borrar"
                       className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
                   <p className="text-[11px] text-text-3 mt-2">Secret HMAC: <code className="font-mono">{w.secret}</code> — verificá el header <code className="font-mono">x-gestek-signature</code>.</p>
+
+                  {/* Los últimos envíos. Es la única forma de contestar «¿por
+                      qué no me llega?» sin abrir el servidor: dice si salió,
+                      qué contestó el otro lado y cuántas veces se reintentó. */}
+                  <button onClick={() => verEnvios(w.id)}
+                    className="text-[11px] text-primary-light hover:underline mt-2">
+                    {envios[w.id] ? 'Ocultar los últimos envíos' : 'Ver los últimos envíos'}
+                  </button>
+                  {envios[w.id] && (
+                    envios[w.id].length === 0 ? (
+                      <p className="text-[11px] text-text-3 mt-2">
+                        Todavía no se ha intentado ningún envío a esta dirección.
+                      </p>
+                    ) : (
+                      <div className="mt-2 space-y-1">
+                        {envios[w.id].map(d => (
+                          <div key={d.id} className="flex items-center gap-2 text-[11px]">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                              d.status === 'ok' ? 'bg-success' : 'bg-danger'}`} aria-hidden="true" />
+                            <span className="font-mono text-text-2 truncate flex-1">{d.evento_tipo}</span>
+                            <span className="text-text-3">{d.response_code ?? 'sin respuesta'}</span>
+                            {d.intentos > 1 && <span className="text-text-3">· {d.intentos} intentos</span>}
+                            <span className="text-text-3 shrink-0">
+                              {new Date(d.created_at).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
                 </div>
               ))}
             </div>
@@ -1074,6 +1138,19 @@ export function RecompensasTab() {
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [aud]);
 
+  /* Marcar un premio como entregado. La lista se actualiza aquí en vez de
+     recargar: la respuesta trae el canje ya cambiado y recargar traería la
+     misma lista con un viaje de más. */
+  const marcarCanje = async (k, estado) => {
+    if (!estado) return;
+    try {
+      const { recompensasApi } = await import('../../api/loyalty.js');
+      await recompensasApi.marcarCanje(k.id, estado);
+      setCanjes(l => l.map(x => (x.id === k.id ? { ...x, estado } : x)));
+      success(estado === 'entregado' ? 'Premio entregado.' : `Canje marcado como ${estado}.`);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
   const crear = async (e) => {
     e.preventDefault();
     if (!form.titulo.trim() || !form.costo_puntos) return;
@@ -1174,13 +1251,34 @@ export function RecompensasTab() {
 
       {canjes.length > 0 && (
         <div className="card">
-          <div className="card-header"><h3 className="text-sm font-semibold text-text-1">Canjes recibidos</h3></div>
+          <div className="card-header">
+            <div>
+              <h3 className="text-sm font-semibold text-text-1">Canjes recibidos</h3>
+              {/* El estado se pintaba y no se podía cambiar: alguien llega con
+                  su código, se lo entregas y la lista sigue diciendo
+                  «pendiente» para siempre. Era el último paso del ciclo de
+                  fidelidad y no tenía dónde darse. */}
+              <p className="text-xs text-text-3 mt-0.5">Cuando entregues un premio, márcalo aquí.</p>
+            </div>
+          </div>
           <div className="card-body space-y-2">
             {canjes.map(k => (
-              <div key={k.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2/40">
+              <div key={k.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2/40 ${k.estado === 'cancelado' ? 'opacity-60' : ''}`}>
                 <span className="text-sm text-text-1 flex-1 truncate">{k.usuario?.nombre || k.usuario?.email || 'Usuario'} · {k.titulo}</span>
                 <code className="text-xs font-mono text-primary-light bg-primary/10 px-2 py-0.5 rounded">{k.codigo}</code>
-                <span className="text-[10px] uppercase tracking-widest text-text-3">{k.estado}</span>
+                <select
+                  value={['entregado', 'usado', 'cancelado'].includes(k.estado) ? k.estado : ''}
+                  onChange={e => marcarCanje(k, e.target.value)}
+                  aria-label={`Estado del canje ${k.codigo}`}
+                  className="input text-xs py-1 px-2 w-32">
+                  {/* El estado inicial lo pone el servidor al canjear y no es
+                      ninguno de los tres que acepta el PATCH: se enseña como
+                      está y no se puede volver a él, que es lo correcto. */}
+                  <option value="" disabled>{k.estado}</option>
+                  <option value="entregado">Entregado</option>
+                  <option value="usado">Usado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
               </div>
             ))}
           </div>
