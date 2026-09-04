@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { eventosApi } from '../../api/eventos.js';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
@@ -83,10 +83,10 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
 
   if (hecho) {
     return createPortal(
-      <Fondo onClose={onClose}>
+      <Fondo onClose={onClose} titulado="inscripcion-hecha">
         <div className="p-8 text-center">
           <p className="text-4xl mb-3" aria-hidden="true">✓</p>
-          <h3 className="text-lg font-bold font-display text-text-1 mb-1">Quedaste inscrito</h3>
+          <h3 id="inscripcion-hecha" className="text-lg font-bold font-display text-text-1 mb-1">Quedaste inscrito</h3>
           <p className="text-sm text-text-2 mb-6">
             Te apuntamos a «{sesion.titulo}». Si nos diste un correo, te llega la confirmación.
           </p>
@@ -105,11 +105,11 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
   }
 
   return createPortal(
-    <Fondo onClose={onClose}>
+    <Fondo onClose={onClose} titulado="inscripcion-sesion">
       <form onSubmit={submit} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto">
         <div>
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1.5">Apuntarse</p>
-          <h3 className="text-xl font-bold font-display text-text-1 tracking-tight">{sesion.titulo}</h3>
+          <h3 id="inscripcion-sesion" className="text-xl font-bold font-display text-text-1 tracking-tight">{sesion.titulo}</h3>
           {sesion.libres != null && (
             <p className="text-xs text-text-3 mt-1">
               {sesion.libres > 0 ? `Quedan ${sesion.libres} lugares.` : 'Sin lugares libres.'}
@@ -209,11 +209,30 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
   );
 }
 
-function Fondo({ children, onClose }) {
+/* El fondo del modal, y lo que le faltaba para ser un modal de verdad.
+ *
+ * No se anunciaba como diálogo: para un lector de pantalla esto era un div más
+ * en medio de la página. Se abría, el foco seguía donde estaba, y nada decía
+ * que había aparecido algo nuevo ni cómo se llamaba.
+ *
+ * Con `role="dialog"` y `aria-modal`, el título deja además de tener que
+ * encajar en el esquema de encabezados de la página que hay debajo: un diálogo
+ * es su propio contexto, y `aria-labelledby` es lo que lo nombra. Por eso el
+ * H3 de dentro no es un salto de nivel.
+ *
+ * Escape cierra, que es lo que intenta todo el mundo antes de buscar la X. */
+function Fondo({ children, onClose, titulado }) {
+  useEffect(() => {
+    const alPulsar = (e) => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', alPulsar);
+    return () => document.removeEventListener('keydown', alPulsar);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
          onClick={onClose}>
-      <div className="w-full max-w-lg bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden"
+      <div role="dialog" aria-modal="true" aria-labelledby={titulado}
+           className="w-full max-w-lg bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden"
            onClick={e => e.stopPropagation()}>
         {children}
       </div>

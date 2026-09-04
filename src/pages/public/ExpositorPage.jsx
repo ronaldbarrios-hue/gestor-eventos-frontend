@@ -175,7 +175,7 @@ export default function ExpositorPage() {
 
         {/* Contacto y redes */}
         <div className="card">
-          <div className="card-header"><h3 className="text-base font-semibold text-text-1">Contacto</h3></div>
+          <div className="card-header"><h2 className="text-base font-semibold text-text-1">Contacto</h2></div>
           <div className="card-body space-y-3">
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="field"><label className="label">Persona de contacto</label>
