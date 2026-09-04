@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { descargarBoletaPdf } from '../../lib/boletaPdf.jsx';
 import { descargarQrPng } from '../../lib/qrPng.jsx';
 import { descargarTarjetaPng } from '../../lib/tarjetaPng.jsx';
 import { walletConfig } from './WalletCard.jsx';
@@ -61,10 +60,19 @@ export default function DescargarEntrada({
 
   /* El PDF se pide aquí y no en un correo: el correo puede tardar, caer en spam
      o ni siquiera existir si el organizador no configuró remitente. Esto está
-     en la mano de quien tiene la boleta, ahora. */
-  const descargarPdf = () => {
+     en la mano de quien tiene la boleta, ahora.
+     ── Y el generador se trae al pulsar, no al abrir la página ──────────────
+     `jspdf` pesa. Importándolo arriba, entraba en el paquete que se descarga
+     TODO el que abre la página de un evento —también quien sólo está mirando
+     si va, y también el formulario metido en la web de un cliente— para una
+     función que sólo se usa después de comprar y sólo si se pulsa. Con 7.000
+     asistentes mirando desde el móvil, eso es tráfico regalado.
+     El coste de traerlo ahora es una espera corta, y ya se está enseñando
+     «Generando…» porque generar el PDF tampoco era instantáneo. */
+  const descargarPdf = async () => {
     setBajando(true);
     try {
+      const { descargarBoletaPdf } = await import('../../lib/boletaPdf.jsx');
       descargarBoletaPdf({
         evento, ticket, tipo: ticket.tipo, design,
         asistente: ticket.asistente,

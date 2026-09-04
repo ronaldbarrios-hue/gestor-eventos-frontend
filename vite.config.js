@@ -35,6 +35,19 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          /* Los pesados de PDF NO se agrupan: los coloca Rollup.
+             Caían en el `vendor` de abajo junto a axios —que lo usa todo—, así
+             que el paquete entero se descargaba al abrir CUALQUIER página,
+             también la pública y también el formulario metido en la web de un
+             cliente. Y `jspdf` sólo hace falta después de comprar y sólo si
+             alguien pulsa «descargar».
+             Se devuelve `undefined` en vez de darles un nombre propio: con un
+             nombre propio, Rollup les metía dentro su ayudante de precarga y el
+             trozo volvía a cargarse desde el principio — separado en el papel y
+             descargado igual. Sin nombre, cada uno cae en el trozo perezoso de
+             quien lo pide. */
+          if (id.includes('jspdf') || id.includes('pdfjs-dist') || id.includes('html2canvas'))
+            return undefined;
           if (id.includes('@supabase'))                 return 'vendor-supabase';
           if (id.includes('@dnd-kit'))                  return 'vendor-dnd';
           if (id.includes('qrcode') || id.includes('html5-qrcode')) return 'vendor-qr';
