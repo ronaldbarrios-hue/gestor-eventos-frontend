@@ -7,6 +7,7 @@
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useI18n } from '../../context/I18nContext.jsx';
+import VolverUI from '../../components/ui/Volver.jsx';
 
 /* La vuelta.
 
@@ -19,24 +20,32 @@ import { useI18n } from '../../context/I18nContext.jsx';
    `location.key` vale 'default' cuando esta página es la primera de la
    sesión de navegación, es decir, cuando se llegó por enlace directo y no
    hay nada atrás. En ese caso volver atrás sacaría al usuario del sitio, así
-   que se va a la portada. */
+   que se va a la portada.
+
+   ── Por qué ésta SÍ retrocede, cuando el resto de la app ya no ────────────
+
+   `components/ui/Volver.jsx` se niega a llamar a `history.back()` a propósito:
+   quien llega a una pantalla desde tres sitios acabaría en tres sitios. Aquí
+   pasa lo contrario y es el caso que ese mismo comentario deja abierto —«un
+   atrás a secas se queda para el único caso en que significa algo»—: a los
+   términos se llega desde la mitad de un registro, y el sitio al que se quiere
+   volver es exactamente ese, no una portada.
+
+   Lo que sí se unifica es el ASPECTO. La flecha ya no es un `svg` escrito a
+   mano aquí: es el mismo componente que el resto, con `onClick` en vez de
+   ruta. Un icono dibujado dos veces se separa a la tercera. */
 function Volver() {
   const navigate = useNavigate();
   const { key } = useLocation();
   const hayDeDondeVolver = key !== 'default';
 
   return (
-    <button
+    <VolverUI
       onClick={() => (hayDeDondeVolver ? navigate(-1) : navigate('/'))}
-      className="inline-flex items-center gap-2 mb-8 -ml-1 px-3 py-2 rounded-xl text-sm text-text-2
-                 hover:text-text-1 hover:bg-surface-2 transition-colors"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M19 12H5M11 18l-6-6 6-6" />
-      </svg>
+      tono="chip"
+      className="mb-8 -ml-1">
       {hayDeDondeVolver ? 'Volver a donde estabas' : 'Ir al inicio'}
-    </button>
+    </VolverUI>
   );
 }
 

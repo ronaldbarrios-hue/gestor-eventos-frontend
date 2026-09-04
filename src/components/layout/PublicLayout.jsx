@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext.jsx';
 import { useI18n } from '../../context/I18nContext.jsx';
+import Volver from '../ui/Volver.jsx';
 import PublicNavbar from './PublicNavbar.jsx';
 import PublicFooter from './PublicFooter.jsx';
 import BotonConfiguracion from '../ui/BotonConfiguracion.jsx';
@@ -53,17 +54,17 @@ export default function PublicLayout() {
     <div className="min-h-screen flex flex-col bg-bg text-text-1 overflow-x-clip">
       {!esMarcaBlanca && <PublicNavbar />}
 
+      {/* La página de la boleta se abre casi siempre desde el enlace de un
+          correo. Aquí había un «Volver» que hacía `navigate(-1)`: sin historial
+          dentro del sitio, eso devuelve al cliente de correo o no hace nada —
+          y quien la abre desde el panel tampoco quiere «atrás», quiere su
+          evento.
+
+          `Volver` dice a dónde va, y a Explorar es a donde se puede ir siempre:
+          esta pantalla no sabe de qué evento es la boleta. */}
       {esPaginaTicket && (
         <div className="px-5 sm:px-8 pt-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
-                       text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors w-fit">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            {t('Volver')}
-          </button>
+          <Volver a="/explorar" tono="chip">{t('Explorar eventos')}</Volver>
         </div>
       )}
 
