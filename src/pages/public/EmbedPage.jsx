@@ -60,7 +60,17 @@ export default function EmbedPage() {
   const [params] = useSearchParams();
   const { setDark, setLight } = useTheme();
   const [evento, setEvento] = useState(null);
-  const [estado, setEstado] = useState('cargando'); // cargando | ok | error
+  /* cargando · ok · no_existe · sin_conexion
+   *
+   * Los dos últimos eran uno solo —`error`— y por eso el iframe de una web en
+   * producción decía «No se encontró el evento» cuando el evento existía
+   * perfectamente y lo que había fallado era la petición. Quien lo lee da por
+   * hecho que borraron el evento y llama al organizador. */
+  const [estado, setEstado] = useState('cargando');
+  /* Sube en cada reintento y vuelve a disparar la carga. Un `location.reload()`
+     recargaría el iframe entero —y dentro de la web de otro eso es recargar un
+     documento ajeno con su propio coste—; esto sólo repite la petición. */
+  const [intento, setIntento] = useState(0);
   const rootRef = useRef(null);
 
   /* El registro ocurre AQUÍ dentro, no en una pestaña de GESTEK. Es lo que
@@ -138,9 +148,21 @@ export default function EmbedPage() {
        alias y para las secciones que se pintan con sus valores por defecto. */
     eventosApi.publicoBySlug(slug, seccion)
       .then(d => { if (vivo) { setEvento(d.evento); setEstado('ok'); } })
-      .catch(() => { if (vivo) setEstado('error'); });
+      .catch(e => {
+        if (!vivo) return;
+        /* Un 404 es el servidor diciendo que ese evento no está. Cualquier otra
+           cosa —sin respuesta, un 500, un CORS rechazado, la red del móvil que
+           se cayó— es que no pudimos preguntar, y eso se arregla reintentando.
+           Tratarlas igual convierte un problema de dos segundos en una llamada
+           al organizador. */
+        /* `client.js` deja el status colgado del error; `response` puede no
+           existir cuando ni siquiera hubo respuesta, que es justo el caso
+           «no pudimos preguntar». */
+        const status = e?.status ?? e?.response?.status;
+        setEstado(status === 404 ? 'no_existe' : 'sin_conexion');
+      });
     return () => { vivo = false; };
-  }, [slug, seccion]);
+  }, [slug, seccion, intento]);
 
   /* Alto automático: el anfitrión escucha este postMessage y redimensiona
      el iframe. Sin esto quedaría cortado o con un hueco enorme debajo.
@@ -223,7 +245,30 @@ export default function EmbedPage() {
   if (estado === 'cargando') {
     return <div ref={rootRef} className="p-6 text-center text-sm text-text-3">Cargando…</div>;
   }
-  if (estado === 'error' || !evento) {
+  if (estado === 'sin_conexion') {
+    return (
+      <div ref={rootRef} className="p-8 text-center">
+        <p className="text-sm text-text-1 font-medium">Tuvimos un problema de comunicación.</p>
+        <p className="text-xs text-text-3 mt-1 leading-relaxed max-w-sm mx-auto">
+          No pudimos cargar el formulario. Suele ser cosa de un momento.
+        </p>
+        <button
+          onClick={() => setIntento(n => n + 1)}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
+                     text-sm text-text-1 hover:bg-surface-2 transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+               aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M4 4v5h5M20 20v-5h-5M20 9A8 8 0 006.3 6.3M4 15a8 8 0 0013.7 2.7" />
+          </svg>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+  /* Y esto se queda para lo que de verdad significa: el servidor contestó que
+     ese evento no está. */
+  if (estado === 'no_existe' || !evento) {
     return <div ref={rootRef} className="p-6 text-center text-sm text-text-3">No se encontró el evento.</div>;
   }
   if (!Especial && (!bloque || (bloque.type !== 'lienzo' && !BLOCKS[bloque.type]))) {

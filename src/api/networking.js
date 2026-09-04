@@ -5,6 +5,10 @@ export const networkingApi = {
   expositores : (eventoId) => client.get(`/eventos/${eventoId}/networking/expositores`).then(r => r.data),
   misCitas    : (eventoId) => client.get(`/eventos/${eventoId}/networking/mis-citas`).then(r => r.data),
   reservar    : (eventoId, horarioId) => client.post(`/eventos/${eventoId}/networking/horarios/${horarioId}/reservar`).then(r => r.data),
+  /* Lo que anotó quien fue a la cita. Suyo: el servidor sólo deja escribir
+     sobre la propia. */
+  guardarNotas: (eventoId, citaId, notas) =>
+    client.patch(`/eventos/${eventoId}/networking/citas/${citaId}/notas`, { notas }).then(r => r.data),
   cancelar    : (eventoId, citaId) => client.delete(`/eventos/${eventoId}/networking/citas/${citaId}`).then(r => r.data),
 
   /* Vista del organizador */

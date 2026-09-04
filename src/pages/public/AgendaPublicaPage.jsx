@@ -76,7 +76,17 @@ export default function AgendaPublicaPage() {
     eventosApi.agendaPublica(slug)
       .then(d => {
         setEvento({ id: d.evento_id });
-        setSessions(d.sessions || []);
+        /* El servidor avisa cuando NO puede aceptar inscripciones —le falta la
+           migración de `sesion_inscripciones`— y contesta la agenda igual, sin
+           `libres` ni `lleno`. Aquí se tiraba: los botones de «Apuntarme»
+           salían igual y al pulsarlos no pasaba nada.
+
+           La bandera se pega a cada sesión en vez de viajar como prop. El
+           botón está cuatro componentes más abajo —AgendaLista → SesionRow →
+           BotonInscribir— y pasarla por los cuatro es cuatro sitios donde
+           olvidarla. La sesión ya baja hasta ahí. */
+        const abierta = d.inscripcion_lista !== false;
+        setSessions((d.sessions || []).map(x => ({ ...x, inscripcion_abierta: abierta })));
         setPreguntas(d.preguntas || {});
       })
       .catch(e => setError(e.message));
@@ -358,6 +368,22 @@ function AgendaGridSalas({ evento, sesiones, tracks, favoritos, puedeMarcar, onT
    falta hace dudar de si la boleta sirve. */
 function BotonInscribir({ sesion, yaInscrito, onInscribir, compacto }) {
   if (!sesion.requiere_inscripcion) return null;
+
+  /* `!== false` y no `=== true`: si el campo no viniera —una API anterior a
+     esto— se sigue enseñando el botón, que es como funcionaba antes. Un
+     despliegue no puede quitar una función que ya estaba. */
+  const abierta = sesion.inscripcion_abierta !== false;
+
+  /* Un botón que no puede funcionar no se enseña. Se dice, y en pequeño: quien
+     mira la agenda no tiene que entender por qué, sólo saber que hoy no puede
+     y que la actividad sigue en pie. */
+  if (!abierta) {
+    return (
+      <span className={`${compacto ? 'text-[11px]' : 'text-xs'} text-text-3`}>
+        Inscripciones no disponibles
+      </span>
+    );
+  }
 
   const clase = compacto
     ? 'text-[11px] font-medium px-2 py-0.5 rounded-full border'

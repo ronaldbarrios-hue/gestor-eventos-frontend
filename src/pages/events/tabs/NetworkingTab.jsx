@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
@@ -206,7 +207,8 @@ export function MisCitasView({ evento }) {
         const inicio = new Date(c.horario?.inicio);
         const fin = new Date(c.horario?.fin);
         return (
-          <div key={c.id} className={`flex items-center gap-3 px-5 py-3.5 ${i > 0 ? 'border-t border-border' : ''}`}>
+          <div key={c.id} className={i > 0 ? 'border-t border-border' : ''}>
+          <div className="flex items-center gap-3 px-5 py-3.5">
             <div className="w-11 h-11 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold flex-shrink-0">
               {c.horario?.expositor?.logo_url
                 ? <img src={c.horario.expositor.logo_url} alt="" className="w-full h-full object-cover" />
@@ -219,13 +221,125 @@ export function MisCitasView({ evento }) {
                 {c.horario?.expositor?.stand ? ` · Stand ${numeroDeStand(c.horario.expositor.stand)}` : ''}
               </p>
             </div>
+            {/* Una cita pedida y todavia sin aprobar tiene que verse distinta de
+                una confirmada: son dos situaciones y hasta ahora se pintaban
+                igual. */}
+            {c.estado === 'solicitada' && (
+              <span className="text-[10px] uppercase tracking-wide text-warning border border-warning/40 bg-warning/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                Pedida
+              </span>
+            )}
             <button onClick={() => cancelar(c.id)} disabled={busy === c.id}
               className="btn-ghost btn-sm text-danger/80 hover:text-danger disabled:opacity-50">
               {busy === c.id ? <Spinner size="sm" /> : 'Cancelar'}
             </button>
           </div>
+
+          {/* Las anotaciones de la cita.
+              Una rueda son quince reuniones de veinte minutos, y al dia
+              siguiente no hay forma de saber cual era cual. La libreta de
+              papel que todo el mundo saca es exactamente esto — con la
+              empresa, la hora y el stand al lado, que es lo que le da
+              sentido. */}
+          <NotasCita evento={evento} cita={c} />
+          </div>
         );
       })}
+    </div>
+  );
+}
+
+/* Lo que anotaste de una cita.
+ *
+ * Se guarda al salir del campo y no con un boton: quien escribe esto lo hace
+ * entre reunion y reunion, de pie y con prisa. Un boton de guardar es un paso
+ * mas y una nota perdida cada vez que alguien se olvida de pulsarlo.
+ *
+ * Y se guarda solo si cambio algo: sin esa comprobacion, cada vez que el foco
+ * pasa por encima se manda una peticion que no escribe nada. */
+function NotasCita({ evento, cita }) {
+  const [texto, setTexto] = useState(cita.notas || '');
+  const [guardado, setGuardado] = useState(null);
+  const { error: toastErr } = useToast();
+
+  const guardar = async () => {
+    if (texto === (cita.notas || '')) return;
+    try {
+      await networkingApi.guardarNotas(evento.id, cita.id, texto);
+      cita.notas = texto;
+      setGuardado(Date.now());
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  return (
+    <div className="px-5 pb-3.5 -mt-1">
+      <textarea
+        value={texto}
+        onChange={e => setTexto(e.target.value)}
+        onBlur={guardar}
+        rows={texto ? 3 : 1}
+        maxLength={4000}
+        placeholder="Anota lo que hablaron, lo que quedó pendiente, con quién seguir…"
+        className="input w-full text-sm resize-y" />
+      {guardado && <p className="text-[11px] text-success mt-1">Guardado.</p>}
+    </div>
+  );
+}
+
+/* Cómo se agenda en esta rueda: la persona reserva y ya, o lo pide y el
+ * equipo aprueba.
+ *
+ * Se puede cambiar a mitad del evento y es a propósito: hay ruedas que
+ * empiezan abiertas y se cierran cuando la agenda se llena, y al revés. Lo que
+ * ya está reservado no se toca — cambiar el modo decide lo que pase de aquí en
+ * adelante, no reabre lo confirmado.
+ */
+function ModoRueda({ evento }) {
+  const [modo, setModo] = useState(evento?.networking_modo || 'auto');
+  const [guardando, setGuardando] = useState(false);
+  const { success, error: toastErr } = useToast();
+
+  const cambiar = async (nuevo) => {
+    if (nuevo === modo) return;
+    const antes = modo;
+    setModo(nuevo);            // se pinta ya: es un interruptor, no un formulario
+    setGuardando(true);
+    try {
+      await eventosApi.update(evento.id, { networking_modo: nuevo });
+      success(nuevo === 'solicitud'
+        ? 'Ahora las citas se piden y las apruebas tú.'
+        : 'Ahora quien reserva queda confirmado en el acto.');
+    } catch (e) {
+      setModo(antes);
+      toastErr(e.response?.data?.error || e.message);
+    } finally { setGuardando(false); }
+  };
+
+  const OPCIONES = [
+    { id: 'auto',      label: 'Reserva directa', pista: 'Quien reserva queda confirmado en el acto.' },
+    { id: 'solicitud', label: 'Con aprobación',  pista: 'La cita queda pedida hasta que alguien del equipo la acepte.' },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 px-4 py-3">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold">Cómo se agenda</p>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {OPCIONES.map(o => (
+          <button key={o.id} type="button" onClick={() => cambiar(o.id)} disabled={guardando}
+            className={`text-left px-3 py-2 rounded-xl border transition-colors max-w-xs ${
+              modo === o.id
+                ? 'border-primary/40 bg-primary/10 text-text-1'
+                : 'border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+            <span className="text-sm font-medium block">{o.label}</span>
+            <span className="text-[11px] text-text-3 block leading-snug">{o.pista}</span>
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+        Se puede cambiar en cualquier momento. Lo ya reservado no se toca.
+      </p>
     </div>
   );
 }
@@ -270,6 +384,13 @@ function AdminView({ evento }) {
 
   return (
     <div className="space-y-4">
+      {/* Cómo se agenda en esta rueda.
+          La columna `networking_modo` existe en la base y el servidor la
+          consulta en cada reserva — pero sin este selector era un ajuste sin
+          pantalla, que es lo mismo que no existir: nadie podía cambiarlo salvo
+          entrando a la base. */}
+      <ModoRueda evento={evento} />
+
       <div className="flex justify-end">
         <button onClick={() => setEditando('nuevo')} className="btn-gradient btn-sm">+ Agregar expositor</button>
       </div>
@@ -360,6 +481,12 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone, ocupados = [] })
   const [nombre, setNombre] = useState(expositor?.nombre || '');
   const [stand, setStand] = useState(numeroDeStand(expositor?.stand) || '');
   const [descripcion, setDescripcion] = useState(expositor?.descripcion || '');
+  /* Quién recibe y quién pasa. `comprador` por defecto porque es lo que se
+     crea casi siempre: en una rueda se sientan pocos y pasan muchos. */
+  const [rol, setRol] = useState(expositor?.rol || 'comprador');
+  /* Si su contacto se enseña en la rueda pública. Nace apagado y se enciende a
+     mano: son datos de una persona y publicarlos no se deshace. */
+  const [contactoPublico, setContactoPublico] = useState(Boolean(expositor?.contacto_publico));
   const [working, setWorking] = useState(false);
   const { error: toastErr } = useToast();
 
@@ -386,6 +513,8 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone, ocupados = [] })
          «Stand C10»— se reconozcan como repetidas. */
       stand: numeroDeStand(stand) || null,
       descripcion: descripcion.trim() || null,
+      rol,
+      contacto_publico: contactoPublico,
     };
     try {
       if (editando) await networkingApi.editarExpositor(eventoId, expositor.id, cuerpo);
@@ -437,6 +566,49 @@ function ExpositorModal({ eventoId, expositor, onClose, onDone, ocupados = [] })
                 </p>
               : <p className="text-xs text-text-3 mt-1.5">Número o código del puesto físico donde estará el día del evento. Sin la palabra «stand»: esa la pone la plataforma.</p>}
           </div>
+          <div className="field">
+            <label className="label">Su papel en la rueda</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'comprador', label: 'Recibe',  pista: 'Se sienta en una mesa y le llegan.' },
+                { id: 'vendedor',  label: 'Visita',  pista: 'Pasa por las mesas de otros.' },
+              ].map(o => (
+                <button key={o.id} type="button" onClick={() => setRol(o.id)}
+                  className={`text-left px-3 py-2 rounded-2xl border transition-colors ${
+                    rol === o.id
+                      ? 'border-accent bg-accent/10 text-text-1'
+                      : 'border-border text-text-2 hover:text-text-1'}`}>
+                  <span className="text-sm font-medium block">{o.label}</span>
+                  <span className="text-[11px] text-text-3 block leading-snug">{o.pista}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-text-3 mt-1.5">
+              En la rueda pública sólo salen los que reciben, con su mesa y sus horas.
+            </p>
+          </div>
+
+          {/* El contacto público.
+              Va con su aviso y no como una casilla más: encenderlo publica el
+              correo y el teléfono de una persona en una página que ve
+              cualquiera, y eso no se deshace del todo — una vez indexado, ya
+              está fuera. Quien lo pulsa tiene que saber qué está haciendo. */}
+          <div className="field">
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={contactoPublico}
+                onChange={e => setContactoPublico(e.target.checked)}
+                className="accent-[#8B5CF6] w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span className="min-w-0">
+                <span className="text-sm text-text-1 block">Enseñar su contacto en la rueda pública</span>
+                <span className="text-xs text-text-3 block leading-snug mt-0.5">
+                  Su correo y su teléfono los verá cualquiera que abra la página, sin cuenta.
+                  Enciéndelo sólo si esa persona lo autorizó — publicar un dato no se deshace
+                  del todo.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="field">
             <label className="label">Descripción <span className="text-text-3 lowercase font-normal">(opcional)</span></label>
             <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={2} className="input rounded-2xl py-3 resize-none" placeholder="A qué se dedican, qué ofrecen..." />

@@ -14,7 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, sep, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -329,4 +329,46 @@ test('el bloque de código va aislado, y sin `allow-same-origin`', () => {
     assert.ok(!/allow-same-origin/.test(s),
       `un sandbox de la landing lleva allow-same-origin: «${s}»`);
   }
+});
+
+/* ── El retroceso, en TODA la aplicación ──────────────────────────────────
+ *
+ * La prueba de arriba mira `Volver.jsx` y sólo ese archivo. Por eso sobrevivió
+ * un `navigate(-1)` en `PublicLayout` —la página de la boleta, que se abre
+ * desde un correo y por tanto no tiene «atrás» dentro del sitio— durante todo
+ * el tiempo en que se dio la limpieza por terminada.
+ *
+ * Guardar el componente nuevo y no mirar el resto es la forma más común de
+ * dejar una tarea a medias creyéndola hecha. */
+
+const EXCEPCIONES_ATRAS = {
+  'pages/public/legal.jsx':
+    'A los términos se llega desde la mitad de un registro, y el sitio al que se quiere volver es exactamente ese. Es el caso que `Volver.jsx` deja abierto en su propio comentario. Usa el componente compartido, con onClick.',
+};
+
+test('nadie más retrocede en el historial', () => {
+  const malos = [];
+  for (const abs of jsx()) {
+    /* `sep` de node:path en vez de un literal con barra invertida: en Windows
+       las rutas vienen con ella y escribirla aquí es pelearse con el escapado
+       de cuatro capas. */
+    const rel = abs.slice(SRC.length + 1).split(sep).join('/');
+    if (rel === 'components/ui/Volver.jsx') continue;
+    const src = sinComentarios(readFileSync(abs, 'utf8'));
+    if (!/history[.]back\(\)|navigate\(-1\)/.test(src)) continue;
+    if (rel in EXCEPCIONES_ATRAS) continue;
+    malos.push(rel);
+  }
+  assert.deepEqual(malos, [],
+    `retroceden en el historial sin justificarlo: ${malos.join(', ')}.\n` +
+    'O declara a dónde va con <Volver a="…">, o añádelo a EXCEPCIONES_ATRAS con el motivo.');
+});
+
+test('una excepción que ya no retrocede sale de la lista', () => {
+  /* Si no, la lista se vuelve un cementerio y deja de decir nada. */
+  const sobran = Object.keys(EXCEPCIONES_ATRAS).filter((rel) => {
+    const src = sinComentarios(readFileSync(join(SRC, rel), 'utf8'));
+    return !/history[.]back\(\)|navigate\(-1\)/.test(src);
+  });
+  assert.deepEqual(sobran, [], `ya no retroceden, quítalas de EXCEPCIONES_ATRAS: ${sobran.join(', ')}`);
 });

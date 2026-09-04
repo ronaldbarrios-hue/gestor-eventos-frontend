@@ -23,6 +23,7 @@ import WhiteLabelSection from '../workspace/WhiteLabelSection.jsx';
 import PublicacionSection from '../workspace/PublicacionSection.jsx';
 import ExportIframeModal from './ExportIframeModal.jsx';
 import VistaDesarrollador from './VistaDesarrollador.jsx';
+import AjustesDelSitio from './AjustesDelSitio.jsx';
 import EstadoPagina from './EstadoPagina.jsx';
 import Volver from '../../../components/ui/Volver.jsx';
 
@@ -84,8 +85,6 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
   const [dirty, setDirty]   = useState(false);
   const [paleta, setPaleta] = useState(false);
   const [verPlantillas, setVerPlantillas] = useState(false);
-  const [marcaOpen, setMarcaOpen] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
   const [embedId, setEmbedId] = useState(null);   // sección que se está exportando como iframe
   /* La página vista como datos. No es otro editor: es la misma página y el
      mismo estado, escritos en el formato que el servidor valida. */
@@ -112,7 +111,10 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
     url_externa: evento.url_externa || '',
   }), [evento.modo_publico, evento.url_externa]);
   const [publicacion, setPublicacion] = useState(publicacionInicial);
-  const [pubOpen, setPubOpen] = useState(false);
+  /* Que pestana de «Ajustes del sitio» esta abierta, o null si el cajon esta
+     cerrado. Un solo estado en vez de tres banderas: tres banderas se
+     desincronizan y acabas con dos cajones encima del otro. */
+  const [ajustes, setAjustes] = useState(null);
 
   const { success, error: toastErr } = useToast();
 
@@ -263,7 +265,7 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
        aquí antes de intentarlo para que el error no llegue como un 400 seco
        después de haber perdido el resto del guardado. */
     if (publicacion.modo_publico !== 'gestek' && !urlWebValida(publicacion.url_externa)) {
-      setPubOpen(true);
+      setAjustes('publicacion');
       toastErr('Escribe la dirección de tu web (http:// o https://) o vuelve al modo "La página de GESTEK".');
       return;
     }
@@ -323,18 +325,15 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
               decisión SOBRE la página que se está editando, no una salida del
               editor como las otras. Arriba quedan solo las que abren otra cosa
               o cierran, y así la barra deja de mezclar dos tipos de acción. */}
-          <button onClick={() => setPubOpen(true)} className="btn-ghost btn-sm" title="Dónde vive la página del evento">
-            <GlobeIcon className="w-4 h-4" />
-            <span className="hidden md:inline">Publicación</span>
+          {/* Uno donde habia tres. El punto sigue avisando de que la pagina
+              vive fuera de GESTEK: era la unica informacion que daban esos
+              botones ademas de abrirse. */}
+          <button onClick={() => setAjustes('marca')} className="btn-ghost btn-sm" title="Marca, navbar y publicación del sitio">
+            <PaintIcon className="w-4 h-4" />
+            <span className="hidden md:inline">Ajustes del sitio</span>
             {publicacion.modo_publico !== 'gestek' && (
               <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-hidden="true" />
             )}
-          </button>
-          <button onClick={() => setNavOpen(true)} className="btn-ghost btn-sm" title="Editar el navbar del sitio">
-            <NavIcon className="w-4 h-4" /><span className="hidden md:inline">Navbar</span>
-          </button>
-          <button onClick={() => setMarcaOpen(true)} className="btn-ghost btn-sm" title="Marca / White Label del sitio">
-            <PaintIcon className="w-4 h-4" /><span className="hidden md:inline">Marca</span>
           </button>
           <button onClick={guardar} disabled={saving || !dirty} className="btn-gradient btn-sm">
             {saving ? <><Spinner size="sm" /> Guardando…</> : 'Guardar cambios'}
@@ -396,36 +395,64 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
             <span className="text-base leading-none -mt-px">+</span> Página
           </button>
 
-          {/* Tres formas de mirar la misma página, y ahora se ven las tres:
-              secciones, lienzo libre y datos. La tercera estaba construida
-              entera en `PageBuilder.jsx` —470 líneas— y no la abría nadie. */}
-          <button
-            onClick={() => setVerDatos(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
-                        border transition-colors ${
-              verDatos
-                ? 'border-accent bg-accent/20 text-text-1'
-                : 'border-border bg-surface-2 text-text-2 hover:text-text-1 hover:border-accent/50'
-            }`}
-            title="Ver y editar esta página como datos, y copiar la página entera o un bloque suelto"
-          >
-            <span className="font-mono">{'{ }'}</span> Datos
-          </button>
+          {/* DOS modos de trabajar, no tres cosas al mismo nivel.
+   *
+   * Antes «Datos» y «Lienzo libre» estaban uno al lado del otro, como si
+   * fueran alternativas del mismo tipo. No lo son: lienzo y secciones son dos
+   * formas de colocar cosas **mirándolas**, y datos es trabajar sobre el
+   * código. Puestas en fila, había que probar los botones para entender qué
+   * hacía cada uno.
+   *
+   * Ahora: Visual o Código. Y dentro de Visual, cómo se colocan. */}
+          <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-0.5">
+            {[['visual', 'Visual'], ['codigo', 'Código']].map(([v, l]) => (
+              <button key={v}
+                onClick={() => setVerDatos(v === 'codigo')}
+                className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all ${
+                  (verDatos ? 'codigo' : 'visual') === v
+                    ? 'bg-surface-3 text-text-1'
+                    : 'text-text-3 hover:text-text-2'}`}
+                title={v === 'codigo'
+                  ? 'La página entera como datos: bloques, marca y navbar. Se edita y se copia.'
+                  : 'Editar mirándola'}
+              >
+                {v === 'codigo' ? <span className="font-mono mr-1">{'{ }'}</span> : null}{l}
+              </button>
+            ))}
+          </div>
 
+          {/* Cómo se colocan las cosas — sólo tiene sentido dentro de Visual.
+              En modo Código no hay nada que colocar, y enseñarlo ahí era
+              ofrecer un botón que no cambia lo que se está mirando. */}
+          {!verDatos && (
+            <button
+              onClick={toggleModo}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
+                          border transition-colors ${
+                esLienzoPagina
+                  ? 'border-accent bg-accent/20 text-text-1'
+                  : 'border-border bg-surface-2 text-text-2 hover:text-text-1 hover:border-accent/50'
+              }`}
+              title={esLienzoPagina
+                ? 'Volver a modo Secciones: cada bloque en su sitio, uno debajo de otro'
+                : 'Lienzo libre: mover y redimensionar todo a mano'}
+            >
+              <IcLienzo className="w-4 h-4" />
+              {esLienzoPagina ? 'Modo secciones' : 'Lienzo libre'}
+            </button>
+          )}
+
+          {/* Exportar, a la vista y en los dos modos.
+              Estaba escondido en un botón que sólo aparecía al pasar el ratón
+              por encima de un bloque: quien no lo supiera no lo encontraba, y
+              en móvil no hay ratón que pasar. */}
           <button
-            onClick={toggleModo}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
-                        border transition-colors ${
-              esLienzoPagina
-                ? 'border-accent bg-accent/20 text-text-1'
-                : 'border-border bg-surface-2 text-text-2 hover:text-text-1 hover:border-accent/50'
-            }`}
-            title={esLienzoPagina
-              ? 'Volver a modo Secciones: cada bloque en su sitio, uno debajo de otro'
-              : 'Lienzo libre: mover y redimensionar todo a mano'}
+            onClick={() => setEmbedId('__pagina__')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold
+                       border border-border bg-surface-2 text-text-2 hover:text-text-1 hover:border-accent/50 transition-colors"
+            title="Llevarte esta página, o un trozo, a otra web"
           >
-            <IcLienzo className="w-4 h-4" />
-            {esLienzoPagina ? 'Modo secciones' : 'Lienzo libre'}
+            <IcExportar className="w-4 h-4" /> Exportar
           </button>
         </div>
       </div>
@@ -439,6 +466,14 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
               ? { ...p, blocks: typeof updater === 'function' ? updater(p.blocks || []) : updater }
               : p)))}
           onExportar={(idBloque) => setEmbedId(idBloque)}
+          /* Marca y navbar: lo mismo que edita el cajon de ajustes, para que
+             el modo codigo no sea media herramienta. Los setters son los que
+             ya existen, asi que lo escrito aqui se guarda con el mismo boton
+             que todo lo demas. */
+          branding={branding}
+          navbar={navbar}
+          onAplicarMarca={setBranding}
+          onAplicarNavbar={setNavbar}
         />
       )}
 
@@ -669,75 +704,30 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
         )}
       </div>
 
-      {/* Exportar sección como iframe (iFrame) */}
+      {/* Exportar: la página entera o una sección suelta.
+          `__pagina__` es el botón de la barra —llevarse el sitio— y un id de
+          bloque es llevarse un trozo. No es lo mismo y por eso son dos
+          caminos: el primero se hace una vez, el segundo se pega en la web
+          que ya se tiene. */}
       {embedId && (() => {
+        if (embedId === '__pagina__') {
+          return <ExportIframeModal evento={evento} bloque={null} label="La página" onClose={() => setEmbedId(null)} />;
+        }
         const b = page?.blocks?.find(x => x.id === embedId);
         if (!b) return null;
         return <ExportIframeModal evento={evento} bloque={b} label={labelDe(b.type)} onClose={() => setEmbedId(null)} />;
       })()}
 
-      {/* Drawer: Marca / White Label — la identidad del sitio público se edita aquí mismo.
-          En PORTAL al body: dentro del árbol, los ancestros con transform rompían el `fixed`
-          y el panel se fusionaba con la barra superior. */}
-      {marcaOpen && createPortal(
-        <>
-          <div className="fixed inset-0 z-[9998] bg-black/25" onClick={() => setMarcaOpen(false)} />
-          <aside className="fixed top-0 right-0 z-[9999] h-full w-[1040px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
-            <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-              <div>
-                <h2 className="text-base font-semibold text-text-1">Marca · White Label</h2>
-                <p className="text-xs text-text-3 mt-0.5">Logo, colores, tipografía y footer del sitio público.</p>
-              </div>
-              <button onClick={() => setMarcaOpen(false)} aria-label="Cerrar" className="w-9 h-9 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </header>
-            <div className="flex-1 overflow-y-auto p-5">
-              <WhiteLabelSection evento={evento} valor={branding} onChange={setBranding} />
-            </div>
-          </aside>
-        </>,
-        document.body,
-      )}
-
-      {/* Drawer: Publicación — los tres modos (#32). Controlado, como Marca:
-          informa hacia arriba y guarda el botón de la barra. */}
-      {pubOpen && createPortal(
-        <>
-          <div className="fixed inset-0 z-[9998] bg-black/25" onClick={() => setPubOpen(false)} />
-          <aside className="fixed top-0 right-0 z-[9999] h-full w-[720px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
-            <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-              <div>
-                <h2 className="text-base font-semibold text-text-1">Publicación</h2>
-                <p className="text-xs text-text-3 mt-0.5">Dónde vive la página del evento y qué ve quien abre el enlace.</p>
-              </div>
-              <button onClick={() => setPubOpen(false)} aria-label="Cerrar" className="w-9 h-9 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </header>
-            <div className="flex-1 overflow-y-auto p-5">
-              <PublicacionSection evento={evento} valor={publicacion} onChange={setPublicacion} />
-            </div>
-          </aside>
-        </>,
-        document.body,
-      )}
-
-      {/* Drawer: Navbar del sitio (portal al body, igual que Marca) */}
-      {navOpen && createPortal(
-        <>
-          <div className="fixed inset-0 z-[9998] bg-black/25" onClick={() => setNavOpen(false)} />
-          <aside className="fixed top-0 right-0 z-[9999] h-full w-[520px] max-w-[96vw] bg-bg border-l border-border flex flex-col shadow-2xl">
-            <header className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-              <div>
-                <h2 className="text-base font-semibold text-text-1">Navbar del sitio</h2>
-                <p className="text-xs text-text-3 mt-0.5">Posición, botones y enlaces de la barra superior.</p>
-              </div>
-              <button onClick={() => setNavOpen(false)} aria-label="Cerrar" className="w-9 h-9 rounded-lg text-text-3 hover:text-text-1 hover:bg-surface-2 flex items-center justify-center transition-colors">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </header>
-            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      {/* Un solo cajon para las tres respuestas a la misma pregunta: como es
+          este sitio. Antes eran tres botones en la barra y tres armazones
+          identicos —cabecera, aspa, ancho— repetidos. */}
+      <AjustesDelSitio
+        abierta={ajustes}
+        onClose={() => setAjustes(null)}
+        marca={<WhiteLabelSection evento={evento} valor={branding} onChange={setBranding} />}
+        publicacion={<PublicacionSection evento={evento} valor={publicacion} onChange={setPublicacion} />}
+        navbar={(
+          <div className="space-y-5">
               <div>
                 <label className="text-xs text-text-2 block mb-2">Posición del menú de páginas</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -802,11 +792,9 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
                 </div>
               </div>
               <p className="text-[11px] text-text-3 border-t border-border pt-3">Los cambios se ven arriba en la vista previa. Guarda con "Guardar cambios".</p>
-            </div>
-          </aside>
-        </>,
-        document.body,
-      )}
+          </div>
+        )}
+      />
     </div>
   );
 }
@@ -822,6 +810,7 @@ function urlWebValida(url) {
 
 function GlobeIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" /></svg>; }
 function PaintIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 00-2 2 2 2 0 104 0m6-11h4a2 2 0 012 2v3a2 2 0 01-2 2h-2" /></svg>; }
+function IcExportar({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0-12l-4 4m4-4l4 4" /></svg>; }
 function NavIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="5" width="18" height="6" rx="2" /><path strokeLinecap="round" d="M7 8h4" /></svg>; }
 
 /* Mismas clases que el público, para que la animación de entrada se VEA

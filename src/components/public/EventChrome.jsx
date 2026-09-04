@@ -165,7 +165,11 @@ export function EventNavbar({ evento, pages, activeIdx = 0, onNav }) {
 export const SECCIONES_PUBLICAS = [
   { id: 'inicio',     ruta: '',           label: 'Inicio',              icono: 'estrella',   hay: () => true },
   { id: 'espacio',    ruta: 'agenda',     label: 'Espacio del evento',  icono: 'calendario', hay: (e) => e.tiene_espacio ?? e.tiene_agenda },
-  { id: 'networking', ruta: 'networking', label: 'Rueda de negocios',   icono: 'manos',      hay: (e) => e.tiene_networking },
+  /* La rueda apunta a la versión PÚBLICA. La otra —`/networking`— pide sesión
+     y boleta, y llevar ahí a quien todavía está decidiendo si viene es
+     pedirle una cuenta para contestarle una pregunta. Desde la pública se
+     entra a la de dentro cuando hace falta. */
+  { id: 'networking', ruta: 'rueda',      label: 'Rueda de negocios',   icono: 'manos',      hay: (e) => e.tiene_networking },
   { id: 'torneo',     ruta: 'torneo',     label: 'Torneo',              icono: 'trofeo',     hay: (e) => e.tiene_torneo },
   { id: 'ranking',    ruta: 'ranking',    label: 'Ranking',             icono: 'estrella',   hay: (e) => e.tiene_expositores },
   { id: 'mapa',       ruta: 'mapa',       label: 'Mapa del evento',     icono: 'pin',        hay: (e) => Boolean(e.page_json?.mapa) },

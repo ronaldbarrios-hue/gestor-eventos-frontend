@@ -466,6 +466,18 @@ function Reporte({ evento, zonas }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-xs text-text-3">
           Todo el histórico del evento, cortes incluidos: limpiar el contador no esconde nada aquí.
+          {/* La hora del corte de datos. Este informe NO se refresca solo —el
+              aforo en vivo de arriba sí, éste no— y sin decir de cuándo son
+              los números, media hora después se leen como si fueran de ahora.
+              El servidor mandaba `generado_at` desde siempre y aquí se tiraba. */}
+          {datos?.generado_at && (
+            <>
+              {' '}Datos de las{' '}
+              <b className="text-text-2">
+                {new Date(datos.generado_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+              </b>.
+            </>
+          )}
         </p>
         <div className="flex items-center gap-2">
           <label className="text-xs text-text-3">Franja</label>

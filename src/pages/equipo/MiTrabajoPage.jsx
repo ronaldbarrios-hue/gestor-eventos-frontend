@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { solicitudesApi } from '../../api/solicitudes.js';
 import { tareasApi } from '../../api/tareas.js';
+import MiFicha from './MiFicha.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
@@ -128,6 +129,11 @@ function EventoTrabajo({ ev }) {
           <Link to={`/eventos/${ev.id}`} className="text-primary hover:underline">Abrir evento</Link>
         </p>
       </div>
+
+      {/* Tu ficha tal y como la ve quien organiza, y de dónde salen las
+          solicitudes de cambio. Antes aquí sólo estaba la etiqueta del rol de
+          arriba: se sabía cómo te llaman y no qué puedes hacer. */}
+      <MiFicha ev={ev} onEnviada={reload} />
 
       {/* Tus tareas pendientes */}
       <div className="space-y-2">
