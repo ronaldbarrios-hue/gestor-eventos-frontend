@@ -57,3 +57,43 @@ test('el armazón está en el precache, o la ruta no tiene qué servir', () => {
       'el service worker construido no precachea index.html: la ruta de navegación no tendría qué servir');
   }
 });
+
+test('la puerta sigue teniendo evento cuando el servidor no contesta', () => {
+  /* El service worker hace que la aplicación ABRA sin red y la cola guarda los
+     escaneos, pero entre las dos cosas el panel pedía el evento al servidor:
+     sin conexión salía «Network Error» y un botón para volver a la lista. La
+     aplicación abría y no había escáner. */
+  const src = readFileSync('src/pages/events/workspace/EventWorkspace.jsx', 'utf8');
+  assert.match(src, /const cache = !e\.response \? leerEvento\(id\) : null;/,
+    'el panel volvió a rendirse cuando el servidor no contesta');
+  assert.match(src, /guardarEvento\(id, \{ evento: d\.evento/,
+    'ya no se guarda la copia: la próxima vez sin red no habrá de dónde tirar');
+});
+
+test('un 403 no se sirve desde la copia', () => {
+  /* Que el servidor conteste «esto no es tuyo» NO es falta de red. Servir una
+     copia ahí sería enseñar un evento que ya no se puede ver. */
+  const src = readFileSync('src/pages/events/workspace/EventWorkspace.jsx', 'utf8');
+  assert.match(src, /!e\.response \? leerEvento\(id\) : null/,
+    'la copia se usa también cuando el servidor SÍ contestó: un 403 enseñaría datos que ya no tocan');
+});
+
+test('sin conexión sólo se ofrece el escáner', () => {
+  /* Todo lo demás vive de peticiones. Ofrecerlo desde una copia enseñaría
+     listas vacías —clientes, tareas, agenda— que se leen como «no hay nadie» y
+     «no hay nada». Eso es peor que no ofrecerlo: es contestar mal. */
+  const src = readFileSync('src/pages/events/workspace/EventWorkspace.jsx', 'utf8');
+  assert.match(src, /sinConexion\s*\n?\s*\?\s*\{ \.\.\.s, tabs: s\.tabs\.filter\(tab => tab\.id === 'checkin'\) \}/,
+    'sin red vuelven a ofrecerse pestañas que no pueden funcionar');
+});
+
+test('la copia del evento va recortada', () => {
+  /* Comparte `localStorage` con la cola de escaneos, que es lo único que no se
+     puede perder. Medido con un evento real de 116 KB: recortado ocupa 294
+     bytes. Guardarlo entero podría dejar sin sitio a un escaneo — cambiar un
+     problema por otro peor. */
+  const src = readFileSync('src/lib/eventoEnCache.js', 'utf8');
+  assert.match(src, /function recortar\(evento\)/, 'desapareció el recorte: se guardaría el evento entero');
+  assert.doesNotMatch(src, /page_json: evento\?\.page_json/,
+    'se volvió a guardar `page_json` entero, con los bloques y el mapa dentro');
+});

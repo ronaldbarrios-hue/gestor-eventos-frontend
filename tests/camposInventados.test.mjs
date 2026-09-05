@@ -65,6 +65,7 @@ const PROPIOS = {
   inscripcion_abierta: 'se calcula en la pantalla y se adjunta a cada sesión',
   modo_activo: 'estado de la sesión del navegador, no del servidor',
   offline_id: 'id local de la cola de escaneos sin conexión',
+  guardado_at: 'cuándo se guardó la copia local del evento, para poder decirlo en pantalla',
 
   /* Formularios y traducciones. */
   asignado_tipo: 'campo del formulario de tareas, no viaja a la API',
