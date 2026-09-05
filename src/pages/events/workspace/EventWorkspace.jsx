@@ -114,10 +114,24 @@ const SECCIONES = [
      un torneo SIEMPRE fue un sub-evento más. El calendario es «cuándo», las
      llaves son «cómo va», los speakers son «quién». */
   { id: 'actividades', label: 'Actividades del evento', icon: TrophyIcon, tabs: [
-    { id: 'calendario', label: 'Calendario',        perm: null },
-    { id: 'torneos',    label: 'Torneos',           perm: ['gestionar_torneo'] },
-    { id: 'networking', label: 'Rueda de negocios', perm: null },
-    { id: 'speakers',   label: 'Speakers',          perm: null },
+    /* Los permisos de estas cinco decían `null` —«la ve todo el equipo»— y el
+       servidor pide otra cosa en cada una. La consecuencia la escribió este
+       mismo archivo hace dos semanas: «una pestaña que se abre y devuelve 403
+       es peor que una pestaña que no se ve». Aquí eran cuatro.
+
+       Ahora cada una pide lo que comprueba su ruta:
+       · Calendario y Speakers → `PERMS_AGENDA_LEER` / `PERMS_AGENDA`.
+       · Torneos               → `PERMS_TORNEO` (faltaba `editar_evento`, así
+                                 que un Editor no veía la pestaña y su rol sí
+                                 podía tocarla).
+       · Rueda de negocios     → `PERMS_EXPOSITORES`. Ésta era la peor: la abría
+                                 cualquiera del equipo y contestaba 403. */
+    { id: 'calendario', label: 'Calendario',        perm: ['gestionar_agenda', 'editar_evento', 'checkin'] },
+    { id: 'torneos',    label: 'Torneos',           perm: ['gestionar_torneo', 'editar_evento'] },
+    { id: 'networking', label: 'Rueda de negocios', perm: ['gestionar_expositores', 'editar_evento'] },
+    { id: 'speakers',   label: 'Speakers',          perm: ['gestionar_agenda', 'editar_evento'] },
+    /* El ranking es la tabla de puntos que ya se enseña en la página pública:
+       no esconde nada que no vea cualquiera con el enlace. */
     { id: 'ranking',    label: 'Ranking',           perm: null },
   ]},
   /* Zonas del evento: DÓNDE pasa.
@@ -131,7 +145,11 @@ const SECCIONES = [
     { id: 'zonas',   label: 'Zonas de interés',   perm: 'checkin' },
     { id: 'mapa',    label: 'Mapa del evento',    perm: 'editar_evento' },
     { id: 'aforo',   label: 'Aforo por zonas',    perm: 'checkin' },
-    { id: 'stands',  label: 'Stands',             perm: 'checkin' },
+    /* `gestionar_expositores` primero: es LA pantalla del rol «Coordinación de
+       expositores», y pidiendo sólo `checkin` ese rol no podía abrir su propia
+       herramienta — tenía el permiso del servidor y el menú se lo escondía.
+       `checkin` se queda porque en el evento los stands se operan de pie. */
+    { id: 'stands',  label: 'Stands',             perm: ['gestionar_expositores', 'checkin'] },
     { id: 'accesos', label: 'Accesos e ingresos', perm: '__solo_owner__' },
   ]},
   /* Los permisos de aquí dicen lo que el SERVIDOR comprueba, no lo que suena
@@ -160,7 +178,10 @@ const SECCIONES = [
     /* `ver_pagos` prometía un «dashboard financiero» que no existía; ésta es esa
        pantalla, y por eso la pestaña pide justo ese permiso. */
     { id: 'dinero',       label: 'Dinero',            perm: 'ver_pagos' },
-    { id: 'facturacion',  label: 'Facturación',       perm: 'ver_clientes' },
+    /* Facturación pedía `ver_clientes`, que tienen Puerta, Atención y VIP host:
+       quien está escaneando en la entrada veía la facturación del evento. Es
+       dinero, y va con los permisos de dinero. */
+    { id: 'facturacion',  label: 'Facturación',       perm: ['ver_pagos', 'editar_evento'] },
   ]},
   { id: 'asistentes', label: 'Asistentes', icon: TicketIcon, tabs: [
     { id: 'clientes',     label: 'Clientes',  perm: 'ver_clientes' },
