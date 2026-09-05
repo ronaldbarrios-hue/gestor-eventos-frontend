@@ -175,7 +175,14 @@ export default function EventsListPage() {
     if (!despublicando) setEnCurso('publicar');
     try {
       if (despublicando) { await eventosApi.cambiarEstado(e.id, 'borrador'); success('Evento despublicado.'); }
-      else { await eventosApi.publicar(e.id); success('Evento publicado.'); }
+      else {
+        const r = await eventosApi.publicar(e.id);
+        /* Lo mismo que en el editor: publicar sin forma de inscribirse no
+           puede quedarse en un «Evento publicado» a secas. */
+        const avisos = r?.avisos || [];
+        if (avisos.length) err(`Publicado, pero: ${avisos.join(' · ')}`, 9000);
+        else success('Evento publicado.');
+      }
       cargar();
     } catch (x) { err(x.response?.data?.error || x.message); }
     finally { setAccionando(null); setEnCurso(null); }

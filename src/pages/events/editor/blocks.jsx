@@ -548,7 +548,32 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
      por qué está arriba del todo de la página. */
   if (evento.cancelado && !isEditor) return null;
   if (tickets.length === 0) {
-    if (!isEditor) return null;
+    /* Aquí NO se esconde, y es la excepción a la regla del resto de bloques.
+     *
+     * Esconder un bloque vacío está bien cuando es un adorno —una galería sin
+     * fotos, unos patrocinadores sin logos—: quien visita no pierde nada. Pero
+     * éste es la única puerta de entrada, y sin él la página queda entera
+     * —descripción, galería, «cómo llegar»— y sin un solo sitio donde
+     * inscribirse. Quien lee todo y se decide no encuentra qué pulsar, y lo que
+     * concluye es que la página está rota.
+     *
+     * Está pasando ahora mismo: FESTECH ESPINAL, publicado, con la página
+     * completa y cero tipos de boleta activos. Los únicos botones son
+     * «Compartir» y «¿Ya te registraste?» — que además da a entender que el
+     * registro existe en alguna parte.
+     *
+     * Así que se dice. «Todavía no» es la verdad tanto si aún no se crearon
+     * como si se desactivaron, y a diferencia del silencio invita a volver. */
+    if (!isEditor) {
+      return (
+        <section className="rounded-3xl border border-dashed border-border bg-surface/30 px-6 py-8 text-center">
+          <p className="text-sm text-text-1 font-medium">Las inscripciones todavía no están abiertas.</p>
+          <p className="text-xs text-text-3 mt-1 max-w-sm mx-auto leading-relaxed">
+            Vuelve a mirar más cerca de la fecha, o escribe a quien organiza si necesitas tu lugar antes.
+          </p>
+        </section>
+      );
+    }
     return (
       <div className="rounded-3xl border border-dashed border-border bg-surface/20 p-5">
         <p className="text-xs uppercase tracking-widest text-text-3 mb-2">Boletas</p>
