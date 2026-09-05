@@ -54,6 +54,11 @@ function nuevoCampo(preset = {}) {
     requerido: preset.requerido ?? true,
     grupo: preset.grupo || '',
     ayuda: preset.ayuda || '',
+    /* '' = sin limite. Se guardan como texto porque vienen de un <input> y
+       convertirlos aqui haria que borrar el contenido escribiera un 0 — que en
+       la base significa «no se puede responder». */
+    max_caracteres: preset.max_caracteres ?? '',
+    max_palabras: preset.max_palabras ?? '',
     /* Sin esto la condición se perdía al guardar: el editor la mostraba, el
        usuario la definía, y `nuevoCampo` la dejaba fuera del objeto que viaja
        al servidor. */
@@ -531,6 +536,8 @@ export default function FormularioTab({
       const payload = campos.map(c => ({
         id: c.id, tipo: c.tipo, etiqueta: c.etiqueta, opciones: c.opciones,
         requerido: c.requerido, grupo: c.grupo || null, ayuda: c.ayuda || null,
+        max_caracteres: c.max_caracteres === '' ? null : Number(c.max_caracteres),
+        max_palabras: c.max_palabras === '' ? null : Number(c.max_palabras),
         ticket_type_id: c.ticket_type_id || null,
         buscable: c.buscable,
         visible_si: c.visible_si || null,
@@ -806,6 +813,37 @@ export default function FormularioTab({
                     </div>
                   )}
                 </div>
+
+                {/* Cuanto se puede escribir.
+                    Solo en texto y parrafo: en un correo o un documento el
+                    limite ya lo pone su propia verificacion, y en una seleccion
+                    lo ponen las opciones. Los dos son distintos a proposito —
+                    caracteres es espacio, palabras es forma— y se pueden usar
+                    juntos o por separado. */}
+                {['texto', 'parrafo'].includes(c.tipo) && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="field">
+                      <label className="label text-xs">Máximo de caracteres <span className="text-text-3 font-normal">(opcional)</span></label>
+                      <input type="number" min="1" max="10000" inputMode="numeric"
+                        value={c.max_caracteres ?? ''}
+                        onChange={e => actualizar(c._key, { max_caracteres: e.target.value })}
+                        className="input rounded-xl py-2 text-xs" placeholder="Sin límite" />
+                    </div>
+                    <div className="field">
+                      <label className="label text-xs">Máximo de palabras <span className="text-text-3 font-normal">(opcional)</span></label>
+                      <input type="number" min="1" max="2000" inputMode="numeric"
+                        value={c.max_palabras ?? ''}
+                        onChange={e => actualizar(c._key, { max_palabras: e.target.value })}
+                        className="input rounded-xl py-2 text-xs" placeholder="Sin límite" />
+                    </div>
+                    {(c.max_caracteres || c.max_palabras) && (
+                      <p className="col-span-2 text-[11px] text-text-3 leading-relaxed">
+                        Quien responda ve cuánto lleva mientras escribe, y no puede enviar si se pasa.
+                        Las respuestas que ya estén guardadas no se tocan.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="field">
                   <label className="label text-xs">Texto de ayuda <span className="text-text-3 font-normal">(opcional)</span></label>
