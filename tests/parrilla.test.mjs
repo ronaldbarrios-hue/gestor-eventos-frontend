@@ -69,3 +69,22 @@ test('sentar y mover existen en la API', () => {
     assert.ok(src.includes(f), `falta \`${f.trim()}\` en la API de networking`);
   }
 });
+
+test('un doble toque no pide dos veces la misma cita', () => {
+  /* `busy` deshabilita el botón cuando React pinta, y dos toques en el mismo
+     fotograma entran los dos. Aquí eso son dos citas de la misma persona, o un
+     409 gratuito sobre su propia reserva. */
+  const src = readFileSync('src/pages/events/tabs/NetworkingTab.jsx', 'utf8').replace(/\r/g, '');
+  assert.match(src, /const reservando = useRef\(false\);/, 'falta el cerrojo del doble toque');
+  assert.match(src, /if \(reservando\.current\) return;\s*\n\s*reservando\.current = true;/,
+    'el cerrojo se echa sin mirar antes si ya estaba echado');
+  assert.match(src, /reservando\.current = false;/, 'el cerrojo no se suelta: el botón quedaría muerto');
+});
+
+test('si la casilla ya no está libre, la lista se recarga', () => {
+  /* Sin esto el mismo botón sigue en pantalla invitando a volver a intentarlo
+     y a recibir el mismo error: la lista que se está mirando está vieja. */
+  const src = readFileSync('src/pages/events/tabs/NetworkingTab.jsx', 'utf8').replace(/\r/g, '');
+  assert.match(src, /if \(e\.response\?\.status === 409\) cargar\(\);/,
+    'un 409 al reservar deja la lista vieja en pantalla');
+});

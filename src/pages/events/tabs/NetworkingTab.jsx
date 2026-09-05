@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -107,7 +107,14 @@ export function ExplorarView({ evento }) {
      creyendo que tenía una hora que nadie le había dado. */
   const porSolicitud = evento?.networking_modo === 'solicitud';
 
+  /* Cerrojo del doble toque: `busy` deshabilita el boton cuando React pinta, y
+     dos toques en el mismo fotograma entran los dos. Aqui eso son dos citas
+     pedidas por la misma persona, o un 409 gratuito sobre su propia reserva. */
+  const reservando = useRef(false);
+
   const reservar = async (horarioId) => {
+    if (reservando.current) return;
+    reservando.current = true;
     setBusy(horarioId);
     try {
       /* El estado lo dice el SERVIDOR, no el modo que esta pantalla creía
@@ -121,7 +128,12 @@ export function ExplorarView({ evento }) {
       cargar();
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
+      /* Si la casilla ya no esta libre, la lista que se esta mirando esta
+         vieja: se recarga. Sin esto, el mismo boton sigue ahi invitando a
+         volver a intentarlo y a recibir el mismo error. */
+      if (e.response?.status === 409) cargar();
     } finally {
+      reservando.current = false;
       setBusy(null);
     }
   };
@@ -220,6 +232,8 @@ export function MisCitasView({ evento }) {
       cargar();
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
+      /* La cita ya no esta: la lista que se mira esta vieja y se recarga. */
+      if (e.response?.status === 404) cargar();
     } finally {
       setBusy(null);
     }
