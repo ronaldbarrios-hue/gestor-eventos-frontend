@@ -464,7 +464,18 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
     <div className={`rounded-2xl border p-3.5 transition-colors ${
       activa ? 'border-primary-light bg-surface-2/60' : 'border-border bg-surface/40'
     }`}>
-      <div className="flex items-center gap-2.5">
+      {/* Envuelve.
+          Era una sola fila que no envolvía, con tres anchos fijos dentro
+          —tipo 128 px, aforo 80, borrar 32, más los huecos: unos 260—. Las
+          fichas van en una rejilla de hasta tres columnas, así que la ficha
+          puede medir bastante menos que eso: el nombre se quedaba sin sitio y
+          el resto se salía de la tarjeta. En la captura se veía el recuadro del
+          aforo cortado por el borde, con «Aforc».
+
+          Con `flex-wrap` y un mínimo para el nombre, en una ficha ancha se
+          sigue viendo todo en una línea —como hasta ahora— y en una estrecha el
+          tipo, el aforo y el borrar bajan a la segunda. Nada se sale nunca. */}
+      <div className="flex flex-wrap items-center gap-2.5">
         {enLlamas
           ? <span className="text-orange-500 flex-shrink-0"><IconoLlama className="w-4 h-4" /></span>
           : <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: nivel.color }} />}
@@ -473,7 +484,7 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
           <>
             <input value={z.nombre} onChange={e => onEditar({ nombre: e.target.value })}
               placeholder="Nombre de la zona" autoFocus={nueva}
-              className="input !h-9 text-sm flex-1 min-w-0" />
+              className="input !h-9 text-sm flex-1 min-w-[9rem]" />
             {/* El tipo va junto al nombre y no escondido en la ficha: es lo
                 que decide si esto es una tarima o una salida de emergencia, y
                 se elige al crearla o nunca. */}
@@ -485,7 +496,8 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
             <input type="number" min="0" value={z.aforo_max ?? ''}
               onChange={e => onEditar({ aforo_max: e.target.value })}
               placeholder="Aforo" title="Aforo máximo (opcional)"
-              className="input !h-9 text-sm w-20 flex-shrink-0" />
+              aria-label="Aforo máximo de la zona"
+              className="input !h-9 text-sm w-24 flex-shrink-0" />
             <button onClick={onBorrar} title="Borrar zona"
               className="w-8 h-8 rounded-lg text-danger-light hover:bg-danger/10 flex items-center justify-center flex-shrink-0">✕</button>
           </>
@@ -522,16 +534,28 @@ function FilaZona({ z, activa, editable, onSelect, onEditar, onBorrar }) {
             </div>
           )}
 
+          {/* El resumen a la izquierda, el enlace a la derecha, y cada uno en
+              su caja.
+              Antes eran todos hermanos de una misma fila que envuelve, con el
+              enlace empujado por `ml-auto`. En cuanto el resumen no cabía en
+              una línea —una zona con actividades, stands y aviso de plano, o
+              sencillamente una pantalla estrecha— el enlace se iba solo a un
+              renglón pegado a la derecha, y quedaba un hueco a media tarjeta.
+              Así el enlace se queda arriba a la derecha y lo que envuelve es lo
+              que tiene sentido que envuelva. */}
           <button onClick={onSelect}
-            className="w-full text-left flex items-center gap-2 flex-wrap mt-2.5 text-[11px] text-text-3 hover:text-text-2 transition-colors">
-            {editable && <span className="tabular-nums text-text-2">{z.dentro}{z.aforo_max ? ` / ${z.aforo_max}` : ''} dentro</span>}
-            {editable && <span>·</span>}
-            <span>{actividades === 0 ? 'Sin actividades' : `${actividades} ${actividades === 1 ? 'actividad' : 'actividades'}`}</span>
-            <span>·</span>
-            <span>{stands === 0 ? 'Sin stands' : `${stands} ${stands === 1 ? 'stand' : 'stands'}`}</span>
-            {!z._enPlano && (<><span>·</span><span className="text-warning">No está en el plano</span></>)}
-            {z.excedido > 0 && (<><span>·</span><span className="text-danger font-semibold">+{z.excedido} por encima</span></>)}
-            <span className="ml-auto text-primary-light">{activa ? 'Ocultar' : 'Ver zona'} →</span>
+            className="w-full text-left flex items-start justify-between gap-3 mt-2.5
+                       text-[11px] text-text-3 hover:text-text-2 transition-colors">
+            <span className="flex items-center gap-2 flex-wrap min-w-0">
+              {editable && <span className="tabular-nums text-text-2">{z.dentro}{z.aforo_max ? ` / ${z.aforo_max}` : ''} dentro</span>}
+              {editable && <span>·</span>}
+              <span>{actividades === 0 ? 'Sin actividades' : `${actividades} ${actividades === 1 ? 'actividad' : 'actividades'}`}</span>
+              <span>·</span>
+              <span>{stands === 0 ? 'Sin stands' : `${stands} ${stands === 1 ? 'stand' : 'stands'}`}</span>
+              {!z._enPlano && (<><span>·</span><span className="text-warning">No está en el plano</span></>)}
+              {z.excedido > 0 && (<><span>·</span><span className="text-danger font-semibold">+{z.excedido} por encima</span></>)}
+            </span>
+            <span className="text-primary-light flex-shrink-0 whitespace-nowrap">{activa ? 'Ocultar' : 'Ver zona'} →</span>
           </button>
         </>
       )}
