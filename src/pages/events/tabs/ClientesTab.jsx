@@ -459,6 +459,13 @@ function DetalleModal({ cliente, evento = {}, currency, camposFormulario, onClos
             {cliente.checked_in_at && (
               <DetalleRow label="Ingresó el" value={new Date(cliente.checked_in_at).toLocaleString('es-CO')} />
             )}
+            {/* POR DÓNDE entró, no sólo cuándo.
+                El servidor manda `acceso` (la puerta) y `zona_usada` desde
+                siempre y no los leía nadie. Es lo primero que se pregunta
+                cuando alguien reclama —«dice que no la dejaron pasar»— y hasta
+                ahora había que ir al reporte de zonas y cruzarlo a mano. */}
+            {cliente.acceso && <DetalleRow label="Entró por" value={cliente.acceso} />}
+            {cliente.zona_usada && <DetalleRow label="Zona" value={cliente.zona_usada} />}
           </div>
 
           <div>
