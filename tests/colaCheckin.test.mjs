@@ -159,3 +159,42 @@ test('«ya fue usada» no se cuenta como un rechazo que perseguir', () => {
   assert.ok(iQuitar > 0 && iQuitar < iYa,
     'el escaneo ya registrado se queda en la cola y volvería en cada intento');
 });
+
+test('la cola se vacía sola aunque nadie pulse nada', () => {
+  /* El evento `online` era el ÚNICO disparador automático, y sólo salta si la
+     pestaña está viva justo cuando vuelve la red. En una puerta eso falla de
+     las dos maneras: el móvil mata la pestaña por memoria y al reabrirla ya
+     hay red —el evento saltó sin nadie escuchando—, o el turno cambia y el
+     escáner se abre en otro dispositivo, ya con conexión y con escaneos
+     guardados dentro. Quedaba un botón esperando a que alguien lo viera; los
+     escaneos no se perdían, pero podían pasarse el evento sin registrarse, y
+     entonces el aforo del panel es mentira. */
+  const src = sinComentarios(leer(CHECKIN));
+  assert.match(src, /if \(!online \|\| !hayCola\) return;\s*\n\s*sincronizarRef\.current\(true\);/,
+    'ya no se intenta vaciar la cola al abrir con conexión');
+  assert.match(src, /setInterval\(\(\) => sincronizarRef\.current\(true\), 30000\)/,
+    'no se reintenta: `navigator.onLine` dice que hay red, no que se llegue al servidor');
+
+  /* Por el `ref`: con `sincronizar` en las dependencias el efecto se rearma en
+     cada sincronización —la función depende de `sincronizando`— y dispara otra
+     en el acto. Eso no es un reintento, es un bucle. */
+  assert.match(src, /\}, \[online, hayCola\]\);/,
+    'el efecto volvió a depender de `sincronizar`: se rearma en cada vuelta y no para');
+});
+
+test('un reintento automático no borra el escaneo que hay delante', () => {
+  /* Si pintara el resumen cada treinta segundos, taparía la tarjeta de la
+     persona que quien escanea tiene delante para repetirle que la cola sigue
+     sin poder vaciarse. Sólo pinta si algo cambió. */
+  const src = sinComentarios(leer(CHECKIN));
+  assert.match(src, /const algoCambio = ok \|\| fallidas \|\| yaEstaban;/,
+    'no se distingue una sincronización que consiguió algo de una que no');
+  assert.match(src, /if \(algoCambio \|\| \(!automatica && enEspera\)\)/,
+    'un reintento automático que no consiguió nada vuelve a pintar sobre el escaneo');
+
+  /* Y el botón tiene que llamarla SIN el evento del clic: `automatica` es el
+     primer argumento, y un MouseEvent es un valor verdadero — pulsar el botón
+     se habría contado como reintento automático y no habría contestado nada. */
+  assert.match(src, /onClick=\{\(\) => sincronizar\(\)\}/,
+    'el botón pasa el evento del clic como `automatica` y se queda mudo');
+});

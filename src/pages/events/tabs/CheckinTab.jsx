@@ -192,7 +192,7 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
   }, [evento.id, working, bumpOptimista]);
 
   /* Sincroniza la cola offline contra el servidor. */
-  const sincronizar = useCallback(async () => {
+  const sincronizar = useCallback(async (automatica = false) => {
     if (sincronizando) return;
     const pend = leerCola(evento.id);
     if (!pend.length) return;
@@ -269,7 +269,13 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     }
     setCola(cantidadCola(evento.id));
     setSincronizando(false);
-    if (ok || fallidas || enEspera || yaEstaban) {
+    /* Un reintento automatico que no consiguio nada no pinta nada.
+       Si pintara, cada treinta segundos taparia la tarjeta del escaneo que
+       quien esta en la puerta tiene delante —con la persona delante— para
+       repetirle que la cola sigue sin poder vaciarse. La cuenta ya se ve en el
+       boton «Sincronizar N», que es donde tiene que estar. */
+    const algoCambio = ok || fallidas || yaEstaban;
+    if (algoCambio || (!automatica && enEspera)) {
       setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, yaEstaban, motivos, rechazados } });
       bumpOptimista();
     }
@@ -283,6 +289,41 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     window.addEventListener('offline', irOffline);
     return () => { window.removeEventListener('online', irOnline); window.removeEventListener('offline', irOffline); };
   }, [sincronizar]);
+
+  /* ── Que la cola no dependa de que alguien se acuerde ──────────────────
+   *
+   * El evento `online` era el ÚNICO disparador automático, y sólo salta si la
+   * pestaña está viva en el instante exacto en que vuelve la red. En una
+   * puerta eso falla de las dos maneras:
+   *
+   *   · el móvil mata la pestaña por memoria —lo que hace un móvil con la
+   *     pantalla apagada un rato— y al reabrirla ya hay red: el evento saltó
+   *     mientras no había nadie escuchando;
+   *   · cambio de turno: el escáner se abre en otro dispositivo, o el mismo se
+   *     reinicia. Se abre ya con conexión y con escaneos guardados dentro.
+   *
+   * En los dos casos quedaba un botón «Sincronizar 14» esperando a que alguien
+   * lo viera. Los escaneos no se pierden, pero pueden pasarse el evento entero
+   * sin registrarse, y entonces el aforo que se mira en el panel es mentira.
+   *
+   * Se intenta al abrir y se reintenta mientras QUEDE cola: `navigator.onLine`
+   * dice que hay una interfaz de red, no que se llegue al servidor —un wifi de
+   * recinto con portal cautivo da `true` y no deja pasar—, así que el reintento
+   * es lo que de verdad la vacía. Se para solo cuando la cola llega a cero. */
+  const sincronizarRef = useRef(sincronizar);
+  useEffect(() => { sincronizarRef.current = sincronizar; }, [sincronizar]);
+
+  const hayCola = cola > 0;
+  useEffect(() => {
+    /* Por el `ref` y no por `sincronizar`: la función cambia de identidad en
+       cada sincronización (depende de `sincronizando`), y con ella en las
+       dependencias el efecto se rearmaría en cada vuelta y dispararía otra
+       sincronización en el acto. Un bucle, no un reintento. */
+    if (!online || !hayCola) return;
+    sincronizarRef.current(true);
+    const t = setInterval(() => sincronizarRef.current(true), 30000);
+    return () => clearInterval(t);
+  }, [online, hayCola]);
 
   const handleReingreso = useCallback(async (payload) => {
     if (working) return;
@@ -526,8 +567,13 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
               ? <><b className="text-text-1">Sin conexión.</b> Los check-ins se guardan y se sincronizan solos al reconectar.</>
               : <><b className="text-text-1">{cola}</b> escaneo{cola !== 1 ? 's' : ''} sin sincronizar.</>}
           </p>
+          {/* `() =>` y no `sincronizar` a secas: onClick pasa el evento del
+              clic como primer argumento, y ahí ahora va `automatica`. Un
+              MouseEvent es un valor verdadero, así que pulsar el botón se
+              habría contado como un reintento automático y se habría quedado
+              sin contestar nada en pantalla. */}
           {cola > 0 && online && (
-            <button onClick={sincronizar} disabled={sincronizando} className="btn-secondary btn-sm flex-shrink-0">
+            <button onClick={() => sincronizar()} disabled={sincronizando} className="btn-secondary btn-sm flex-shrink-0">
               {sincronizando ? 'Sincronizando…' : `Sincronizar ${cola}`}
             </button>
           )}
