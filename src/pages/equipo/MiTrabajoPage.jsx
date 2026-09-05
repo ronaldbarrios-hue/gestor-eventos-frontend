@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import { loQuePuedoHacer, porDondeEntro, resumenCorto } from '../../lib/loQuePuedoHacer.js';
+import EquipoTab from '../events/tabs/EquipoTab.jsx';
 
 const TIPOS = [
   { v: 'sugerencia', l: 'Sugerencia' },
@@ -121,6 +122,61 @@ function LoQuePuedoHacer({ ev }) {
   );
 }
 
+
+/* El equipo del evento, aquí mismo.
+ *
+ * ── Por qué se REUTILIZA la pantalla del evento ──────────────────────────
+ *
+ * Es `EquipoTab`, el mismo componente que vive dentro del evento. Escribir
+ * aquí una versión «resumida» habría creado dos pantallas para lo mismo, y
+ * dos pantallas para lo mismo siempre se separan: una gana un botón, la otra
+ * se queda con la regla vieja, y quien las usa deja de saber cuál manda. Es la
+ * avería que este repo lleva pagando todo el día —los enlaces del navbar, las
+ * notas de la rueda, la limpieza del origen—.
+ *
+ * `EquipoTab` sólo necesita `evento.id`, así que traerlo no cuesta nada.
+ *
+ * ── Por qué sólo con permiso, y por qué plegado ──────────────────────────
+ *
+ * Sin `gestionar_roles`, `invitar_staff` o `remover_miembros`, esta pantalla
+ * contesta 403 en cuanto se toca algo: enseñarla sería ofrecer una puerta
+ * cerrada. Y plegada porque «mi trabajo» es de uno mismo —tus tareas, tu
+ * ficha—; el equipo entero es administración, y abrirla por defecto empujaría
+ * lo tuyo fuera de la pantalla.
+ */
+const PERMISOS_EQUIPO = ['gestionar_roles', 'invitar_staff', 'remover_miembros'];
+
+function EquipoDelEvento({ ev }) {
+  const [abierto, setAbierto] = useState(false);
+  const soyOwner = ev.mi_rol === 'Organizador';
+  const permisos = ev.mi_ficha?.permisos || [];
+  const puede = soyOwner || PERMISOS_EQUIPO.some(p => permisos.includes(p));
+
+  if (!puede) return null;
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface-2/30 overflow-hidden">
+      <button onClick={() => setAbierto(v => !v)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-2/60 transition-colors">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-1">El equipo de este evento</p>
+          <p className="text-[11px] text-text-3">Quién está, con qué rol, e invitar a alguien más.</p>
+        </div>
+        <span className="text-xs text-text-3 flex-shrink-0">{abierto ? 'Ocultar' : 'Ver'}</span>
+      </button>
+
+      {/* Se monta al abrir, no antes: `EquipoTab` pide el equipo y los roles al
+          montarse, y hacerlo por cada evento de la lista serían dos peticiones
+          por evento que casi nadie va a mirar. */}
+      {abierto && (
+        <div className="border-t border-border p-4">
+          <EquipoTab evento={{ id: ev.id }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EventoTrabajo({ ev }) {
   const [mias, setMias] = useState([]);
   const [tareas, setTareas] = useState([]);
@@ -182,6 +238,9 @@ function EventoTrabajo({ ev }) {
           solicitudes de cambio. Antes aquí sólo estaba la etiqueta del rol de
           arriba: se sabía cómo te llaman y no qué puedes hacer. */}
       <MiFicha ev={ev} onEnviada={reload} />
+
+      {/* El equipo, para quien pueda tocarlo. */}
+      <EquipoDelEvento ev={ev} />
 
       {/* Tus tareas pendientes */}
       <div className="space-y-2">

@@ -115,3 +115,33 @@ test('ya no se anuncia lo que no existe', () => {
   assert.doesNotMatch(sinComentarios, /Zapier|Discord/, 'volvieron los servicios anunciados y no construidos');
   assert.doesNotMatch(sinComentarios, /laboratorio de funciones beta/, 'volvió el cuadro «Experimental» vacío');
 });
+
+test('el equipo en «mi espacio» es LA misma pantalla del evento', () => {
+  /* Escribir aquí una versión «resumida» habría creado dos pantallas para lo
+     mismo, y dos pantallas para lo mismo siempre se separan: una gana un botón,
+     la otra se queda con la regla vieja, y quien las usa deja de saber cuál
+     manda. Es la avería que este repo lleva pagando todo el día. */
+  const src = leer(TRABAJO);
+  assert.match(src, /import EquipoTab from '\.\.\/events\/tabs\/EquipoTab\.jsx';/,
+    'se dejó de reutilizar la pantalla del evento');
+  assert.match(src, /<EquipoTab evento=\{\{ id: ev\.id \}\} \/>/,
+    'la pantalla del equipo ya no recibe el evento, o se duplicó');
+});
+
+test('el equipo sólo se ofrece a quien puede tocarlo', () => {
+  /* Sin esos permisos, esa pantalla contesta 403 en cuanto se toca algo:
+     enseñarla sería ofrecer una puerta cerrada. */
+  const src = leer(TRABAJO);
+  assert.match(src, /const PERMISOS_EQUIPO = \['gestionar_roles', 'invitar_staff', 'remover_miembros'\]/);
+  assert.match(src, /if \(!puede\) return null;/,
+    'la caja del equipo se enseña a quien no puede abrirla');
+  /* Y el dueño siempre puede: no tiene fila en `event_members` con permisos. */
+  assert.match(src, /const soyOwner = ev\.mi_rol === 'Organizador';/);
+});
+
+test('el equipo no se pide hasta que se abre', () => {
+  /* `EquipoTab` pide equipo y roles al montarse. Montarlo por cada evento de
+     la lista serían dos peticiones por evento que casi nadie va a mirar. */
+  const src = leer(TRABAJO);
+  assert.match(src, /\{abierto && \(/, 'el equipo se monta siempre, aunque esté plegado');
+});
