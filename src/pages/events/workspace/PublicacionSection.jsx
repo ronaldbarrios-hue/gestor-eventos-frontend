@@ -1,5 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
+import { clientesApi } from '../../../api/clientes.js';
+import {
+  botonesDelEvento, nuevoBoton, cruzarConUso, codigoDeOrigen,
+} from '../../../lib/botonesDeRegistro.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import {
   MODOS_PUBLICACION, EMBED_ESPECIALES, EMBED_TEMAS,
@@ -262,6 +266,74 @@ function BotonDeRegistro({ evento }) {
   const [cfg, setCfg] = useState({ ...WIDGET_DEFECTOS, degradado: false, color2: '#F2D66B', ancho: 'auto' });
   const [comoSitio, setComoSitio] = useState(false);
 
+  /* Los botones que ya se crearon.
+     «Los botones que se crean no los vuelvo a ver»: el código se generaba, se
+     copiaba y se olvidaba. Si la web se rehace, o hay que cambiar el color, o
+     volver a copiarlo para otra página, había que reconstruirlo de memoria — y
+     cada reconstrucción salía un poco distinta. */
+  const [guardados, setGuardados] = useState(() => botonesDelEvento(evento));
+  const [uso, setUso] = useState([]);
+  const [guardando, setGuardando] = useState(false);
+
+  /* Cuánto trajo cada uno. Es lo que convierte una lista de códigos en algo que
+     se mira: sin esto, saber cuál de los cuatro sitios funcionó es imposible. */
+  useEffect(() => {
+    let vivo = true;
+    clientesApi.origenes(evento.id)
+      .then(d => { if (vivo) setUso(d.origenes || []); })
+      /* Si no se puede leer, la lista sigue sirviendo para copiar: los números
+         son un extra, no la razón de la pantalla. */
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [evento.id]);
+
+  const tipos = (evento.ticket_types || []).filter(t => t.activo !== false);
+  const { conUso, directo, huerfanos } = cruzarConUso(guardados, uso);
+
+  const persistir = async (lista) => {
+    setGuardando(true);
+    try {
+      /* El PATCH mezcla por claves de primer nivel: mandar sólo `botones` no
+         pisa el resto de `page_json`. */
+      await eventosApi.update(evento.id, { page_json: { botones: lista } });
+      setGuardados(lista);
+    } catch (e) {
+      error(e.response?.data?.error || e.message);
+      throw e;
+    } finally { setGuardando(false); }
+  };
+
+  const guardarActual = async () => {
+    const nombre = (window.prompt('¿Cómo llamas a este botón? Ej: «Home de la web», «Correo a socios»') || '').trim();
+    if (!nombre) return;
+    const b = nuevoBoton({ ...cfg, nombre, origen: codigoDeOrigen(nombre, guardados) }, guardados);
+    try {
+      await persistir([...guardados, b]);
+      success(`Guardado. Ahora sabrás cuánta gente entró por «${nombre}».`);
+    } catch { /* ya se avisó */ }
+  };
+
+  const borrarGuardado = async (id) => {
+    const b = guardados.find(x => x.id === id);
+    if (!b) return;
+    /* Se avisa de lo que NO pasa: las inscripciones que trajo se quedan. Sin
+       decirlo, borrar un botón parece que borra su historia. */
+    if (!window.confirm(`¿Quitar «${b.nombre}» de la lista?
+
+El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0} inscripciones que trajo se quedan en el evento.`)) return;
+    try { await persistir(guardados.filter(x => x.id !== id)); } catch { /* ya se avisó */ }
+  };
+
+  const copiarDe = async (b) => {
+    const codigo = (comoSitio ? widgetSnippetEnSitio : widgetSnippet)({ slug: evento.slug, ...b });
+    try {
+      await navigator.clipboard.writeText(codigo);
+      success(`Código de «${b.nombre}» copiado`);
+    } catch {
+      error('No se pudo copiar — ábrelo y usa Ctrl+C');
+    }
+  };
+
   const slug = evento.slug;
   const set = (patch) => setCfg(c => ({ ...c, ...patch }));
 
@@ -301,6 +373,27 @@ function BotonDeRegistro({ evento }) {
 
       <div className="p-4 grid lg:grid-cols-[1fr_minmax(260px,320px)] gap-5 items-start">
         <div className="space-y-3 min-w-0">
+          {/* A qué lleva.
+              Con varias boletas, un botón que abre la lista obliga a elegir
+              dentro de una ventana pequeña — y no se podía poner «Comprar VIP»
+              en una página y «Stand comercial» en otra, que es justo para lo
+              que se pega el botón en sitios distintos. */}
+          {tipos.length > 1 && (
+            <div>
+              <label className="label">¿A qué lleva?</label>
+              <select value={cfg.boleta || ''} onChange={e => set({ boleta: e.target.value })}
+                className="input w-full">
+                <option value="">A la lista de boletas (todas)</option>
+                {tipos.map(t => <option key={t.id} value={t.id}>Directo a «{t.nombre}»</option>)}
+              </select>
+              <p className="text-[11px] text-text-3 mt-1 leading-relaxed">
+                Si esa boleta se agota o se desactiva, el botón cae a la lista en vez de
+                romperse: un botón viejo en una web ajena no puede convertirse en una
+                puerta cerrada.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="label">Texto del botón</label>
             <input value={cfg.texto} onChange={e => set({ texto: e.target.value })}
@@ -391,7 +484,13 @@ function BotonDeRegistro({ evento }) {
           <textarea readOnly value={snippet} rows={comoSitio ? 10 : 8}
             onFocus={e => e.target.select()}
             className="input w-full font-mono text-[11px] leading-relaxed resize-y" />
-          <button onClick={copiar} className="btn btn-sm w-full">Copiar código</button>
+          <div className="flex gap-2">
+            <button onClick={copiar} className="btn btn-sm flex-1">Copiar código</button>
+            {/* Guardarlo es lo que hace que se pueda volver a ver. */}
+            <button onClick={guardarActual} disabled={guardando} className="btn-secondary btn-sm flex-1">
+              {guardando ? 'Guardando…' : 'Guardar este botón'}
+            </button>
+          </div>
           <p className="text-[11px] text-text-3 leading-relaxed">
             Pégalo en tu web donde quieras que salga el botón. El pago, si la entrada
             es de pago, se abre en una pestaña aparte: las pasarelas no funcionan
@@ -399,6 +498,88 @@ function BotonDeRegistro({ evento }) {
           </p>
         </div>
       </div>
+
+      <BotonesGuardados
+        botones={conUso} directo={directo} huerfanos={huerfanos}
+        tipos={tipos} onCopiar={copiarDe} onBorrar={borrarGuardado} />
+    </div>
+  );
+}
+
+/* Los botones que ya se crearon, con lo que trajo cada uno.
+ *
+ * ── Por qué esta lista es la mitad de la función ─────────────────────────
+ *
+ * Un botón se pega en la web, en un correo, en el Instagram de la alcaldía y
+ * en el WhatsApp del gremio. Sin esta lista son cuatro copias iguales de un
+ * enlace: no se pueden volver a copiar, no se pueden cambiar, y sobre todo no
+ * se sabe cuál trajo gente. Con ella, el botón deja de ser un pegote y pasa a
+ * ser el canal que se puede medir.
+ *
+ * ── «Directo» se cuenta y se nombra ──────────────────────────────────────
+ *
+ * Quien llegó a la página del evento sin pasar por ningún botón es la mayoría,
+ * y esconderlo haría que las cuentas de esta pantalla no cuadraran con las de
+ * asistentes. Es una fila más, con su nombre.
+ */
+function BotonesGuardados({ botones, directo, huerfanos, tipos, onCopiar, onBorrar }) {
+  const nombreDeBoleta = (id) => tipos.find(t => String(t.id) === String(id))?.nombre;
+
+  if (!botones.length && !directo && !huerfanos.length) return null;
+
+  const Fila = ({ titulo, sub, total, pagadas, acciones = null, tenue = false }) => (
+    <div className="flex items-center gap-3 px-4 py-3 border-t border-border">
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm truncate ${tenue ? 'text-text-2' : 'text-text-1 font-medium'}`}>{titulo}</p>
+        {sub && <p className="text-[11px] text-text-3 truncate">{sub}</p>}
+      </div>
+      <div className="text-right flex-shrink-0">
+        <p className="text-sm font-bold font-display tabular-nums text-text-1">{total}</p>
+        {/* Las pagadas aparte: cien reservas sin pagar y diez pagadas no son
+            lo mismo, y el número grande es el que engaña. */}
+        <p className="text-[10px] text-text-3 tabular-nums">{pagadas} pagada{pagadas === 1 ? '' : 's'}</p>
+      </div>
+      {acciones}
+    </div>
+  );
+
+  return (
+    <div className="border-t border-border">
+      <div className="px-4 py-3">
+        <p className="text-sm font-semibold text-text-1">Tus botones</p>
+        <p className="text-[11px] text-text-3 mt-0.5">
+          Los que guardaste, y cuánta gente entró por cada uno.
+        </p>
+      </div>
+
+      {botones.map(b => (
+        <Fila key={b.id}
+          titulo={b.nombre}
+          sub={[
+            b.boleta ? `→ ${nombreDeBoleta(b.boleta) || 'una boleta que ya no existe'}` : '→ lista de boletas',
+            b.texto,
+          ].filter(Boolean).join(' · ')}
+          total={b.uso.total} pagadas={b.uso.pagadas}
+          acciones={
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button onClick={() => onCopiar(b)} className="btn-ghost btn-sm">Copiar</button>
+              <button onClick={() => onBorrar(b.id)} className="btn-ghost btn-sm text-danger/80 hover:text-danger">Quitar</button>
+            </div>
+          } />
+      ))}
+
+      {directo && (
+        <Fila tenue titulo="Directo" sub="Entraron por la página del evento, sin pasar por un botón"
+          total={directo.total} pagadas={directo.pagadas} />
+      )}
+
+      {/* Un botón borrado no borra a quien trajo. Esconder estas filas haría
+          que la suma de aquí no cuadrara con la lista de asistentes. */}
+      {huerfanos.map(h => (
+        <Fila key={h.origen} tenue titulo={h.origen}
+          sub="De un botón que ya no está en la lista"
+          total={h.total} pagadas={h.pagadas} />
+      ))}
     </div>
   );
 }

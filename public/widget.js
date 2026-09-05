@@ -62,6 +62,12 @@
     var slug = dato(el, 'gestek-evento', null) || dato(el, 'gestek-registro', null);
     return {
       slug      : slug,
+      /* A que boleta lleva, y de donde viene. Los dos viajan en la URL del
+         iframe: sin `boleta`, el boton abre la lista —lo de siempre— y con
+         ella entra directo a esa, que es lo que permite poner «Comprar VIP»
+         en una pagina y «Stand comercial» en otra. */
+      boleta    : dato(el, 'boleta', ''),
+      origen    : dato(el, 'origen', ''),
       texto     : dato(el, 'texto', 'Registrarme'),
       color     : dato(el, 'color', '#E0B12B'),
       color2    : dato(el, 'color-2', ''),
@@ -172,7 +178,10 @@
     for (var k2 in c) caja.style[k2] = c[k2];
 
     var marco = document.createElement('iframe');
-    marco.src = ORIGEN + '/embed/' + encodeURIComponent(cfg.slug) + '/registro?fid=' + fid + '&fondo=solido';
+    var extra = '';
+    if (cfg.boleta) extra += '&boleta=' + encodeURIComponent(cfg.boleta);
+    if (cfg.origen) extra += '&origen=' + encodeURIComponent(cfg.origen);
+    marco.src = ORIGEN + '/embed/' + encodeURIComponent(cfg.slug) + '/registro?fid=' + fid + '&fondo=solido' + extra;
     marco.title = cfg.titulo;
     marco.setAttribute('allow', 'clipboard-write');
     var m = {

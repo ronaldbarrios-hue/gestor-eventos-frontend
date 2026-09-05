@@ -220,7 +220,21 @@ export const WIDGET_DEFECTOS = {
   colorTexto: '#12100B',
   radio     : '12',
   tamano    : 'md',
+  /* A qué boleta lleva. Vacío = a la lista, como hasta ahora.
+     Con varias boletas, un botón que abre la lista obliga a elegir dentro de
+     una ventana pequeña, y no se puede poner «Comprar VIP» en una página y
+     «Stand comercial» en otra — que es justo lo que se quiere hacer al pegar
+     el botón en sitios distintos. */
+  boleta    : '',
+  /* De dónde viene esta inscripción. Lo pone la plataforma al crear el botón,
+     no la persona: así no hay dos botones con el mismo nombre ni espacios
+     raros en una URL. */
+  origen    : '',
 };
+
+/* Los atributos que NO se escriben cuando están vacíos: un `data-boleta=""`
+   en la web de alguien es ruido que invita a rellenarlo a mano. */
+const OPCIONALES = ['boleta', 'origen'];
 
 /* ¿Estamos dentro del iframe de otra web? Se pregunta dentro de un try porque
    en un iframe de otro dominio, leer `window.parent` puede lanzar. */
@@ -262,13 +276,18 @@ export function widgetSnippet({ origin, slug, ...opciones }) {
   const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
   const attr = (k, v) => `\n        data-${k}="${String(v).replace(/"/g, '&quot;')}"`;
 
+  const extra = OPCIONALES
+    .filter(k => o[k])
+    .map(k => attr(k, o[k]))
+    .join('');
+
   return `<script src="${base}/widget.js"${
     attr('gestek-evento', slug)}${
     attr('texto', o.texto)}${
     attr('color', o.color)}${
     attr('color-texto', o.colorTexto)}${
     attr('radio', o.radio)}${
-    attr('tamano', o.tamano)}></script>`;
+    attr('tamano', o.tamano)}${extra}></script>`;
 }
 
 /* La otra forma: el botón donde el organizador quiera, y el script una sola
@@ -277,13 +296,19 @@ export function widgetSnippet({ origin, slug, ...opciones }) {
 export function widgetSnippetEnSitio({ origin, slug, ...opciones }) {
   const o = { ...WIDGET_DEFECTOS, ...opciones };
   const base = origin || (typeof window !== 'undefined' ? window.location.origin : '');
+  const extra = OPCIONALES
+    .filter(k => o[k])
+    .map(k => `
+     data-${k}="${String(o[k]).replace(/"/g, '&quot;')}"`)
+    .join('');
+
   return `<!-- donde quieras que salga el botón -->
 <div data-gestek-registro="${slug}"
      data-texto="${o.texto}"
      data-color="${o.color}"
      data-color-texto="${o.colorTexto}"
      data-radio="${o.radio}"
-     data-tamano="${o.tamano}"></div>
+     data-tamano="${o.tamano}"${extra}></div>
 
 <!-- una sola vez, al final de la página -->
 <script src="${base}/widget.js"></script>`;

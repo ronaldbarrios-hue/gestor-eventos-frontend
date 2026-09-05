@@ -770,7 +770,7 @@ function AvisoCupo({ cupo, onTomar, tipoDisponible = true }) {
   );
 }
 
-export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onClose, onSuccess, embebido = false }) {
+export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', origen = '', onClose, onSuccess, embebido = false }) {
   const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [respuestas, setRespuestas] = useState({});
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
@@ -1053,6 +1053,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
           captcha_token: captcha, respuestas,
           ...(acepta ? { legal_aceptado: true } : {}),
           ...(cupoToken ? { waitlist_token: cupoToken } : {}),
+          ...(origen ? { origen } : {}),
           ...(promo ? { promocion_codigo: promo.codigo } : {}),
         });
         /* El PDF de la boleta se arma en el navegador con lo que se acaba de
@@ -1068,6 +1069,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         const body = { ticket_type_id: tipo.id, nombre: form.nombre, email: form.email, telefono: form.telefono, captcha_token: captcha, respuestas,
           ...(acepta ? { legal_aceptado: true } : {}),
           ...(cupoToken ? { waitlist_token: cupoToken } : {}),
+          ...(origen ? { origen } : {}),
           /* El código, no el precio. Si aquí viajara el importe, cambiarlo en
              las herramientas del navegador sería comprar a lo que uno quisiera:
              a la pasarela le decimos nosotros cuánto cobrar. */
