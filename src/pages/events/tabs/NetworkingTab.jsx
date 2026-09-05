@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
+import { guardarBorrador, leerBorrador, olvidarBorrador, filtrarCitas, citasComoCSV } from '../../../lib/notasDeCita.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
@@ -214,6 +215,10 @@ export function ExplorarView({ evento }) {
 export function MisCitasView({ evento }) {
   const [citas, setCitas] = useState(null);
   const [busy, setBusy] = useState(null);
+  /* Buscar y filtrar. Con veinte reuniones, «¿cuál era la del proveedor de
+     gafetes?» no se contesta bajando por la lista: se contesta escribiendo. */
+  const [q, setQ] = useState('');
+  const [soloConNotas, setSoloConNotas] = useState(false);
   const { success, error: toastErr } = useToast();
 
   const cargar = () => {
@@ -222,6 +227,11 @@ export function MisCitasView({ evento }) {
       .catch(e => toastErr(e.response?.data?.error || e.message));
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [evento.id]);
+
+  const visibles = useMemo(
+    () => filtrarCitas(citas || [], { texto: q, soloConNotas }),
+    [citas, q, soloConNotas]);
+  const conNotas = (citas || []).filter(c => c.notas).length;
 
   const cancelar = async (citaId) => {
     if (!(await confirmDialog({ message: '¿Cancelar esta cita? El horario quedará libre para alguien más.', danger: true }))) return;
@@ -239,6 +249,26 @@ export function MisCitasView({ evento }) {
     }
   };
 
+  /* Descargar lo anotado.
+   *
+   * Una nota que sólo se lee dentro de la aplicación no sirve para lo que se
+   * tomó: el seguimiento se hace al día siguiente, en el correo o en la hoja de
+   * cálculo de alguien. Se arma aquí con lo que ya está cargado — no hace falta
+   * pedirle nada al servidor. */
+  const descargar = () => {
+    const csv = citasComoCSV(visibles, evento.titulo || '');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mis-citas-${(evento.slug || 'evento')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    /* El objeto se libera después: revocarlo en el acto cancela la descarga en
+       algunos navegadores. */
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
   if (citas === null) return <GLoader message="Cargando tu agenda..." />;
   if (citas.length === 0) {
     return (
@@ -249,8 +279,37 @@ export function MisCitasView({ evento }) {
   }
 
   return (
-    <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
-      {citas.map((c, i) => {
+    <div className="space-y-3">
+      {/* La barra sólo aparece cuando hay suficientes citas como para que
+          buscar tenga sentido. Con tres reuniones, un buscador es ruido. */}
+      {citas.length > 4 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Buscar por empresa, stand o lo que anotaste…"
+            className="input rounded-2xl py-2 text-sm flex-1 min-w-[14rem]" />
+          <button
+            onClick={() => setSoloConNotas(v => !v)}
+            className={`btn-sm rounded-full border px-3 ${soloConNotas
+              ? 'border-primary/50 bg-primary/10 text-text-1'
+              : 'border-border text-text-2 hover:text-text-1'}`}>
+            Con notas ({conNotas})
+          </button>
+          <button onClick={descargar} className="btn-secondary btn-sm rounded-full">
+            Descargar CSV
+          </button>
+        </div>
+      )}
+
+      {visibles.length === 0 ? (
+        <div className="rounded-3xl border border-border bg-surface/40 px-6 py-10 text-center">
+          <p className="text-sm text-text-3">
+            Ninguna cita coincide{soloConNotas ? ' y tiene notas' : ''}. Cambia la búsqueda.
+          </p>
+        </div>
+      ) : (
+      <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
+      {visibles.map((c, i) => {
         const inicio = new Date(c.horario?.inicio);
         const fin = new Date(c.horario?.fin);
         return (
@@ -292,45 +351,131 @@ export function MisCitasView({ evento }) {
           </div>
         );
       })}
+      </div>
+      )}
     </div>
   );
 }
 
 /* Lo que anotaste de una cita.
  *
- * Se guarda al salir del campo y no con un boton: quien escribe esto lo hace
- * entre reunion y reunion, de pie y con prisa. Un boton de guardar es un paso
- * mas y una nota perdida cada vez que alguien se olvida de pulsarlo.
+ * ── Lo que cambió, y por qué ─────────────────────────────────────────────
  *
- * Y se guarda solo si cambio algo: sin esa comprobacion, cada vez que el foco
- * pasa por encima se manda una peticion que no escribe nada. */
-function NotasCita({ evento, cita }) {
-  const [texto, setTexto] = useState(cita.notas || '');
-  const [guardado, setGuardado] = useState(null);
+ * Guardaba al salir del campo. Es lo correcto para el escritorio y tiene un
+ * agujero en el móvil: cambiar de aplicación no siempre dispara ese evento. La
+ * persona escribe entre dos mesas, se va a la siguiente, y la nota no salió
+ * nunca — y no se entera hasta el día siguiente, cuando ya no puede
+ * reconstruirla.
+ *
+ * Ahora hay tres redes, de la más barata a la más segura:
+ *
+ *  1. Un BORRADOR local en cuanto se teclea. Una recarga, un cierre o la
+ *     pestaña muerta por memoria ya no se llevan nada.
+ *  2. Se manda solo a los dos segundos de dejar de escribir. Sin botón: quien
+ *     escribe esto lo hace de pie y con prisa.
+ *  3. Y también al salir del campo, al esconder la pestaña y al cerrarla.
+ *
+ * El estado se DICE. «Sin guardar» mientras hay algo pendiente es lo que
+ * permite decidir si se puede cerrar el móvil; un «Guardado» que aparece y se
+ * queda no distingue entre lo de hace un segundo y lo de hace media hora.
+ */
+function NotasCita({ evento, cita, abiertaPorDefecto = false }) {
+  const inicial = leerBorrador(cita.id) ?? (cita.notas || '');
+  const [texto, setTexto] = useState(inicial);
+  /* 'guardado' | 'pendiente' | 'guardando' | 'error' */
+  const [estado, setEstado] = useState(inicial === (cita.notas || '') ? 'guardado' : 'pendiente');
+  const [abierta, setAbierta] = useState(abiertaPorDefecto || Boolean(inicial));
   const { error: toastErr } = useToast();
 
-  const guardar = async () => {
-    if (texto === (cita.notas || '')) return;
+  const textoRef = useRef(texto);
+  const guardando = useRef(false);
+  textoRef.current = texto;
+
+  const guardar = useCallback(async () => {
+    const actual = textoRef.current;
+    if (actual === (cita.notas || '')) return;
+    /* Cerrojo: el temporizador, el `blur` y el cambio de pestaña pueden caer a
+       la vez, y serían tres escrituras de lo mismo. */
+    if (guardando.current) return;
+    guardando.current = true;
+    setEstado('guardando');
     try {
-      await networkingApi.guardarNotas(evento.id, cita.id, texto);
-      cita.notas = texto;
-      setGuardado(Date.now());
+      await networkingApi.guardarNotas(evento.id, cita.id, actual);
+      cita.notas = actual;
+      olvidarBorrador(cita.id);
+      /* Si siguió escribiendo mientras se guardaba, esto ya no está al día. */
+      setEstado(textoRef.current === actual ? 'guardado' : 'pendiente');
     } catch (e) {
+      setEstado('error');
       toastErr(e.response?.data?.error || e.message);
+    } finally {
+      guardando.current = false;
     }
+  }, [evento.id, cita, toastErr]);
+
+  const escribir = (v) => {
+    setTexto(v);
+    setEstado('pendiente');
+    /* El borrador primero: si esto falla, lo demás sigue funcionando igual. */
+    guardarBorrador(cita.id, v);
   };
+
+  /* Solo, dos segundos después de la última tecla. */
+  useEffect(() => {
+    if (estado !== 'pendiente') return undefined;
+    const t = setTimeout(guardar, 2000);
+    return () => clearTimeout(t);
+  }, [texto, estado, guardar]);
+
+  /* Y al esconder o cerrar la pestaña, que en un móvil es lo que de verdad
+     pasa: `visibilitychange` salta cuando se cambia de aplicación, y
+     `pagehide` cuando el sistema mata la pestaña. */
+  useEffect(() => {
+    const alIrse = () => { if (textoRef.current !== (cita.notas || '')) guardar(); };
+    const alEsconder = () => { if (document.visibilityState === 'hidden') alIrse(); };
+    document.addEventListener('visibilitychange', alEsconder);
+    window.addEventListener('pagehide', alIrse);
+    return () => {
+      document.removeEventListener('visibilitychange', alEsconder);
+      window.removeEventListener('pagehide', alIrse);
+    };
+  }, [guardar, cita]);
+
+  const AVISO = {
+    pendiente: { texto: 'Sin guardar…', cls: 'text-text-3' },
+    guardando: { texto: 'Guardando…',   cls: 'text-text-3' },
+    guardado:  { texto: 'Guardado.',    cls: 'text-success' },
+    error:     { texto: 'No se pudo guardar. Sigue aquí: no cierres sin reintentar.', cls: 'text-danger-light' },
+  }[estado];
+
+  /* Cerrada por defecto cuando no hay nada escrito. Con veinte citas, veinte
+     cajas de texto abiertas son un muro por el que hay que bajar para
+     encontrar la de las 10:45. */
+  if (!abierta) {
+    return (
+      <div className="px-5 pb-3.5 -mt-1">
+        <button onClick={() => setAbierta(true)}
+          className="text-xs text-text-3 hover:text-text-1 underline underline-offset-2">
+          + Anotar algo de esta reunión
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="px-5 pb-3.5 -mt-1">
       <textarea
         value={texto}
-        onChange={e => setTexto(e.target.value)}
+        onChange={e => escribir(e.target.value)}
         onBlur={guardar}
-        rows={texto ? 3 : 1}
+        rows={texto ? 3 : 2}
         maxLength={4000}
         placeholder="Anota lo que hablaron, lo que quedó pendiente, con quién seguir…"
         className="input w-full text-sm resize-y" />
-      {guardado && <p className="text-[11px] text-success mt-1">Guardado.</p>}
+      <div className="flex items-center justify-between gap-2 mt-1">
+        <p className={`text-[11px] ${AVISO.cls}`}>{estado === 'guardado' && !texto ? '' : AVISO.texto}</p>
+        <p className="text-[11px] text-text-3 tabular-nums">{texto.length} / 4000</p>
+      </div>
     </div>
   );
 }
