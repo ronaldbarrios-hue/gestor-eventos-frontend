@@ -9,7 +9,15 @@ export const networkingApi = {
      sobre la propia. */
   guardarNotas: (eventoId, citaId, notas) =>
     client.patch(`/eventos/${eventoId}/networking/citas/${citaId}/notas`, { notas }).then(r => r.data),
+  /* El cierre de la reunion: si ocurrio y que negocio se espera. Va por la
+     misma ruta que las notas —es la misma cita y el mismo dueño— y solo se
+     mandan las claves que cambian, para que cerrar no borre la nota. */
+  cerrarCita  : (eventoId, citaId, cambios) =>
+    client.patch(`/eventos/${eventoId}/networking/citas/${citaId}/notas`, cambios).then(r => r.data),
   cancelar    : (eventoId, citaId) => client.delete(`/eventos/${eventoId}/networking/citas/${citaId}`).then(r => r.data),
+
+  /* Que salio de la rueda: el informe que la camara le enseña a su junta. */
+  informe     : (eventoId) => client.get(`/eventos/${eventoId}/networking/informe`).then(r => r.data),
 
   /* Vista del organizador */
   expositoresAdmin: (eventoId) => client.get(`/eventos/${eventoId}/expositores`).then(r => r.data),

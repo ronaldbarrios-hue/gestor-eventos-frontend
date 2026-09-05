@@ -85,6 +85,12 @@ export default function EmbedPage() {
   const tema  = params.get('tema')  || 'auto';
   const fondo = params.get('fondo') || 'transparente';
   const fid   = params.get('fid')   || '';
+  /* A qué boleta lleva el botón que abrió esto, y de dónde vino.
+     `boleta` acepta el id o el nombre: quien pega el botón a mano en su web
+     escribe «vip» antes que un UUID, y rechazárselo sería exigirle que copie
+     un identificador para algo que en su cabeza tiene nombre. */
+  const boletaParam = (params.get('boleta') || '').trim();
+  const origen      = (params.get('origen') || '').trim();
 
   /* La fuente de la web anfitriona. Puede venir en la URL (para Notion, Wix y
      demás bloques de "insertar web" que no ejecutan el script) o por
@@ -213,6 +219,26 @@ export default function EmbedPage() {
        sección sin boletas, y ahí sí toca la página completa. */
     abrirPaginaCompleta();
   }, [abrirPaginaCompleta]);
+
+  /* Ir directo a una boleta.
+   *
+   * Sin esto, un botón «Comprar VIP» en la web del organizador abría la lista
+   * entera y la persona tenía que volver a elegir dentro de una ventana
+   * pequeña — y con varias boletas no había forma de poner un botón por
+   * boleta, que es justo para lo que se pegan en páginas distintas.
+   *
+   * Si la boleta ya no existe o se desactivó, NO se falla: se cae a la lista y
+   * la persona sigue pudiendo registrarse. Un botón viejo en una web ajena no
+   * puede convertirse en una puerta cerrada. */
+  useEffect(() => {
+    if (!boletaParam || !evento || reservaTipo) return;
+    const tipos = (evento.ticket_types || evento.tipos_ticket || []).filter(t => t.activo);
+    const buscada = String(boletaParam).toLowerCase();
+    const t = tipos.find(x => String(x.id) === boletaParam)
+      || tipos.find(x => String(x.nombre || '').trim().toLowerCase() === buscada);
+    if (t) setReservaTipo(t);
+    /* eslint-disable-next-line */
+  }, [boletaParam, evento]);
 
   const Especial = ESPECIALES[seccion] || null;
 
@@ -346,6 +372,9 @@ export default function EmbedPage() {
             slug={slug}
             currency={evento.currency}
             evento={evento}
+            /* Viaja con la compra: es lo que después contesta «este botón
+               trajo 34 inscripciones». */
+            origen={origen}
             onClose={() => {
               setReservaTipo(null);
               /* Con una sola boleta no hay a dónde volver: detrás del

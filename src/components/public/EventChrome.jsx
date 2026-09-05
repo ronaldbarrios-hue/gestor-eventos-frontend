@@ -184,3 +184,8 @@ export function seccionesDe(evento, nav) {
     : muestraSeccion(nav, s.id, s.hay(evento || {})));
   return con.length > 1 ? con : [];
 }
+
+/* El enlace de una sección vive en `src/lib/enlaceSeccion.js`: es una regla
+   de estilo, no una pantalla, y desde ahí sí la pueden correr las pruebas —node
+   no importa `.jsx`, y ahí sus pruebas se saltaban solas—. */
+export { claseEnlaceSeccion, estiloEnlaceSeccion } from '../../lib/enlaceSeccion.js';

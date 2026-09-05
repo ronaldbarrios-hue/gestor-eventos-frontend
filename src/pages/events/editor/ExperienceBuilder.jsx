@@ -405,7 +405,11 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
    *
    * Ahora: Visual o Código. Y dentro de Visual, cómo se colocan. */}
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-0.5">
-            {[['visual', 'Visual'], ['codigo', 'Código']].map(([v, l]) => (
+            {/* «Desarrollador» y no «Código»: es el mismo sitio al que se
+                entra desde la barra del preview, y allí ya se llama así. Dos
+                nombres para la misma pantalla obligan a probar los botones
+                para descubrir que llevan al mismo lado. */}
+            {[['visual', 'Visual'], ['codigo', 'Desarrollador']].map(([v, l]) => (
               <button key={v}
                 onClick={() => setVerDatos(v === 'codigo')}
                 className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all ${
@@ -413,7 +417,7 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
                     ? 'bg-surface-3 text-text-1'
                     : 'text-text-3 hover:text-text-2'}`}
                 title={v === 'codigo'
-                  ? 'La página entera como datos: bloques, marca y navbar. Se edita y se copia.'
+                  ? 'La página en el formato que valida el servidor: bloques, marca y navbar. Se edita, se copia y se incrusta.'
                   : 'Editar mirándola'}
               >
                 {v === 'codigo' ? <span className="font-mono mr-1">{'{ }'}</span> : null}{l}
@@ -480,9 +484,15 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
       {/* ── Editor unificado ── */}
       <div className="flex gap-3 items-start">
 
-        {/* IZQUIERDA · Secciones + Plantillas (oculto en modo lienzo libre; el lienzo trae su propia paleta) */}
+        {/* IZQUIERDA · Secciones + Plantillas (oculto en modo lienzo libre; el
+            lienzo trae su propia paleta).
+
+            260 de ancho y no 225: con la columna de flechas, el icono y los dos
+            botones de la derecha, al nombre le quedaban ~110 px —«Título del
+            eve…», «Información (f…», «Gana puntos y…»—. La lista sirve para
+            ORDENAR secciones, y no se puede ordenar lo que no se lee. */}
         {!esLienzoPagina && (
-        <aside className="hidden lg:flex flex-col flex-shrink-0 w-[225px] rounded-2xl border border-border bg-surface/70 overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
+        <aside className="hidden lg:flex flex-col flex-shrink-0 w-[260px] rounded-2xl border border-border bg-surface/70 overflow-hidden sticky top-[64px] max-h-[calc(100vh-90px)]">
           <div className="flex border-b border-border">
             {[[false, 'Secciones'], [true, 'Plantillas']].map(([v, label]) => (
               <button key={label} onClick={() => setVerPlantillas(v)}
@@ -510,11 +520,25 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
                       <button onClick={() => mover(b.id, +1)} disabled={i === page.blocks.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-20 leading-none text-[9px] px-1">▼</button>
                     </span>
                     <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${activo ? 'text-accent' : 'text-text-3'}`} />
-                    <span className={`flex-1 py-2 text-[12.5px] truncate ${activo ? 'text-text-1 font-medium' : 'text-text-2'}`}>{b.data?.titulo?.trim() || labelDe(b.type)}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setEmbedId(b.id); }} aria-label="Exportar como iframe (iFrame)" title="Exportar esta sección como iframe (iFrame)"
-                      className="px-1.5 py-1 rounded-md text-text-3 hover:text-accent hover:bg-accent/10 transition-colors font-mono text-[10px] leading-none flex-shrink-0">{'</>'}</button>
+                    {/* Envuelve en dos líneas en vez de recortar: el nombre
+                        completo es lo único que distingue una sección de otra
+                        cuando se está reordenando. */}
+                    <span className={`flex-1 py-2 text-[12.5px] leading-snug ${activo ? 'text-text-1 font-medium' : 'text-text-2'}`}>{b.data?.titulo?.trim() || labelDe(b.type)}</span>
+                    {/* El icono de exportar, no `</>`.
+                        Este mismo editor usa `{ }` para el modo desarrollador, y
+                        `</>` al lado de cada sección se lee como «ver el código
+                        de esto» cuando lo que hace es exportarla para incrustarla
+                        en otra web. Dos glifos de código con dos significados en
+                        la misma pantalla es pedir que se pulse el equivocado. */}
+                    <button onClick={(e) => { e.stopPropagation(); setEmbedId(b.id); }} aria-label="Exportar esta sección para otra web" title="Exportar esta sección para incrustarla en otra web"
+                      className="p-1 rounded-md text-text-3 hover:text-accent hover:bg-accent/10 transition-colors flex-shrink-0">
+                      <IcExportar className="w-3.5 h-3.5" />
+                    </button>
+                    {/* Visible SIEMPRE, no sólo al pasar el ratón: el editor se
+                        usa también en tableta, y ahí no hay ratón que pasar —
+                        quitar una sección era imposible. */}
                     <button onClick={(e) => { e.stopPropagation(); removeBlock(b.id); }} aria-label="Quitar"
-                      className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-text-3 hover:text-danger transition-opacity">
+                      className="p-1 mr-1 text-text-3/60 hover:text-danger transition-colors">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </li>
@@ -695,7 +719,7 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
               {/* Exportar esta sección como iframe (iFrame) — visible y claro */}
               <div className="border-t border-border pt-3.5">
                 <button onClick={() => setEmbedId(sel.id)} className="btn-secondary btn-sm w-full justify-center">
-                  <span className="font-mono">{'</>'}</span> Exportar como iframe
+                  <IcExportar className="w-4 h-4" /> Exportar como iframe
                 </button>
                 <p className="text-[11px] text-text-3 mt-1.5">Genera el código para incrustar SOLO esta sección en otra web (iFrame).</p>
               </div>
@@ -888,7 +912,9 @@ function BarraSeccion({ onUp, onDown, onDup, onDel, onEmbed, onCerrar }) {
       <B title="Subir" onClick={onUp}>▲</B>
       <B title="Bajar" onClick={onDown}>▼</B>
       <B title="Duplicar" onClick={onDup}>⧉</B>
-      {onEmbed && <B title="Exportar como iframe (incrustar en otra web)" onClick={onEmbed}>{'</>'}</B>}
+      {/* El mismo icono que en la lista de secciones y en la barra de arriba:
+          exportar es una acción, no «ver el código». */}
+      {onEmbed && <B title="Exportar como iframe (incrustar en otra web)" onClick={onEmbed}><IcExportar className="w-3.5 h-3.5" /></B>}
       <B title="Quitar" danger onClick={onDel}>✕</B>
       <B title="Cerrar edición" onClick={onCerrar}>✓</B>
     </div>

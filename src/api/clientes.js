@@ -2,6 +2,9 @@ import client from './client.js';
 
 export const clientesApi = {
   list         : (eventoId, params = {})        => client.get(`/eventos/${eventoId}/clientes`, { params }).then(r => r.data),
+  /* Cuanto trajo cada boton de registro. `origen: null` es «directo»: quien
+     llego a la pagina del evento sin pasar por ningun boton. */
+  origenes     : (eventoId)                     => client.get(`/eventos/${eventoId}/origenes`).then(r => r.data),
   cambiarEstado: (eventoId, ticketId, estado)   => client.patch(`/eventos/${eventoId}/clientes/${ticketId}`, { estado }).then(r => r.data),
   /* Volver a mandarle la entrada a quien ya la tiene. Va al correo REGISTRADO
      en la boleta —el servidor no acepta destinatario—, y es el mismo correo que
