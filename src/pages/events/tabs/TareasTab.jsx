@@ -444,6 +444,9 @@ function TareaModal({ eventoId, tarea, miembros, roles, onClose, onSaved, onDele
   const { error: toastErr } = useToast();
 
   useEffect(() => {
+    /* El historial de una tarea, dentro de su detalle. Si no llega, no se
+       pinta la sección: la tarea y su estado —que es lo que se vino a ver— ya
+       están en pantalla. */
     tareasApi.log(eventoId, tarea.id).then(d => setLog(d.log || [])).catch(() => {});
   }, [eventoId, tarea.id]);
 

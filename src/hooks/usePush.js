@@ -85,6 +85,9 @@ export function usePush() {
       if (sub) {
         const endpoint = sub.endpoint;
         await sub.unsubscribe();
+        /* Limpieza en el servidor DESPUÉS de haberse dado de baja aquí. Si
+           falla, queda una suscripción muerta que el propio envío descarta al
+           primer intento; volver a suscribirse la reemplaza. */
         await pushApi.unsubscribe(endpoint).catch(() => {});
       }
       setSubscribed(false);

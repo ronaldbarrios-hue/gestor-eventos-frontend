@@ -81,6 +81,9 @@ export default function EmailsSection({ evento, reload }) {
         setData(evento.page_json?.emails || {});
         setAlmacenListo(false);
       });
+    /* Sólo para el «Enviar de prueba»: acota a qué tipo de boleta se simula el
+       correo. Sin lista, la prueba sale con el tipo genérico; las plantillas,
+       que es a lo que se viene, se editan igual. */
     ticketsApi.list(evento.id).then(d => setTipos((d.tickets || d.tipos || []).filter(t => (t.descripcion || '') !== 'GESTEK_INVITACION'))).catch(() => {});
   }, [evento.id, evento.page_json]);
 

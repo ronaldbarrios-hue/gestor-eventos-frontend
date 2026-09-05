@@ -232,6 +232,7 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
     crea_torneo_id   : initial?.crea_torneo_id || '',
   });
   const [torneos, setTorneos] = useState([]);
+  const [falloTorneos, setFalloTorneos] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(
     Boolean(initial?.early_bird_precio || initial?.early_bird_hasta || initial?.venta_hasta)
@@ -245,7 +246,12 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
      ninguno. */
   useEffect(() => {
     if (!eventoId) return;
-    torneosApi.list(eventoId).then(d => setTorneos(d.torneos || [])).catch(() => {});
+    /* El fallo se MIRA. Sin esto, no poder preguntar y no haber ninguno se
+       veían igual — y el mensaje de abajo afirma que el evento no tiene
+       torneos, que es una cosa muy concreta que no sabemos. */
+    torneosApi.list(eventoId)
+      .then(d => { setTorneos(d.torneos || []); setFalloTorneos(false); })
+      .catch(() => setFalloTorneos(true));
   }, [eventoId]);
 
   const submit = async (e) => {
@@ -363,6 +369,11 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
                 <option value="">¿A qué torneo entra?</option>
                 {torneos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
               </select>
+            ) : falloTorneos ? (
+              <p className="text-[11px] text-warning-light">
+                No pudimos cargar los torneos del evento. Vuelve a abrir esta pestaña en un momento
+                — puede que sí haya y no hayamos podido preguntarlo.
+              </p>
             ) : (
               /* Sin torneo no se puede guardar, y decirlo aquí evita que el
                  formulario se rechace al enviarlo sin explicar por qué. */

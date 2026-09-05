@@ -37,6 +37,8 @@ export default function Turnstile({ onToken }) {
         'expired-callback': () => onToken?.(null),
         'error-callback': () => onToken?.(null),
       });
+      /* El captcha ya avisa por su cuenta: `error-callback` manda `null` y el
+         formulario sabe qué hacer. Aquí sólo falta el guión de carga. */
     }).catch(() => {});
 
     return () => {

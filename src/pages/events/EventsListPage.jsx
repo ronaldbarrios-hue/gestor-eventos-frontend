@@ -93,6 +93,8 @@ export default function EventsListPage() {
   }, [err]);
 
   useEffect(() => { cargar(); }, [cargar]);
+  /* Sólo alimenta el filtro de la lista. Si no llega, no hay filtro por
+     categoría y los eventos se ven todos, que es el estado por defecto. */
   useEffect(() => { eventosApi.categorias().then(d => setCategorias(d.categorias || [])).catch(() => {}); }, []);
   useEffect(() => {
     const h = () => cargar();

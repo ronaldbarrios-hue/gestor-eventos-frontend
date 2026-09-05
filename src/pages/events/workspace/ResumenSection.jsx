@@ -23,9 +23,18 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
   const [sesiones, setSesiones]   = useState([]);
   const [equipo, setEquipo]       = useState(null);
 
+  /* El resumen es un tablero de cuatro fuentes independientes, y cada una cae
+     por su lado a propósito: que la auditoría no responda no puede dejar sin
+     tareas a quien abre el evento por la mañana.
+     Se traga el error porque cada tarjeta ya dice lo suyo cuando llega vacía, y
+     cuatro avisos de error apilados encima del resumen tapan justo lo que se
+     vino a mirar. Lo que NO se hace aquí es afirmar nada: ninguna tarjeta dice
+     «no hay tareas», dicen «nada por ahora». */
   useEffect(() => {
+    // Sin tareas la tarjeta dice «nada por ahora», no «no hay tareas».
     tareasApi.list(evento.id).then(d => setTareas(d.tareas || [])).catch(() => {});
     auditoriaApi.list(evento.id, 12).then(d => setActividad(d.acciones || d.registros || d.auditoria || [])).catch(() => setActividad(null));
+    // Igual con el programa: la agenda completa vive en su propia pantalla.
     agendaApi.sessions(evento.id).then(d => setSesiones(d.sesiones || [])).catch(() => {});
     equipoApi.list(evento.id).then(d => setEquipo(d)).catch(() => setEquipo(null));
   }, [evento.id]);
