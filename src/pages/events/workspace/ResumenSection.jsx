@@ -56,9 +56,30 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
     ? Math.ceil((new Date(evento.fecha_inicio) - new Date()) / 86400000)
     : null;
 
+  /* Mi rol en ESTE evento, sacado de la lista del equipo.
+     `equipoApi.list` devuelve `{ owner, miembros }` y no un `mi_rol_id`; la
+     fila propia se reconoce por el perfil, que es lo que trae el join. Se
+     deriva y no se inventa el campo: pedirle al objeto algo que no manda es
+     exactamente el fallo que se está arreglando dos líneas más abajo. */
+  const miRolId = useMemo(
+    () => (equipo?.miembros || []).find(m => String(m.profile?.id) === String(usuario?.id))?.rol_id || null,
+    [equipo, usuario?.id],
+  );
+
+  /* «Mis tareas» enseñaba las de TODO el mundo.
+     La condición era `!t.asignado_id`, y `asignado_id` no existe en ninguna
+     parte: la columna se llama `asignado_user_id`. Así que era siempre cierta
+     y pasaban todas. No fallaba —mostraba de más—, que es justo lo que hace
+     que nadie lo note.
+     Y cuentan también las asignadas a un ROL que sea el mío: una tarea puesta
+     a «Puerta» es mía si soy de Puerta, y quedaba fuera igual. */
   const misTareas = useMemo(() =>
-    tareas.filter(t => t.estado !== 'hecho' && (!t.asignado_id || String(t.asignado_id) === String(usuario?.id))).slice(0, 5),
-  [tareas, usuario?.id]);
+    tareas.filter(t => t.estado !== 'hecho' && (
+      (!t.asignado_user_id && !t.asignado_rol_id) ||
+      String(t.asignado_user_id) === String(usuario?.id) ||
+      (t.asignado_rol_id && String(t.asignado_rol_id) === String(miRolId))
+    )).slice(0, 5),
+  [tareas, usuario?.id, miRolId]);
   const vencidas = useMemo(() =>
     tareas.filter(t => t.estado !== 'hecho' && t.vence_at && new Date(t.vence_at) < new Date()),
   [tareas]);
@@ -76,8 +97,12 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
   const proximas = useMemo(() => {
     const ahora = new Date();
     return (sesiones || [])
-      .filter(s => s.inicio_at && new Date(s.inicio_at) >= ahora)
-      .sort((a, b) => new Date(a.inicio_at) - new Date(b.inicio_at))
+      /* `inicio`, no `inicio_at`. La columna se llama `inicio` y `inicio_at`
+         no existe, así que este filtro descartaba TODAS las sesiones y
+         «Próximas actividades» salía siempre vacío — en un evento con la
+         agenda entera cargada. Un tablero que dice «nada» sin que falle nada. */
+      .filter(s => s.inicio && new Date(s.inicio) >= ahora)
+      .sort((a, b) => new Date(a.inicio) - new Date(b.inicio))
       .slice(0, 4);
   }, [sesiones]);
 
@@ -209,12 +234,15 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
                 {proximas.map(s => (
                   <li key={s.id} className="flex items-center gap-3 px-5 py-2.5">
                     <div className="w-11 rounded-lg bg-surface-2 text-center py-1 flex-shrink-0">
-                      <p className="text-[9px] uppercase text-text-3 leading-none">{new Date(s.inicio_at).toLocaleDateString('es-CO', { month: 'short' }).replace('.', '')}</p>
-                      <p className="text-sm font-bold font-display text-text-1">{new Date(s.inicio_at).getDate()}</p>
+                      <p className="text-[9px] uppercase text-text-3 leading-none">{new Date(s.inicio).toLocaleDateString('es-CO', { month: 'short' }).replace('.', '')}</p>
+                      <p className="text-sm font-bold font-display text-text-1">{new Date(s.inicio).getDate()}</p>
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-text-1 truncate">{s.titulo}</p>
-                      <p className="text-xs text-text-3">{new Date(s.inicio_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}{s.lugar ? ` · ${s.lugar}` : ''}</p>
+                      {/* `ubicacion`, que es la columna. `lugar` no existe, así
+                          que la sede nunca se enseñaba — y no se notaba porque
+                          la lista entera salía vacía por el filtro de arriba. */}
+                      <p className="text-xs text-text-3">{new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}{s.ubicacion ? ` · ${s.ubicacion}` : ''}</p>
                     </div>
                   </li>
                 ))}
