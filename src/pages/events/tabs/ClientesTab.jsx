@@ -22,6 +22,17 @@ const ESTADO_LABEL = {
   invalido   : 'Inválido',
 };
 
+/* «Emitido» dice como se creo la boleta, no si hay dinero pendiente. Cubre
+   dos cosas que en la lista se ven identicas: una reserva gratuita —apartada
+   y perfectamente bien— y una compra que se abandono o cuya tarjeta fue
+   rechazada. En un evento con entradas gratis y de pago, quien quiere
+   perseguir lo segundo tiene que abrir una por una.
+   Se distingue con lo que ya viaja en la fila: que el tipo COSTARA dinero y
+   que no se haya pagado. */
+export function sinPagar(c) {
+  return c?.estado === 'emitido' && Number(c?.tipo?.precio) > 0 && !Number(c?.precio_pagado);
+}
+
 const ESTADO_CLS = {
   emitido    : 'bg-warning/10 text-warning border-warning/20',
   pagado     : 'bg-success/10 text-success border-success/20',
@@ -165,6 +176,10 @@ export default function ClientesTab({ evento }) {
           className="input bg-surface-2 rounded-2xl py-2.5 text-sm w-auto"
         >
           <option value="">Todos los estados</option>
+          {/* No es un estado de la boleta, es la pregunta que se hace de
+              verdad: quien empezo una compra y no la termino. Va arriba
+              porque es lo unico de esta lista sobre lo que se puede actuar. */}
+          <option value="sin_pagar">Sin pagar</option>
           {Object.entries(ESTADO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
@@ -173,7 +188,7 @@ export default function ClientesTab({ evento }) {
       {loading ? (
         <GLoader message="Cargando clientes..." />
       ) : clientes.length === 0 ? (
-        <EmptyState hasFilter={Boolean(q || estadoFilter)} />
+        <EmptyState hasFilter={Boolean(q || estadoFilter)} filtroSinPagar={estadoFilter === 'sin_pagar' && !q} />
       ) : (
         <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
           {clientes.map((c, i) => (
@@ -291,8 +306,9 @@ function ClienteRow({ cliente, currency, onCambiarEstado, onReembolsar, onVerDet
 
       <div className="hidden sm:block text-right text-[11px] text-text-3 tabular-nums w-20">{fecha}</div>
 
-      <span className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-full border ${ESTADO_CLS[cliente.estado] || ESTADO_CLS.emitido}`}>
-        {ESTADO_LABEL[cliente.estado] || cliente.estado}
+      <span className={`text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1 rounded-full border ${
+        sinPagar(cliente) ? 'bg-warning/10 text-warning border-warning/30' : (ESTADO_CLS[cliente.estado] || ESTADO_CLS.emitido)}`}>
+        {sinPagar(cliente) ? 'Sin pagar' : (ESTADO_LABEL[cliente.estado] || cliente.estado)}
       </span>
 
       <button
@@ -514,17 +530,22 @@ function DetalleRow({ label, value, mono }) {
   );
 }
 
-function EmptyState({ hasFilter }) {
+function EmptyState({ hasFilter, filtroSinPagar = false }) {
   return (
     <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
       <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-surface border border-border mb-4">
         <UsersIcon className="w-6 h-6 text-text-2" />
       </div>
       <h2 className="text-lg font-bold font-display text-text-1 tracking-tight mb-1">
-        {hasFilter ? 'Sin resultados' : 'Aún no hay clientes'}
+        {/* Buscar «sin pagar» y no encontrar a nadie no es «sin resultados»:
+            es la respuesta que se queria. Decirlo como un vacio hace dudar de
+            si el filtro funciono. */}
+        {filtroSinPagar ? 'Nadie dejó un pago a medias' : hasFilter ? 'Sin resultados' : 'Aún no hay clientes'}
       </h2>
       <p className="text-sm text-text-2 leading-relaxed max-w-sm mx-auto">
-        {hasFilter
+        {filtroSinPagar
+          ? 'Todas las boletas de pago de este evento están cobradas.'
+          : hasFilter
           ? 'Ningún cliente coincide con los filtros. Cambia la búsqueda o el estado.'
           : 'Cuando alguien reserve o compre una boleta, aparecerá aquí. Comparte el link de tu evento para empezar.'}
       </p>
