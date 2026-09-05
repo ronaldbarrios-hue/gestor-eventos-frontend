@@ -405,7 +405,11 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
    *
    * Ahora: Visual o Código. Y dentro de Visual, cómo se colocan. */}
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-0.5">
-            {[['visual', 'Visual'], ['codigo', 'Código']].map(([v, l]) => (
+            {/* «Desarrollador» y no «Código»: es el mismo sitio al que se
+                entra desde la barra del preview, y allí ya se llama así. Dos
+                nombres para la misma pantalla obligan a probar los botones
+                para descubrir que llevan al mismo lado. */}
+            {[['visual', 'Visual'], ['codigo', 'Desarrollador']].map(([v, l]) => (
               <button key={v}
                 onClick={() => setVerDatos(v === 'codigo')}
                 className={`px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all ${
@@ -413,7 +417,7 @@ export default function ExperienceBuilder({ evento, onClose, abrirEnDatos = fals
                     ? 'bg-surface-3 text-text-1'
                     : 'text-text-3 hover:text-text-2'}`}
                 title={v === 'codigo'
-                  ? 'La página entera como datos: bloques, marca y navbar. Se edita y se copia.'
+                  ? 'La página en el formato que valida el servidor: bloques, marca y navbar. Se edita, se copia y se incrusta.'
                   : 'Editar mirándola'}
               >
                 {v === 'codigo' ? <span className="font-mono mr-1">{'{ }'}</span> : null}{l}

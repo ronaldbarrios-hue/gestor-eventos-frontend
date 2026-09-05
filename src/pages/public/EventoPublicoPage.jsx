@@ -8,6 +8,7 @@ import { waitlistApi } from '../../api/waitlist.js';
 import { BLOCKS, BLOCK_TYPES_SISTEMA } from '../events/editor/blocks.jsx';
 import { BrandingProvider, BrandHeader, PoweredBy } from '../../components/public/Branding.jsx';
 import { blocksVisibles, coverLayout, navbarConfig, seccionesDe, NAVBAR_ALINEACION } from '../../components/public/EventChrome.jsx';
+import { claseEnlaceSeccion, estiloEnlaceSeccion } from '../../lib/enlaceSeccion.js';
 import CanvasPublico from '../events/editor/canvas/CanvasPublico.jsx';
 import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.jsx';
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
@@ -346,9 +347,17 @@ export default function EventoPublicoPage() {
           de páginas, porque son dos barras distintas y si las dos flotaran a la
           misma altura se solaparían. Ésta se pega arriba y la otra queda por
           debajo, que además es el orden en que se leen. */}
+      {/* La barra se FUNDE con la página en vez de posarse encima.
+          Tenía un borde inferior duro y un fondo propio: se leía como una pieza
+          de GESTEK apoyada sobre la web del organizador, que en una plataforma
+          de marca blanca es justo lo que no puede pasar. Ahora el fondo se
+          desvanece hacia abajo y el borde es una línea de la marca al 20 %: la
+          barra sigue separándose de lo que pasa por debajo al hacer scroll, sin
+          parecer otra cosa pegada. */}
       <div className="sticky top-0 z-30 -mx-5 sm:-mx-8 px-5 sm:px-8 py-3 mb-6
-                      bg-bg/85 backdrop-blur-md border-b border-border/60
-                      flex items-center justify-between gap-4 flex-wrap">
+                      bg-gradient-to-b from-bg via-bg/90 to-bg/0 backdrop-blur-md
+                      flex items-center justify-between gap-4 flex-wrap"
+           style={{ borderBottom: '1px solid color-mix(in srgb, var(--brand-primary, #C9A227) 20%, transparent)' }}>
         {(isStandalone || !nav.mostrar_explorar) ? <span /> : (
           /* La vuelta respeta la sesión. Con cuenta iniciada iba a `/explorar`,
              que vive fuera del panel, así que quien estaba trabajando en su
@@ -413,11 +422,15 @@ export default function EventoPublicoPage() {
               distintas.
 
               «Inicio» se salta: en la portada, es donde ya estamos. */}
+          {/* El MISMO enlace que pinta el marco de las sub-páginas
+              (`claseEnlaceSeccion`). Estaban escritos a mano en los dos sitios
+              y ya habían derivado: allí la sección actual se marcaba y aquí no,
+              así que moverse entre secciones se veía como cambiar de sitio —que
+              es la queja de origen—. Aquí la actual es «Inicio», y por eso se
+              salta de la lista: se está en ella. */}
           {seccionesDe(evento, nav).filter(x => x.id !== 'inicio').map(x => (
             <Link key={x.id} to={`/explorar/${slug}/${x.ruta}`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
-                         text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors
-                         flex-shrink-0 whitespace-nowrap">
+              className={claseEnlaceSeccion(false)} style={estiloEnlaceSeccion(false)}>
               <Icono nombre={x.icono} className="w-4 h-4" />{x.label}
             </Link>
           ))}

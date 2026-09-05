@@ -105,10 +105,17 @@ export default function PaginaPublicaTab({ evento }) {
             Abrir
           </a>
 
+          {/* «Datos» no decía a quién le sirve.
+              Es la página en el formato que valida el servidor: se lee, se
+              edita, se copia entera o por bloques y se lleva a otra web. Eso no
+              es «datos» —lo que hay dentro de la página también son datos—, es
+              el modo en el que trabaja quien programa. Nombrarlo así lo hace
+              encontrable para quien lo necesita y deja de sonar a un botón que
+              es mejor no tocar. */}
           <button onClick={() => setMode('datos')} className="btn-secondary btn-sm"
-            title="La misma página como datos: copiar la página entera o un bloque suelto">
+            title="La página en el formato que valida el servidor: leerla, editarla, copiarla entera o por bloques, y llevártela a otra web">
             <span className="font-mono text-[11px]">{'{ }'}</span>
-            <span className="hidden sm:inline">Datos</span>
+            <span className="hidden sm:inline">Modo desarrollador</span>
           </button>
 
           <button onClick={() => setMode('edit')} className="btn-gradient btn-sm">
@@ -139,9 +146,10 @@ export default function PaginaPublicaTab({ evento }) {
       <div className="rounded-2xl border border-border bg-surface/40 px-5 py-3 text-xs text-text-3 leading-relaxed">
         Esto es <strong className="text-text-2">la página de GESTEK</strong>, tal cual la ve tu público
         —no una imitación: es la página de verdad dentro de un marco—. Para cambiarla, el{' '}
-        <strong className="text-text-2">Editor</strong>: arrastras secciones y editas cada una. Y en{' '}
-        <strong className="text-text-2">Datos</strong> la tienes escrita en el formato que valida el
-        servidor, para copiar la página entera o un solo bloque y llevarlo a otra parte.
+        <strong className="text-text-2">Editor</strong>: arrastras secciones y editas cada una. Y el{' '}
+        <strong className="text-text-2">Modo desarrollador</strong> la tiene escrita en el formato que
+        valida el servidor: se edita ahí mismo, se copia la página entera o un solo bloque, y se
+        incrusta en otra web.
       </div>
     </div>
   );

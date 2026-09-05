@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
 import Icono from '../ui/Iconos.jsx';
 import { resolveBranding, navbarConfig, seccionesDe } from './EventChrome.jsx';
+import { claseEnlaceSeccion, estiloEnlaceSeccion } from '../../lib/enlaceSeccion.js';
 
 /* GESTEK — El marco del evento: lo que hace que sus páginas se sientan una sola.
  *
@@ -99,10 +100,7 @@ export default function BarraEvento({ actual, evento: eventoProp = null }) {
               <Link key={s.id}
                 to={`/explorar/${slug}${s.ruta ? `/${s.ruta}` : ''}`}
                 aria-current={esta ? 'page' : undefined}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm transition-colors
-                  ${esta
-                    ? 'border-text-1 bg-text-1 text-bg font-medium'
-                    : 'border-border text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+                className={claseEnlaceSeccion(esta)} style={estiloEnlaceSeccion(esta)}>
                 <Icono nombre={s.icono} className="w-4 h-4" />{s.label}
               </Link>
             );

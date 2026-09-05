@@ -45,7 +45,10 @@ test('el cajón se abre en la pestaña que le piden, no en la última usada', ()
 
 test('hay DOS modos de trabajo, y colocar vive dentro de Visual', () => {
   const src = sinComentarios(leer(BUILDER));
-  assert.match(src, /\['visual', 'Visual'\], \['codigo', 'Código'\]/,
+  /* El nombre del segundo modo se comprueba en `navbarLanding.test.mjs`, que
+     además lo compara con el de la barra del preview: lo que importa aquí es
+     que sigan siendo DOS modos y no tres cosas en fila. */
+  assert.match(src, /\['visual', 'Visual'\], \['codigo', '[^']+'\]/,
     'desapareció el conmutador de dos modos');
   /* Lienzo/Secciones es cómo se COLOCA, y sólo tiene sentido mirando. En modo
      código era un botón que no cambiaba lo que se veía. */
