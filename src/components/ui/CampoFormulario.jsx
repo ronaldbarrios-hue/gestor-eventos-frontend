@@ -295,10 +295,28 @@ export default function CampoFormulario({ campo, value, onChange, eventoId, erro
     fecha:     { type: 'date' },
   }[t] || { type: 'text' };
 
+  /* Un texto que PIDE UN NOMBRE se ofrece al autorrelleno.
+   *
+   * No hay tipo «nombre» en el catálogo —los tipos son texto, párrafo, número,
+   * fecha, email, teléfono, documento, selección, múltiple, casilla y foto— y
+   * el que se usa para «nombre del acompañante» o «a nombre de quién va la
+   * factura» es `texto`, que podría ser cualquier cosa.
+   *
+   * Así que se deduce de la etiqueta, que es lo que ya hace este proyecto con
+   * los documentos al importar. Sólo para ofrecer el autorrelleno: si acierta,
+   * el móvil ofrece el nombre guardado y se ahorran diez segundos de teclear
+   * de pie; si falla, no pasa nada — el campo sigue siendo un texto normal.
+   * Por eso la lista es corta y no intenta ser lista. */
+  const pareceNombre = t === 'texto'
+    && /nombres?/i.test(campo.etiqueta || '')
+    && !/(evento|empresa|usuario|archivo|producto)/i.test(campo.etiqueta || '');
+
   return (
     <div className="field">
       <Etiqueta />
-      <input id={`campo-${campo.id}`} required={req} {...attrs} value={value ?? ''}
+      <input id={`campo-${campo.id}`} required={req} {...attrs}
+        autoComplete={attrs.autoComplete || (pareceNombre ? 'name' : undefined)}
+        value={value ?? ''}
         onChange={e => onChange(e.target.value)} className={cls} aria-invalid={Boolean(error)} aria-describedby={idError} />
       <Ayuda />
     </div>

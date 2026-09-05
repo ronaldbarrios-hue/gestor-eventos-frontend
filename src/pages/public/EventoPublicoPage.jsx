@@ -624,7 +624,7 @@ function WaitlistModal({ tipo, slug, onClose }) {
           {err && <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
           <div className="field">
             <label className="label">Nombre completo *</label>
-            <input required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+            <input required autoComplete="name" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
               className="input-form" placeholder="Tu nombre" autoFocus />
           </div>
           <div className="field">
@@ -826,8 +826,39 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
     return cuantos;
   };
 
+  /* Llevar a lo que falta, no sólo decirlo.
+   *
+   * El aviso dice «Revisa el dato marcado abajo» y hasta ahora no llevaba a
+   * ningún sitio. Con el teclado abierto —que se come media pantalla— eso deja
+   * un final ciego: se pulsa «Continuar», la pantalla no se mueve, el aviso
+   * queda fuera por arriba y lo que parece es que el botón no funciona.
+   * Medido a 375×420, que es un móvil con el teclado abierto: el aviso a
+   * −138 px y la página sin moverse.
+   *
+   * Se lleva al CAMPO y no al aviso: el aviso dice que hay un problema, el
+   * campo es donde se arregla. Y se le da el foco, que en un móvil abre el
+   * teclado justo donde toca escribir.
+   *
+   * Va en un EFECTO y no en un `requestAnimationFrame` justo después de
+   * validar. Probado: con `rAF` el marcado todavía no está en el DOM —React
+   * agrupa y pinta después— así que no se encontraba nada y el foco se quedaba
+   * donde estaba. El efecto corre cuando el marcado ya existe, que es la única
+   * forma de estar seguro. */
+  const [buscarFallo, setBuscarFallo] = useState(0);
+  const irAloQueFalta = () => setBuscarFallo(n => n + 1);
+
+  useEffect(() => {
+    if (!buscarFallo) return;
+    const malo = document.querySelector('[aria-invalid="true"]');
+    if (!malo) return;
+    malo.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    /* `preventScroll` para que el foco no deshaga el desplazamiento suave con
+       un salto seco. */
+    try { malo.focus({ preventScroll: true }); } catch { malo.focus(); }
+  }, [buscarFallo]);
+
   const avanzar = () => {
-    if (validarPasoActual() > 0) return;
+    if (validarPasoActual() > 0) { irAloQueFalta(); return; }
     irAPaso(Math.min(paso + 1, pasos.length - 1));
   };
 
@@ -912,10 +943,12 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         if (destino !== paso) {
           irAPaso(destino);
           setErr('Falta un dato en este bloque.');
+          irAloQueFalta();
           return;
         }
       }
       setErr(cuantos === 1 ? 'Revisa el dato marcado abajo.' : `Revisa los ${cuantos} datos marcados abajo.`);
+      irAloQueFalta();
       return;
     }
     setWorking(true); setErr('');
@@ -1090,7 +1123,12 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
           <label className="label" htmlFor="res-nombre">Nombre completo {requiereNombre
             ? <span className="text-danger-light">*</span>
             : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
-          <input id="res-nombre" required={requiereNombre} value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+          {/* `autocomplete="name"`: el correo y el teléfono ya lo tenían y el
+              nombre no, que es justo donde el móvil más escritura ahorra — y
+              además es el primero, con el teclado recién abierto. Sin esto el
+              teléfono no ofrece el nombre guardado. */}
+          <input id="res-nombre" required={requiereNombre} autoComplete="name"
+            value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
             className="input-form" placeholder="Tu nombre" autoFocus />
         </div>
         <div className={`field ancho ${claseEntrada}`}>
