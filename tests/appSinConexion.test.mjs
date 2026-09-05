@@ -97,3 +97,29 @@ test('la copia del evento va recortada', () => {
   assert.doesNotMatch(src, /page_json: evento\?\.page_json/,
     'se volvió a guardar `page_json` entero, con los bloques y el mapa dentro');
 });
+
+test('la sesión caduca y los escaneos guardados se dicen', () => {
+  /* La sesión de Supabase dura una hora y un turno de puerta dura más. Cuando
+     caduca, lo que ve quien estaba escaneando es un formulario de acceso — y lo
+     razonable es pensar que al «cerrarse la sesión» se perdió lo que había
+     escaneado sin red. No se perdió: sigue en el dispositivo y se manda al
+     entrar. Callarlo hace que alguien empiece a apuntar a mano lo que ya está
+     guardado, o que dé por perdidas doscientas entradas. */
+  const login = readFileSync('src/pages/AuthPage.jsx', 'utf8');
+  assert.match(login, /escaneosGuardados\(\)/,
+    'la pantalla de acceso ya no dice si quedaron escaneos guardados');
+  assert.match(login, /No se pierden\./,
+    'se cuenta cuántos hay pero no que no se pierden, que es lo único que tranquiliza');
+});
+
+test('una entrada corrupta no pone la cuenta a cero', () => {
+  /* El `try` tiene que ir DENTRO del bucle. Envolviendo el bucle entero, una
+     sola clave ilegible abortaba la cuenta y devolvía 0 — la pantalla diría
+     «no hay nada guardado» habiendo doscientos escaneos en las demás. Es
+     exactamente el fallo que este aviso viene a evitar. */
+  const src = readFileSync('src/lib/checkinOffline.js', 'utf8');
+  const i = src.indexOf('export function escaneosGuardados');
+  const cuerpo = src.slice(i, src.indexOf('\n}', i));
+  assert.match(cuerpo, /catch \{ \/\* esa clave no se puede leer; las demás sí \*\/ \}/,
+    'la cuenta vuelve a abortar entera cuando una sola clave está corrupta');
+});

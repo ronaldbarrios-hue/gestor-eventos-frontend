@@ -81,3 +81,33 @@ export function quitar(eventoId, offlineId) {
 export function cantidadCola(eventoId) {
   return leerCola(eventoId).length;
 }
+
+/* Cuántos escaneos hay guardados, de TODOS los eventos.
+ *
+ * Hace falta desde fuera del evento —en la pantalla de inicio de sesión—, y
+ * ahí no se sabe de cuál se venía. Si la sesión caducó en mitad de un turno,
+ * lo que ve quien está en la puerta es un formulario de acceso; sin esto no
+ * hay forma de saber que sus escaneos siguen aquí, y lo razonable es pensar
+ * que se perdieron al «cerrarse la sesión».
+ *
+ * Se cuentan recorriendo las claves porque los escaneos se guardan por evento
+ * y una puerta puede haber atendido dos. Nada de esto sale del dispositivo. */
+export function escaneosGuardados() {
+  let total = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith('gestek-offline-checkin:')) continue;
+      /* El `try` va DENTRO del bucle, y esa es toda la diferencia.
+         Envolviendo el bucle entero, una sola entrada corrupta abortaba la
+         cuenta y devolvía 0 — o sea que la pantalla diría «no hay nada
+         guardado» habiendo doscientos escaneos en las otras claves. Es
+         justamente el fallo que este aviso viene a evitar. */
+      try {
+        const lista = JSON.parse(localStorage.getItem(k) || '[]');
+        if (Array.isArray(lista)) total += lista.length;
+      } catch { /* esa clave no se puede leer; las demás sí */ }
+    }
+  } catch { /* sin almacenamiento no hay nada que contar */ }
+  return total;
+}
