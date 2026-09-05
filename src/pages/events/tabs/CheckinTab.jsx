@@ -145,9 +145,17 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     if (working) return;
     /* Sin conexión → guardar en la cola offline (optimista). */
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const n = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
-      setCola(n);
-      setLast({ ok: true, offlineGuardado: true });
+      const { guardado, cantidad } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+      setCola(cantidad);
+      /* Si no se pudo guardar hay que decirlo AHORA, con la persona delante.
+         Antes se enseñaba «guardado» pasara lo que pasara. */
+      setLast(guardado
+        ? { ok: true, offlineGuardado: true }
+        /* El código va dentro: la tarjeta le dice a quien escanea que lo apunte
+           a mano, y sin enseñárselo ese consejo no se puede seguir. Del QR
+           firmado se enseña el final, que es lo que distingue una boleta de
+           otra y cabe en un papel. */
+        : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
       return;
     }
     setWorking(true);
@@ -160,9 +168,15 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     } catch (e) {
       /* Error de RED (sin respuesta del servidor) → encolar, no perder el escaneo. */
       if (!e.response) {
-        const n = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
-        setCola(n);
-        setLast({ ok: true, offlineGuardado: true });
+        const { guardado, cantidad } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+        setCola(cantidad);
+        setLast(guardado
+        ? { ok: true, offlineGuardado: true }
+        /* El código va dentro: la tarjeta le dice a quien escanea que lo apunte
+           a mano, y sin enseñárselo ese consejo no se puede seguir. Del QR
+           firmado se enseña el final, que es lo que distingue una boleta de
+           otra y cabe en un papel. */
+        : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
       } else {
         const detail = e.response?.data || {};
         setLast({ ok: false, error: e.message, ...detail });
@@ -243,7 +257,18 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
       setLast({ reingresoMode: true, ok: true, dentro: r.dentro, ticket: r.ticket, aforo: r.aforo });
       setHistorial(h => [{ guest_nombre: r.ticket?.nombre, codigo: r.ticket?.codigo, at: new Date(), ok: true, reingreso: r.dentro ? 'entró' : 'salió' }, ...h].slice(0, 10));
     } catch (e) {
-      setLast({ reingresoMode: true, ok: false, error: e.response?.data?.error || e.message });
+      /* Sin conexión esto NO se encola, y es a propósito: el reingreso es un
+         interruptor —entra, sale, entra— y el orden decide el aforo. Si unos
+         escaneos se guardan y otros salen en el momento, al reconectar se
+         aplican mezclados y el número de gente dentro deja de ser el de la
+         realidad para el resto del evento. Un aforo mal contado es peor que un
+         movimiento no registrado.
+         Así que se dice, con el código, para apuntarlo a mano. Antes salía
+         «Network Error» y el movimiento se perdía igual, sólo que sin avisar. */
+      setLast(e.response
+        ? { reingresoMode: true, ok: false, error: e.response.data?.error || e.message }
+        : { ok: false, noSeGuardo: true, sinCola: true,
+            codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
     } finally {
       setTimeout(() => setWorking(false), 600);
     }
@@ -264,6 +289,17 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
         subevento: r.ya_marcada ? 'ya estaba' : 'asistió',
       }, ...h].slice(0, 10));
     } catch (e) {
+      /* Igual que el reingreso: sin respuesta del servidor no hay constancia de
+         que esta persona entró al taller, y quien está en la puerta tiene que
+         enterarse ahora. Aquí sí se podría encolar —marcar asistencia es
+         idempotente y el orden da igual—, pero eso es una función que decidir,
+         no un arreglo: queda dicho en vez de perdido. */
+      if (!e.response) {
+        setLast({ ok: false, noSeGuardo: true, sinCola: true,
+                  codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
+        setTimeout(() => setWorking(false), 600);
+        return;
+      }
       const d = e.response?.data || {};
       setLast({
         subeventoMode: true, ok: false,
@@ -590,6 +626,33 @@ function ManualInput({ onSubmit, disabled }) {
 /* ─────────── Resultado del último scan ─────────── */
 
 function ResultadoCard({ result, compact }) {
+  /* No se pudo ni guardar en la cola.
+   *
+   * Pasa cuando el navegador tiene el almacenamiento lleno o bloqueado. Es el
+   * único caso en el que la puerta se queda SIN constancia de que esa persona
+   * entró, así que no se puede contar como un aviso más: se dice qué hacer, y
+   * se enseña el código para poder apuntarlo. En rojo y grande a propósito —
+   * quien escanea está mirando la pantalla medio segundo. */
+  if (result.noSeGuardo) return (
+    <div className={`rounded-3xl border-2 border-danger ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-danger/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-danger text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">!</div>
+        <div className="min-w-0">
+          <h3 className="text-xl font-bold font-display text-text-1">NO se guardó</h3>
+          <p className="text-sm text-text-2 leading-relaxed">
+            {result.sinCola
+              ? <>Sin conexión, y esto no se puede guardar para después. </>
+              : <>Este teléfono no puede guardar más escaneos sin conexión. </>}
+            <b className="text-text-1">Apunta el código a mano</b> y déjala pasar; luego se
+            registra desde el panel.
+          </p>
+          {result.codigo && (
+            <p className="mt-2 font-mono text-lg text-text-1 tracking-wider">{result.codigo}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
   if (result.offlineGuardado) return (
     <div className={`rounded-3xl border-2 border-primary/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-primary/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-center gap-4">

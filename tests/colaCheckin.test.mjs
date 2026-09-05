@@ -66,3 +66,40 @@ test('sin respuesta del servidor sigue significando «no hay red»', () => {
   assert.match(src, /if \(!e\.response\) continue;/,
     'un fallo de red dejó de dejar el escaneo en la cola');
 });
+
+test('guardar puede fallar, y en una puerta eso se dice', () => {
+  /* `localStorage.setItem` lanza con el almacenamiento lleno, en modo privado
+     de algunos navegadores, o si el sitio lo tiene bloqueado. Ese fallo se
+     tragaba con un `catch` vacío que decía «no romper el escaneo» — pero el
+     escaneo YA estaba roto: la persona había entrado, no quedaba constancia, y
+     a quien está en la puerta se le enseñaba «Guardado sin conexión».
+
+     En una pantalla se puede callar un fallo y reintentar luego. En una puerta
+     no: quien escanea tiene a alguien delante y necesita saber AHORA si tiene
+     que apuntar el código a mano. */
+  const cola = leer('src/lib/checkinOffline.js');
+  assert.match(cola, /return \{ guardado, cantidad: leerCola\(eventoId\)\.length \}/,
+    'encolar volvió a decir sólo cuántos hay: no distingue guardado de perdido');
+  assert.match(cola, /cantidad: leerCola\(eventoId\)\.length/,
+    'la cantidad sale de la lista en memoria y no de lo que quedó guardado: enseñaría una cola que no existe');
+
+  const tab = leer('src/pages/events/tabs/CheckinTab.jsx');
+  assert.match(tab, /noSeGuardo: true/,
+    'el escáner ya no avisa cuando no pudo guardar el escaneo');
+  assert.match(tab, /codigo: payload\.codigo \|\| \(payload\.qr_token \|\| ''\)\.slice\(-12\)/,
+    'no se enseña el código: la tarjeta dice «apúntalo a mano» y no da qué apuntar');
+});
+
+test('el reingreso no se encola, y por eso se avisa', () => {
+  /* El reingreso es un interruptor —entra, sale, entra— y el orden decide el
+     aforo. Si unos escaneos se guardan y otros salen en el momento, al
+     reconectar se aplican mezclados y el número de gente dentro deja de ser el
+     de la realidad para el resto del evento. Un aforo mal contado es peor que
+     un movimiento no registrado.
+     Lo que no vale es lo de antes: perderlo Y enseñar «Network Error». */
+  const tab = leer('src/pages/events/tabs/CheckinTab.jsx');
+  assert.match(tab, /reingresoMode: true, ok: false, error: e\.response\.data\?\.error/,
+    'el reingreso volvió a pintar el error del servidor sin mirar si hubo respuesta');
+  assert.match(tab, /noSeGuardo: true, sinCola: true/,
+    'sin conexión, el reingreso vuelve a perderse sin decirlo');
+});
