@@ -141,12 +141,41 @@ export default function ParrillaRueda({ evento, soyOwner }) {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="parrilla-print">
+      {/* Imprimir la parrilla.
+       *
+       * El día del evento hay una copia en papel pegada en la entrada y otra en
+       * la mano de quien coordina: el wifi del recinto no es una cosa con la
+       * que se pueda contar, y una parrilla que sólo existe en una pantalla se
+       * queda sin existir cuando el móvil se apaga.
+       *
+       * `visibility` y no `display`: la tabla tiene celdas pegadas (`sticky`) y
+       * al esconder el resto con `display:none` el navegador recalcula el
+       * ancho y parte la última columna a otra hoja. */}
+      <style>{`@media print {
+        body * { visibility: hidden !important; }
+        #parrilla-print, #parrilla-print * { visibility: visible !important; }
+        #parrilla-print { position: absolute; left: 0; top: 0; width: 100%; }
+        #parrilla-print .no-print { display: none !important; }
+        #parrilla-print .overflow-x-auto { overflow: visible !important; }
+        #parrilla-print table { font-size: 10px; }
+        @page { size: landscape; margin: 10mm; }
+      }`}</style>
+
+      <div className="flex items-center justify-between gap-3 flex-wrap no-print">
+        <p className="text-sm text-text-2">
+          {conMesas.length} mesa{conMesas.length === 1 ? '' : 's'} · {citas.length} cita{citas.length === 1 ? '' : 's'}
+        </p>
+        <button onClick={() => window.print()} className="btn-secondary btn-sm rounded-full">
+          Imprimir la parrilla
+        </button>
+      </div>
+
       {/* Lo que está pasando ahora mismo, arriba y no al lado: si se levantó
           una cita, todo lo demás de la pantalla significa otra cosa. */}
       {enMano && (
         <div className="sticky top-2 z-20 flex items-center justify-between gap-3 flex-wrap
-                        rounded-2xl border border-accent bg-accent/10 px-4 py-2.5">
+                        rounded-2xl border border-accent bg-accent/10 px-4 py-2.5 no-print">
           <p className="text-sm text-text-1">
             Moviendo a <b>{enMano.persona?.nombre || enMano.persona?.email || 'alguien'}</b> —
             toca la casilla a la que va.

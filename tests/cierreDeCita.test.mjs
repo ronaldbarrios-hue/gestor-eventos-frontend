@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 const TAB = 'src/pages/events/tabs/NetworkingTab.jsx';
 const leer = (p) => readFileSync(p, 'utf8').replace(/\r/g, '');
 
-const { sePuedeCerrar, resumenDeCitas, informeCSV, PLAZOS, RESULTADOS } =
+const { sePuedeCerrar, resumenDeCitas, informeCSV, PLAZOS, RESULTADOS, agendasPorParticipante } =
   await import('../src/lib/cierreDeCita.js');
 
 const enHoras = (h) => new Date(Date.now() + h * 3600 * 1000).toISOString();
@@ -110,4 +110,69 @@ test('la expectativa sólo se pregunta si hubo reunión', () => {
   const src = leer(TAB);
   assert.match(src, /\{realizada && \(/,
     'se pide la expectativa aunque la reunión no haya ocurrido');
+});
+
+test('la agenda se agrupa por persona, no por mesa', () => {
+  /* La mesa ya la tiene la parrilla. Lo que falta es el papel que se le
+     entrega a cada empresa con SUS horas. */
+  const agendas = agendasPorParticipante([
+    { id: '1', estado: 'confirmada', persona: { email: 'ana@x.co' },
+      horario: { inicio: '2026-09-17T15:00:00Z', expositor: { nombre: 'Mesa B' } } },
+    { id: '2', estado: 'confirmada', persona: { email: 'ana@x.co', nombre: 'Ana Ruiz' },
+      horario: { inicio: '2026-09-17T14:00:00Z', expositor: { nombre: 'Mesa A' } } },
+    { id: '3', estado: 'confirmada', persona: { email: 'beto@x.co', nombre: 'Beto' },
+      horario: { inicio: '2026-09-17T14:20:00Z', expositor: { nombre: 'Mesa C' } } },
+  ]);
+
+  assert.equal(agendas.length, 2);
+  assert.deepEqual(agendas.map(a => a.nombre), ['Ana Ruiz', 'Beto']);
+  /* En orden de hora: una agenda desordenada no se puede seguir. */
+  assert.deepEqual(agendas[0].citas.map(c => c.horario.expositor.nombre), ['Mesa A', 'Mesa B']);
+});
+
+test('el nombre gana al correo aunque llegue en la segunda cita', () => {
+  /* La misma persona puede llegar con nombre en una cita y sólo con correo en
+     otra —una la reservó ella, la otra se la puso el equipo—. La agenda no
+     puede salir a nombre de un correo si en algún sitio hay un nombre. */
+  const [a] = agendasPorParticipante([
+    { id: '1', estado: 'confirmada', persona: { email: 'ana@x.co' }, horario: { inicio: '2026-09-17T14:00:00Z' } },
+    { id: '2', estado: 'confirmada', persona: { email: 'ana@x.co', nombre: 'Ana Ruiz' }, horario: { inicio: '2026-09-17T15:00:00Z' } },
+  ]);
+  assert.equal(a.nombre, 'Ana Ruiz');
+});
+
+test('una cancelada no entra en la agenda; una pedida sí', () => {
+  /* Una agenda es lo que hay que hacer, no lo que se deshizo. Y una cita
+     pedida todavía puede caerse: quien la recibe tiene que saberlo. */
+  const [a] = agendasPorParticipante([
+    { id: '1', estado: 'cancelada',  persona: { email: 'ana@x.co' }, horario: { inicio: '2026-09-17T14:00:00Z' } },
+    { id: '2', estado: 'solicitada', persona: { email: 'ana@x.co' }, horario: { inicio: '2026-09-17T15:00:00Z' } },
+  ]);
+  assert.equal(a.citas.length, 1);
+  assert.equal(a.citas[0].estado, 'solicitada');
+});
+
+test('quien no se pudo identificar no desaparece', () => {
+  /* Descartarla haría que la suma de agendas no cuadrara con la parrilla, y
+     nadie sabría que esa casilla está ocupada por alguien sin datos. */
+  const agendas = agendasPorParticipante([
+    { id: '1', estado: 'confirmada', persona: null, horario: { inicio: '2026-09-17T14:00:00Z' } },
+  ]);
+  assert.equal(agendas.length, 1);
+  assert.equal(agendas[0].nombre, 'Sin identificar');
+});
+
+test('la parrilla y las agendas se pueden imprimir', () => {
+  /* El día del evento hay una copia en papel en la entrada: el wifi de un
+     recinto no es algo con lo que se pueda contar. */
+  const parrilla = readFileSync('src/pages/events/tabs/ParrillaRueda.jsx', 'utf8').replace(/\r/g, '');
+  assert.match(parrilla, /window\.print\(\)/, 'la parrilla dejó de poder imprimirse');
+  assert.match(parrilla, /@page \{ size: landscape/, 'la parrilla sale en vertical y se parte por columnas');
+  /* `visibility` y no `display`: con `display:none` el navegador recalcula el
+     ancho de la tabla y parte la última columna a otra hoja. */
+  assert.match(parrilla, /body \* \{ visibility: hidden !important; \}/);
+
+  const tab = readFileSync(TAB, 'utf8').replace(/\r/g, '');
+  assert.match(tab, /#agendas-print \.agenda \{ break-after: page/,
+    'las agendas dejaron de salir una por hoja: no se pueden recortar y entregar');
 });
