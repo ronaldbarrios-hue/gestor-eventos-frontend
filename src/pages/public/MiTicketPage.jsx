@@ -9,6 +9,7 @@ import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulari
 import { googleCalendarUrl } from '../../lib/calendario.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 import Volver from '../../components/ui/Volver.jsx';
+import { mensajePublico } from '../../lib/mensajeDeError.js';
 
 /* Página pública /mi-ticket/:codigo
    Cualquiera con el código puede ver su QR. */
@@ -25,17 +26,22 @@ export default function MiTicketPage() {
   const { codigo } = useParams();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [intento, setIntento] = useState(0);
   const [formularioListo, setFormularioListo] = useState(false);
 
   const cargar = () => {
     eventosApi.ticketByCode(codigo)
       .then(d => setTicket(d.ticket))
-      .catch(e => setError(e.message))
+      /* Es la pantalla que alguien abre EN LA PUERTA, con el móvil, para
+         enseñar su entrada. Decirle «tu código no existe» porque parpadeó el
+         wifi la manda a la fila de incidencias con una boleta que está bien.
+         El 404 sigue diciendo lo de siempre; lo demás, que se reintenta. */
+      .catch(e => setError(mensajePublico(e, `El código ${codigo} no existe.`)))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { setLoading(true); cargar(); /* eslint-disable-next-line */ }, [codigo]);
+  useEffect(() => { setLoading(true); setError(null); cargar(); /* eslint-disable-next-line */ }, [codigo, intento]);
 
   if (loading) return (
     <section className="px-5 py-20 max-w-md mx-auto"><GLoader message="Buscando tu entrada..." /></section>
@@ -43,12 +49,25 @@ export default function MiTicketPage() {
 
   if (error || !ticket) return (
     <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-xs uppercase tracking-widest text-danger mb-3">Boleta no encontrada</p>
+      <p className="text-xs uppercase tracking-widest text-danger mb-3">
+        {error?.reintentable ? 'No pudimos buscarla' : 'Boleta no encontrada'}
+      </p>
       <h1 className="text-2xl font-bold font-display text-text-1 mb-3">
-        El código <span className="font-mono">{codigo}</span> no existe.
+        {error?.texto || <>El código <span className="font-mono">{codigo}</span> no existe.</>}
       </h1>
-      <p className="text-sm text-text-2 mb-6">Revisa el código o pídele al organizador que te lo reenvíe.</p>
-      <Volver a="/explorar" tono="chip">Explorar eventos</Volver>
+      {/* Y la instrucción que toque. Mandar a revisar el código cuando lo que
+          falló fue la red es mandar a buscar donde no está — y en una puerta,
+          con gente detrás, eso son varios minutos de nada. */}
+      {error?.reintentable ? (
+        <button onClick={() => setIntento(n => n + 1)}
+          className="mb-6 inline-flex items-center gap-2 px-5 py-3 rounded-full border border-border
+                     text-sm text-text-1 hover:bg-surface-2 transition-colors">
+          Reintentar
+        </button>
+      ) : (
+        <p className="text-sm text-text-2 mb-6">Revisa el código o pídele al organizador que te lo reenvíe.</p>
+      )}
+      <div><Volver a="/explorar" tono="chip">Explorar eventos</Volver></div>
     </section>
   );
 

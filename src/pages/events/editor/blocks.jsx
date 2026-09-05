@@ -439,7 +439,10 @@ function DireccionPreview({ data = {}, evento, isEditor }) {
         <a
           href={`https://www.google.com/maps/search/?api=1&query=${consulta}`}
           target="_blank" rel="noreferrer noopener"
-          className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-primary hover:underline"
+          /* `py-2.5` en móvil: medía 21 px de alto y esto se pulsa yendo de
+             camino al sitio, andando y con una mano. Con el ratón 21 va bien,
+             así que el aire sólo se añade donde se toca con el dedo. */
+          className="inline-flex items-center gap-1.5 mt-3 py-2.5 sm:py-0 text-sm font-medium text-primary hover:underline"
         >
           {data.texto_boton || 'Cómo llegar'} →
         </a>

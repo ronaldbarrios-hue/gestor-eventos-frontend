@@ -33,6 +33,11 @@ const PUBLICAS = [
   'src/pages/public/RuedaPublicaPage.jsx',
   'src/pages/public/EquipoTorneoPage.jsx',
   'src/pages/public/ExpositorPage.jsx',
+  /* La que más duele de todas: se abre EN LA PUERTA, con el móvil, para
+     enseñar la entrada. Decía «El código X no existe» pasara lo que pasara —
+     así que un parpadeo del wifi mandaba a alguien a la fila de incidencias
+     con una boleta que estaba bien. */
+  'src/pages/public/MiTicketPage.jsx',
 ];
 
 test('ninguna pantalla pública pinta el texto crudo del servidor al cargar', () => {
@@ -79,4 +84,15 @@ test('el embed sigue distinguiendo los dos fracasos', () => {
   const src = sinComentarios(leer('src/pages/public/EmbedPage.jsx'));
   assert.match(src, /status === 404 \? 'no_existe'/,
     'el iframe vuelve a leer cualquier fallo como evento inexistente');
+});
+
+test('la entrada no se declara inexistente por un fallo de red', () => {
+  /* Verificado en el navegador, los dos caminos:
+       código inventado → «Boleta no encontrada · El código X no existe»
+       red caída        → «No pudimos buscarla · problema de comunicación» + Reintentar */
+  const src = sinComentarios(leer('src/pages/public/MiTicketPage.jsx'));
+  assert.match(src, /mensajePublico\(e, `El código \$\{codigo\} no existe\.`\)/,
+    'vuelve a afirmar que el código no existe sin mirar qué falló');
+  assert.match(src, /setIntento\(n => n \+ 1\)/,
+    'no hay forma de reintentar: con gente detrás en la fila, recargar es lo único que queda');
 });

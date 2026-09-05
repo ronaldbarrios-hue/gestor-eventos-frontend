@@ -500,10 +500,14 @@ export default function EventoPublicoPage() {
         </div>
         )}
 
-        {/* Volver a explorar (oculto en modo standalone) */}
+        {/* Volver a explorar (oculto en modo standalone).
+            El enlace va `inline-block` con aire: siendo `inline`, su caja medía
+            sólo la altura del texto —15 px— y quedaba por debajo de cualquier
+            recomendación de zona de toque. */}
         <div className="mt-12 text-center">
           {!isStandalone && (
-            <Link to={conSesion ? '/app/explorar' : '/explorar'} className="text-xs text-text-3 hover:text-text-1 transition-colors">
+            <Link to={conSesion ? '/app/explorar' : '/explorar'}
+              className="inline-block py-2.5 sm:py-0 text-xs text-text-3 hover:text-text-1 transition-colors">
               Volver a explorar
             </Link>
           )}
