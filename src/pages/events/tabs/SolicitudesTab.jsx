@@ -13,7 +13,11 @@ const ESTADOS = [
 ];
 const TIPO_LABEL = { sugerencia: 'Sugerencia', solicitud: 'Solicitud', mensaje: 'Mensaje', reporte: 'Reporte', cambio: 'Cambio de ficha' };
 
-export default function SolicitudesTab({ evento }) {
+/* `puedeAtender` llega del panel y no se adivina aquí: quien manda es el
+   servidor, que pide `gestionar_solicitudes` para tocar nada. Enseñar botones
+   que van a devolver 403 es peor que no enseñarlos — se pulsa, no pasa nada, y
+   uno se queda sin saber si el fallo es suyo o de la aplicación. */
+export default function SolicitudesTab({ evento, puedeAtender = false }) {
   const [items, setItems]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('todas');
@@ -101,11 +105,15 @@ export default function SolicitudesTab({ evento }) {
                           <p className="text-[11px] text-success mt-1.5">
                             Aplicado el {new Date(it.cambio.aplicado_at).toLocaleDateString('es-CO')}
                           </p>
-                        ) : (
+                        ) : puedeAtender ? (
                           <button onClick={() => cambiar(it, { aplicar: true })}
                             className="btn-primary btn-sm mt-2">
                             Aplicar el cambio
                           </button>
+                        ) : (
+                          <p className="text-[11px] text-text-3 mt-2">
+                            Pendiente de que alguien con permiso lo apruebe.
+                          </p>
                         )}
                       </div>
                     )}
@@ -113,13 +121,22 @@ export default function SolicitudesTab({ evento }) {
                       {it.autor?.nombre || 'Miembro'} · {new Date(it.created_at).toLocaleString('es')}
                     </p>
                   </div>
-                  <select
-                    value={it.estado}
-                    onChange={e => cambiar(it, { estado: e.target.value })}
-                    className="input bg-surface-2 rounded-lg py-1.5 text-xs w-auto"
-                  >
-                    {ESTADOS.map(e => <option key={e.v} value={e.v}>{e.l}</option>)}
-                  </select>
+                  {puedeAtender ? (
+                    <select
+                      value={it.estado}
+                      onChange={e => cambiar(it, { estado: e.target.value })}
+                      className="input bg-surface-2 rounded-lg py-1.5 text-xs w-auto"
+                    >
+                      {ESTADOS.map(e => <option key={e.v} value={e.v}>{e.l}</option>)}
+                    </select>
+                  ) : (
+                    /* Sin permiso se ve el estado igual: saber en qué va lo que
+                       mandaste es la mitad de para qué existe esta pantalla. */
+                    <span className={`px-2 py-1 rounded-lg border text-xs whitespace-nowrap
+                      ${ESTADOS.find(e => e.v === it.estado)?.c || 'border-border text-text-3'}`}>
+                      {ESTADOS.find(e => e.v === it.estado)?.l || it.estado}
+                    </span>
+                  )}
                 </div>
 
                 <details className="text-sm">

@@ -536,7 +536,12 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'equipo/equipo'      : return <EquipoTab evento={evento} />;
     case 'equipo/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
     case 'equipo/tareas'      : return <TareasTab evento={evento} />;
-    case 'equipo/solicitudes' : return <SolicitudesTab evento={evento} />;
+    /* Todo el equipo entra —cualquiera puede mandar una sugerencia— pero
+       gestionarlas pide permiso: aquí se edita la ficha de otra persona. La
+       pantalla se lo pasa para no ofrecer botones que el servidor va a
+       rechazar, que es peor que no ofrecerlos. */
+    case 'equipo/solicitudes' : return <SolicitudesTab evento={evento}
+                                         puedeAtender={puedeVer('gestionar_solicitudes', soyOwner, permisos)} />;
     case 'equipo/documentos'  : return <DocumentosSection evento={evento} />;
     case 'resumen/reporte'     : return <ReporteTab evento={evento} />;
 

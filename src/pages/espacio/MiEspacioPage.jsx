@@ -73,12 +73,31 @@ export default function MiEspacioPage() {
      extiende al resto. La pestaña pedida por ?tab= siempre se muestra, para
      que un enlace guardado no caiga en el panel sin explicación. */
   const [expositores, setExpositores] = useState([]);
-  const [usa, setUsa] = useState({ colaborador: false, talento: false, postulaciones: false });
+  const [usa, setUsa] = useState({ colaborador: false, talento: false, postulaciones: false, expositor: false });
+
+  /* ── «No lo usas» y «no pude preguntar» no son lo mismo ────────────────
+   *
+   * Las cuatro comprobaciones llevaban `.catch(() => {})`: si una fallaba, su
+   * pestaña sencillamente no aparecía. Alguien que colabora en tres eventos
+   * abre Mi Espacio con mala cobertura, no ve «Colaborador», y lo que entiende
+   * es que lo sacaron del equipo — no que no pudimos preguntarlo.
+   *
+   * Así que un fallo ENSEÑA la pestaña. Esconder es la decisión que no se
+   * puede deshacer desde el otro lado: si la faceta está vacía de verdad, su
+   * propia pantalla lo dice con sus palabras; si no lo está, aquí estaba la
+   * única puerta. Ante la duda, la puerta se deja abierta.
+   */
   useEffect(() => {
-    meApi.expositor().then(d => setExpositores(d.expositores || [])).catch(() => {});
-    solicitudesApi.misEventos().then(d => setUsa(u => ({ ...u, colaborador: (d.eventos || []).length > 0 }))).catch(() => {});
-    vacantesApi.miPerfil().then(d => setUsa(u => ({ ...u, talento: Boolean(d.perfil) }))).catch(() => {});
-    vacantesApi.misPostulaciones().then(d => setUsa(u => ({ ...u, postulaciones: (d.postulaciones || []).length > 0 }))).catch(() => {});
+    const mirar = (promesa, clave, tiene) => promesa
+      .then(d => setUsa(u => ({ ...u, [clave]: tiene(d) })))
+      .catch(() => setUsa(u => ({ ...u, [clave]: true })));
+
+    meApi.expositor()
+      .then(d => { const l = d.expositores || []; setExpositores(l); setUsa(u => ({ ...u, expositor: l.length > 0 })); })
+      .catch(() => setUsa(u => ({ ...u, expositor: true })));
+    mirar(solicitudesApi.misEventos(),     'colaborador',   d => (d.eventos || []).length > 0);
+    mirar(vacantesApi.miPerfil(),          'talento',       d => Boolean(d.perfil));
+    mirar(vacantesApi.misPostulaciones(),  'postulaciones', d => (d.postulaciones || []).length > 0);
   }, []);
 
   const TABS = [
@@ -87,7 +106,7 @@ export default function MiEspacioPage() {
     ...(usa.talento       || vista === 'talento'       ? [['talento', t('Perfil de talento')]]         : []),
     ...(usa.postulaciones || vista === 'postulaciones' ? [['postulaciones', t('Mis postulaciones')]]   : []),
     ['organizador', t('Perfil de organizador')],
-    ...(expositores.length || vista === 'expositor'    ? [['expositor', t('Mis stands')]]              : []),
+    ...(usa.expositor     || vista === 'expositor'     ? [['expositor', t('Mis stands')]]              : []),
   ];
 
   return (
@@ -153,6 +172,17 @@ function MisStands({ expositores }) {
         <h1 className="text-xl sm:text-2xl font-bold font-display text-text-1 tracking-tight">{t('Mis stands')}</h1>
         <p className="text-sm text-text-2 mt-1">{t('Los stands donde eres expositor. Abre el panel para editar tu ficha, dar puntos y ver tu cronograma.')}</p>
       </div>
+      {/* La pestaña puede estar aquí porque no pudimos preguntar (ver arriba),
+          y entonces la lista llega vacía. Una rejilla en blanco no dice nada;
+          esto sí, y ofrece volver a mirar. */}
+      {expositores.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center">
+          <p className="text-sm text-text-2">{t('No pudimos cargar tus stands ahora mismo.')}</p>
+          <button onClick={() => window.location.reload()} className="btn-secondary btn-sm mt-3">
+            {t('Reintentar')}
+          </button>
+        </div>
+      )}
       <div className="grid sm:grid-cols-2 gap-3">
         {expositores.map(e => (
           <div key={e.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-center gap-3">

@@ -42,6 +42,7 @@ export const PERMISOS = [
   { id: 'invitar_staff',         grupo: 'Equipo',    label: 'Invitar al equipo',       desc: 'Agregar nuevas personas como staff.', aplicado: true },
   { id: 'gestionar_roles',       grupo: 'Equipo',    label: 'Gestionar roles',         desc: 'Crear, editar y borrar roles del evento.', aplicado: true },
   { id: 'remover_miembros',      grupo: 'Equipo',    label: 'Quitar miembros',         desc: 'Sacar gente del equipo del evento.', aplicado: true },
+  { id: 'gestionar_solicitudes', grupo: 'Equipo',    label: 'Atender solicitudes',     desc: 'Responder sugerencias e incidencias del equipo, y aprobar las correcciones de ficha.', aplicado: true },
 
   /* Tickets */
   { id: 'gestionar_tickets',     grupo: 'Tickets',   label: 'Gestionar tipos de boleta', desc: 'Crear, editar y borrar tipos de ticket.', aplicado: true },
