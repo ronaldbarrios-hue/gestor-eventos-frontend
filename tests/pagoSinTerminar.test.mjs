@@ -26,6 +26,12 @@ import { readFileSync } from 'node:fs';
 
 const TICKET = 'src/pages/public/MiTicketPage.jsx';
 const leer = () => readFileSync(TICKET, 'utf8');
+/* Sin comentarios: los motivos escritos CITAN las frases de la pantalla para
+   explicar qué estaba mal —«enseñaban el QR y debajo Guárdala en el móvil»— y
+   sin quitarlos la prueba se encuentra a sí misma antes que al código. */
+const sinComentarios = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
 
 test('sólo avisa cuando la boleta costaba dinero y no se pagó', () => {
   const src = leer();
@@ -36,12 +42,42 @@ test('sólo avisa cuando la boleta costaba dinero y no se pagó', () => {
 });
 
 test('no se le promete que el QR sirve para entrar', () => {
-  /* Prometerlo es lo que la manda a la puerta con la entrada sin pagar. */
-  const src = leer();
-  assert.match(src, /Sirve para retomar el pago, no para entrar/,
-    'vuelve a decir «tu QR sirve para entrar» a alguien que no ha pagado');
+  /* Prometerlo es lo que la manda a la puerta con la entrada sin pagar.
+     Se vigila la intención y no una frase concreta: el texto puede mejorar, lo
+     que no puede es volver a prometer entrada sin pago. */
+  const src = sinComentarios(leer());
+  const i = src.indexOf('Guárdala en el móvil');
+  const zona = src.slice(Math.max(0, i - 400), i + 200);
+  assert.ok(zona.includes('sinPagar'),
+    'el texto de debajo del QR dejó de mirar si está pagada');
+  assert.match(src, /Todavía no da entrada/,
+    'se perdió el aviso de que ese código todavía no da entrada');
   assert.match(src, /Tu pago no se completó/,
     'desapareció el aviso de pago sin terminar');
+});
+
+test('quien acaba de pagar no recibe «tu pago no se completó»', () => {
+  /* Con PSE o transferencia la confirmación tarda minutos, a veces horas. La
+     pasarela devuelve con `?pago=pendiente`, y decirle a esa persona que su
+     pago falló la haría pagar dos veces. Se distingue por de dónde viene. */
+  const src = leer();
+  assert.match(src, /const volviendoDePagar = \['pendiente', 'wompi'\]\.includes\(params\.get\('pago'\)\)/,
+    'se dejó de mirar de dónde viene: un pago en curso se contaría como fallido');
+  assert.match(src, /const confirmando = sinPagar && volviendoDePagar/,
+    'desapareció el estado «confirmando»');
+  assert.match(src, /Estamos confirmando tu pago/,
+    'no se dice que el pago está en curso');
+});
+
+test('un pago rechazado se dice, y lo primero es que no se cobró', () => {
+  /* La pasarela devuelve a la página del evento con `?pago=fallo` y no lo leía
+     nadie: se volvía de que rechazaran la tarjeta como si no hubiera pasado
+     nada. La duda que trae a esa persona es una sola. */
+  const src = readFileSync('src/pages/public/EventoPublicoPage.jsx', 'utf8');
+  assert.match(src, /params\.get\('pago'\) === 'fallo'/,
+    'la vuelta de un pago rechazado vuelve a pasar en silencio');
+  assert.match(src, /No se te cobró nada\./,
+    'no se contesta lo único que se pregunta al volver de un pago rechazado');
 });
 
 test('el servidor manda el precio del tipo', () => {

@@ -298,6 +298,30 @@ export default function EventoPublicoPage() {
           correo en la bandeja. Las boletas siguen abriéndose desde su enlace;
           lo que ya no hay es venta, y el servidor rechaza las cuatro rutas de
           compra por su cuenta, así que esto es el aviso, no el candado. */}
+      {/* Vuelta de una pasarela que rechazó el pago.
+       *
+       * La pasarela devuelve aquí con `?pago=fallo` y hasta ahora no lo leía
+       * NADIE: se volvía de que te rechazaran la tarjeta a la página del
+       * evento, igual que si no hubiera pasado nada. Y la duda que trae a esa
+       * persona es una sola —«¿me han cobrado?»—, así que eso es lo primero
+       * que hay que contestar, antes de invitarla a intentarlo otra vez.
+       *
+       * Se quita de la dirección al leerlo: si no, recargar o compartir el
+       * enlace repetiría el susto sin motivo. */}
+      {params.get('pago') === 'fallo' && (
+        <div role="alert" className="mb-6 rounded-2xl border border-warning/50 bg-warning/10 px-5 py-4">
+          <p className="text-xs uppercase tracking-widest text-warning font-semibold">El pago no se completó</p>
+          <p className="text-sm text-text-1 mt-1 leading-relaxed">
+            <b>No se te cobró nada.</b> Puede haber sido la tarjeta, el banco o que se cerrara la
+            ventana. Puedes intentarlo otra vez desde las boletas, aquí abajo.
+          </p>
+          <button onClick={() => { const p = new URLSearchParams(params); p.delete('pago'); setParams(p, { replace: true }); }}
+            className="mt-2 text-xs text-text-2 hover:text-text-1 underline">
+            Entendido
+          </button>
+        </div>
+      )}
+
       {evento.cancelado && (
         <div role="alert" className="mb-6 rounded-2xl border border-danger/40 bg-danger/10 px-5 py-4">
           <p className="text-xs uppercase tracking-widest text-danger font-semibold">Evento cancelado</p>

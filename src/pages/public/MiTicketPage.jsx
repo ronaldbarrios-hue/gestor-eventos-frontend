@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Icono from '../../components/ui/Iconos.jsx';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
@@ -24,6 +24,12 @@ const ESTADO_INFO = {
 
 export default function MiTicketPage() {
   const { codigo } = useParams();
+  /* De dónde viene quien abre esto. La pasarela devuelve aquí con `?pago=` y
+     hasta ahora no lo leía nadie: se volvía de pagar y la página no decía si
+     había funcionado — que es justo lo único que se quiere saber en ese
+     momento. */
+  const [params] = useSearchParams();
+  const volviendoDePagar = ['pendiente', 'wompi'].includes(params.get('pago'));
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -112,10 +118,32 @@ export default function MiTicketPage() {
    * Sólo cuando la boleta COSTABA dinero: una reserva gratis apartada está
    * perfectamente bien y no hay nada que avisar. */
   const costaba = Number(ticket.tipo?.precio) > 0;
-  const pagoSinTerminar = ticket.estado === 'emitido' && costaba && !Number(ticket.precio_pagado);
+  const sinPagar = ticket.estado === 'emitido' && costaba && !Number(ticket.precio_pagado);
+  /* Acaba de volver de pagar y todavía no ha llegado la confirmación.
+     NO es lo mismo que un pago abandonado, y decirle «tu pago no se completó»
+     a quien acaba de pagar por PSE —que tarda minutos, a veces horas— sería
+     asustarla por algo que va bien. Se distingue por de dónde viene. */
+  const confirmando = sinPagar && volviendoDePagar;
+  const pagoSinTerminar = sinPagar && !volviendoDePagar;
 
   return (
     <section className="px-5 py-12 max-w-md mx-auto animate-[fadeUp_0.4s_ease_both]">
+      {confirmando && (
+        <div className="mb-6 rounded-2xl border-2 border-primary/40 bg-primary/10 px-4 py-3.5">
+          <p className="text-sm text-text-1 font-semibold">Estamos confirmando tu pago.</p>
+          <p className="text-xs text-text-2 mt-1 leading-relaxed">
+            Puede tardar unos minutos —con PSE o transferencia, a veces más—. No hace falta
+            que pagues otra vez ni que hagas nada: en cuanto el banco confirme, tu entrada
+            queda lista y te llega el correo.
+          </p>
+          <button onClick={() => { setError(null); setIntento(n => n + 1); }}
+            className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border
+                       text-sm text-text-1 hover:bg-surface-2 transition-colors">
+            Comprobar de nuevo
+          </button>
+        </div>
+      )}
+
       {pagoSinTerminar && (
         <div className="mb-6 rounded-2xl border-2 border-warning/50 bg-warning/10 px-4 py-3.5">
           <p className="text-sm text-text-1 font-semibold">Tu pago no se completó.</p>
@@ -195,9 +223,10 @@ export default function MiTicketPage() {
           />
         </div>
         <p className="text-[11px] text-text-3 text-center mt-1">
-          {pagoSinTerminar
-            /* Sin prometer lo que no es: este QR todavía no da derecho a entrar. */
-            ? 'Este código es el de tu reserva. Sirve para retomar el pago, no para entrar.'
+          {/* Sin prometer lo que no es: mientras no esté pagada, este QR
+              todavía no da derecho a entrar. */}
+          {sinPagar
+            ? 'Este código es el de tu reserva. Todavía no da entrada.'
             : 'Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.'}
         </p>
       </div>
