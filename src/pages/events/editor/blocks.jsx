@@ -177,7 +177,13 @@ function PortadaPreview({ data, evento, isEditor }) {
     if (!isEditor) return null;
     return (
       <div className="aspect-video rounded-3xl border border-dashed border-border bg-surface/20 flex items-center justify-center">
-        <span className="text-xs uppercase tracking-widest text-text-3">Sin portada · sube una desde Editar info administrativa</span>
+        {/* «Editar info administrativa» no existe en ninguna parte del panel:
+            es un nombre de una versión anterior. Quien lea esto va a buscarlo y
+            no lo va a encontrar. El sitio real es Configuración → General →
+            «Editar información completa». */}
+        <span className="text-xs text-text-3 text-center px-6 leading-relaxed">
+          Sin portada. Se sube en <strong className="text-text-2">Configuración → General → Editar información completa</strong>.
+        </span>
       </div>
     );
   }
@@ -255,7 +261,7 @@ function TituloEditor({ data = {}, onChange, evento }) {
 function DescripcionPreview({ data = {}, evento, isEditor }) {
   if (!evento.descripcion) {
     if (!isEditor) return null;
-    return <p className="text-sm text-text-3 italic">Sin descripción · agrégala en Editar info administrativa.</p>;
+    return <p className="text-sm text-text-3 italic">Sin descripción. Se agrega en Configuración → General → «Editar información completa».</p>;
   }
   const tamano = { s: 'text-sm', m: 'text-base', l: 'text-lg' }[data.tamano] || 'text-base';
   const dosColumnas = data.columnas === 2;
@@ -355,7 +361,7 @@ function InfoPreview({ data = {}, evento, isEditor }) {
   if (celdas.length === 0) {
     if (!isEditor) return null;
     return <VacioEditor titulo="Sin datos que enseñar"
-      pista="La fecha, el lugar y quién organiza salen de la ficha del evento, no de aquí. Rellénalos en Editar info administrativa." />;
+      pista="La fecha, el lugar y quién organiza salen de la ficha del evento, no de aquí. Se rellenan en Configuración → General → «Editar información completa»." />;
   }
 
   const disposicion = data.disposicion || 'rejilla';
@@ -519,7 +525,7 @@ function GaleriaEventoPreview({ data, evento, isEditor }) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-surface/20 px-4 py-6 text-center">
         <p className="text-sm text-text-2 font-medium">Sin galería configurada</p>
-        <p className="text-xs text-text-3 mt-1">Sube imágenes desde Editar info administrativa → Imágenes.</p>
+        <p className="text-xs text-text-3 mt-1">Las imágenes se suben en Configuración → General → «Editar información completa».</p>
       </div>
     );
   }
@@ -747,7 +753,7 @@ function PortadaEditor({ data, onChange, evento }) {
       </div>
       {data.oculto ? <HiddenNotice label="Portada" /> : (<>
         {!evento.cover_url && (
-          <p className="text-xs text-text-3">Sube la imagen de portada desde <strong className="text-text-2">Editar información</strong> del evento.</p>
+          <p className="text-xs text-text-3">La imagen de portada se sube en <strong className="text-text-2">Configuración → General → Editar información completa</strong>.</p>
         )}
         <div className="space-y-2">
           <label className="text-xs text-text-2 block">Ancho de la imagen</label>
