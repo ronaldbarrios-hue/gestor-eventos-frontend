@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { guardarBorrador, leerBorrador, olvidarBorrador, filtrarCitas, citasComoCSV } from '../../../lib/notasDeCita.js';
+import { RESULTADOS, PLAZOS, sePuedeCerrar, informeCSV } from '../../../lib/cierreDeCita.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
@@ -63,6 +64,12 @@ export default function NetworkingTab({ evento, soyOwner }) {
             </button>
           )}
           {soyOwner && (
+            <button onClick={() => setSub('informe')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'informe' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+              Informe
+            </button>
+          )}
+          {soyOwner && (
             <button onClick={() => setSub('admin')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'admin' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               Gestionar
@@ -80,6 +87,7 @@ export default function NetworkingTab({ evento, soyOwner }) {
       </div>
 
       {sub === 'parrilla' && soyOwner && <ParrillaRueda evento={evento} soyOwner={soyOwner} />}
+      {sub === 'informe'  && soyOwner && <InformeRueda evento={evento} />}
       {sub === 'admin'    && soyOwner && <AdminView evento={evento} />}
       {sub === 'explorar' && <ExplorarView evento={evento} />}
       {sub === 'mis-citas' && <MisCitasView evento={evento} />}
@@ -348,6 +356,7 @@ export function MisCitasView({ evento }) {
               empresa, la hora y el stand al lado, que es lo que le da
               sentido. */}
           <NotasCita evento={evento} cita={c} />
+          <CierreCita evento={evento} cita={c} />
           </div>
         );
       })}
@@ -475,6 +484,258 @@ function NotasCita({ evento, cita, abiertaPorDefecto = false }) {
       <div className="flex items-center justify-between gap-2 mt-1">
         <p className={`text-[11px] ${AVISO.cls}`}>{estado === 'guardado' && !texto ? '' : AVISO.texto}</p>
         <p className="text-[11px] text-text-3 tabular-nums">{texto.length} / 4000</p>
+      </div>
+    </div>
+  );
+}
+
+
+/* El cierre de la reunión: qué pasó, y qué negocio se espera.
+ *
+ * ── Por qué esto vale más que la nota ────────────────────────────────────
+ *
+ * La nota es de quien la escribe. Esto es lo que la rueda ENTREGA: cuántas
+ * reuniones ocurrieron de verdad y cuánto negocio se espera de ellas. Para una
+ * cámara de comercio ése es el informe que le presenta a su junta, y hasta hoy
+ * la plataforma agendaba citas sin poder decir para qué sirvieron.
+ *
+ * ── Cuándo aparece ───────────────────────────────────────────────────────
+ *
+ * Cuando la reunión ya terminó. Preguntar «¿se realizó?» antes de que empiece
+ * no tiene respuesta, y en una rueda con quince citas por delante ensucia la
+ * única pantalla que la persona mira entre mesa y mesa.
+ *
+ * ── Un guardado por campo, y ninguno silencioso ─────────────────────────
+ *
+ * Cada campo se manda solo al cambiarlo, y sólo ese campo: cerrar la reunión no
+ * puede borrar la nota que se escribió durante ella. Y si falla, se dice — un
+ * cierre perdido es un dato que ya no se puede reconstruir: nadie se acuerda a
+ * la semana siguiente de cuánto esperaba de la reunión de las 10:15.
+ */
+function CierreCita({ evento, cita }) {
+  const [v, setV] = useState({
+    resultado: cita.resultado || '',
+    expectativa_monto: cita.expectativa_monto ?? '',
+    expectativa_plazo: cita.expectativa_plazo || '',
+    hubo_acuerdo: cita.hubo_acuerdo ?? null,
+    resultado_nota: cita.resultado_nota || '',
+  });
+  const [estado, setEstado] = useState('');   // '' | 'guardando' | 'guardado' | 'error'
+  const { error: toastErr } = useToast();
+
+  if (!sePuedeCerrar(cita)) return null;
+
+  const mandar = async (cambios) => {
+    setEstado('guardando');
+    try {
+      await networkingApi.cerrarCita(evento.id, cita.id, cambios);
+      Object.assign(cita, cambios);           // la lista de arriba ya lo sabe
+      setEstado('guardado');
+    } catch (e) {
+      setEstado('error');
+      toastErr(e.response?.data?.error || e.message);
+    }
+  };
+
+  const poner = (patch, mandarlo = true) => {
+    setV(x => ({ ...x, ...patch }));
+    if (mandarlo) mandar(patch);
+  };
+
+  const realizada = v.resultado === 'realizada';
+
+  return (
+    <div className="px-5 pb-4 -mt-1">
+      <div className="rounded-2xl border border-border bg-surface-2/40 p-3.5 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-xs font-semibold text-text-1">¿Cómo salió la reunión?</p>
+          {estado === 'guardando' && <span className="text-[11px] text-text-3">Guardando…</span>}
+          {estado === 'guardado'  && <span className="text-[11px] text-success">Guardado.</span>}
+          {estado === 'error'     && <span className="text-[11px] text-danger-light">No se pudo guardar. Vuelve a intentarlo.</span>}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {RESULTADOS.map(r => (
+            <button key={r.id}
+              onClick={() => poner({ resultado: v.resultado === r.id ? null : r.id })}
+              className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                v.resultado === r.id
+                  ? 'border-primary-light bg-primary/10 text-text-1 font-medium'
+                  : 'border-border text-text-2 hover:text-text-1'}`}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {/* La expectativa sólo tiene sentido si hubo reunión. Preguntarle a
+            quien marcó «no asistió» cuánto negocio espera es pedirle que se
+            invente un número. */}
+        {realizada && (
+          <div className="space-y-2.5">
+            <div className="flex items-end gap-2 flex-wrap">
+              <label className="text-[11px] text-text-3 flex flex-col gap-1">
+                Negocio que esperas ({evento.currency || 'COP'})
+                <input type="number" min="0" inputMode="numeric"
+                  value={v.expectativa_monto}
+                  onChange={e => poner({ expectativa_monto: e.target.value }, false)}
+                  onBlur={() => mandar({ expectativa_monto: v.expectativa_monto === '' ? null : Number(v.expectativa_monto) })}
+                  placeholder="Sin cifra"
+                  className="input !h-9 text-sm w-40" />
+              </label>
+              <label className="text-[11px] text-text-3 flex flex-col gap-1">
+                ¿Para cuándo?
+                <select value={v.expectativa_plazo}
+                  onChange={e => poner({ expectativa_plazo: e.target.value || null })}
+                  className="input !h-9 text-sm w-40">
+                  <option value="">Sin plazo</option>
+                  {PLAZOS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-text-2 cursor-pointer h-9">
+                <input type="checkbox" checked={Boolean(v.hubo_acuerdo)}
+                  onChange={e => poner({ hubo_acuerdo: e.target.checked })}
+                  className="w-4 h-4 rounded accent-primary" />
+                Quedó un acuerdo
+              </label>
+            </div>
+
+            <input value={v.resultado_nota}
+              onChange={e => poner({ resultado_nota: e.target.value }, false)}
+              onBlur={() => mandar({ resultado_nota: v.resultado_nota })}
+              maxLength={1000}
+              placeholder="Qué se acordó, en una línea"
+              className="input w-full text-sm" />
+          </div>
+        )}
+
+        {/* Se dice a dónde va esto. Un formulario que pide cifras sin explicar
+            quién las mira se rellena mal o no se rellena. */}
+        <p className="text-[11px] text-text-3 leading-relaxed">
+          Lo ve el equipo del evento y entra en el informe de la rueda. Tus notas
+          de arriba siguen siendo privadas.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+/* Qué salió de la rueda.
+ *
+ * ── Para qué existe esta pantalla ────────────────────────────────────────
+ *
+ * Una cámara de comercio no organiza una rueda para tener una agenda bonita:
+ * la organiza para poder decirle a su junta cuántas reuniones ocurrieron y
+ * cuánto negocio se espera de ellas. Hasta hoy la plataforma agendaba citas y
+ * no podía contestar ninguna de las dos cosas.
+ *
+ * ── Lo que esta pantalla NO hace ─────────────────────────────────────────
+ *
+ * Repartir lo que nadie registró. «Sin registrar» tiene su propia casilla y su
+ * propio color: una rueda donde no se cerró ninguna reunión tiene que verse
+ * como lo que es —sin datos— y no como una rueda con cero reuniones
+ * realizadas. Y el porcentaje se calcula sobre lo registrado, DICIENDO sobre
+ * cuántas: sobre el total convertiría «no lo sabemos» en «no ocurrió».
+ */
+function InformeRueda({ evento }) {
+  const [datos, setDatos] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let vivo = true;
+    networkingApi.informe(evento.id)
+      .then(d => { if (vivo) setDatos(d); })
+      .catch(e => { if (vivo) setError(e.response?.data?.error || e.message); });
+    return () => { vivo = false; };
+  }, [evento.id]);
+
+  if (error) return (
+    <div className="rounded-3xl border border-border bg-surface/40 px-6 py-10 text-center">
+      <p className="text-sm text-text-2">{error}</p>
+    </div>
+  );
+  if (!datos) return <GLoader message="Armando el informe…" />;
+
+  const r = datos.resumen;
+  const moneda = (n, m) => `${Number(n).toLocaleString('es-CO', { maximumFractionDigits: 0 })} ${m}`;
+
+  const descargar = () => {
+    const csv = informeCSV(datos.citas || [], evento.titulo || '');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rueda-${evento.slug || 'evento'}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
+  const Dato = ({ n, label, cls = 'text-text-1' }) => (
+    <div className="rounded-2xl border border-border bg-surface/40 p-4">
+      <p className={`text-2xl font-bold font-display tabular-nums ${cls}`}>{n}</p>
+      <p className="text-[11px] text-text-3 mt-0.5 leading-snug">{label}</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <p className="text-sm text-text-2 max-w-xl leading-relaxed">
+          Lo que salió de la rueda. Las reuniones sin cerrar se cuentan aparte:
+          no se sabe si ocurrieron, y contarlas como que no habría sido inventar.
+        </p>
+        <button onClick={descargar} className="btn-secondary btn-sm rounded-full flex-shrink-0">
+          Descargar informe (CSV)
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Dato n={r.agendadas} label="Citas agendadas (sin contar canceladas)" />
+        <Dato n={r.realizadas} label="Se realizaron" cls="text-success" />
+        <Dato n={r.no_asistio} label="No asistió alguna de las partes" cls="text-warning" />
+        <Dato n={r.sin_registrar} label="Sin cerrar todavía" cls="text-text-3" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-border bg-surface/40 p-4">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 mb-1">Efectividad</p>
+          {r.efectividad == null ? (
+            <p className="text-sm text-text-3">Todavía nadie ha cerrado una reunión.</p>
+          ) : (
+            <>
+              <p className="text-2xl font-bold font-display tabular-nums text-text-1">{r.efectividad} %</p>
+              {/* Sobre cuántas. Un porcentaje sin denominador con tres
+                  reuniones cerradas de doscientas es un titular falso. */}
+              <p className="text-[11px] text-text-3 mt-0.5">
+                sobre {r.registradas} reunion{r.registradas === 1 ? '' : 'es'} cerrada{r.registradas === 1 ? '' : 's'}
+                {r.sin_registrar > 0 && ` · faltan ${r.sin_registrar}`}
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-border bg-surface/40 p-4">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 mb-1">Negocio esperado</p>
+          {Object.keys(r.expectativa_por_moneda || {}).length === 0 ? (
+            <p className="text-sm text-text-3">Nadie ha registrado una cifra todavía.</p>
+          ) : (
+            <div className="space-y-0.5">
+              {Object.entries(r.expectativa_por_moneda).map(([m, n]) => (
+                <p key={m} className="text-xl font-bold font-display tabular-nums text-text-1">{moneda(n, m)}</p>
+              ))}
+              <p className="text-[11px] text-text-3">
+                de {r.con_expectativa} reunion{r.con_expectativa === 1 ? '' : 'es'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-border bg-surface/40 p-4">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 mb-1">Con acuerdo</p>
+          <p className="text-2xl font-bold font-display tabular-nums text-text-1">{r.con_acuerdo}</p>
+          <p className="text-[11px] text-text-3 mt-0.5">
+            {r.canceladas > 0 && `${r.canceladas} cita${r.canceladas === 1 ? '' : 's'} cancelada${r.canceladas === 1 ? '' : 's'} aparte`}
+          </p>
+        </div>
       </div>
     </div>
   );
