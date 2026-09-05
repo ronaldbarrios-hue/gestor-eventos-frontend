@@ -197,7 +197,7 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     const pend = leerCola(evento.id);
     if (!pend.length) return;
     setSincronizando(true);
-    let ok = 0, fallidas = 0, enEspera = 0;
+    let ok = 0, fallidas = 0, enEspera = 0, yaEstaban = 0;
     const motivos = [];
     /* Lo rechazado, con nombre. Antes sólo se contaba: «3 rechazados» y nadie
        sabía de quién. Con los sub-eventos en la cola eso pasa de incómodo a
@@ -233,26 +233,44 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
            o el servidor se cayó un momento. Las tres se arreglan y luego la
            cola se vacía sola. Tirarlas sería perder entradas por un permiso. */
         const st = e.response.status;
+        const data = e.response.data || {};
         if (st === 401 || st === 403 || st >= 500) {
           enEspera++;
-          const m = e.response.data?.error;
+          const m = data.error;
           if (m && !motivos.includes(m)) motivos.push(m);
           continue;
         }
         quitar(evento.id, item.offline_id);
+
+        /* «Esta boleta ya fue usada» NO es un rechazo que haya que perseguir:
+           significa que esa persona entró. Pasa constantemente y sin que nadie
+           haga nada mal — otra puerta la registró con red mientras ésta estaba
+           sin cobertura, o el escaneo se mandó y la respuesta no llegó.
+
+           Contarlo entre los rechazados manda a quien está en la puerta a
+           buscar en la lista a alguien que ya está dentro. Se cuenta aparte y
+           se dice en una línea: informativo, no un problema.
+
+           Sólo vale para ingresos: en un sub-evento el 409 es «está lleno», y
+           eso sí es alguien que entró y no quedó registrado. */
+        if (data.ya_usada && (item.tipo || TIPO_INGRESO) !== TIPO_SESION) {
+          yaEstaban++;
+          continue;
+        }
+
         fallidas++;
         if (rechazados.length < 20) {
           rechazados.push({
             codigo: item.codigo || (item.qr_token || '').slice(-12),
-            motivo: e.response.data?.error || `Error ${st}`,
+            motivo: data.error || `Error ${st}`,
           });
         }
       }
     }
     setCola(cantidadCola(evento.id));
     setSincronizando(false);
-    if (ok || fallidas || enEspera) {
-      setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, motivos, rechazados } });
+    if (ok || fallidas || enEspera || yaEstaban) {
+      setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, yaEstaban, motivos, rechazados } });
       bumpOptimista();
     }
   }, [evento.id, sincronizando, bumpOptimista]);
@@ -745,6 +763,7 @@ function ResultadoCard({ result, compact }) {
             </h3>
             <p className="text-sm text-text-2">
               {r.ok} registrados
+              {r.yaEstaban ? ` · ${r.yaEstaban} ya estaban dentro` : ''}
               {r.fallidas ? ` · ${r.fallidas} rechazados` : ''}
               {r.enEspera ? ` · ${r.enEspera} sin registrar todavía` : ''}.
             </p>

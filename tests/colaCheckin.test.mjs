@@ -134,3 +134,28 @@ test('un escaneo rechazado se dice con su código', () => {
   assert.match(tab, /rechazados\.push\(\{/, 'los rechazados vuelven a ser sólo un número');
   assert.match(tab, /r\.rechazados\?\.length > 0/, 'el resumen no enseña cuáles fueron');
 });
+
+test('«ya fue usada» no se cuenta como un rechazo que perseguir', () => {
+  /* Al vaciar la cola, un 409 «esta boleta ya fue usada» significa que esa
+     persona ENTRÓ: otra puerta la registró con red mientras ésta estaba sin
+     cobertura, o el escaneo salió y la respuesta no llegó. Pasa
+     constantemente y sin que nadie haga nada mal.
+
+     Contarlo entre los rechazados manda a quien está en la puerta a buscar en
+     la lista a alguien que ya está dentro — y con doscientos escaneos
+     guardados, eso es enterrar los rechazos de verdad entre el ruido.
+
+     En un sub-evento el 409 es «está lleno», que sí es alguien que entró y no
+     quedó registrado. Por eso la distinción mira el tipo. */
+  const src = sinComentarios(leer(CHECKIN));
+  assert.match(src, /if \(data\.ya_usada && \(item\.tipo \|\| TIPO_INGRESO\) !== TIPO_SESION\) \{/,
+    'un «ya fue usada» de la cola vuelve a contarse como rechazo');
+  assert.match(src, /yaEstaban\+\+;/, 'no se lleva la cuenta aparte');
+  assert.match(src, /ya estaban dentro/, 'el resumen no dice cuántas ya estaban dentro');
+
+  /* Y sigue descartándose de la cola: reintentarlo no cambia nada. */
+  const iQuitar = src.indexOf('quitar(evento.id, item.offline_id)');
+  const iYa = src.indexOf('data.ya_usada');
+  assert.ok(iQuitar > 0 && iQuitar < iYa,
+    'el escaneo ya registrado se queda en la cola y volvería en cada intento');
+});
