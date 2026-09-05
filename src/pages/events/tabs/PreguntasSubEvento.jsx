@@ -129,6 +129,10 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
         etiqueta: c.etiqueta.trim(),
         requerido: Boolean(c.requerido),
         opciones: CON_OPCIONES.has(c.tipo) ? (c.opciones || []).filter(Boolean) : null,
+        /* '' o vacio = sin limite. Se manda null y no 0: un 0 guardado seria
+           una pregunta que no se puede responder. */
+        max_caracteres: c.max_caracteres ? Number(c.max_caracteres) : null,
+        max_palabras: c.max_palabras ? Number(c.max_palabras) : null,
       }));
       const d = await f.guardar(payload);
       success(f.textoGuardado(payload.length));
@@ -242,6 +246,30 @@ function Pregunta({ campo, tipos, primera, ultima, onChange, onQuitar, onSubir, 
             className="w-3.5 h-3.5 accent-[#8B5CF6]" />
           Obligatoria
         </label>
+
+        {/* Cuanto se puede escribir. Solo en texto y parrafo: en los demas
+            tipos el limite ya lo pone su verificacion o sus opciones.
+            Vacio = sin limite, que es como estaba todo hasta ahora. */}
+        {['texto', 'parrafo'].includes(campo.tipo) && (
+          <>
+            <label className="flex items-center gap-1.5 text-xs text-text-3">
+              máx.
+              <input type="number" min="1" max="10000" inputMode="numeric" placeholder="—"
+                value={campo.max_caracteres ?? ''}
+                onChange={e => onChange({ max_caracteres: e.target.value })}
+                className="input !h-9 text-xs w-16" />
+              caracteres
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-text-3">
+              máx.
+              <input type="number" min="1" max="2000" inputMode="numeric" placeholder="—"
+                value={campo.max_palabras ?? ''}
+                onChange={e => onChange({ max_palabras: e.target.value })}
+                className="input !h-9 text-xs w-16" />
+              palabras
+            </label>
+          </>
+        )}
       </div>
 
       {conOpciones && (

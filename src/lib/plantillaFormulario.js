@@ -152,9 +152,24 @@ export function leerPlantilla(hoja, plantilla) {
     const ordenCrudo = val(fila, 'orden');
     const orden = Number(ordenCrudo);
 
+    /* Los topes de la hoja. Sólo donde aplican —texto corto y párrafo—, y sólo
+       si son un entero positivo: una celda con «10 palabras» escrito a mano, o
+       con un cero, se ignora en vez de guardarse rota. Un 0 en la base sería
+       una pregunta imposible de responder.
+       No se avisa como error: la columna es opcional y una celda mal escrita no
+       puede tumbar una importación de treinta preguntas. */
+    const conLimite = r.tipo === 'texto' || r.tipo === 'parrafo';
+    const tope = (id, max) => {
+      if (!conLimite) return null;
+      const n = Math.trunc(Number(val(fila, id)));
+      return Number.isFinite(n) && n > 0 ? Math.min(n, max) : null;
+    };
+
     campos.push({
       etiqueta : pregunta.slice(0, 200),
       tipo     : r.tipo,
+      max_caracteres: tope('max_caracteres', 10000),
+      max_palabras  : tope('max_palabras', 2000),
       opciones : r.exigeOpciones ? opciones : [],
       requerido: esObligatoria(val(fila, 'obligatoria')),
       grupo    : val(fila, 'grupo').slice(0, 80),

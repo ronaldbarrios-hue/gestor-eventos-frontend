@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import SelectorBuscable, { MultiBuscable } from './SelectorBuscable.jsx';
 import { verificar } from '../../lib/validarDato.js';
+import { limiteDe, mensajeLimite } from '../../lib/limiteTexto.js';
 
 /* GESTEK — Un solo renderizador para los campos del formulario.
 
@@ -45,6 +46,7 @@ export function esBuscable(campo) {
   return (campo?.opciones?.length || 0) > UMBRAL_BUSCABLE;
 }
 
+
 /* Valor inicial coherente con el tipo: una lista vacía no es lo mismo que una
    cadena vacía, y arrancar un `multiple` en '' hace que el primer clic
    concatene texto en vez de agregar a un array. */
@@ -87,6 +89,13 @@ export function fallaCampo(campo, valor) {
      lado: «eso parece un correo, aqui va el telefono»—. */
   const verificado = verificar(t, valor);
   if (verificado) return `«${campo.etiqueta}»: ${verificado.charAt(0).toLowerCase()}${verificado.slice(1)}`;
+
+  /* El limite se comprueba aqui tambien y no solo con `maxLength`: el atributo
+     no existe para las palabras, y pegar texto en un campo puede saltarselo en
+     algunos navegadores. El servidor lo vuelve a comprobar igual. */
+  const lim = limiteDe(campo, valor, t);
+  const pasado = mensajeLimite(campo, lim);
+  if (pasado) return pasado;
 
   switch (t) {
     case 'seleccion': {
@@ -179,9 +188,29 @@ export default function CampoFormulario({ campo, value, onChange, eventoId, erro
       {campo.etiqueta}{req && <span className="text-danger-light"> *</span>}
     </label>
   );
+  /* Lo que lleva escrito, mientras escribe.
+     Sin esto el limite solo se descubre al enviar, que es despues de haber
+     escrito de mas — y entonces hay que recortar a ciegas. Se dice cuanto
+     queda, no cuanto se lleva: lo que la persona necesita saber es si le cabe
+     lo que falta por decir. */
+  const lim = limiteDe(campo, value, t);
+  const Contador = () => {
+    if (!lim) return null;
+    const partes = [];
+    if (lim.maxC > 0) partes.push(`${lim.usadoC} / ${lim.maxC} caracteres`);
+    if (lim.maxP > 0) partes.push(`${lim.usadoP} / ${lim.maxP} palabras`);
+    return (
+      <p className={`text-[11px] mt-1 tabular-nums ${lim.pasado ? 'text-danger-light font-semibold' : 'text-text-3'}`}
+         aria-live="polite">
+        {partes.join(' · ')}{lim.pasado && ' · te pasaste'}
+      </p>
+    );
+  };
+
   const Ayuda = () => (
     <>
       {campo.ayuda && <p className="text-[11px] text-text-3 mt-1 leading-relaxed">{campo.ayuda}</p>}
+      <Contador />
       {error && <p id={idError} className="text-[11px] text-danger-light mt-1 leading-relaxed">{error}</p>}
     </>
   );
@@ -267,7 +296,11 @@ export default function CampoFormulario({ campo, value, onChange, eventoId, erro
     return (
       <div className="field">
         <Etiqueta />
+        {/* `maxLength` impide pasarse de caracteres mientras se escribe, que es
+            mejor que dejar escribir y rechazar despues. No existe equivalente
+            para palabras: eso lo avisa el contador y lo comprueba `fallaCampo`. */}
         <textarea id={`campo-${campo.id}`} required={req} rows={3} value={value ?? ''}
+          maxLength={lim?.maxC > 0 ? lim.maxC : undefined}
           onChange={e => onChange(e.target.value)}
           className={`${cls} resize-y min-h-[5rem]`} />
         <Ayuda />
@@ -316,6 +349,7 @@ export default function CampoFormulario({ campo, value, onChange, eventoId, erro
       <Etiqueta />
       <input id={`campo-${campo.id}`} required={req} {...attrs}
         autoComplete={attrs.autoComplete || (pareceNombre ? 'name' : undefined)}
+        maxLength={lim?.maxC > 0 ? lim.maxC : undefined}
         value={value ?? ''}
         onChange={e => onChange(e.target.value)} className={cls} aria-invalid={Boolean(error)} aria-describedby={idError} />
       <Ayuda />
