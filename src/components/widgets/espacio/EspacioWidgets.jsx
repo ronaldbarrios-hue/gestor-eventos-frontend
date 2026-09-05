@@ -20,7 +20,10 @@ export function MisTareasWidget() {
 
   const mias = tareas
     .filter(t => t.estado !== 'hecho')
-    .filter(t => !t.asignado_id || String(t.asignado_id) === String(usuario?.id))
+    /* `asignado_user_id`, que es la columna de verdad. Con `asignado_id`
+       —que no existe— la condición era siempre cierta y este panel de «lo
+       mío» enseñaba las tareas de todo el equipo. */
+    .filter(t => !t.asignado_user_id || String(t.asignado_user_id) === String(usuario?.id))
     .sort((a, b) => new Date(a.vence_at || '2999') - new Date(b.vence_at || '2999'))
     .slice(0, 7);
 

@@ -102,7 +102,12 @@ export default function BoletaConocida({ slug }) {
     <div className="mb-6">
       {!pidiendo ? (
         <button type="button" onClick={() => setPidiendo(true)}
-          className="text-sm text-text-3 hover:text-text-1 transition-colors">
+          /* `py-2.5` en móvil y no en escritorio: medía 21 px de alto, y esto
+             lo pulsa alguien en la puerta, de pie, con el móvil en una mano.
+             La recomendación es 44; con el ratón 21 va bien, así que el aire
+             sólo se añade donde se toca con el dedo. No mueve nada alrededor
+             porque va en su propia línea. */
+          className="text-sm text-text-3 hover:text-text-1 transition-colors py-2.5 sm:py-0 -my-2.5 sm:my-0">
           ¿Ya te registraste? <span className="text-primary-light hover:underline">Ver mi entrada</span>
         </button>
       ) : (

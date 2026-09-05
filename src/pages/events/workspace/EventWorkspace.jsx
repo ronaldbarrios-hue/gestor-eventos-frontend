@@ -52,6 +52,7 @@ import ChatTab           from '../tabs/ChatTab.jsx';
 import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
 import Volver from '../../../components/ui/Volver.jsx';
+import { guardarEvento, leerEvento } from '../../../lib/eventoEnCache.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Workspace del evento — Rework Fase 3
@@ -215,6 +216,9 @@ export default function EventWorkspace() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [evento, setEvento]     = useState(null);
+  /* `false` o `{ guardadoAt }`. Cuando lleva fecha, lo que se está enseñando
+     salió de la copia local y no del servidor. */
+  const [sinConexion, setSinConexion] = useState(false);
   const [loading, setLoading]   = useState(true);
   const [err, setErr]           = useState('');
   const [soyOwner, setSoyOwner] = useState(true);
@@ -293,8 +297,26 @@ export default function EventWorkspace() {
         setSoyOwner(d.soyOwner !== false);
         setPermisos(d.permisos || ['*']);
         setMiRolId(d.mi_rol_id || null);
+        setSinConexion(false);
+        /* Se guarda lo mínimo para la puerta cada vez que se carga bien. */
+        guardarEvento(id, { evento: d.evento, permisos: d.permisos || ['*'], soyOwner: d.soyOwner !== false, miRolId: d.mi_rol_id || null });
       })
-      .catch(e => setErr(e.response?.data?.error || e.message))
+      .catch(e => {
+        /* Sin respuesta del servidor: se tira de lo guardado en vez de dejar la
+           puerta sin escáner. Un 403 o un 404 SÍ paran aquí — eso no es falta
+           de red, es que este evento no es tuyo o no existe, y servir una copia
+           en ese caso sería enseñar algo que ya no se puede ver. */
+        const cache = !e.response ? leerEvento(id) : null;
+        if (cache) {
+          setEvento(cache.evento);
+          setSoyOwner(cache.soyOwner);
+          setPermisos(cache.permisos || []);
+          setMiRolId(cache.miRolId || null);
+          setSinConexion({ guardadoAt: cache.guardado_at });
+        } else {
+          setErr(e.response?.data?.error || (e.response ? e.message : 'No pudimos cargar el evento y no hay una copia guardada en este dispositivo.'));
+        }
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -317,8 +339,22 @@ export default function EventWorkspace() {
           .filter(tab => puedeVer(tab.perm, soyOwner, permisos))
           .filter(tab => tab.id !== 'networking' || permiteNetworking),
       }))
+      .filter(s => s.tabs.length > 0)
+      /* Sin conexión, SÓLO el control de ingreso.
+       *
+       * Es lo único que sabe trabajar sin servidor: guarda los escaneos y los
+       * manda al volver la red. Todo lo demás vive de peticiones, y ofrecerlo
+       * desde una copia guardada enseñaría listas vacías —clientes, tareas,
+       * agenda— que se leen como «no hay nadie» y «no hay nada». Eso es peor
+       * que no ofrecerlo: es contestar mal a la pregunta.
+       *
+       * Se hace aquí, sobre el menú ya filtrado por permisos, para que sin red
+       * nadie vea de pronto una pestaña que con red no le tocaba. */
+      .map(s => (sinConexion
+        ? { ...s, tabs: s.tabs.filter(tab => tab.id === 'checkin') }
+        : s))
       .filter(s => s.tabs.length > 0);
-  }, [evento, soyOwner, permisos]);
+  }, [evento, soyOwner, permisos, sinConexion]);
 
   const seccion   = secciones.find(s => s.id === seccionId) || secciones[0];
   const tabActivo = seccion?.tabs.find(t => t.id === tabId) || seccion?.tabs[0];
@@ -435,6 +471,23 @@ export default function EventWorkspace() {
         <main className="relative flex-1 overflow-y-auto overflow-x-hidden">
           <div className="relative z-10 p-4 sm:p-6 w-full space-y-5">
 
+            {/* Lo que se está viendo salió de una copia guardada.
+                Se dice arriba del todo y con la hora: quien está en la puerta
+                tiene que saber que lo que ve puede no ser lo de ahora, y que
+                por eso no están las demás pestañas. */}
+            {sinConexion && (
+              <div className="rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3">
+                <p className="text-sm text-text-1 font-medium">Sin conexión — trabajando con una copia guardada.</p>
+                <p className="text-xs text-text-3 mt-1 leading-relaxed">
+                  Puedes seguir escaneando: los ingresos se guardan aquí y se registran solos al volver
+                  el internet. El resto del panel necesita conexión, por eso no aparece.
+                  {sinConexion.guardadoAt && (
+                    <> Copia del {new Date(sinConexion.guardadoAt).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}.</>
+                  )}
+                </p>
+              </div>
+            )}
+
             {/* Header de sección */}
             <header className="flex items-center justify-between gap-3 flex-wrap">
               {/* Dónde estás, y la salida dentro de eso.
@@ -536,7 +589,12 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'equipo/equipo'      : return <EquipoTab evento={evento} />;
     case 'equipo/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
     case 'equipo/tareas'      : return <TareasTab evento={evento} />;
-    case 'equipo/solicitudes' : return <SolicitudesTab evento={evento} />;
+    /* Todo el equipo entra —cualquiera puede mandar una sugerencia— pero
+       gestionarlas pide permiso: aquí se edita la ficha de otra persona. La
+       pantalla se lo pasa para no ofrecer botones que el servidor va a
+       rechazar, que es peor que no ofrecerlos. */
+    case 'equipo/solicitudes' : return <SolicitudesTab evento={evento}
+                                         puedeAtender={puedeVer('gestionar_solicitudes', soyOwner, permisos)} />;
     case 'equipo/documentos'  : return <DocumentosSection evento={evento} />;
     case 'resumen/reporte'     : return <ReporteTab evento={evento} />;
 

@@ -90,6 +90,9 @@ function EventoTrabajo({ ev }) {
   const { usuario } = useAuth();
 
   const reload = () => {
+    /* Callado: es la lista de lo que YO mandé, y va debajo de la ficha y las
+       tareas, que sí traen su error. Si falla, esa sección sale vacía; lo que
+       no puede es tumbar la pantalla entera del colaborador. */
     solicitudesApi.list(ev.id).then(d => setMias(d.solicitudes || [])).catch(() => {});
     tareasApi.list(ev.id).then(d => {
       const mine = (d.tareas || []).filter(t =>

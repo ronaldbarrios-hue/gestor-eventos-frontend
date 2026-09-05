@@ -2,6 +2,13 @@ import { Link } from 'react-router-dom';
 import logoG from '../../assets/logo-g.svg';
 import { useI18n } from '../../context/I18nContext.jsx';
 
+/* Los enlaces van `inline-block` con algo de aire vertical en móvil.
+ *
+ * Siendo `inline`, la caja de cada uno medía sólo la altura de su texto —17 px
+ * medidos a 375 px— y quedaban a la mitad de cualquier recomendación de zona de
+ * toque. Con `space-y-2` entre ellos, además, los dedos gruesos caían entre dos.
+ * Con el ratón 17 px va bien, así que el aire se añade sólo donde se toca.
+ */
 export default function PublicFooter() {
   const { t } = useI18n();
 
@@ -27,7 +34,7 @@ export default function PublicFooter() {
               ['/explorar',      'Explorar'      ],
             ].map(([to, label]) => (
               <li key={to}>
-                <Link to={to} className="text-sm text-text-2 hover:text-text-1 transition-colors">{t(label)}</Link>
+                <Link to={to} className="inline-block py-1.5 sm:py-0 text-sm text-text-2 hover:text-text-1 transition-colors">{t(label)}</Link>
               </li>
             ))}
           </ul>
@@ -36,17 +43,17 @@ export default function PublicFooter() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-widest text-text-3 mb-3">{t('Cuenta')}</h4>
           <ul className="space-y-2">
-            <li><Link to="/login"    className="text-sm text-text-2 hover:text-text-1 transition-colors">{t('Iniciar sesión')}</Link></li>
-            <li><Link to="/register" className="text-sm text-text-2 hover:text-text-1 transition-colors">{t('Registrarse')}</Link></li>
-            <li><Link to="/faq"      className="text-sm text-text-2 hover:text-text-1 transition-colors">FAQ</Link></li>
+            <li><Link to="/login"    className="inline-block py-1.5 sm:py-0 text-sm text-text-2 hover:text-text-1 transition-colors">{t('Iniciar sesión')}</Link></li>
+            <li><Link to="/register" className="inline-block py-1.5 sm:py-0 text-sm text-text-2 hover:text-text-1 transition-colors">{t('Registrarse')}</Link></li>
+            <li><Link to="/faq"      className="inline-block py-1.5 sm:py-0 text-sm text-text-2 hover:text-text-1 transition-colors">FAQ</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-widest text-text-3 mb-3">{t('Legal')}</h4>
           <ul className="space-y-2">
-            <li><Link to="/privacidad" className="text-sm text-text-2 hover:text-text-1 transition-colors">{t('Política de Privacidad')}</Link></li>
-            <li><Link to="/terminos"   className="text-sm text-text-2 hover:text-text-1 transition-colors">{t('Términos del Servicio')}</Link></li>
+            <li><Link to="/privacidad" className="inline-block py-1.5 sm:py-0 text-sm text-text-2 hover:text-text-1 transition-colors">{t('Política de Privacidad')}</Link></li>
+            <li><Link to="/terminos"   className="inline-block py-1.5 sm:py-0 text-sm text-text-2 hover:text-text-1 transition-colors">{t('Términos del Servicio')}</Link></li>
           </ul>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -6,6 +6,7 @@ import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import { numeroDeStand } from '../../../lib/expositoresUi.js';
+import ParrillaRueda from './ParrillaRueda.jsx';
 
 /* Tab Rueda de Negocios.
  *
@@ -29,7 +30,11 @@ import { numeroDeStand } from '../../../lib/expositoresUi.js';
    desde la página pública (src/pages/public/NetworkingPublicPage.jsx). */
 
 export default function NetworkingTab({ evento, soyOwner }) {
-  const [sub, setSub] = useState(soyOwner ? 'admin' : 'explorar'); // admin | explorar | mis-citas
+  /* Quien organiza entra por la parrilla, no por «Gestionar». El día del
+     evento lo que se mira es el tablero —quién está sentado, qué hueco quedó
+     libre—; crear mesas y generar franjas es trabajo de antes. */
+  const [sub, setSub] = useState(soyOwner ? 'parrilla' : 'explorar');
+  // parrilla | admin | explorar | mis-citas
 
   return (
     <div className="space-y-5">
@@ -51,6 +56,12 @@ export default function NetworkingTab({ evento, soyOwner }) {
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
           {soyOwner && (
+            <button onClick={() => setSub('parrilla')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'parrilla' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+              Parrilla
+            </button>
+          )}
+          {soyOwner && (
             <button onClick={() => setSub('admin')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'admin' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               Gestionar
@@ -67,6 +78,7 @@ export default function NetworkingTab({ evento, soyOwner }) {
         </div>
       </div>
 
+      {sub === 'parrilla' && soyOwner && <ParrillaRueda evento={evento} soyOwner={soyOwner} />}
       {sub === 'admin'    && soyOwner && <AdminView evento={evento} />}
       {sub === 'explorar' && <ExplorarView evento={evento} />}
       {sub === 'mis-citas' && <MisCitasView evento={evento} />}
@@ -90,15 +102,38 @@ export function ExplorarView({ evento }) {
   };
   useEffect(() => { cargar(); /* eslint-disable-next-line */ }, [evento.id]);
 
+  /* Con la rueda en modo «solicitud» la cita nace pendiente de que el equipo
+     la apruebe. Decía «¡Cita confirmada!» igual, así que la persona se iba
+     creyendo que tenía una hora que nadie le había dado. */
+  const porSolicitud = evento?.networking_modo === 'solicitud';
+
+  /* Cerrojo del doble toque: `busy` deshabilita el boton cuando React pinta, y
+     dos toques en el mismo fotograma entran los dos. Aqui eso son dos citas
+     pedidas por la misma persona, o un 409 gratuito sobre su propia reserva. */
+  const reservando = useRef(false);
+
   const reservar = async (horarioId) => {
+    if (reservando.current) return;
+    reservando.current = true;
     setBusy(horarioId);
     try {
-      await networkingApi.reservar(evento.id, horarioId);
-      success('¡Cita confirmada!');
+      /* El estado lo dice el SERVIDOR, no el modo que esta pantalla creía
+         tener: el modo puede haber cambiado mientras estaba abierta. */
+      const r = await networkingApi.reservar(evento.id, horarioId);
+      if (r?.estado === 'solicitada') {
+        success('Solicitud enviada. El equipo la revisa y te avisa.');
+      } else {
+        success('¡Cita confirmada!');
+      }
       cargar();
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
+      /* Si la casilla ya no esta libre, la lista que se esta mirando esta
+         vieja: se recarga. Sin esto, el mismo boton sigue ahi invitando a
+         volver a intentarlo y a recibir el mismo error. */
+      if (e.response?.status === 409) cargar();
     } finally {
+      reservando.current = false;
       setBusy(null);
     }
   };
@@ -128,7 +163,9 @@ export function ExplorarView({ evento }) {
           {exp.descripcion && <p className="text-sm text-text-2 leading-relaxed">{exp.descripcion}</p>}
 
           <div>
-            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">Horarios disponibles</p>
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">
+              {porSolicitud ? 'Horarios que puedes pedir' : 'Horarios disponibles'}
+            </p>
             {exp.horarios.length === 0 ? (
               <p className="text-xs text-text-3">Sin horarios publicados aún.</p>
             ) : (
@@ -136,9 +173,17 @@ export function ExplorarView({ evento }) {
                 {exp.horarios.map(h => {
                   const hora = new Date(h.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
                   if (h.esMio) {
+                    /* «Pedida» y «Reservada» no son lo mismo para quien está
+                       mirando su agenda del día: una obliga a estar ahí, la
+                       otra todavía no. */
+                    const pedida = h.estado === 'solicitada';
                     return (
-                      <span key={h.id} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-success/15 text-success border border-success/25">
-                        {hora} · Reservada
+                      <span key={h.id}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                          pedida
+                            ? 'bg-warning/15 text-warning border-warning/25'
+                            : 'bg-success/15 text-success border-success/25'}`}>
+                        {hora} · {pedida ? 'Pedida' : 'Reservada'}
                       </span>
                     );
                   }
@@ -187,6 +232,8 @@ export function MisCitasView({ evento }) {
       cargar();
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
+      /* La cita ya no esta: la lista que se mira esta vieja y se recarga. */
+      if (e.response?.status === 404) cargar();
     } finally {
       setBusy(null);
     }

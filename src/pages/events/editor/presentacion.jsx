@@ -20,10 +20,22 @@ const FONDOS = {
   marcado:  'bg-surface-2',
   contorno: 'border border-border bg-transparent',
 };
+/* El aire entre secciones, y menos en el móvil.
+ *
+ * La escala era fija: los mismos píxeles en una pantalla de 1.400 y en una de
+ * 375. En el móvil «amplio» son 112 px arriba y 112 abajo — 224 px de nada
+ * entre dos secciones, más de un cuarto de la pantalla— y de ahí salían los
+ * «huecos grandes de espacio muerto» que se veían en el evento real.
+ *
+ * Se aprieta a un 60 % en móvil y se respeta entera de `sm` para arriba: lo
+ * que eligió quien montó la página sigue valiendo donde tenía sentido. No se
+ * inventa una escala nueva; se le añade el tamaño de pantalla, que es la
+ * variable que le faltaba.
+ */
 const ESPACIADOS = {
-  compacto: 'py-4',
-  normal:   'py-8',
-  amplio:   'py-14',
+  compacto: 'py-2.5 sm:py-4',
+  normal:   'py-5 sm:py-8',
+  amplio:   'py-8 sm:py-14',
 };
 const ANCHOS = {
   estrecho: 'max-w-2xl',
@@ -51,7 +63,7 @@ export function Seccion({ data = {}, children, className = '' }) {
     <div className={`${ESPACIADOS[p.espaciado] || ESPACIADOS.normal} ${className}`}>
       <div
         className={`mx-auto ${ANCHOS[p.ancho] || ANCHOS.normal} ${centrado ? 'text-center' : ''}
-                    ${conCaja ? `${FONDOS[p.fondo]} rounded-3xl px-6 sm:px-8 py-7` : ''}`}
+                    ${conCaja ? `${FONDOS[p.fondo]} rounded-3xl px-5 sm:px-8 py-5 sm:py-7` : ''}`}
       >
         {p.titulo && (
           <p className={`text-xs font-semibold uppercase tracking-[0.22em] text-primary mb-4 ${centrado ? '' : ''}`}>

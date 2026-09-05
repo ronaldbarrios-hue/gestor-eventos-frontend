@@ -10,6 +10,7 @@ import AvatarUploader, { uploadAvatarFile } from '../components/ui/AvatarUploade
 import { PAISES, bandera, INDICATIVOS } from '../lib/paises.js';
 import { verificar } from '../lib/validarDato.js';
 import { auth } from '../lib/sesion.js';
+import { escaneosGuardados } from '../lib/checkinOffline.js';
 
 const PARTICIPANTES = ['Menos de 50', '50 – 200', '200 – 1.000', 'Más de 1.000'];
 const DUR_OUT = 420;
@@ -221,6 +222,9 @@ function LoginText() {
 }
 
 function LoginForm() {
+  /* Sólo se lee al montar: sale del almacenamiento del dispositivo y no cambia
+     mientras se mira una pantalla de acceso. */
+  const [pendientes] = useState(() => escaneosGuardados());
   const { login, signInWithGoogle } = useAuth();
   const { error: toastError } = useToast();
   const irDestinoPostAuth = useDestinoPostAuth();
@@ -276,6 +280,24 @@ function LoginForm() {
           Crear una gratis
         </Link>
       </p>
+
+      {/* Si hay escaneos guardados, decirlo AQUÍ.
+          La sesión caduca a la hora, y en un turno de puerta eso pasa. Lo que
+          ve entonces quien estaba escaneando es un formulario de acceso, y lo
+          razonable es pensar que al «cerrarse la sesión» se perdió lo que había
+          escaneado sin red. No se perdió: sigue en este dispositivo y se manda
+          al entrar. Callarlo hace que alguien empiece a apuntar a mano lo que
+          ya está guardado — o peor, que dé por perdidas doscientas entradas. */}
+      {pendientes > 0 && (
+        <div className="mb-8 rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3">
+          <p className="text-sm text-text-1 font-medium">
+            {pendientes} escaneo{pendientes !== 1 ? 's' : ''} guardado{pendientes !== 1 ? 's' : ''} en este dispositivo.
+          </p>
+          <p className="text-xs text-text-3 mt-1 leading-relaxed">
+            No se pierden. Entra con la misma cuenta y se registran solos en cuanto haya internet.
+          </p>
+        </div>
+      )}
 
       <button
         type="button"

@@ -7,7 +7,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 import { zonasDelEvento, etiquetaZona } from '../../../lib/zonas.js';
-import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
+import { encolar, leerCola, quitar, cantidadCola, TIPO_INGRESO, TIPO_SESION } from '../../../lib/checkinOffline.js';
 import { leerQr } from '../../../lib/qrEscaneado.js';
 
 /* Tab Escanear — el ÚNICO sitio donde se pasa una escarapela por un móvil.
@@ -140,14 +140,24 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [cola, setCola] = useState(() => cantidadCola(evento.id));
   const [sincronizando, setSincronizando] = useState(false);
+  /* Ver el cerrojo en `despachar`, más abajo: `working` pinta, esto impide. */
+  const ocupado = useRef(false);
 
   const handleCheckin = useCallback(async (payload) => {
     if (working) return;
     /* Sin conexión → guardar en la cola offline (optimista). */
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const n = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
-      setCola(n);
-      setLast({ ok: true, offlineGuardado: true });
+      const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+      setCola(cantidad);
+      /* Si no se pudo guardar hay que decirlo AHORA, con la persona delante.
+         Antes se enseñaba «guardado» pasara lo que pasara. */
+      setLast(guardado
+        ? { ok: true, offlineGuardado: true, yaEstaba }
+        /* El código va dentro: la tarjeta le dice a quien escanea que lo apunte
+           a mano, y sin enseñárselo ese consejo no se puede seguir. Del QR
+           firmado se enseña el final, que es lo que distingue una boleta de
+           otra y cabe en un papel. */
+        : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
       return;
     }
     setWorking(true);
@@ -160,9 +170,15 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     } catch (e) {
       /* Error de RED (sin respuesta del servidor) → encolar, no perder el escaneo. */
       if (!e.response) {
-        const n = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
-        setCola(n);
-        setLast({ ok: true, offlineGuardado: true });
+        const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+        setCola(cantidad);
+        setLast(guardado
+        ? { ok: true, offlineGuardado: true, yaEstaba }
+        /* El código va dentro: la tarjeta le dice a quien escanea que lo apunte
+           a mano, y sin enseñárselo ese consejo no se puede seguir. Del QR
+           firmado se enseña el final, que es lo que distingue una boleta de
+           otra y cabe en un papel. */
+        : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
       } else {
         const detail = e.response?.data || {};
         setLast({ ok: false, error: e.message, ...detail });
@@ -176,17 +192,29 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
   }, [evento.id, working, bumpOptimista]);
 
   /* Sincroniza la cola offline contra el servidor. */
-  const sincronizar = useCallback(async () => {
+  const sincronizar = useCallback(async (automatica = false) => {
     if (sincronizando) return;
     const pend = leerCola(evento.id);
     if (!pend.length) return;
     setSincronizando(true);
-    let ok = 0, fallidas = 0, enEspera = 0;
+    let ok = 0, fallidas = 0, enEspera = 0, yaEstaban = 0;
     const motivos = [];
+    /* Lo rechazado, con nombre. Antes sólo se contaba: «3 rechazados» y nadie
+       sabía de quién. Con los sub-eventos en la cola eso pasa de incómodo a
+       grave — en la puerta de un taller es normal que alguien no esté inscrito,
+       y si se descarta en silencio, entró y nadie va a saberlo nunca. */
+    const rechazados = [];
     for (const item of pend) {
       try {
-        const { offline_id, ...payload } = item;
-        await clientesApi.checkin(evento.id, payload);  // payload incluye `at` (hora real) y acceso_id
+        const { offline_id, tipo, sesion_id: sesionId, ...payload } = item;
+        /* Lo guardado ANTES de que existiera `tipo` no lo lleva, y es un
+           ingreso: una cola a medio sincronizar no se puede perder porque se
+           desplegara una versión nueva a mitad del evento. */
+        if ((tipo || TIPO_INGRESO) === TIPO_SESION) {
+          await agendaApi.marcarAsistencia(evento.id, sesionId, payload);  // payload lleva `at`
+        } else {
+          await clientesApi.checkin(evento.id, payload);  // payload incluye `at` (hora real) y acceso_id
+        }
         quitar(evento.id, offline_id);
         ok++;
       } catch (e) {
@@ -205,20 +233,50 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
            o el servidor se cayó un momento. Las tres se arreglan y luego la
            cola se vacía sola. Tirarlas sería perder entradas por un permiso. */
         const st = e.response.status;
+        const data = e.response.data || {};
         if (st === 401 || st === 403 || st >= 500) {
           enEspera++;
-          const m = e.response.data?.error;
+          const m = data.error;
           if (m && !motivos.includes(m)) motivos.push(m);
           continue;
         }
         quitar(evento.id, item.offline_id);
+
+        /* «Esta boleta ya fue usada» NO es un rechazo que haya que perseguir:
+           significa que esa persona entró. Pasa constantemente y sin que nadie
+           haga nada mal — otra puerta la registró con red mientras ésta estaba
+           sin cobertura, o el escaneo se mandó y la respuesta no llegó.
+
+           Contarlo entre los rechazados manda a quien está en la puerta a
+           buscar en la lista a alguien que ya está dentro. Se cuenta aparte y
+           se dice en una línea: informativo, no un problema.
+
+           Sólo vale para ingresos: en un sub-evento el 409 es «está lleno», y
+           eso sí es alguien que entró y no quedó registrado. */
+        if (data.ya_usada && (item.tipo || TIPO_INGRESO) !== TIPO_SESION) {
+          yaEstaban++;
+          continue;
+        }
+
         fallidas++;
+        if (rechazados.length < 20) {
+          rechazados.push({
+            codigo: item.codigo || (item.qr_token || '').slice(-12),
+            motivo: data.error || `Error ${st}`,
+          });
+        }
       }
     }
     setCola(cantidadCola(evento.id));
     setSincronizando(false);
-    if (ok || fallidas || enEspera) {
-      setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, motivos } });
+    /* Un reintento automatico que no consiguio nada no pinta nada.
+       Si pintara, cada treinta segundos taparia la tarjeta del escaneo que
+       quien esta en la puerta tiene delante —con la persona delante— para
+       repetirle que la cola sigue sin poder vaciarse. La cuenta ya se ve en el
+       boton «Sincronizar N», que es donde tiene que estar. */
+    const algoCambio = ok || fallidas || yaEstaban;
+    if (algoCambio || (!automatica && enEspera)) {
+      setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, yaEstaban, motivos, rechazados } });
       bumpOptimista();
     }
   }, [evento.id, sincronizando, bumpOptimista]);
@@ -232,6 +290,41 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     return () => { window.removeEventListener('online', irOnline); window.removeEventListener('offline', irOffline); };
   }, [sincronizar]);
 
+  /* ── Que la cola no dependa de que alguien se acuerde ──────────────────
+   *
+   * El evento `online` era el ÚNICO disparador automático, y sólo salta si la
+   * pestaña está viva en el instante exacto en que vuelve la red. En una
+   * puerta eso falla de las dos maneras:
+   *
+   *   · el móvil mata la pestaña por memoria —lo que hace un móvil con la
+   *     pantalla apagada un rato— y al reabrirla ya hay red: el evento saltó
+   *     mientras no había nadie escuchando;
+   *   · cambio de turno: el escáner se abre en otro dispositivo, o el mismo se
+   *     reinicia. Se abre ya con conexión y con escaneos guardados dentro.
+   *
+   * En los dos casos quedaba un botón «Sincronizar 14» esperando a que alguien
+   * lo viera. Los escaneos no se pierden, pero pueden pasarse el evento entero
+   * sin registrarse, y entonces el aforo que se mira en el panel es mentira.
+   *
+   * Se intenta al abrir y se reintenta mientras QUEDE cola: `navigator.onLine`
+   * dice que hay una interfaz de red, no que se llegue al servidor —un wifi de
+   * recinto con portal cautivo da `true` y no deja pasar—, así que el reintento
+   * es lo que de verdad la vacía. Se para solo cuando la cola llega a cero. */
+  const sincronizarRef = useRef(sincronizar);
+  useEffect(() => { sincronizarRef.current = sincronizar; }, [sincronizar]);
+
+  const hayCola = cola > 0;
+  useEffect(() => {
+    /* Por el `ref` y no por `sincronizar`: la función cambia de identidad en
+       cada sincronización (depende de `sincronizando`), y con ella en las
+       dependencias el efecto se rearmaría en cada vuelta y dispararía otra
+       sincronización en el acto. Un bucle, no un reintento. */
+    if (!online || !hayCola) return;
+    sincronizarRef.current(true);
+    const t = setInterval(() => sincronizarRef.current(true), 30000);
+    return () => clearInterval(t);
+  }, [online, hayCola]);
+
   const handleReingreso = useCallback(async (payload) => {
     if (working) return;
     setWorking(true);
@@ -243,7 +336,18 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
       setLast({ reingresoMode: true, ok: true, dentro: r.dentro, ticket: r.ticket, aforo: r.aforo });
       setHistorial(h => [{ guest_nombre: r.ticket?.nombre, codigo: r.ticket?.codigo, at: new Date(), ok: true, reingreso: r.dentro ? 'entró' : 'salió' }, ...h].slice(0, 10));
     } catch (e) {
-      setLast({ reingresoMode: true, ok: false, error: e.response?.data?.error || e.message });
+      /* Sin conexión esto NO se encola, y es a propósito: el reingreso es un
+         interruptor —entra, sale, entra— y el orden decide el aforo. Si unos
+         escaneos se guardan y otros salen en el momento, al reconectar se
+         aplican mezclados y el número de gente dentro deja de ser el de la
+         realidad para el resto del evento. Un aforo mal contado es peor que un
+         movimiento no registrado.
+         Así que se dice, con el código, para apuntarlo a mano. Antes salía
+         «Network Error» y el movimiento se perdía igual, sólo que sin avisar. */
+      setLast(e.response
+        ? { reingresoMode: true, ok: false, error: e.response.data?.error || e.message }
+        : { ok: false, noSeGuardo: true, sinCola: true,
+            codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
     } finally {
       setTimeout(() => setWorking(false), 600);
     }
@@ -253,6 +357,20 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     if (working) return;
     const sid = sesionRef.current;
     if (!sid) { setLast({ subeventoMode: true, ok: false, error: 'Elige primero a qué sub-evento estás marcando.' }); return; }
+
+    /* Sin conexión, a la cola. Marcar asistencia es idempotente y el orden da
+       igual —a diferencia del reingreso, que es un interruptor—, así que
+       guardarla y mandarla luego no puede descuadrar nada. La sesión viaja
+       dentro: al sincronizar puede haber otra elegida en la pantalla. */
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
+      setCola(cantidad);
+      setLast(guardado
+        ? { subeventoMode: true, ok: true, offlineGuardado: true, yaEstaba }
+        : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
+      return;
+    }
+
     setWorking(true);
     setLast(null);
     try {
@@ -264,6 +382,20 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
         subevento: r.ya_marcada ? 'ya estaba' : 'asistió',
       }, ...h].slice(0, 10));
     } catch (e) {
+      /* Igual que el reingreso: sin respuesta del servidor no hay constancia de
+         que esta persona entró al taller, y quien está en la puerta tiene que
+         enterarse ahora. Aquí sí se podría encolar —marcar asistencia es
+         idempotente y el orden da igual—, pero eso es una función que decidir,
+         no un arreglo: queda dicho en vez de perdido. */
+      if (!e.response) {
+        const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
+        setCola(cantidad);
+        setLast(guardado
+          ? { subeventoMode: true, ok: true, offlineGuardado: true, yaEstaba }
+          : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
+        setTimeout(() => setWorking(false), 600);
+        return;
+      }
       const d = e.response?.data || {};
       setLast({
         subeventoMode: true, ok: false,
@@ -339,12 +471,30 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
 
   /* onScan estable (misma identidad siempre): QrScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
-  const despachar = useCallback((leido) => {
-    if (accion === 'subevento') return handleSubevento(leido);
-    if (accion === 'reingreso') return handleReingreso(leido);
-    if (accion === 'puntos')    return handlePuntos(leido);
-    if (accion === 'canjear')   return handleSaldo(leido);
-    return handleCheckin(leido);
+  const despachar = useCallback(async (leido) => {
+    /* Un solo escaneo a la vez, de verdad.
+     *
+     * Cada handler empieza con `if (working) return`, y `working` es un valor
+     * capturado: dos llegadas en el mismo fotograma lo ven las dos en `false`.
+     * La cámara ya no deja pasar el mismo código dos veces en tres segundos,
+     * así que por ahí no entra — pero el formulario del código a mano sí, con
+     * dos Enter seguidos, y sobre todo el camino SIN CONEXIÓN, que sale antes
+     * de tocar `working` y encola los dos escaneos. Al sincronizar, el segundo
+     * vuelve como «esta boleta ya fue usada»: un error inventado por nosotros,
+     * en la puerta, con la fila esperando.
+     *
+     * El `ref` cambia en el acto. Se suelta enseguida —los 600 ms que la
+     * persona ve siguen viniendo de `working`—: esto sólo cierra el hueco
+     * entre dos llamadas que aún no han pintado nada. */
+    if (ocupado.current) return;
+    ocupado.current = true;
+    try {
+      if (accion === 'subevento') return await handleSubevento(leido);
+      if (accion === 'reingreso') return await handleReingreso(leido);
+      if (accion === 'puntos')    return await handlePuntos(leido);
+      if (accion === 'canjear')   return await handleSaldo(leido);
+      return await handleCheckin(leido);
+    } finally { ocupado.current = false; }
   }, [accion, handleCheckin, handleReingreso, handleSubevento, handlePuntos, handleSaldo]);
   const onScanQr = useCallback((qr) => despachar(leerQr(qr)), [despachar]);
   const onSubmitCodigo = (codigo) => despachar({ codigo });
@@ -417,8 +567,13 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
               ? <><b className="text-text-1">Sin conexión.</b> Los check-ins se guardan y se sincronizan solos al reconectar.</>
               : <><b className="text-text-1">{cola}</b> escaneo{cola !== 1 ? 's' : ''} sin sincronizar.</>}
           </p>
+          {/* `() =>` y no `sincronizar` a secas: onClick pasa el evento del
+              clic como primer argumento, y ahí ahora va `automatica`. Un
+              MouseEvent es un valor verdadero, así que pulsar el botón se
+              habría contado como un reintento automático y se habría quedado
+              sin contestar nada en pantalla. */}
           {cola > 0 && online && (
-            <button onClick={sincronizar} disabled={sincronizando} className="btn-secondary btn-sm flex-shrink-0">
+            <button onClick={() => sincronizar()} disabled={sincronizando} className="btn-secondary btn-sm flex-shrink-0">
               {sincronizando ? 'Sincronizando…' : `Sincronizar ${cola}`}
             </button>
           )}
@@ -590,11 +745,49 @@ function ManualInput({ onSubmit, disabled }) {
 /* ─────────── Resultado del último scan ─────────── */
 
 function ResultadoCard({ result, compact }) {
+  /* No se pudo ni guardar en la cola.
+   *
+   * Pasa cuando el navegador tiene el almacenamiento lleno o bloqueado. Es el
+   * único caso en el que la puerta se queda SIN constancia de que esa persona
+   * entró, así que no se puede contar como un aviso más: se dice qué hacer, y
+   * se enseña el código para poder apuntarlo. En rojo y grande a propósito —
+   * quien escanea está mirando la pantalla medio segundo. */
+  if (result.noSeGuardo) return (
+    <div className={`rounded-3xl border-2 border-danger ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-danger/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-danger text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">!</div>
+        <div className="min-w-0">
+          <h3 className="text-xl font-bold font-display text-text-1">NO se guardó</h3>
+          <p className="text-sm text-text-2 leading-relaxed">
+            {result.sinCola
+              ? <>Sin conexión, y esto no se puede guardar para después. </>
+              : <>Este teléfono no puede guardar más escaneos sin conexión. </>}
+            <b className="text-text-1">Apunta el código a mano</b> y déjala pasar; luego se
+            registra desde el panel.
+          </p>
+          {result.codigo && (
+            <p className="mt-2 font-mono text-lg text-text-1 tracking-wider">{result.codigo}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
   if (result.offlineGuardado) return (
     <div className={`rounded-3xl border-2 border-primary/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-primary/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">⤓</div>
-        <div><h3 className="text-xl font-bold font-display text-text-1">Guardado sin conexión</h3><p className="text-sm text-text-2">Se registrará al volver el internet.</p></div>
+        <div>
+          <h3 className="text-xl font-bold font-display text-text-1">
+            {result.yaEstaba ? 'Ya estaba guardado' : 'Guardado sin conexión'}
+          </h3>
+          {/* Decir «guardado» otra vez haría pensar que el primero no entró, y
+              lo siguiente es apuntar el código a mano por si acaso. */}
+          <p className="text-sm text-text-2">
+            {result.yaEstaba
+              ? 'Este escaneo ya estaba en la cola. No hace falta repetirlo.'
+              : 'Se registrará al volver el internet.'}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -616,9 +809,22 @@ function ResultadoCard({ result, compact }) {
             </h3>
             <p className="text-sm text-text-2">
               {r.ok} registrados
-              {r.fallidas ? ` · ${r.fallidas} rechazados (ya usados o inválidos)` : ''}
+              {r.yaEstaban ? ` · ${r.yaEstaban} ya estaban dentro` : ''}
+              {r.fallidas ? ` · ${r.fallidas} rechazados` : ''}
               {r.enEspera ? ` · ${r.enEspera} sin registrar todavía` : ''}.
             </p>
+            {/* Cuáles y por qué. Un número no se puede seguir; un código sí:
+                con él se busca a la persona en la lista y se arregla a mano. */}
+            {r.rechazados?.length > 0 && (
+              <ul className="mt-2 space-y-0.5 max-h-40 overflow-y-auto">
+                {r.rechazados.map((x, i) => (
+                  <li key={i} className="text-xs text-text-2">
+                    <span className="font-mono text-text-1">{x.codigo || '—'}</span>
+                    <span className="text-text-3"> · {x.motivo}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {pendiente && (
               <>
                 {/* El motivo, que es lo único accionable: se arregla y la cola

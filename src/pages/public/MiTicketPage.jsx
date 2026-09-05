@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Icono from '../../components/ui/Iconos.jsx';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
+import { pagosApi } from '../../api/pagos.js';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import { googleCalendarUrl } from '../../lib/calendario.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 import Volver from '../../components/ui/Volver.jsx';
+import { mensajePublico } from '../../lib/mensajeDeError.js';
 
 /* Página pública /mi-ticket/:codigo
    Cualquiera con el código puede ver su QR. */
@@ -23,19 +25,30 @@ const ESTADO_INFO = {
 
 export default function MiTicketPage() {
   const { codigo } = useParams();
+  /* De dónde viene quien abre esto. La pasarela devuelve aquí con `?pago=` y
+     hasta ahora no lo leía nadie: se volvía de pagar y la página no decía si
+     había funcionado — que es justo lo único que se quiere saber en ese
+     momento. */
+  const [params] = useSearchParams();
+  const volviendoDePagar = ['pendiente', 'wompi'].includes(params.get('pago'));
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [intento, setIntento] = useState(0);
   const [formularioListo, setFormularioListo] = useState(false);
 
   const cargar = () => {
     eventosApi.ticketByCode(codigo)
       .then(d => setTicket(d.ticket))
-      .catch(e => setError(e.message))
+      /* Es la pantalla que alguien abre EN LA PUERTA, con el móvil, para
+         enseñar su entrada. Decirle «tu código no existe» porque parpadeó el
+         wifi la manda a la fila de incidencias con una boleta que está bien.
+         El 404 sigue diciendo lo de siempre; lo demás, que se reintenta. */
+      .catch(e => setError(mensajePublico(e, `El código ${codigo} no existe.`)))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { setLoading(true); cargar(); /* eslint-disable-next-line */ }, [codigo]);
+  useEffect(() => { setLoading(true); setError(null); cargar(); /* eslint-disable-next-line */ }, [codigo, intento]);
 
   if (loading) return (
     <section className="px-5 py-20 max-w-md mx-auto"><GLoader message="Buscando tu entrada..." /></section>
@@ -43,12 +56,25 @@ export default function MiTicketPage() {
 
   if (error || !ticket) return (
     <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-xs uppercase tracking-widest text-danger mb-3">Boleta no encontrada</p>
+      <p className="text-xs uppercase tracking-widest text-danger mb-3">
+        {error?.reintentable ? 'No pudimos buscarla' : 'Boleta no encontrada'}
+      </p>
       <h1 className="text-2xl font-bold font-display text-text-1 mb-3">
-        El código <span className="font-mono">{codigo}</span> no existe.
+        {error?.texto || <>El código <span className="font-mono">{codigo}</span> no existe.</>}
       </h1>
-      <p className="text-sm text-text-2 mb-6">Revisa el código o pídele al organizador que te lo reenvíe.</p>
-      <Volver a="/explorar" tono="chip">Explorar eventos</Volver>
+      {/* Y la instrucción que toque. Mandar a revisar el código cuando lo que
+          falló fue la red es mandar a buscar donde no está — y en una puerta,
+          con gente detrás, eso son varios minutos de nada. */}
+      {error?.reintentable ? (
+        <button onClick={() => setIntento(n => n + 1)}
+          className="mb-6 inline-flex items-center gap-2 px-5 py-3 rounded-full border border-border
+                     text-sm text-text-1 hover:bg-surface-2 transition-colors">
+          Reintentar
+        </button>
+      ) : (
+        <p className="text-sm text-text-2 mb-6">Revisa el código o pídele al organizador que te lo reenvíe.</p>
+      )}
+      <div><Volver a="/explorar" tono="chip">Explorar eventos</Volver></div>
     </section>
   );
 
@@ -74,8 +100,63 @@ export default function MiTicketPage() {
   const estado = ESTADO_INFO[ticket.estado] || ESTADO_INFO.emitido;
   const qrValue = ticket.qr_token || ticket.codigo;
 
+  /* Un pago que no llegó a completarse.
+   *
+   * `emitido` cubre dos cosas que en pantalla se ven idénticas: una reserva
+   * gratuita —legítimamente «apartada»— y una compra que se abandonó o cuya
+   * tarjeta fue rechazada. Las dos enseñaban el QR grande y, debajo,
+   * «Guárdala en el móvil: tu QR sirve para entrar».
+   *
+   * La segunda persona llega a la puerta creyendo que tiene entrada. El
+   * escáner la deja pasar con un aviso al staff —«boleta emitida sin pago
+   * confirmado»—, o sea que enterarse depende de que alguien lea una línea
+   * pequeña con una fila detrás. El peor sitio y el peor momento.
+   *
+   * El distintivo «Apartada» ya estaba, pero es un chip de doce píxeles junto
+   * a un QR de doscientos: no compite. Aquí se dice de frente, arriba, y con
+   * lo que hay que hacer.
+   *
+   * Sólo cuando la boleta COSTABA dinero: una reserva gratis apartada está
+   * perfectamente bien y no hay nada que avisar. */
+  const costaba = Number(ticket.tipo?.precio) > 0;
+  const sinPagar = ticket.estado === 'emitido' && costaba && !Number(ticket.precio_pagado);
+  /* Acaba de volver de pagar y todavía no ha llegado la confirmación.
+     NO es lo mismo que un pago abandonado, y decirle «tu pago no se completó»
+     a quien acaba de pagar por PSE —que tarda minutos, a veces horas— sería
+     asustarla por algo que va bien. Se distingue por de dónde viene. */
+  const confirmando = sinPagar && volviendoDePagar;
+  const pagoSinTerminar = sinPagar && !volviendoDePagar;
+
   return (
     <section className="px-5 py-12 max-w-md mx-auto animate-[fadeUp_0.4s_ease_both]">
+      {confirmando && (
+        <div className="mb-6 rounded-2xl border-2 border-primary/40 bg-primary/10 px-4 py-3.5">
+          <p className="text-sm text-text-1 font-semibold">Estamos confirmando tu pago.</p>
+          <p className="text-xs text-text-2 mt-1 leading-relaxed">
+            Puede tardar unos minutos —con PSE o transferencia, a veces más—. No hace falta
+            que pagues otra vez ni que hagas nada: en cuanto el banco confirme, tu entrada
+            queda lista y te llega el correo.
+          </p>
+          <button onClick={() => { setError(null); setIntento(n => n + 1); }}
+            className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border
+                       text-sm text-text-1 hover:bg-surface-2 transition-colors">
+            Comprobar de nuevo
+          </button>
+        </div>
+      )}
+
+      {pagoSinTerminar && (
+        <div className="mb-6 rounded-2xl border-2 border-warning/50 bg-warning/10 px-4 py-3.5">
+          <p className="text-sm text-text-1 font-semibold">Tu pago no se completó.</p>
+          <p className="text-xs text-text-2 mt-1 leading-relaxed">
+            Esta entrada está apartada, no confirmada. Puedes terminar el pago de{' '}
+            <strong className="text-text-1">esta misma entrada</strong> — si ya pagaste,
+            escribe a quien organiza con el código de abajo antes de volver a intentarlo.
+          </p>
+          <BotonReanudar codigo={ticket.codigo} slug={ticket.evento?.slug} />
+        </div>
+      )}
+
       {/* Header con cover del evento */}
       {ticket.evento?.cover_url && (
         <div className="aspect-video rounded-3xl overflow-hidden border border-border mb-6">
@@ -137,7 +218,13 @@ export default function MiTicketPage() {
             className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors disabled:opacity-60"
           />
         </div>
-        <p className="text-[11px] text-text-3 text-center mt-1">Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.</p>
+        <p className="text-[11px] text-text-3 text-center mt-1">
+          {/* Sin prometer lo que no es: mientras no esté pagada, este QR
+              todavía no da derecho a entrar. */}
+          {sinPagar
+            ? 'Este código es el de tu reserva. Todavía no da entrada.'
+            : 'Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.'}
+        </p>
       </div>
 
       {/* QR principal */}
@@ -169,6 +256,23 @@ export default function MiTicketPage() {
         <Row label="Tipo de boleta" value={ticket.tipo?.nombre} />
         {fecha && <Row label="Fecha" value={fecha} />}
         {ticket.evento?.location_nombre && <Row label="Lugar" value={ticket.evento.location_nombre} />}
+        {/* El enlace del evento en línea.
+            `url_virtual` estaba en la base, la mandaba la página pública del
+            evento, y no lo enseñaba nadie en toda la aplicación. Alguien
+            compraba entrada a un evento en línea y no tenía por dónde entrar:
+            la boleta le decía la fecha y el código, y nada más.
+            Va aquí y no en la página pública porque el enlace es lo que se
+            compra. Esta pantalla ya pide el código de la boleta, que es la
+            misma credencial que el QR. */}
+        {ticket.evento?.url_virtual && (
+          <div className="flex items-start justify-between gap-4 py-1.5">
+            <span className="text-xs uppercase tracking-wide text-text-3 flex-shrink-0">Se conecta en</span>
+            <a href={ticket.evento.url_virtual} target="_blank" rel="noreferrer noopener"
+               className="text-sm text-primary-light hover:underline text-right break-all min-w-0">
+              {ticket.evento.url_virtual.replace(/^https?:\/\//, '')}
+            </a>
+          </div>
+        )}
         {ticket.checked_in_at && (
           <Row label="Check-in" value={new Date(ticket.checked_in_at).toLocaleString('es-CO')} />
         )}
@@ -431,5 +535,54 @@ function Row({ label, value }) {
       <span className="text-[10px] uppercase tracking-widest text-text-3 font-semibold">{label}</span>
       <span className="text-sm text-text-1 text-right truncate">{value}</span>
     </div>
+  );
+}
+
+/* Terminar el pago de ESTA entrada.
+ *
+ * Antes este botón era un enlace a la página del evento, o sea a empezar otra
+ * compra: salía una segunda boleta, la primera se quedaba sin pagar para
+ * siempre, y quien organiza veía dos apuntes de la misma persona sin saber
+ * cuál era cuál. Ahora el servidor retoma la misma boleta con la misma
+ * referencia, así que el pago que llegue confirma la que ya existe.
+ *
+ * Si el servidor contesta que ya está pagada —porque la confirmación llegó
+ * mientras la persona miraba esta pantalla— se recarga en vez de enseñar un
+ * error: es la mejor noticia posible y no se puede dar como si fuera un fallo. */
+function BotonReanudar({ codigo, slug }) {
+  const [yendo, setYendo] = useState(false);
+  const [err, setErr] = useState('');
+  const enviando = useRef(false);
+
+  const ir = async () => {
+    if (enviando.current) return;
+    enviando.current = true;
+    setYendo(true); setErr('');
+    try {
+      const r = await pagosApi.reanudarPago(codigo);
+      const url = r.checkout?.url || r.checkout?.init_point || r.checkout?.sandbox_init_point;
+      if (!url) throw new Error('La pasarela no devolvió el enlace de pago.');
+      window.location.assign(url);
+    } catch (e) {
+      if (e.response?.data?.ya_pagada) { window.location.reload(); return; }
+      setErr(mensajePublico(e).texto);
+    } finally { enviando.current = false; setYendo(false); }
+  };
+
+  return (
+    <>
+      <button onClick={ir} disabled={yendo}
+        className="inline-block mt-3 px-4 py-2.5 rounded-full bg-text-1 text-bg text-sm font-semibold disabled:opacity-60">
+        {yendo ? 'Abriendo el pago…' : 'Terminar el pago'}
+      </button>
+      {err && (
+        <p className="text-xs text-danger mt-2 leading-relaxed">
+          {err}
+          {/* La salida de siempre, por si la pasarela del organizador cambió o
+              se desconectó: desde la página del evento se puede comprar. */}
+          {slug && <> <a href={`/explorar/${slug}`} className="underline">Ir a la página del evento</a>.</>}
+        </p>
+      )}
+    </>
   );
 }

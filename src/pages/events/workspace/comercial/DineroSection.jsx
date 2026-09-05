@@ -51,7 +51,7 @@ export default function DineroSection({ evento }) {
   );
   if (datos === undefined) return <GLoader message="Sumando…" />;
 
-  const { total, por_tipo: porTipo, transacciones } = datos;
+  const { total, por_tipo: porTipo, transacciones, transacciones_error: falloTx } = datos;
   const hayAlgo = total.cobrado.boletas || total.pendiente.boletas || total.devuelto.boletas;
 
   if (!hayAlgo) return (
@@ -99,6 +99,23 @@ export default function DineroSection({ evento }) {
           </div>
         </div>
       </div>
+
+      {/* Cuando el servidor no pudo leerlas se DICE.
+          Esta es la pantalla del dinero: una lista vacía aquí se lee como «las
+          pasarelas no registraron nada», que es una afirmación muy distinta de
+          «no pude consultarlo». Y ya pasó — el panel llevaba vacío desde que se
+          escribió porque la consulta pedía columnas con otro nombre. */}
+      {falloTx && (
+        <div className="card">
+          <div className="card-body">
+            <p className="text-sm text-text-1">No pudimos leer lo que registraron las pasarelas.</p>
+            <p className="text-xs text-text-3 mt-1">
+              Lo de arriba sale de las boletas y es correcto. Esto es la otra fuente, y ahora
+              mismo no está disponible — no quiere decir que no haya cobros.
+            </p>
+          </div>
+        </div>
+      )}
 
       {transacciones.length > 0 && (
         <div className="card">

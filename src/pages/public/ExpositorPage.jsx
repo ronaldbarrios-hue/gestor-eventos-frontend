@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { leerQr } from '../../lib/qrEscaneado.js';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
@@ -9,6 +9,7 @@ import GLoader from '../../components/ui/GLoader.jsx';
 import Icono from '../../components/ui/Iconos.jsx';
 import Spinner from '../../components/ui/Spinner.jsx';
 import Volver from '../../components/ui/Volver.jsx';
+import { mensajePublico } from '../../lib/mensajeDeError.js';
 
 /* Página pública /expositor/:codigo
    La empresa que compró una boleta-Stand edita su propia ficha con el código
@@ -25,6 +26,8 @@ const REDES = [
 export default function ExpositorPage() {
   const { codigo } = useParams();
   const [estado, setEstado] = useState('cargando'); // cargando | ok | error
+  const [fallo, setFallo] = useState(null);
+  const [intento, setIntento] = useState(0);
   const [data, setData] = useState(null);
   const [f, setF] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -38,8 +41,14 @@ export default function ExpositorPage() {
         setF(normaliza(d.ficha));
         setEstado('ok');
       })
-      .catch(() => setEstado('error'));
-  }, [codigo]);
+      /* El error se MIRA. Se descartaba entero, y la pantalla de abajo
+         afirmaba que el código no corresponde a un stand — una acusación
+         concreta a partir de no saber nada. Un corte de red, un CORS o un 500
+         se leían igual que un código inventado, y quien acaba de pagar su
+         stand se queda mirando su código bueno con un cartel que dice que no
+         vale. */
+      .catch(e => { setFallo(mensajePublico(e, `El código ${codigo} no corresponde a un stand.`)); setEstado('error'); });
+  }, [codigo, intento]);
 
   const set = (patch) => setF(x => ({ ...x, ...patch }));
   const setRed = (k, v) => setF(x => ({ ...x, redes: { ...x.redes, [k]: v } }));
@@ -59,10 +68,23 @@ export default function ExpositorPage() {
 
   if (estado === 'error') return (
     <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-xs uppercase tracking-widest text-danger mb-3">Ficha no encontrada</p>
-      <h1 className="text-2xl font-bold font-display text-text-1 mb-3">El código <span className="font-mono">{codigo}</span> no corresponde a un stand.</h1>
-      <p className="text-sm text-text-2 mb-6">Usa el código de tu boleta de stand. Si acabas de pagar, espera unos segundos y recarga.</p>
-      <Volver a="/explorar" tono="chip">Explorar eventos</Volver>
+      <p className="text-xs uppercase tracking-widest text-danger mb-3">
+        {fallo?.reintentable ? 'No pudimos cargarla' : 'Ficha no encontrada'}
+      </p>
+      <h1 className="text-2xl font-bold font-display text-text-1 mb-3">{fallo?.texto}</h1>
+      {/* La instrucción de revisar el código sólo cuando el código puede ser
+          el problema. Con un fallo de comunicación, mandar a mirar el código
+          es mandar a buscar donde no está. */}
+      {fallo?.reintentable ? (
+        <button onClick={() => setIntento(n => n + 1)}
+          className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
+                     text-sm text-text-1 hover:bg-surface-2 transition-colors">
+          Reintentar
+        </button>
+      ) : (
+        <p className="text-sm text-text-2 mb-6">Usa el código de tu boleta de stand. Si acabas de pagar, espera unos segundos y recarga.</p>
+      )}
+      <div><Volver a="/explorar" tono="chip">Explorar eventos</Volver></div>
     </section>
   );
 
@@ -153,7 +175,7 @@ export default function ExpositorPage() {
 
         {/* Contacto y redes */}
         <div className="card">
-          <div className="card-header"><h3 className="text-base font-semibold text-text-1">Contacto</h3></div>
+          <div className="card-header"><h2 className="text-base font-semibold text-text-1">Contacto</h2></div>
           <div className="card-body space-y-3">
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="field"><label className="label">Persona de contacto</label>
@@ -230,14 +252,20 @@ function PuntosTab({ codigo, nombre }) {
   }, [codigo]);
   useEffect(() => { cargar(); }, [cargar]);
 
+  /* `working` es un valor capturado: dos lecturas del mismo QR en el mismo
+     fotograma —que es justo lo que hace un lector de codigos apuntando a una
+     pulsera— lo ven las dos en `false` y suman los puntos dos veces. La espera
+     de 600 ms de abajo tapa el caso lento; esto tapa el rapido. */
+  const registrando = useRef(false);
   const registrar = useCallback(async (payload) => {
-    if (working || !sel) return;
+    if (working || registrando.current || !sel) return;
+    registrando.current = true;
     setWorking(true);
     try {
       const r = await expositorApi.registrar(codigo, { ...payload, motivo_id: sel.id });
       setUltimo({ ok: true, ...r });
     } catch (e) { setUltimo({ ok: false, error: e.response?.data?.error || e.message }); }
-    finally { setTimeout(() => setWorking(false), 600); }
+    finally { registrando.current = false; setTimeout(() => setWorking(false), 600); }
   }, [codigo, sel, working]);
 
   const onScan = useCallback((qr) => registrar(leerQr(qr)), [registrar]);

@@ -72,8 +72,15 @@ export default function AccesosSection({ evento }) {
     }).finally(() => setLoading(false));
   }, [evento.id]);
 
+  /* Si lo que se enseña es lo último que llegó o lo de ahora mismo. */
+  const [alertasFrescas, setAlertasFrescas] = useState(true);
+
   useEffect(() => {
     let vivo = true;
+    /* Callado a propósito en la primera carga: si falla, la lista se queda
+       como estaba —vacía— y se reintenta sola con el pulso de abajo. Lo que no
+       puede pasar es lo de después: que un fallo BORRE alertas que ya se
+       habían visto. */
     clientesApi.alertas(evento.id).then(d => { if (vivo) setAlertas(d.alertas || []); }).catch(() => {});
     return () => { vivo = false; };
   }, [evento.id]);
@@ -82,7 +89,16 @@ export default function AccesosSection({ evento }) {
      de configuración: se deja abierta en una pestaña y se vuelve a ella de vez
      en cuando, así que sondearla de fondo cada 8 segundos era gasto puro. */
   const refrescarAlertas = useCallback(
-    () => clientesApi.alertas(evento.id).then(d => setAlertas(d.alertas || [])).catch(() => {}),
+    () => clientesApi.alertas(evento.id)
+      .then(d => { setAlertas(d.alertas || []); setAlertasFrescas(true); })
+      /* Un sondeo que falla NO vacía la lista.
+         Escribía `setAlertas([])` implícitamente al no tocar nada, pero peor:
+         cualquier fallo dejaba la pantalla igual y sin decirlo, así que quien
+         está en la puerta veía «sin alertas» —que se lee como «todo en
+         orden»— cuando en realidad llevaba minutos sin poder preguntar.
+         Se conserva lo último que sí llegó y se marca como no fresco: una
+         alerta vieja sirve, una lista vacía mentirosa no. */
+      .catch(() => setAlertasFrescas(false)),
     [evento.id]
   );
   useSondeo(refrescarAlertas, 8000);
@@ -166,8 +182,21 @@ export default function AccesosSection({ evento }) {
             placeholder="Reportar algo: cola en la puerta, incidente…" className="input flex-1 text-sm" />
           <button onClick={reportar} disabled={!nuevaAlerta.trim()} className="btn-secondary btn-sm flex-shrink-0">Reportar</button>
         </div>
+        {/* «Sin alertas» se lee como «todo en orden», así que sólo se dice
+            cuando de verdad lo sabemos. Si el pulso está fallando, lo que hay
+            que decir es que no lo sabemos — no tranquilizar a quien está en la
+            puerta. */}
+        {!alertasFrescas && (
+          <p className="text-xs text-warning-light mb-2">
+            No estamos recibiendo el estado de las alertas. Lo que ves abajo puede no estar al día.
+          </p>
+        )}
         {alertas.length === 0 ? (
-          <p className="text-xs text-text-3">Sin alertas. Las de aforo lleno aparecen solas; el staff puede reportar aquí.</p>
+          <p className="text-xs text-text-3">
+            {alertasFrescas
+              ? 'Sin alertas. Las de aforo lleno aparecen solas; el staff puede reportar aquí.'
+              : 'No hemos podido consultar las alertas.'}
+          </p>
         ) : (
           <ul className="space-y-1.5 max-h-64 overflow-y-auto">
             {alertas.map(a => {

@@ -4,6 +4,7 @@ import { equipoTorneoApi } from '../../api/interacciones.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import Volver from '../../components/ui/Volver.jsx';
+import { mensajePublico } from '../../lib/mensajeDeError.js';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import { camposVisibles } from '../../lib/camposCondicionales.js';
 
@@ -29,7 +30,8 @@ export default function EquipoTorneoPage() {
   const { codigo } = useParams();
   const { success, error: toastErr } = useToast();
   const [data, setData] = useState(undefined);   // undefined = cargando
-  const [fallo, setFallo] = useState('');
+  const [fallo, setFallo] = useState(null);
+  const [intento, setIntento] = useState(0);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [respuestas, setRespuestas] = useState({});
@@ -43,8 +45,12 @@ export default function EquipoTorneoPage() {
         setEmail(d.equipo?.contacto_email || '');
         setRespuestas(d.equipo?.respuestas || {});
       })
-      .catch(e => setFallo(e.response?.data?.error || e.message));
-  }, [codigo]);
+      /* Sin traducir, un fallo de red llegaba aquí como «Network Error» y la
+         pantalla lo remataba con «el código es el de tu boleta» — o sea que se
+         le decía a alguien que su código está mal cuando lo que pasó es que no
+         llegamos a preguntar. */
+      .catch(e => setFallo(mensajePublico(e, 'No encontramos ese equipo.')));
+  }, [codigo, intento]);
 
   const campos = data?.campos || [];
   const visibles = useMemo(() => camposVisibles(campos, respuestas), [campos, respuestas]);
@@ -56,11 +62,22 @@ export default function EquipoTorneoPage() {
 
   if (fallo) return (
     <section className="px-5 py-20 max-w-md mx-auto text-center animate-[fadeUp_0.4s_ease_both]">
-      <p className="text-sm text-text-1 mb-1.5">{fallo}</p>
-      <p className="text-xs text-text-3 mb-5">
-        El código es el de tu boleta de inscripción, el mismo que te llegó al pagar.
-      </p>
-      <Volver a="/explorar" tono="chip">Explorar eventos</Volver>
+      <p className="text-sm text-text-1 mb-1.5">{fallo.texto}</p>
+      {/* La pista del código sólo cuando el código PUEDE ser el problema. Con
+          un fallo de comunicación, mandar a revisar el código es mandar a
+          buscar donde no está. */}
+      {fallo.reintentable ? (
+        <button onClick={() => setIntento(n => n + 1)}
+          className="mb-5 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
+                     text-sm text-text-1 hover:bg-surface-2 transition-colors">
+          Reintentar
+        </button>
+      ) : (
+        <p className="text-xs text-text-3 mb-5">
+          El código es el de tu boleta de inscripción, el mismo que te llegó al pagar.
+        </p>
+      )}
+      <div><Volver a="/explorar" tono="chip">Explorar eventos</Volver></div>
     </section>
   );
 

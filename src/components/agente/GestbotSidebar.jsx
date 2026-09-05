@@ -89,6 +89,8 @@ export default function GestbotSidebar({ evento }) {
           .filter(s => s.estado === 'pendiente' || s.estado === 'abierta');
         setSolicitudes(abiertas.length);
       })
+      /* Una cifra en una insignia. Si no llega, no se pinta — y no tener
+         insignia se entiende solo. */
       .catch(() => {});
     return () => { vivo = false; };
   }, [evento?.id]);

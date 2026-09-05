@@ -59,8 +59,15 @@ export default function EstadoPagina({ evento, dirty }) {
   const publicar = async () => {
     setPublicando(true);
     try {
-      await eventosApi.publicar(evento.id);
-      success('Publicado. Ya se puede abrir el enlace.');
+      const r = await eventosApi.publicar(evento.id);
+      /* El servidor dice qué le falta a lo que se acaba de publicar. La lista
+         que hay más arriba se mira ANTES; ésta llega DESPUÉS y cuenta lo que
+         sólo el servidor sabe —si quedan tipos de boleta activos—. Sin
+         enseñarla, un evento sin forma de inscribirse queda publicado y con un
+         «Publicado» en verde: quien organiza no tiene por qué sospechar. */
+      const avisos = r?.avisos || [];
+      if (avisos.length) toastErr(`Publicado, pero: ${avisos.join(' · ')}`, 9000);
+      else success('Publicado. Ya se puede abrir el enlace.');
       setReciénPublicada(true);
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);

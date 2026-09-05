@@ -407,6 +407,22 @@ img { -webkit-user-drag: none; user-drag: none; }
 @media (prefers-reduced-motion: reduce) {
   .gk-nudo::after { animation: none; opacity: .35 }
 }
+/* El bloque que no tuvo nada que enseñar no deja su hueco.
+ *
+ * Cuando la vista de un bloque devuelve `null`, su envoltorio se pinta igual:
+ * un div sin nada dentro. Y como los bloques se apilan con `space-y-8`, ese
+ * div vacío se lleva sus 2 rem de separación — o sea que un bloque escondido
+ * ocupa exactamente lo mismo que una raya en blanco.
+ *
+ * Es de donde salían los «huecos grandes de espacio muerto» que se veían en el
+ * evento real, y aparecen MÁS ahora que los bloques vacíos se esconden bien.
+ *
+ * `display: none` y no `margin: 0`: así el elemento sale del flujo entero y el
+ * `space-y` de al lado deja de contarlo, en vez de tener que corregir el
+ * margen del vecino también.
+ */
+.gk-bloque:empty { display: none; }
+
 .gk-anim-fade  { animation: gkFade  0.8s ease both; }
 .gk-anim-up    { animation: gkUp    0.8s cubic-bezier(0.16,1,0.3,1) both; }
 .gk-anim-zoom  { animation: gkZoom  0.8s cubic-bezier(0.16,1,0.3,1) both; }

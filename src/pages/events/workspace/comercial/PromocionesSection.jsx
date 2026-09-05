@@ -12,6 +12,7 @@ export default function PromocionesSection({ evento }) {
   const { success, error } = useToast();
   const [promos, setPromos] = useState([]);
   const [tipos, setTipos] = useState([]);
+  const [falloTipos, setFalloTipos] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creando, setCreando] = useState(false);
   const [f, setF] = useState(inicial());
@@ -28,7 +29,12 @@ export default function PromocionesSection({ evento }) {
   };
   useEffect(() => {
     cargar();
-    ticketsApi.list(evento.id).then(d => setTipos(d.tickets || d.tipos || [])).catch(() => {});
+    /* Si esto falla en silencio, el desplegable de abajo sale con «Todas las
+       boletas» y nada más — y se crea un descuento general creyendo que el
+       evento no tiene tipos que acotar. */
+    ticketsApi.list(evento.id)
+      .then(d => { setTipos(d.tickets || d.tipos || []); setFalloTipos(false); })
+      .catch(() => setFalloTipos(true));
     /* eslint-disable-next-line */
   }, [evento.id]);
 
@@ -103,6 +109,11 @@ export default function PromocionesSection({ evento }) {
                 <option value="">Todas las boletas</option>
                 {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
               </select>
+              {falloTipos && (
+                <p className="text-[11px] text-warning-light mt-1 leading-snug">
+                  No pudimos cargar los tipos de boleta: por ahora sólo puedes acotar a «todas».
+                </p>
+              )}
             </div>
             <div>
               <label className="label">Compra mínima</label>

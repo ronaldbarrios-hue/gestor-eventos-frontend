@@ -146,7 +146,11 @@ export function PoweredBy({ organizador }) {
   return (
     <p className="text-xs text-text-3 mt-6 text-center">
       {b.footer ? <span className="block mb-1">{b.footer}</span> : null}
-      Eventos gestionados con <a href="/" className="text-text-2 hover:text-text-1 underline">GESTEK</a>
+      {/* Con aire alrededor: dentro de un párrafo, la caja del enlace medía
+          15 px de alto. Es el pie —no es lo que más se pulsa— pero cuesta un
+          `inline-block` y deja de ser imposible de acertar. */}
+      Eventos gestionados con{' '}
+      <a href="/" className="inline-block py-2 sm:py-0 text-text-2 hover:text-text-1 underline">GESTEK</a>
     </p>
   );
 }

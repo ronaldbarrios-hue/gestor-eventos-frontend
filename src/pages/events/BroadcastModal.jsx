@@ -22,11 +22,21 @@ export default function BroadcastModal({ evento, onClose, onEnviado }) {
          extra: antes era al revés, y si no había claves VAPID el anuncio
          fallaba entero sin llegarle a nadie. */
       const gente = `${r.destinatarios} ${r.destinatarios === 1 ? 'persona' : 'personas'}`;
-      success(
-        r.enviadas > 0
-          ? `Anuncio enviado a ${gente}, y ${r.enviadas} lo recibieron también como notificación del navegador.`
-          : `Anuncio enviado a ${gente}. Les aparece en su campana de notificaciones.`
-      );
+      /* «Cero notificaciones» son TRES situaciones distintas, y el servidor las
+         distingue —`push_disponible`, `push_subs`, `enviadas`— desde siempre:
+         nadie las leía y las tres se contaban igual.
+         Para quien anuncia «la charla se movió de sala» en mitad del evento la
+         diferencia es lo que hace después: si el push ni siquiera está
+         encendido, la gente se entera cuando abra la aplicación, y quizá haga
+         falta otro canal. */
+      const extra = r.enviadas > 0
+        ? `, y ${r.enviadas} lo recibieron también como notificación del navegador`
+        : r.push_disponible === false
+          ? '. Las notificaciones del navegador no están activadas en este servidor, así que sólo lo verán al abrir la aplicación'
+          : r.push_subs === 0
+            ? '. Nadie tiene activadas las notificaciones del navegador todavía, así que lo verán al abrir la aplicación'
+            : '. Les aparece en su campana de notificaciones';
+      success(`Anuncio enviado a ${gente}${extra}.`);
       onEnviado?.(r.anuncio);
       onClose();
     } catch (e) {

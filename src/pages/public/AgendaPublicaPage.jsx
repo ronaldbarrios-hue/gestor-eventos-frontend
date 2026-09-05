@@ -429,7 +429,11 @@ function SesionRow({ evento, sesion, esFavorita, puedeMarcar, onToggle, slug, ya
           <span className="text-xs font-medium px-2 py-0.5 rounded-full border inline-flex items-center gap-1" style={tipoEstilo(sesion.tipo, evento)}>
             <Icono nombre={tip.icono} className="w-3.5 h-3.5" />{tip.label}
           </span>
-          <h3 className="text-base font-semibold text-text-1">{sesion.titulo}</h3>
+          {/* H2 y no H3: los días son pestañas, no encabezados, así que
+              debajo del título de la página no hay ningún nivel intermedio.
+              Saltar de H1 a H3 le dice a un lector de pantalla —y a un
+              buscador— que falta una sección por medio que no existe. */}
+          <h2 className="text-base font-semibold text-text-1">{sesion.titulo}</h2>
           {sesion.track && sesion.track !== 'principal' && (
             <span className="text-xs uppercase tracking-widest text-primary-light bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">{sesion.track}</span>
           )}

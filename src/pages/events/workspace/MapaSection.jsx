@@ -76,6 +76,9 @@ export default function MapaSection({ evento }) {
   const zonas = useMemo(() => (evento.page_json?.zonas || []).filter(z => z?.id), [evento.page_json]);
   const accesos = useMemo(() => (evento.page_json?.accesos || []).filter(a => a?.id), [evento.page_json]);
   const [aforo, setAforo] = useState([]);              // ocupación viva, para verla sobre el plano
+  /* Si la cifra que se enseña es la de ahora o la última que llegó. Se dice en
+     pantalla: un número viejo sin avisar es peor que no tenerlo. */
+  const [aforoFresco, setAforoFresco] = useState(true);
   const [mostrarAforo, setMostrarAforo] = useState(Boolean(evento.page_json?.mapa?.mostrar_aforo));
   const mapRef = useRef(null);
   const drag = useRef(null);
@@ -91,7 +94,14 @@ export default function MapaSection({ evento }) {
      lo que hace que el «en fuego» de una zona signifique algo mientras se opera
      el evento, no sólo al abrir la pantalla. */
   const refrescarAforo = useCallback(
-    () => clientesApi.aforoZonas(evento.id).then(d => setAforo(d.zonas || [])).catch(() => {}),
+    () => clientesApi.aforoZonas(evento.id)
+      .then(d => { setAforo(d.zonas || []); setAforoFresco(true); })
+      /* Un sondeo que falla se queda con la última cifra buena.
+         Aquí es peor que en una lista: el aforo es un NÚMERO, y «0 dentro»
+         no se lee como «no lo sé», se lee como «no hay nadie». Con eso se
+         abre una zona que está llena. Se conserva lo último que llegó y se
+         marca como no fresco. */
+      .catch(() => setAforoFresco(false)),
     [evento.id],
   );
   useEffect(() => { refrescarAforo(); }, [refrescarAforo]);
@@ -163,6 +173,20 @@ export default function MapaSection({ evento }) {
         </div>
         <button onClick={guardar} disabled={saving} className="btn-primary">{saving ? 'Guardando…' : 'Guardar mapa'}</button>
       </div>
+
+      {/* El aforo que se ve sobre el plano es un NÚMERO, y un número viejo no
+          se distingue de uno bueno. «0 dentro» no se lee como «no lo sé», se
+          lee como «no hay nadie» — y con eso se abre una zona que está llena.
+          Así que cuando el pulso deja de llegar se dice, en vez de seguir
+          pintando la última cifra como si fuera de ahora. */}
+      {!aforoFresco && (
+        <div className="rounded-2xl border border-warning/40 bg-warning/10 px-4 py-2.5">
+          <p className="text-sm text-text-1">El aforo en vivo no se está actualizando.</p>
+          <p className="text-xs text-text-3 mt-0.5">
+            Las cifras del plano son las últimas que llegaron, no las de ahora mismo. Se reintenta solo.
+          </p>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body space-y-4">

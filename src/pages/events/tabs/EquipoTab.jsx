@@ -156,6 +156,8 @@ function RankingEquipoSection({ eventoId }) {
     import('../../../api/loyalty.js')
       .then(m => m.loyaltyApi.rankingEvento(eventoId))
       .then(d => { if (activo) setRanking(d.ranking || []); })
+      /* El ranking de puntos es un añadido al final de la pestaña; el equipo y
+         los roles, que es a lo que se viene, traen su propio error. */
       .catch(() => {})
       .finally(() => { if (activo) setLoading(false); });
     return () => { activo = false; };

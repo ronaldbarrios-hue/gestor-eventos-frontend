@@ -115,8 +115,10 @@ export default function EventoPublicoPage() {
     if (!cupoToken) { setCupo(false); return; }
     let vivo = true;
     waitlistApi.verificarCupo(cupoToken)
-      .then(d => { if (vivo) setCupo(d?.valida ? d : false); })
-      .catch(() => { if (vivo) setCupo(false); });
+      /* Cuando no vale, el motivo viaja igual: `false` a secas obligaba a
+         contestar lo mismo a quien ya compro y a quien llego tarde. */
+      .then(d => { if (vivo) setCupo(d?.valida ? d : { valida: false, motivo: d?.motivo }); })
+      .catch(() => { if (vivo) setCupo({ valida: false }); });
     return () => { vivo = false; };
   }, [cupoToken]);
 
@@ -298,6 +300,30 @@ export default function EventoPublicoPage() {
           correo en la bandeja. Las boletas siguen abriéndose desde su enlace;
           lo que ya no hay es venta, y el servidor rechaza las cuatro rutas de
           compra por su cuenta, así que esto es el aviso, no el candado. */}
+      {/* Vuelta de una pasarela que rechazó el pago.
+       *
+       * La pasarela devuelve aquí con `?pago=fallo` y hasta ahora no lo leía
+       * NADIE: se volvía de que te rechazaran la tarjeta a la página del
+       * evento, igual que si no hubiera pasado nada. Y la duda que trae a esa
+       * persona es una sola —«¿me han cobrado?»—, así que eso es lo primero
+       * que hay que contestar, antes de invitarla a intentarlo otra vez.
+       *
+       * Se quita de la dirección al leerlo: si no, recargar o compartir el
+       * enlace repetiría el susto sin motivo. */}
+      {params.get('pago') === 'fallo' && (
+        <div role="alert" className="mb-6 rounded-2xl border border-warning/50 bg-warning/10 px-5 py-4">
+          <p className="text-xs uppercase tracking-widest text-warning font-semibold">El pago no se completó</p>
+          <p className="text-sm text-text-1 mt-1 leading-relaxed">
+            <b>No se te cobró nada.</b> Puede haber sido la tarjeta, el banco o que se cerrara la
+            ventana. Puedes intentarlo otra vez desde las boletas, aquí abajo.
+          </p>
+          <button onClick={() => { const p = new URLSearchParams(params); p.delete('pago'); setParams(p, { replace: true }); }}
+            className="mt-2 text-xs text-text-2 hover:text-text-1 underline">
+            Entendido
+          </button>
+        </div>
+      )}
+
       {evento.cancelado && (
         <div role="alert" className="mb-6 rounded-2xl border border-danger/40 bg-danger/10 px-5 py-4">
           <p className="text-xs uppercase tracking-widest text-danger font-semibold">Evento cancelado</p>
@@ -361,10 +387,19 @@ export default function EventoPublicoPage() {
           </Link>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* En el móvil, UNA fila que se desliza; envolviendo, no.
+            Medido en un iPhone: siete secciones envolvían en cinco filas y la
+            barra medía 260 px — un tercio de la pantalla— y como está pegada
+            arriba, se los comía todo el rato, no sólo al principio. El nombre
+            del evento aparecía al 76 % de la pantalla: había que desplazarse
+            para ver a qué evento se había entrado.
+            De `sm` para arriba sigue envolviendo, que ahí sí caben y una fila
+            deslizable en un ratón es peor que una lista completa. */}
+        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar
+                        -mx-5 px-5 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible">
           {nav.enlaces.map((l, i) => (
             <a key={i} href={l.url || '#'} target={l.url?.startsWith('http') ? '_blank' : undefined} rel="noreferrer noopener"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors flex-shrink-0 whitespace-nowrap">
               {l.label}
             </a>
           ))}
@@ -381,7 +416,8 @@ export default function EventoPublicoPage() {
           {seccionesDe(evento, nav).filter(x => x.id !== 'inicio').map(x => (
             <Link key={x.id} to={`/explorar/${slug}/${x.ruta}`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border
-                         text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+                         text-sm text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors
+                         flex-shrink-0 whitespace-nowrap">
               <Icono nombre={x.icono} className="w-4 h-4" />{x.label}
             </Link>
           ))}
@@ -444,10 +480,17 @@ export default function EventoPublicoPage() {
             dice, porque la alternativa es que la persona lo descubra tras
             rellenar el formulario. */}
         {cupoToken && cupo !== null && (
-          <AvisoCupo cupo={cupo} onTomar={() => {
-            const t = (evento.ticket_types || []).find(x => x.id === cupo?.ticket_type_id);
-            if (t) setReservaTipo(t);
-          }} />
+          <AvisoCupo
+            cupo={cupo}
+            /* El tipo de boleta puede haber dejado de estar a la venta desde
+               que salió el correo. Sin esto el botón «Tomar mi cupo» no hacía
+               NADA al pulsarlo: ni abría el formulario ni decía por qué, que
+               es la peor forma de negarse. */
+            tipoDisponible={(evento.ticket_types || []).some(x => x.id === cupo?.ticket_type_id)}
+            onTomar={() => {
+              const t = (evento.ticket_types || []).find(x => x.id === cupo?.ticket_type_id);
+              if (t) setReservaTipo(t);
+            }} />
         )}
 
         {/* Contenido de la página: lienzo libre o bloques ordenados */}
@@ -482,7 +525,7 @@ export default function EventoPublicoPage() {
             const animStyle = block.data?._anim ? { animationDuration: `${block.data?._animDur || 0.8}s`, animationDelay: `${block.data?._animDelay || 0}s` } : undefined;
             const ancho = block.data?._ancho === 'full' ? '' : block.data?._ancho === 'angosto' ? 'max-w-xl mx-auto' : 'max-w-4xl mx-auto';
             return (
-              <div key={block.id} className={`${animCls} ${ancho}`} style={animStyle}>
+              <div key={block.id} className={`gk-bloque ${animCls} ${ancho}`} style={animStyle}>
                 <Preview data={block.data || {}} evento={evento} onReservar={setReservaTipo} onWaitlist={setWaitlistTipo} />
               </div>
             );
@@ -490,10 +533,14 @@ export default function EventoPublicoPage() {
         </div>
         )}
 
-        {/* Volver a explorar (oculto en modo standalone) */}
+        {/* Volver a explorar (oculto en modo standalone).
+            El enlace va `inline-block` con aire: siendo `inline`, su caja medía
+            sólo la altura del texto —15 px— y quedaba por debajo de cualquier
+            recomendación de zona de toque. */}
         <div className="mt-12 text-center">
           {!isStandalone && (
-            <Link to={conSesion ? '/app/explorar' : '/explorar'} className="text-xs text-text-3 hover:text-text-1 transition-colors">
+            <Link to={conSesion ? '/app/explorar' : '/explorar'}
+              className="inline-block py-2.5 sm:py-0 text-xs text-text-3 hover:text-text-1 transition-colors">
               Volver a explorar
             </Link>
           )}
@@ -563,10 +610,15 @@ function WaitlistModal({ tipo, slug, onClose }) {
   const [done, setDone] = useState(null);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
+  /* Mismo cerrojo que en la reserva: dos toques seguidos apuntaban dos veces
+     a la misma persona y le daban dos puestos en la fila. */
+  const enviando = useRef(false);
 
   const submit = async (e) => {
     e.preventDefault();
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
+    if (enviando.current) return;
+    enviando.current = true;
     setWorking(true); setErr('');
     try {
       const { waitlistApi } = await import('../../api/waitlist.js');
@@ -578,7 +630,7 @@ function WaitlistModal({ tipo, slug, onClose }) {
       setDone({ posicion: r.entry?.posicion });
     } catch (e) {
       setErr(e.response?.data?.error || e.message);
-    } finally { setWorking(false); }
+    } finally { enviando.current = false; setWorking(false); }
   };
 
   return (
@@ -610,7 +662,7 @@ function WaitlistModal({ tipo, slug, onClose }) {
           {err && <div className="px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
           <div className="field">
             <label className="label">Nombre completo *</label>
-            <input required value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+            <input required autoComplete="name" value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
               className="input-form" placeholder="Tu nombre" autoFocus />
           </div>
           <div className="field">
@@ -642,15 +694,38 @@ function WaitlistModal({ tipo, slug, onClose }) {
 /* Aviso del cupo que llegó por correo. Dos caras: la buena, con el plazo a la
    vista, y la de "llegaste tarde", que hay que decir igual — enterarse al
    pulsar Reservar, después de escribirlo todo, es peor. */
-function AvisoCupo({ cupo, onTomar }) {
-  if (!cupo) {
+/* Por qué no vale un enlace de cupo, dicho para cada caso.
+ *
+ * Antes los tres compartían una frase: «o se usó, o se pasó el plazo… sigues
+ * en la fila». A quien YA COMPRÓ con ese enlace eso le dice que espere un
+ * correo que no va a llegar —ya tiene su boleta—, y encima puede hacerle
+ * comprar otra vez. Una frase que vale para todos no vale para ninguno. */
+const CUPO_NO_VALE = {
+  ya_usado: {
+    titulo: 'Ese cupo ya lo tomaste',
+    texto: 'Tu boleta está emitida. Búscala en el correo que te llegó al reservarla; si no aparece, mira también en spam.',
+  },
+  vencido: {
+    titulo: 'Se pasó el plazo de tu cupo',
+    texto: 'El sitio que te guardamos volvió a la lista. Sigues en la fila: si se libera otro, te avisamos.',
+  },
+  paso_al_siguiente: {
+    titulo: 'Ese cupo ya le tocó a otra persona',
+    texto: 'Sigues en la fila: si se libera otro, te volvemos a avisar.',
+  },
+  desconocido: {
+    titulo: 'Ese enlace de cupo ya no vale',
+    texto: 'O se usó, o se pasó el plazo y le tocó al siguiente de la lista.',
+  },
+};
+
+function AvisoCupo({ cupo, onTomar, tipoDisponible = true }) {
+  if (!cupo?.valida) {
+    const { titulo, texto } = CUPO_NO_VALE[cupo?.motivo] || CUPO_NO_VALE.desconocido;
     return (
       <div className="mb-8 rounded-2xl border border-warning/30 bg-warning/5 px-5 py-4">
-        <p className="text-sm font-semibold text-text-1">Ese enlace de cupo ya no vale</p>
-        <p className="text-sm text-text-2 mt-1">
-          O se usó, o se pasó el plazo y le tocó al siguiente de la lista. Sigues
-          en la fila: si se libera otro, te volvemos a avisar.
-        </p>
+        <p className="text-sm font-semibold text-text-1">{titulo}</p>
+        <p className="text-sm text-text-2 mt-1">{texto}</p>
       </div>
     );
   }
@@ -672,7 +747,12 @@ function AvisoCupo({ cupo, onTomar }) {
             : 'Te lo guardamos un rato. Después le toca al siguiente de la lista.'}
         </p>
       </div>
-      <button onClick={onTomar} className="btn-gradient flex-shrink-0">Tomar mi cupo</button>
+      {tipoDisponible
+        ? <button onClick={onTomar} className="btn-gradient flex-shrink-0">Tomar mi cupo</button>
+        : <p className="text-sm text-text-2 flex-shrink-0">
+            Esa boleta ya no está a la venta. Escribe a quien organiza el evento
+            con este correo a mano.
+          </p>}
     </div>
   );
 }
@@ -683,6 +763,8 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
   const [prellenado, setPrellenado] = useState(null);
   const [working, setWorking] = useState(false);
+  /* Ver el cerrojo en `submit`: `working` pinta, esto impide. */
+  const enviando = useRef(false);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
   const [acepta, setAcepta] = useState(false);
@@ -812,8 +894,39 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
     return cuantos;
   };
 
+  /* Llevar a lo que falta, no sólo decirlo.
+   *
+   * El aviso dice «Revisa el dato marcado abajo» y hasta ahora no llevaba a
+   * ningún sitio. Con el teclado abierto —que se come media pantalla— eso deja
+   * un final ciego: se pulsa «Continuar», la pantalla no se mueve, el aviso
+   * queda fuera por arriba y lo que parece es que el botón no funciona.
+   * Medido a 375×420, que es un móvil con el teclado abierto: el aviso a
+   * −138 px y la página sin moverse.
+   *
+   * Se lleva al CAMPO y no al aviso: el aviso dice que hay un problema, el
+   * campo es donde se arregla. Y se le da el foco, que en un móvil abre el
+   * teclado justo donde toca escribir.
+   *
+   * Va en un EFECTO y no en un `requestAnimationFrame` justo después de
+   * validar. Probado: con `rAF` el marcado todavía no está en el DOM —React
+   * agrupa y pinta después— así que no se encontraba nada y el foco se quedaba
+   * donde estaba. El efecto corre cuando el marcado ya existe, que es la única
+   * forma de estar seguro. */
+  const [buscarFallo, setBuscarFallo] = useState(0);
+  const irAloQueFalta = () => setBuscarFallo(n => n + 1);
+
+  useEffect(() => {
+    if (!buscarFallo) return;
+    const malo = document.querySelector('[aria-invalid="true"]');
+    if (!malo) return;
+    malo.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    /* `preventScroll` para que el foco no deshaga el desplazamiento suave con
+       un salto seco. */
+    try { malo.focus({ preventScroll: true }); } catch { malo.focus(); }
+  }, [buscarFallo]);
+
   const avanzar = () => {
-    if (validarPasoActual() > 0) return;
+    if (validarPasoActual() > 0) { irAloQueFalta(); return; }
     irAPaso(Math.min(paso + 1, pasos.length - 1));
   };
 
@@ -898,12 +1011,23 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         if (destino !== paso) {
           irAPaso(destino);
           setErr('Falta un dato en este bloque.');
+          irAloQueFalta();
           return;
         }
       }
       setErr(cuantos === 1 ? 'Revisa el dato marcado abajo.' : `Revisa los ${cuantos} datos marcados abajo.`);
+      irAloQueFalta();
       return;
     }
+    /* Cerrojo del doble toque.
+     *
+     * `disabled={working}` no llega: el botón se deshabilita cuando React
+     * pinta, y dos toques en el mismo fotograma —lo normal en un móvil con
+     * un botón que tarda— entran los dos antes de eso. Cada uno emite SU
+     * boleta: la misma persona acaba con dos, y en un tipo con cupo son dos
+     * sitios ocupados. Un `ref` cambia en el acto, sin esperar a pintar. */
+    if (enviando.current) return;
+    enviando.current = true;
     setWorking(true); setErr('');
     try {
       /* El token del correo viaja con la compra: es lo que le da derecho al
@@ -954,7 +1078,9 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         }
       }
     } catch (e) { setErr(e.response?.data?.error || e.message); }
-    finally    { setWorking(false); }
+    /* Se suelta el cerrojo pase lo que pase: si falló, tiene que poder
+       reintentar. Lo que no puede es salir dos veces a la vez. */
+    finally    { enviando.current = false; setWorking(false); }
   };
 
   return (
@@ -1076,7 +1202,12 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
           <label className="label" htmlFor="res-nombre">Nombre completo {requiereNombre
             ? <span className="text-danger-light">*</span>
             : <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span>}</label>
-          <input id="res-nombre" required={requiereNombre} value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
+          {/* `autocomplete="name"`: el correo y el teléfono ya lo tenían y el
+              nombre no, que es justo donde el móvil más escritura ahorra — y
+              además es el primero, con el teclado recién abierto. Sin esto el
+              teléfono no ofrece el nombre guardado. */}
+          <input id="res-nombre" required={requiereNombre} autoComplete="name"
+            value={form.nombre} onChange={e => setForm(f => ({...f, nombre: e.target.value}))}
             className="input-form" placeholder="Tu nombre" autoFocus />
         </div>
         <div className={`field ancho ${claseEntrada}`}>

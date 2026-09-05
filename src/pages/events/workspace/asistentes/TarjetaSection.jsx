@@ -44,6 +44,9 @@ export default function TarjetaSection({ evento }) {
           .map(c => c.tipo?.nombre || c.ticket_nombre).filter(Boolean))];
         setTiposBoleta(nombres);
       })
+      /* Es el camino de RESPALDO: los tipos salen del evento y sólo si no
+         vienen se deducen de las boletas vendidas. Sin ellos el diseñador
+         pierde el atajo de «una variante por tipo», no la pantalla. */
       .catch(() => {});
   }, [evento.id]);
 

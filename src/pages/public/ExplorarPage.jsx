@@ -109,9 +109,10 @@ function ListaEventos({ t, lang }) {
               : <span className="text-xs font-medium text-text-3 uppercase tracking-widest">{ev.categoria?.nombre || t('Evento')}</span>}
           </div>
           <div className="p-5 flex-1 flex flex-col">
-            <h3 className="text-base font-semibold text-text-1 mb-2 group-hover:text-primary transition-colors line-clamp-2">
+            {/* Cada tarjeta cuelga directamente del título de la página. */}
+            <h2 className="text-base font-semibold text-text-1 mb-2 group-hover:text-primary transition-colors line-clamp-2">
               {ev.titulo}
-            </h3>
+            </h2>
             <p className="text-xs text-text-2 mb-4">
               {fmt(ev.fecha_inicio)}{ev.location_nombre ? ` · ${ev.location_nombre}` : ''}
             </p>
@@ -155,7 +156,7 @@ function ListaVacantes({ t }) {
 
   if (estado === 'sesion') return (
     <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
-      <h3 className="text-lg font-semibold text-text-1 mb-2">{t('Entra para ver las vacantes')}</h3>
+      <h2 className="text-lg font-semibold text-text-1 mb-2">{t('Entra para ver las vacantes')}</h2>
       <p className="text-sm text-text-2 max-w-md mx-auto mb-6">
         {t('Necesitas una cuenta para ver las ofertas y postularte. Crearla toma menos de un minuto y también te sirve para comprar boletas.')}
       </p>
@@ -188,9 +189,9 @@ function ListaVacantes({ t }) {
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-base font-semibold text-text-1 leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+              <h2 className="text-base font-semibold text-text-1 leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                 {v.titulo}
-              </h3>
+              </h2>
               <p className="text-xs text-text-3 truncate mt-1">{v.evento?.titulo}</p>
             </div>
             {v.destacada && (

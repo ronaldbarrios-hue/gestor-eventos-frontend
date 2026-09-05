@@ -105,6 +105,10 @@ export default function CheckoutSection({ evento }) {
     let vivo = true;
     if (evento.slug) {
       eventosApi.legalPublico(evento.slug)
+        /* Si no se puede preguntar se da por que NO hay términos propios, que
+           es lo prudente: enseñar el aviso de que faltan y que resulte que
+           estaban es un susto; callarlo y que falten de verdad es un evento
+           cobrando sin términos. */
         .then(d => { if (vivo) setTieneTerminos(Boolean(d?.tiene_terminos)); })
         .catch(() => {});
     }
@@ -113,6 +117,9 @@ export default function CheckoutSection({ evento }) {
       .catch(() => { /* la previa cae a lo básico, no vale romper la pantalla */ });
     ticketsApi.list(evento.id)
       .then(d => { if (vivo) setTipos((d.tickets || d.ticket_types || []).filter(t => t.activo !== false)); })
+      /* Alimenta la VISTA PREVIA del checkout, no el checkout de verdad. Sin
+         tipos la previa sale sin boletas; lo que se cobra lo decide el
+         servidor con `lib/precioTicket.js`, no esta pantalla. */
       .catch(() => {});
     return () => { vivo = false; };
   }, [evento.id]);

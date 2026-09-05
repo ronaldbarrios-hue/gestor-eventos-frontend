@@ -48,6 +48,9 @@ export default function EventCreatePage() {
   const [pdfDetectado, setPdfDetectado] = useState(null); // { detectados, aviso, nombre }
 
   useEffect(() => {
+    /* Si no se puede preguntar, se da por NO disponible: ofrecer el atajo de
+       la IA y que reviente al pulsarlo es peor que no ofrecerlo. El camino a
+       mano siempre está. */
     agenteApi.estado().then(r => setIaDisponible(!!r.disponible)).catch(() => {});
   }, []);
 
@@ -197,12 +200,18 @@ export default function EventCreatePage() {
   useEffect(() => {
     eventosApi.list({ limit: 100 })
       .then(d => setPlantillas((d.eventos || []).filter(e => e.page_json?.plantilla)))
+      /* Las plantillas son un atajo: si no llegan, no se ofrece el atajo y se
+         crea el evento desde cero, que es el camino de todos modos. */
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     eventosApi.categorias()
       .then(d => setCats(d.categorias || []))
+      /* La categoría no es obligatoria para crear el evento y se puede poner
+         después en «Editar info». Sin lista, el selector sale vacío y el
+         evento se crea igual — no se bloquea la única pantalla que importa
+         aquí por un campo opcional. */
       .catch(() => {});
   }, []);
 
