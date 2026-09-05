@@ -93,8 +93,46 @@ export default function MiTicketPage() {
   const estado = ESTADO_INFO[ticket.estado] || ESTADO_INFO.emitido;
   const qrValue = ticket.qr_token || ticket.codigo;
 
+  /* Un pago que no llegó a completarse.
+   *
+   * `emitido` cubre dos cosas que en pantalla se ven idénticas: una reserva
+   * gratuita —legítimamente «apartada»— y una compra que se abandonó o cuya
+   * tarjeta fue rechazada. Las dos enseñaban el QR grande y, debajo,
+   * «Guárdala en el móvil: tu QR sirve para entrar».
+   *
+   * La segunda persona llega a la puerta creyendo que tiene entrada. El
+   * escáner la deja pasar con un aviso al staff —«boleta emitida sin pago
+   * confirmado»—, o sea que enterarse depende de que alguien lea una línea
+   * pequeña con una fila detrás. El peor sitio y el peor momento.
+   *
+   * El distintivo «Apartada» ya estaba, pero es un chip de doce píxeles junto
+   * a un QR de doscientos: no compite. Aquí se dice de frente, arriba, y con
+   * lo que hay que hacer.
+   *
+   * Sólo cuando la boleta COSTABA dinero: una reserva gratis apartada está
+   * perfectamente bien y no hay nada que avisar. */
+  const costaba = Number(ticket.tipo?.precio) > 0;
+  const pagoSinTerminar = ticket.estado === 'emitido' && costaba && !Number(ticket.precio_pagado);
+
   return (
     <section className="px-5 py-12 max-w-md mx-auto animate-[fadeUp_0.4s_ease_both]">
+      {pagoSinTerminar && (
+        <div className="mb-6 rounded-2xl border-2 border-warning/50 bg-warning/10 px-4 py-3.5">
+          <p className="text-sm text-text-1 font-semibold">Tu pago no se completó.</p>
+          <p className="text-xs text-text-2 mt-1 leading-relaxed">
+            Esta entrada está apartada, no confirmada. Vuelve a la página del evento y
+            termina el pago — si ya pagaste, escribe a quien organiza con el código de abajo
+            antes de ir.
+          </p>
+          {ticket.evento?.slug && (
+            <a href={`/explorar/${ticket.evento.slug}`}
+               className="inline-block mt-3 px-4 py-2.5 rounded-full bg-text-1 text-bg text-sm font-semibold">
+              Terminar el pago
+            </a>
+          )}
+        </div>
+      )}
+
       {/* Header con cover del evento */}
       {ticket.evento?.cover_url && (
         <div className="aspect-video rounded-3xl overflow-hidden border border-border mb-6">
@@ -156,7 +194,12 @@ export default function MiTicketPage() {
             className="inline-flex items-center gap-2 text-sm text-text-2 hover:text-text-1 transition-colors disabled:opacity-60"
           />
         </div>
-        <p className="text-[11px] text-text-3 text-center mt-1">Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.</p>
+        <p className="text-[11px] text-text-3 text-center mt-1">
+          {pagoSinTerminar
+            /* Sin prometer lo que no es: este QR todavía no da derecho a entrar. */
+            ? 'Este código es el de tu reserva. Sirve para retomar el pago, no para entrar.'
+            : 'Guárdala en el móvil o imprímela: tu QR sirve para entrar y para los stands.'}
+        </p>
       </div>
 
       {/* QR principal */}
