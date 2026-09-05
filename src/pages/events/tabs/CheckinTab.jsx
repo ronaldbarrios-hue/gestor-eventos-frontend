@@ -7,7 +7,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { useAsistenciaEnVivo } from '../../../hooks/useAsistenciaEnVivo.js';
 import AsistenciaContador from '../../../components/ui/AsistenciaContador.jsx';
 import { zonasDelEvento, etiquetaZona } from '../../../lib/zonas.js';
-import { encolar, leerCola, quitar, cantidadCola } from '../../../lib/checkinOffline.js';
+import { encolar, leerCola, quitar, cantidadCola, TIPO_INGRESO, TIPO_SESION } from '../../../lib/checkinOffline.js';
 import { leerQr } from '../../../lib/qrEscaneado.js';
 
 /* Tab Escanear — el ÚNICO sitio donde se pasa una escarapela por un móvil.
@@ -197,10 +197,22 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     setSincronizando(true);
     let ok = 0, fallidas = 0, enEspera = 0;
     const motivos = [];
+    /* Lo rechazado, con nombre. Antes sólo se contaba: «3 rechazados» y nadie
+       sabía de quién. Con los sub-eventos en la cola eso pasa de incómodo a
+       grave — en la puerta de un taller es normal que alguien no esté inscrito,
+       y si se descarta en silencio, entró y nadie va a saberlo nunca. */
+    const rechazados = [];
     for (const item of pend) {
       try {
-        const { offline_id, ...payload } = item;
-        await clientesApi.checkin(evento.id, payload);  // payload incluye `at` (hora real) y acceso_id
+        const { offline_id, tipo, sesion_id: sesionId, ...payload } = item;
+        /* Lo guardado ANTES de que existiera `tipo` no lo lleva, y es un
+           ingreso: una cola a medio sincronizar no se puede perder porque se
+           desplegara una versión nueva a mitad del evento. */
+        if ((tipo || TIPO_INGRESO) === TIPO_SESION) {
+          await agendaApi.marcarAsistencia(evento.id, sesionId, payload);  // payload lleva `at`
+        } else {
+          await clientesApi.checkin(evento.id, payload);  // payload incluye `at` (hora real) y acceso_id
+        }
         quitar(evento.id, offline_id);
         ok++;
       } catch (e) {
@@ -227,12 +239,18 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
         }
         quitar(evento.id, item.offline_id);
         fallidas++;
+        if (rechazados.length < 20) {
+          rechazados.push({
+            codigo: item.codigo || (item.qr_token || '').slice(-12),
+            motivo: e.response.data?.error || `Error ${st}`,
+          });
+        }
       }
     }
     setCola(cantidadCola(evento.id));
     setSincronizando(false);
     if (ok || fallidas || enEspera) {
-      setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, motivos } });
+      setLast({ ok: true, syncResumen: { ok, fallidas, enEspera, motivos, rechazados } });
       bumpOptimista();
     }
   }, [evento.id, sincronizando, bumpOptimista]);
@@ -278,6 +296,20 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     if (working) return;
     const sid = sesionRef.current;
     if (!sid) { setLast({ subeventoMode: true, ok: false, error: 'Elige primero a qué sub-evento estás marcando.' }); return; }
+
+    /* Sin conexión, a la cola. Marcar asistencia es idempotente y el orden da
+       igual —a diferencia del reingreso, que es un interruptor—, así que
+       guardarla y mandarla luego no puede descuadrar nada. La sesión viaja
+       dentro: al sincronizar puede haber otra elegida en la pantalla. */
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const { guardado, cantidad } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
+      setCola(cantidad);
+      setLast(guardado
+        ? { subeventoMode: true, ok: true, offlineGuardado: true }
+        : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
+      return;
+    }
+
     setWorking(true);
     setLast(null);
     try {
@@ -295,8 +327,11 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
          idempotente y el orden da igual—, pero eso es una función que decidir,
          no un arreglo: queda dicho en vez de perdido. */
       if (!e.response) {
-        setLast({ ok: false, noSeGuardo: true, sinCola: true,
-                  codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
+        const { guardado, cantidad } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
+        setCola(cantidad);
+        setLast(guardado
+          ? { subeventoMode: true, ok: true, offlineGuardado: true }
+          : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
         setTimeout(() => setWorking(false), 600);
         return;
       }
@@ -679,9 +714,21 @@ function ResultadoCard({ result, compact }) {
             </h3>
             <p className="text-sm text-text-2">
               {r.ok} registrados
-              {r.fallidas ? ` · ${r.fallidas} rechazados (ya usados o inválidos)` : ''}
+              {r.fallidas ? ` · ${r.fallidas} rechazados` : ''}
               {r.enEspera ? ` · ${r.enEspera} sin registrar todavía` : ''}.
             </p>
+            {/* Cuáles y por qué. Un número no se puede seguir; un código sí:
+                con él se busca a la persona en la lista y se arregla a mano. */}
+            {r.rechazados?.length > 0 && (
+              <ul className="mt-2 space-y-0.5 max-h-40 overflow-y-auto">
+                {r.rechazados.map((x, i) => (
+                  <li key={i} className="text-xs text-text-2">
+                    <span className="font-mono text-text-1">{x.codigo || '—'}</span>
+                    <span className="text-text-3"> · {x.motivo}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {pendiente && (
               <>
                 {/* El motivo, que es lo único accionable: se arregla y la cola

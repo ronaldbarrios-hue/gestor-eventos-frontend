@@ -17,7 +17,25 @@
  * En una pantalla se puede callar un fallo y reintentar luego. En una puerta
  * no: quien escanea tiene a alguien delante y necesita saber AHORA si tiene
  * que apuntar el código a mano. Por eso `encolar` dice si guardó.
+ *
+ * ── Dos clases de escaneo, una sola cola ─────────────────────────────────
+ *
+ * Aquí caben el ingreso al evento y la entrada a un sub-evento. Van juntos
+ * porque quien está en la puerta sólo quiere saber una cosa —«¿me queda algo
+ * sin mandar?»— y dos contadores separados harían pensar que uno de los dos
+ * ya está resuelto.
+ *
+ * Cada uno lleva su `tipo`. Lo que se guardó ANTES de que existiera el campo
+ * no lo lleva, y eso es exactamente lo que significa `TIPO_INGRESO` por
+ * defecto: una cola a medio sincronizar no se puede perder porque se
+ * desplegara una versión nueva a mitad del evento.
+ *
+ * El reingreso NO entra: es un interruptor —entra, sale, entra— y el orden
+ * decide el aforo. Ver `CheckinTab`, donde se explica.
  */
+
+export const TIPO_INGRESO = 'ingreso';
+export const TIPO_SESION  = 'sesion';
 
 const KEY = (eventoId) => `gestek-offline-checkin:${eventoId}`;
 
@@ -40,10 +58,11 @@ function guardar(eventoId, cola) {
  * `cantidad` sale de volver a LEER, no de la lista que teníamos en memoria: si
  * la escritura falló, la que hay guardada es la de antes, y contar la de
  * memoria sería enseñar en pantalla una cola que no existe. */
-export function encolar(eventoId, payload) {
+export function encolar(eventoId, payload, tipo = TIPO_INGRESO) {
   const cola = leerCola(eventoId);
   cola.push({
     ...payload,
+    tipo,
     offline_id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     at: new Date().toISOString(),
   });

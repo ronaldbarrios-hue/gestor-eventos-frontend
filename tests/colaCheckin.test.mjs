@@ -103,3 +103,34 @@ test('el reingreso no se encola, y por eso se avisa', () => {
   assert.match(tab, /noSeGuardo: true, sinCola: true/,
     'sin conexión, el reingreso vuelve a perderse sin decirlo');
 });
+
+test('la asistencia a un sub-evento también se guarda sin conexión', () => {
+  /* Es idempotente y el orden da igual —a diferencia del reingreso, que es un
+     interruptor—, así que guardarla y mandarla luego no descuadra nada. Antes
+     se perdía: el taller se llenaba y no quedaba constancia de nadie. */
+  const tab = leer(CHECKIN);
+  assert.match(tab, /encolar\(evento\.id, \{ \.\.\.payload, sesion_id: sid \}, TIPO_SESION\)/,
+    'la asistencia a sub-eventos volvió a perderse sin conexión');
+  assert.match(tab, /agendaApi\.marcarAsistencia\(evento\.id, sesionId, payload\)/,
+    'la cola no sabe mandar la asistencia: se sincronizaría como si fuera un ingreso');
+});
+
+test('lo guardado por la versión anterior no se pierde', () => {
+  /* Una cola a medio sincronizar no puede perderse porque se despliegue una
+     versión nueva a mitad del evento: lo que se guardó antes de que existiera
+     `tipo` no lo lleva, y eso significa ingreso. */
+  const tab = sinComentarios(leer(CHECKIN));
+  assert.match(tab, /\(tipo \|\| TIPO_INGRESO\) === TIPO_SESION/,
+    'un elemento sin `tipo` deja de tratarse como ingreso: la cola vieja se rompe');
+});
+
+test('un escaneo rechazado se dice con su código', () => {
+  /* «3 rechazados» no se puede seguir; un código sí — con él se busca a la
+     persona en la lista y se arregla a mano. Y con los sub-eventos en la cola
+     esto pasa de incómodo a grave: en la puerta de un taller es normal que
+     alguien no esté inscrito, y descartarlo en silencio significa que entró y
+     nadie va a saberlo nunca. */
+  const tab = leer(CHECKIN);
+  assert.match(tab, /rechazados\.push\(\{/, 'los rechazados vuelven a ser sólo un número');
+  assert.match(tab, /r\.rechazados\?\.length > 0/, 'el resumen no enseña cuáles fueron');
+});
