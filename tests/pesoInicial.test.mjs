@@ -82,3 +82,28 @@ test('el build no dejó el PDF en la precarga', { skip: !existeDist() }, () => {
 function existeDist() {
   try { return readdirSync('dist').includes('index.html'); } catch { return false; }
 }
+
+test('el público no se descarga la librería de arrastrar y soltar', () => {
+  /* `blocks.jsx` lo importan CUATRO páginas públicas, y llevaba `@dnd-kit`
+     dentro por `PreviewReorder` — que sólo corre en el editor. O sea que el
+     formulario de registro metido en la web de un cliente se bajaba 16 kB
+     comprimidos de una librería para no arrastrar nada.
+     Verificado en el navegador: la página pública ya no pide ni el módulo ni
+     la librería. */
+  const src = sinComentarios(readFileSync('src/pages/events/editor/blocks.jsx', 'utf8'));
+  assert.doesNotMatch(src, /from\s+'@dnd-kit/,
+    'volvió `@dnd-kit` a blocks.jsx: con él vuelve al paquete de las páginas públicas');
+  assert.match(src, /lazy\(\(\) => import\('\.\/PreviewReorder\.jsx'\)\)/,
+    'se perdió la carga perezosa del reordenador');
+});
+
+test('reordenar no se rompió por sacarlo de sitio', () => {
+  /* Al moverlo casi le quito el asa de arrastre, que existe por un motivo
+     escrito: la sección seleccionada es `pointer-events-none`, así que un asa
+     que apareciera al pasar por encima no se vería nunca. */
+  const src = readFileSync('src/pages/events/editor/PreviewReorder.jsx', 'utf8');
+  assert.match(src, /pointer-events-auto/,
+    'el asa de arrastre perdió `pointer-events-auto`: no se puede agarrar nada');
+  assert.match(src, /const ESTRATEGIAS = \{/,
+    'la estrategia volvió a pasarse como objeto: quien llame tendrá que importar dnd-kit otra vez');
+});

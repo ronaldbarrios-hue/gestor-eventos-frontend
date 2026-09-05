@@ -3,55 +3,37 @@
    - CUSTOM blocks: contenido vive en data del bloque
    Cada uno expone: label, icon, defaults, Editor, Preview, category. */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { numeroDeStand } from '../../../lib/expositoresUi.js';
 import { Seccion, ControlesPresentacion, Grupo, Opciones, Interruptor } from './presentacion.jsx';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, arrayMove, useSortable, rectSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import { COVER_ASPECTOS, coverLayout } from '../../../components/public/EventChrome.jsx';
 import { tipoEspacio } from '../../../lib/espacio.js';
 import LlamaZona from '../../../components/aforo/LlamaZona.jsx';
 import MarcadorMapa from '../../../components/mapa/MarcadorMapa.jsx';
 
-/* ─────────── reordenar sub-elementos EN la vista previa (Rework #2) ───────────
-   Cuando un bloque con lista está seleccionado en el editor, sus items se pueden
-   arrastrar directamente en la vista previa para reordenarlos (ej. bajar el
-   speaker 2). El público nunca recibe `reorder`, así que allí no pasa nada.
-   Trabajamos con índices reales del array completo aunque se muestren filtrados:
-   así el orden guardado siempre corresponde a lo que se ve. */
-export function PreviewReorder({ visibleIndices, onMove, strategy, className, renderItem }) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter}
-      onDragEnd={({ active, over }) => { if (over && active.id !== over.id) onMove(Number(active.id), Number(over.id)); }}>
-      <SortableContext items={visibleIndices.map(String)} strategy={strategy || verticalListSortingStrategy}>
-        <div className={className}>
-          {visibleIndices.map(realIdx => (
-            <PreviewSortable key={realIdx} id={String(realIdx)}>{renderItem(realIdx)}</PreviewSortable>
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
-  );
-}
-function PreviewSortable({ id, children }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`relative ${isDragging ? 'opacity-80 z-30' : ''}`}>
-      {/* Handle SIEMPRE visible (la sección seleccionada es pointer-events-none,
-          así que un handle por hover nunca se vería). pointer-events-auto lo
-          reactiva solo a él para poder arrastrar. */}
-      <button {...attributes} {...listeners} type="button" aria-label="Arrastrar para reordenar" title="Arrastra para reordenar"
-        onClick={e => e.stopPropagation()}
-        className="pointer-events-auto absolute left-1.5 top-1.5 z-20 w-6 h-6 rounded-md bg-accent/90 hover:bg-accent border border-white/20 text-white flex items-center justify-center cursor-grab active:cursor-grabbing shadow-card">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
-      </button>
-      {children}
-    </div>
-  );
+/* Reordenar arrastrando en la vista previa: sólo cuando el editor lo pide.
+ *
+ * `@dnd-kit` son 16 kB comprimidos, y este archivo lo importan CUATRO páginas
+ * públicas — así que el formulario de registro metido en la web de un cliente
+ * se descargaba una librería de arrastrar y soltar para no arrastrar nada.
+ * Medido en el paquete construido: el trozo del embebido la traía.
+ *
+ * Con el `import()` perezoso, el módulo sólo se pide cuando `reorder` viene —
+ * y `reorder` sólo lo manda el editor.
+ *
+ * El `fallback` de cada `Suspense` no es un giro de carga: es la MISMA lista
+ * sin poder arrastrarla todavía. Así no hay salto ni hueco mientras llega, y
+ * es exactamente lo que ve el público. */
+const PreviewReorder = lazy(() => import('./PreviewReorder.jsx'));
+
+/* `arrayMove` venía de dnd-kit y era lo único que quedaba atándonos a la
+   librería desde aquí. Son tres líneas y no depender de ella es lo que hace
+   que el público no la descargue. */
+function moverEn(lista, de, a) {
+  const copia = [...lista];
+  copia.splice(a, 0, copia.splice(de, 1)[0]);
+  return copia;
 }
 
 /* ─────────── helpers ─────────── */
@@ -850,9 +832,11 @@ function GaleriaPreview({ data, reorder, isEditor }) {
     <div>
       <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
-        <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
-          onMove={(from, to) => reorder.onChange({ ...data, urls: arrayMove(all, from, to) })}
-          renderItem={cell} />
+        <Suspense fallback={<div className={grid}>{visibleIndices.map(cell)}</div>}>
+          <PreviewReorder visibleIndices={visibleIndices} estrategia="rejilla" className={grid}
+            onMove={(from, to) => reorder.onChange({ ...data, urls: moverEn(all, from, to) })}
+            renderItem={cell} />
+        </Suspense>
       ) : (
         <div className={grid}>{visibleIndices.map(cell)}</div>
       )}
@@ -931,9 +915,11 @@ function FAQPreview({ data, reorder, isEditor }) {
     <div>
       <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
-        <PreviewReorder visibleIndices={visibleIndices} strategy={verticalListSortingStrategy} className="space-y-2"
-          onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
-          renderItem={item} />
+        <Suspense fallback={<div className="space-y-2">{visibleIndices.map(item)}</div>}>
+          <PreviewReorder visibleIndices={visibleIndices} estrategia="lista" className="space-y-2"
+            onMove={(from, to) => reorder.onChange({ ...data, items: moverEn(all, from, to) })}
+            renderItem={item} />
+        </Suspense>
       ) : (
         <div className="space-y-2">{visibleIndices.map(item)}</div>
       )}
@@ -1115,9 +1101,11 @@ function SpeakersPreview({ data, reorder, isEditor }) {
     <div>
       <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
-        <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={grid}
-          onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
-          renderItem={card} />
+        <Suspense fallback={<div className={grid}>{visibleIndices.map(card)}</div>}>
+          <PreviewReorder visibleIndices={visibleIndices} estrategia="rejilla" className={grid}
+            onMove={(from, to) => reorder.onChange({ ...data, items: moverEn(all, from, to) })}
+            renderItem={card} />
+        </Suspense>
       ) : (
         <div className={grid}>{visibleIndices.map(card)}</div>
       )}
@@ -1362,9 +1350,11 @@ function RedesPreview({ data, reorder, isEditor }) {
     <div className="text-center">
       <CabeceraSeccion titulo={data.titulo} />
       {reorder ? (
-        <PreviewReorder visibleIndices={visibleIndices} strategy={rectSortingStrategy} className={wrap}
-          onMove={(from, to) => reorder.onChange({ ...data, items: arrayMove(all, from, to) })}
-          renderItem={chip} />
+        <Suspense fallback={<div className={wrap}>{visibleIndices.map(chip)}</div>}>
+          <PreviewReorder visibleIndices={visibleIndices} estrategia="rejilla" className={wrap}
+            onMove={(from, to) => reorder.onChange({ ...data, items: moverEn(all, from, to) })}
+            renderItem={chip} />
+        </Suspense>
       ) : (
         <div className={wrap}>{visibleIndices.map(chip)}</div>
       )}
