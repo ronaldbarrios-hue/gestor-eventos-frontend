@@ -58,8 +58,29 @@ function guardar(eventoId, cola) {
  * `cantidad` sale de volver a LEER, no de la lista que teníamos en memoria: si
  * la escritura falló, la que hay guardada es la de antes, y contar la de
  * memoria sería enseñar en pantalla una cola que no existe. */
+/* Qué hace que dos escaneos guardados sean EL MISMO. Lo que identifica a la
+   persona —el QR firmado o el código escrito— más para qué se escaneó: la
+   misma pulsera en dos charlas distintas son dos apuntes legítimos. */
+function huella(x) {
+  return [x.tipo, x.qr_token || '', (x.codigo || '').toUpperCase(), x.sesion_id || ''].join('|');
+}
+
 export function encolar(eventoId, payload, tipo = TIPO_INGRESO) {
   const cola = leerCola(eventoId);
+
+  /* Sin conexión no hay servidor que diga «esa boleta ya entró», así que un
+     escaneo repetido se guarda dos veces y el aviso llega HORAS después, al
+     sincronizar, convertido en un 409 que quien lo lee no puede relacionar con
+     nada. Y como el cerrojo de pantalla no sobrevive a una recarga —ni al
+     móvil que mata la pestaña por memoria—, la cola tiene que saberlo ella.
+
+     Se contesta `guardado: true` a propósito: para quien está en la puerta el
+     escaneo SÍ está a salvo. Que ya estuviera no es un fallo suyo. */
+  const nuevo = { ...payload, tipo };
+  if (cola.some(x => huella(x) === huella(nuevo))) {
+    return { guardado: true, cantidad: cola.length, yaEstaba: true };
+  }
+
   cola.push({
     ...payload,
     tipo,

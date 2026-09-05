@@ -140,17 +140,19 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [cola, setCola] = useState(() => cantidadCola(evento.id));
   const [sincronizando, setSincronizando] = useState(false);
+  /* Ver el cerrojo en `despachar`, más abajo: `working` pinta, esto impide. */
+  const ocupado = useRef(false);
 
   const handleCheckin = useCallback(async (payload) => {
     if (working) return;
     /* Sin conexión → guardar en la cola offline (optimista). */
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const { guardado, cantidad } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+      const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
       setCola(cantidad);
       /* Si no se pudo guardar hay que decirlo AHORA, con la persona delante.
          Antes se enseñaba «guardado» pasara lo que pasara. */
       setLast(guardado
-        ? { ok: true, offlineGuardado: true }
+        ? { ok: true, offlineGuardado: true, yaEstaba }
         /* El código va dentro: la tarjeta le dice a quien escanea que lo apunte
            a mano, y sin enseñárselo ese consejo no se puede seguir. Del QR
            firmado se enseña el final, que es lo que distingue una boleta de
@@ -168,10 +170,10 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
     } catch (e) {
       /* Error de RED (sin respuesta del servidor) → encolar, no perder el escaneo. */
       if (!e.response) {
-        const { guardado, cantidad } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
+        const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, acceso_id: puertaRef.current || undefined });
         setCola(cantidad);
         setLast(guardado
-        ? { ok: true, offlineGuardado: true }
+        ? { ok: true, offlineGuardado: true, yaEstaba }
         /* El código va dentro: la tarjeta le dice a quien escanea que lo apunte
            a mano, y sin enseñárselo ese consejo no se puede seguir. Del QR
            firmado se enseña el final, que es lo que distingue una boleta de
@@ -302,10 +304,10 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
        guardarla y mandarla luego no puede descuadrar nada. La sesión viaja
        dentro: al sincronizar puede haber otra elegida en la pantalla. */
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const { guardado, cantidad } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
+      const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
       setCola(cantidad);
       setLast(guardado
-        ? { subeventoMode: true, ok: true, offlineGuardado: true }
+        ? { subeventoMode: true, ok: true, offlineGuardado: true, yaEstaba }
         : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
       return;
     }
@@ -327,10 +329,10 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
          idempotente y el orden da igual—, pero eso es una función que decidir,
          no un arreglo: queda dicho en vez de perdido. */
       if (!e.response) {
-        const { guardado, cantidad } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
+        const { guardado, cantidad, yaEstaba } = encolar(evento.id, { ...payload, sesion_id: sid }, TIPO_SESION);
         setCola(cantidad);
         setLast(guardado
-          ? { subeventoMode: true, ok: true, offlineGuardado: true }
+          ? { subeventoMode: true, ok: true, offlineGuardado: true, yaEstaba }
           : { ok: false, noSeGuardo: true, codigo: payload.codigo || (payload.qr_token || '').slice(-12) });
         setTimeout(() => setWorking(false), 600);
         return;
@@ -410,12 +412,30 @@ export default function CheckinTab({ evento, miRolId = null, miUserId = null }) 
 
   /* onScan estable (misma identidad siempre): QrScanner la guarda en un ref
      internamente, así que no importa si esta función cambia — no reinicia la cámara. */
-  const despachar = useCallback((leido) => {
-    if (accion === 'subevento') return handleSubevento(leido);
-    if (accion === 'reingreso') return handleReingreso(leido);
-    if (accion === 'puntos')    return handlePuntos(leido);
-    if (accion === 'canjear')   return handleSaldo(leido);
-    return handleCheckin(leido);
+  const despachar = useCallback(async (leido) => {
+    /* Un solo escaneo a la vez, de verdad.
+     *
+     * Cada handler empieza con `if (working) return`, y `working` es un valor
+     * capturado: dos llegadas en el mismo fotograma lo ven las dos en `false`.
+     * La cámara ya no deja pasar el mismo código dos veces en tres segundos,
+     * así que por ahí no entra — pero el formulario del código a mano sí, con
+     * dos Enter seguidos, y sobre todo el camino SIN CONEXIÓN, que sale antes
+     * de tocar `working` y encola los dos escaneos. Al sincronizar, el segundo
+     * vuelve como «esta boleta ya fue usada»: un error inventado por nosotros,
+     * en la puerta, con la fila esperando.
+     *
+     * El `ref` cambia en el acto. Se suelta enseguida —los 600 ms que la
+     * persona ve siguen viniendo de `working`—: esto sólo cierra el hueco
+     * entre dos llamadas que aún no han pintado nada. */
+    if (ocupado.current) return;
+    ocupado.current = true;
+    try {
+      if (accion === 'subevento') return await handleSubevento(leido);
+      if (accion === 'reingreso') return await handleReingreso(leido);
+      if (accion === 'puntos')    return await handlePuntos(leido);
+      if (accion === 'canjear')   return await handleSaldo(leido);
+      return await handleCheckin(leido);
+    } finally { ocupado.current = false; }
   }, [accion, handleCheckin, handleReingreso, handleSubevento, handlePuntos, handleSaldo]);
   const onScanQr = useCallback((qr) => despachar(leerQr(qr)), [despachar]);
   const onSubmitCodigo = (codigo) => despachar({ codigo });
@@ -692,7 +712,18 @@ function ResultadoCard({ result, compact }) {
     <div className={`rounded-3xl border-2 border-primary/40 ${compact ? 'backdrop-blur-xl bg-surface/90 p-5' : 'bg-primary/10 p-6'} animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]`}>
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">⤓</div>
-        <div><h3 className="text-xl font-bold font-display text-text-1">Guardado sin conexión</h3><p className="text-sm text-text-2">Se registrará al volver el internet.</p></div>
+        <div>
+          <h3 className="text-xl font-bold font-display text-text-1">
+            {result.yaEstaba ? 'Ya estaba guardado' : 'Guardado sin conexión'}
+          </h3>
+          {/* Decir «guardado» otra vez haría pensar que el primero no entró, y
+              lo siguiente es apuntar el código a mano por si acaso. */}
+          <p className="text-sm text-text-2">
+            {result.yaEstaba
+              ? 'Este escaneo ya estaba en la cola. No hace falta repetirlo.'
+              : 'Se registrará al volver el internet.'}
+          </p>
+        </div>
       </div>
     </div>
   );
