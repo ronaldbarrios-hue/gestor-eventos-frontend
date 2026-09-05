@@ -10,6 +10,7 @@ import MiFicha from './MiFicha.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
+import { loQuePuedoHacer, porDondeEntro, resumenCorto } from '../../lib/loQuePuedoHacer.js';
 
 const TIPOS = [
   { v: 'sugerencia', l: 'Sugerencia' },
@@ -79,6 +80,47 @@ export default function MiTrabajoPage() {
   );
 }
 
+
+/* Qué puedo hacer en este evento, y por dónde entro.
+ *
+ * Los permisos ya vienen resueltos del servidor (`mi_ficha.permisos`: los del
+ * rol MÁS los sueltos). Aquí sólo se traducen a frases y a un sitio a donde
+ * ir.
+ *
+ * ── Por qué el botón no lleva al Resumen ─────────────────────────────────
+ *
+ * Porque quien tiene un rol de puerta aterrizaba en una pantalla que no le
+ * sirve —y, según el rol, en una que ni siquiera puede abrir—. Entrar por lo
+ * primero que SÍ puede hacer se ahorra el paseo, y de paso le enseña que la
+ * plataforma sabe cuál es su trabajo.
+ */
+function LoQuePuedoHacer({ ev }) {
+  const soyOwner = ev.mi_rol === 'Organizador';
+  const permisos = ev.mi_ficha?.permisos || [];
+  const frases = loQuePuedoHacer({ permisos, soyOwner });
+  const { vistas, resto } = resumenCorto(frases);
+  const destino = `/eventos/${ev.id}${porDondeEntro({ permisos, soyOwner })}`;
+
+  return (
+    <div className="mt-2 rounded-2xl border border-border bg-surface-2/40 px-4 py-3">
+      <p className="text-[11px] uppercase tracking-widest text-text-3 mb-1.5">Puedes</p>
+      <ul className="space-y-0.5">
+        {vistas.map(f => (
+          <li key={f} className="text-sm text-text-2 flex items-start gap-1.5">
+            <span className="text-text-3 mt-px">·</span>{f}
+          </li>
+        ))}
+      </ul>
+      {resto > 0 && (
+        <p className="text-[11px] text-text-3 mt-1">y {resto} cosa{resto === 1 ? '' : 's'} más</p>
+      )}
+      <Link to={destino} className="btn-secondary btn-sm rounded-full mt-3 inline-flex">
+        Entrar al evento
+      </Link>
+    </div>
+  );
+}
+
 function EventoTrabajo({ ev }) {
   const [mias, setMias] = useState([]);
   const [tareas, setTareas] = useState([]);
@@ -128,9 +170,12 @@ function EventoTrabajo({ ev }) {
         <h2 className="text-xl font-display font-bold text-text-1">{ev.titulo}</h2>
         <p className="text-sm text-text-3">
           Tu rol: <span className="text-text-1">{ev.mi_rol || 'Miembro'}</span>
-          {' · '}
-          <Link to={`/eventos/${ev.id}`} className="text-primary hover:underline">Abrir evento</Link>
         </p>
+        {/* Qué puedo hacer con ese rol, y por dónde entro.
+            El nombre del rol no lo dice: «Puerta» o «Atención» hay que entrar,
+            mirar el menú y deducirlo. Y el enlace de siempre aterrizaba en el
+            Resumen, que según el rol ni siquiera se puede abrir. */}
+        <LoQuePuedoHacer ev={ev} />
       </div>
 
       {/* Tu ficha tal y como la ve quien organiza, y de dónde salen las

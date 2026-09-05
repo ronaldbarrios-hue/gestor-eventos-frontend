@@ -22,22 +22,50 @@ const I = (d) => ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d={d} />
   </svg>
 );
+/* ── De siete apartados a cuatro ──────────────────────────────────────
+ *
+ * Siete pestañas para un puñado de ajustes, y tres de ellas casi vacías:
+ *
+ *   · «Seguridad» eran DOS acciones —cambiar la contraseña y cerrar las
+ *     sesiones— y las dos son de la cuenta. Ahora viven en «Mi perfil», que es
+ *     donde se busca la cuenta de uno.
+ *   · «Notificaciones» son preferencias: cómo quiero que me avisen. Estaban
+ *     aparte por costumbre, no por tamaño.
+ *   · «Integraciones» tenía dos cosas reales —la pasarela de cobro y el
+ *     conector de Claude— y una lista de SIETE servicios «próximamente» que no
+ *     existen. Un menú que promete lo que no hay enseña a no fiarse del menú.
+ *
+ * Lo que quedó: Organización · Espacio de trabajo · Conexiones · Preferencias.
+ * No se perdió ningún ajuste: se movieron. Los enlaces viejos siguen valiendo
+ * —ver `REDIRECCIONES` más abajo—, porque un `?a=seguridad` guardado en un
+ * marcador no puede llevar a una pantalla en blanco.
+ */
 const APARTADOS = [
   /* oculto del menú: el perfil se abre desde el menú de la cuenta (evita duplicarlo) */
   { id: 'perfil', oculto: true, label: 'Mi Perfil',          icon: I('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z') },
   { id: 'organizacion',  label: 'Organización',       icon: I('M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4') },
   { id: 'espacio',       label: 'Espacio de Trabajo', icon: I('M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z') },
-  { id: 'notificaciones',label: 'Notificaciones',     icon: I('M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3C7.7 6.2 6 8.4 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9') },
-  { id: 'seguridad',     label: 'Seguridad',          icon: I('M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z') },
-  { id: 'integraciones', label: 'Integraciones',      icon: I('M13 10V3L4 14h7v7l9-11h-7z') },
+  { id: 'conexiones',    label: 'Conexiones',         icon: I('M13 10V3L4 14h7v7l9-11h-7z') },
   { id: 'preferencias',  label: 'Preferencias',       icon: I('M10.3 4.3c.4-1.8 2.9-1.8 3.4 0a1.7 1.7 0 002.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 001 2.5c1.8.5 1.8 3 0 3.4a1.7 1.7 0 00-1 2.6c.9 1.5-.9 3.3-2.4 2.4a1.7 1.7 0 00-2.6 1c-.5 1.8-3 1.8-3.4 0a1.7 1.7 0 00-2.5-1c-1.6.9-3.3-.9-2.4-2.4a1.7 1.7 0 00-1.1-2.6c-1.8-.4-1.8-2.9 0-3.4a1.7 1.7 0 001.1-2.5c-.9-1.6.8-3.3 2.4-2.4 1 .6 2.3.1 2.5-1.1z M15 12a3 3 0 11-6 0 3 3 0 016 0z') },
 ];
+
+/* Dónde vive ahora lo que se movió. Sin esto, un `?a=seguridad` de un marcador
+   o de un correo viejo pinta la página vacía. */
+const REDIRECCIONES = {
+  seguridad     : 'perfil',
+  notificaciones: 'preferencias',
+  integraciones : 'conexiones',
+};
 
 export default function AjustesPage() {
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const VISIBLES = APARTADOS.filter(a => !a.oculto);
-  const apartado = searchParams.get('a') || VISIBLES[0].id;
+  /* Un enlace guardado a un apartado que ya no existe llevaba a una pantalla
+     en blanco: el `&&` de abajo no encontraba su caso y no se pintaba nada.
+     Se traduce al sitio donde vive ahora. */
+  const pedido = searchParams.get('a') || VISIBLES[0].id;
+  const apartado = REDIRECCIONES[pedido] || pedido;
 
   return (
     <div className="grid lg:grid-cols-[220px_1fr_260px] gap-6 items-start animate-[fadeUp_0.4s_ease_both]">
@@ -58,12 +86,13 @@ export default function AjustesPage() {
 
       {/* ── Contenido ── */}
       <div key={apartado} className="min-w-0 animate-[fadeUp_0.3s_ease_both]">
-        {apartado === 'perfil'         && <SettingsPage />}
+        {/* La cuenta entera en un sitio: los datos y las dos cosas que eran
+            «Seguridad» —la contraseña y cerrar las sesiones abiertas—. Se
+            buscan aquí, no en una pestaña propia con dos botones. */}
+        {apartado === 'perfil'         && <><SettingsPage /><Seguridad /></>}
         {apartado === 'organizacion'   && <Organizacion />}
         {apartado === 'espacio'        && <EspacioTrabajo />}
-        {apartado === 'notificaciones' && <Seccion titulo={t('Notificaciones')} desc={t('Canales, avisos y push de la plataforma.')}><NotificacionesTab /></Seccion>}
-        {apartado === 'seguridad'      && <Seguridad />}
-        {apartado === 'integraciones'  && <Integraciones />}
+        {apartado === 'conexiones'     && <Conexiones />}
         {apartado === 'preferencias'   && <Preferencias />}
       </div>
 
@@ -333,10 +362,20 @@ function Seguridad() {
 }
 
 /* ── 6. Integraciones ── */
-function Integraciones() {
-  const PROX = ['Google Calendar', 'Google Meet', 'Slack', 'Discord', 'Notion', 'Zapier', 'Webhooks'];
+/* ── Conexiones ──────────────────────────────────────────────────────
+ *
+ * Antes «Integraciones», y llevaba dentro una lista de SIETE servicios
+ * «próximamente» —Google Calendar, Meet, Slack, Discord, Notion, Zapier,
+ * webhooks— que no existen ni están empezados. Anunciar siete cosas que no hay
+ * al lado de las dos que sí funcionan hace lo contrario de lo que pretende:
+ * enseña que este menú promete de más, y entonces tampoco se cree lo que sí es
+ * verdad.
+ *
+ * Quedan las dos reales: la cuenta de cobro y el conector de Claude.
+ */
+function Conexiones() {
   return (
-    <Seccion titulo="Integraciones" desc="Servicios globales de tu cuenta. Las integraciones de cada evento viven en su Configuración.">
+    <Seccion titulo="Conexiones" desc="Lo que tu cuenta conecta con fuera: cómo cobras y desde dónde se te puede operar. Las integraciones de cada evento viven en su Configuración.">
       <PagosTab />
       {/* Claude: la llave la pone el organizador (su gasto, no el de la
           plataforma) y el conector MCP deja operar la cuenta desde Claude. */}
@@ -345,17 +384,16 @@ function Integraciones() {
           se decidió que pertenece. Estaba en las dos pestañas —se movió allí y
           esta copia se quedó—, así que el mismo formulario aparecía dos veces
           y editabas sin saber cuál de los dos estabas guardando. */}
-      <div className="card p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-2">Próximamente</h3>
-        <div className="flex flex-wrap gap-2">
-          {PROX.map(s => <span key={s} className="px-3 py-1.5 rounded-full bg-surface-2 border border-border text-xs text-text-2">{s}</span>)}
-        </div>
-      </div>
     </Seccion>
   );
 }
 
 /* ── 7. Preferencias ── */
+/* Preferencias, con las notificaciones dentro.
+ *
+ * Cómo quiero que me avisen ES una preferencia. Estaba en una pestaña aparte
+ * por costumbre y no por tamaño, y separarlas obligaba a buscar en dos sitios
+ * lo mismo: cómo quiero que la plataforma se comporte conmigo. */
 function Preferencias() {
   const { success } = useToast();
   const { t, lang, setLang } = useI18n();
@@ -374,8 +412,13 @@ function Preferencias() {
   };
 
   return (
-    <Seccion titulo={t('Preferencias')} desc={t('Apariencia, idioma, formatos y accesibilidad.')}>
+    <Seccion titulo={t('Preferencias')} desc={t('Cómo se ve, en qué idioma, y cómo quieres que te avisemos.')}>
       <AparienciaCard />
+
+      {/* Las notificaciones eran una pestaña propia. Cómo quiero que me avisen
+          es una preferencia como el idioma o el tema: separarlas obligaba a
+          buscar en dos sitios lo mismo. */}
+      <NotificacionesTab />
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-1 mb-3">{t('Idioma')}</h3>
         <div className="flex flex-wrap gap-2">
@@ -400,10 +443,10 @@ function Preferencias() {
         </label>
       </div>
 
-      <div className="card p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-1.5">{t('Experimental')}</h3>
-        <p className="text-sm text-text-2">El laboratorio de funciones beta se habilita al final del rework.</p>
-      </div>
+      {/* Aquí había una tarjeta «Experimental» que decía que el laboratorio de
+          funciones beta «se habilita al final del rework». Un cuadro que
+          anuncia algo que no existe ocupa el sitio de algo que sí, y a la
+          tercera vez que se lee deja de leerse la pantalla entera. */}
     </Seccion>
   );
 }
