@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { eventosApi } from '../../api/eventos.js';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
@@ -43,6 +43,11 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
   const [err, setErr] = useState('');
   const [hecho, setHecho] = useState(false);
   const [acepta, setAcepta] = useState(false);
+  /* Cerrojo del doble toque: `disabled` se aplica cuando React pinta, y dos
+     toques en el mismo fotograma —lo normal en un movil— entran los dos.
+     Serian dos inscripciones de la misma persona ocupando dos plazas de un
+     taller. Un `ref` cambia en el acto. */
+  const enviando = useRef(false);
 
   /* Este modal no tenía NADA legal, y pide nombre, correo y teléfono a quien
      entra sin boleta. Mismos documentos del evento que en la compra. */
@@ -67,6 +72,8 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
     if (fallo) { setErr(fallo); return; }
     if (legal.exige && !acepta) { setErr('Debes aceptar los términos del evento para continuar.'); return; }
 
+    if (enviando.current) return;
+    enviando.current = true;
     setWorking(true);
     try {
       await eventosApi.inscribirSesion(slug, sesion.id, {
@@ -78,7 +85,7 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
       onInscrito?.(sesion.id);
     } catch (e) {
       setErr(e.response?.data?.error || e.message);
-    } finally { setWorking(false); }
+    } finally { enviando.current = false; setWorking(false); }
   };
 
   if (hecho) {

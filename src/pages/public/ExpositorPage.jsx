@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { leerQr } from '../../lib/qrEscaneado.js';
 import { useParams, Link } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
@@ -252,14 +252,20 @@ function PuntosTab({ codigo, nombre }) {
   }, [codigo]);
   useEffect(() => { cargar(); }, [cargar]);
 
+  /* `working` es un valor capturado: dos lecturas del mismo QR en el mismo
+     fotograma —que es justo lo que hace un lector de codigos apuntando a una
+     pulsera— lo ven las dos en `false` y suman los puntos dos veces. La espera
+     de 600 ms de abajo tapa el caso lento; esto tapa el rapido. */
+  const registrando = useRef(false);
   const registrar = useCallback(async (payload) => {
-    if (working || !sel) return;
+    if (working || registrando.current || !sel) return;
+    registrando.current = true;
     setWorking(true);
     try {
       const r = await expositorApi.registrar(codigo, { ...payload, motivo_id: sel.id });
       setUltimo({ ok: true, ...r });
     } catch (e) { setUltimo({ ok: false, error: e.response?.data?.error || e.message }); }
-    finally { setTimeout(() => setWorking(false), 600); }
+    finally { registrando.current = false; setTimeout(() => setWorking(false), 600); }
   }, [codigo, sel, working]);
 
   const onScan = useCallback((qr) => registrar(leerQr(qr)), [registrar]);

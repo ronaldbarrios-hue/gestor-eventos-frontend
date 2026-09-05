@@ -601,10 +601,15 @@ function WaitlistModal({ tipo, slug, onClose }) {
   const [done, setDone] = useState(null);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
+  /* Mismo cerrojo que en la reserva: dos toques seguidos apuntaban dos veces
+     a la misma persona y le daban dos puestos en la fila. */
+  const enviando = useRef(false);
 
   const submit = async (e) => {
     e.preventDefault();
     if (turnstileActivo && !captcha) { setErr('Completá la verificación anti-bot.'); return; }
+    if (enviando.current) return;
+    enviando.current = true;
     setWorking(true); setErr('');
     try {
       const { waitlistApi } = await import('../../api/waitlist.js');
@@ -616,7 +621,7 @@ function WaitlistModal({ tipo, slug, onClose }) {
       setDone({ posicion: r.entry?.posicion });
     } catch (e) {
       setErr(e.response?.data?.error || e.message);
-    } finally { setWorking(false); }
+    } finally { enviando.current = false; setWorking(false); }
   };
 
   return (
@@ -721,6 +726,8 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
   const [prellenado, setPrellenado] = useState(null);
   const [working, setWorking] = useState(false);
+  /* Ver el cerrojo en `submit`: `working` pinta, esto impide. */
+  const enviando = useRef(false);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
   const [acepta, setAcepta] = useState(false);
@@ -975,6 +982,15 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
       irAloQueFalta();
       return;
     }
+    /* Cerrojo del doble toque.
+     *
+     * `disabled={working}` no llega: el botón se deshabilita cuando React
+     * pinta, y dos toques en el mismo fotograma —lo normal en un móvil con
+     * un botón que tarda— entran los dos antes de eso. Cada uno emite SU
+     * boleta: la misma persona acaba con dos, y en un tipo con cupo son dos
+     * sitios ocupados. Un `ref` cambia en el acto, sin esperar a pintar. */
+    if (enviando.current) return;
+    enviando.current = true;
     setWorking(true); setErr('');
     try {
       /* El token del correo viaja con la compra: es lo que le da derecho al
@@ -1025,7 +1041,9 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', onC
         }
       }
     } catch (e) { setErr(e.response?.data?.error || e.message); }
-    finally    { setWorking(false); }
+    /* Se suelta el cerrojo pase lo que pase: si falló, tiene que poder
+       reintentar. Lo que no puede es salir dos veces a la vez. */
+    finally    { enviando.current = false; setWorking(false); }
   };
 
   return (
