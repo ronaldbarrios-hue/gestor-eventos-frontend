@@ -115,8 +115,10 @@ export default function EventoPublicoPage() {
     if (!cupoToken) { setCupo(false); return; }
     let vivo = true;
     waitlistApi.verificarCupo(cupoToken)
-      .then(d => { if (vivo) setCupo(d?.valida ? d : false); })
-      .catch(() => { if (vivo) setCupo(false); });
+      /* Cuando no vale, el motivo viaja igual: `false` a secas obligaba a
+         contestar lo mismo a quien ya compro y a quien llego tarde. */
+      .then(d => { if (vivo) setCupo(d?.valida ? d : { valida: false, motivo: d?.motivo }); })
+      .catch(() => { if (vivo) setCupo({ valida: false }); });
     return () => { vivo = false; };
   }, [cupoToken]);
 
@@ -478,10 +480,17 @@ export default function EventoPublicoPage() {
             dice, porque la alternativa es que la persona lo descubra tras
             rellenar el formulario. */}
         {cupoToken && cupo !== null && (
-          <AvisoCupo cupo={cupo} onTomar={() => {
-            const t = (evento.ticket_types || []).find(x => x.id === cupo?.ticket_type_id);
-            if (t) setReservaTipo(t);
-          }} />
+          <AvisoCupo
+            cupo={cupo}
+            /* El tipo de boleta puede haber dejado de estar a la venta desde
+               que salió el correo. Sin esto el botón «Tomar mi cupo» no hacía
+               NADA al pulsarlo: ni abría el formulario ni decía por qué, que
+               es la peor forma de negarse. */
+            tipoDisponible={(evento.ticket_types || []).some(x => x.id === cupo?.ticket_type_id)}
+            onTomar={() => {
+              const t = (evento.ticket_types || []).find(x => x.id === cupo?.ticket_type_id);
+              if (t) setReservaTipo(t);
+            }} />
         )}
 
         {/* Contenido de la página: lienzo libre o bloques ordenados */}
@@ -685,15 +694,38 @@ function WaitlistModal({ tipo, slug, onClose }) {
 /* Aviso del cupo que llegó por correo. Dos caras: la buena, con el plazo a la
    vista, y la de "llegaste tarde", que hay que decir igual — enterarse al
    pulsar Reservar, después de escribirlo todo, es peor. */
-function AvisoCupo({ cupo, onTomar }) {
-  if (!cupo) {
+/* Por qué no vale un enlace de cupo, dicho para cada caso.
+ *
+ * Antes los tres compartían una frase: «o se usó, o se pasó el plazo… sigues
+ * en la fila». A quien YA COMPRÓ con ese enlace eso le dice que espere un
+ * correo que no va a llegar —ya tiene su boleta—, y encima puede hacerle
+ * comprar otra vez. Una frase que vale para todos no vale para ninguno. */
+const CUPO_NO_VALE = {
+  ya_usado: {
+    titulo: 'Ese cupo ya lo tomaste',
+    texto: 'Tu boleta está emitida. Búscala en el correo que te llegó al reservarla; si no aparece, mira también en spam.',
+  },
+  vencido: {
+    titulo: 'Se pasó el plazo de tu cupo',
+    texto: 'El sitio que te guardamos volvió a la lista. Sigues en la fila: si se libera otro, te avisamos.',
+  },
+  paso_al_siguiente: {
+    titulo: 'Ese cupo ya le tocó a otra persona',
+    texto: 'Sigues en la fila: si se libera otro, te volvemos a avisar.',
+  },
+  desconocido: {
+    titulo: 'Ese enlace de cupo ya no vale',
+    texto: 'O se usó, o se pasó el plazo y le tocó al siguiente de la lista.',
+  },
+};
+
+function AvisoCupo({ cupo, onTomar, tipoDisponible = true }) {
+  if (!cupo?.valida) {
+    const { titulo, texto } = CUPO_NO_VALE[cupo?.motivo] || CUPO_NO_VALE.desconocido;
     return (
       <div className="mb-8 rounded-2xl border border-warning/30 bg-warning/5 px-5 py-4">
-        <p className="text-sm font-semibold text-text-1">Ese enlace de cupo ya no vale</p>
-        <p className="text-sm text-text-2 mt-1">
-          O se usó, o se pasó el plazo y le tocó al siguiente de la lista. Sigues
-          en la fila: si se libera otro, te volvemos a avisar.
-        </p>
+        <p className="text-sm font-semibold text-text-1">{titulo}</p>
+        <p className="text-sm text-text-2 mt-1">{texto}</p>
       </div>
     );
   }
@@ -715,7 +747,12 @@ function AvisoCupo({ cupo, onTomar }) {
             : 'Te lo guardamos un rato. Después le toca al siguiente de la lista.'}
         </p>
       </div>
-      <button onClick={onTomar} className="btn-gradient flex-shrink-0">Tomar mi cupo</button>
+      {tipoDisponible
+        ? <button onClick={onTomar} className="btn-gradient flex-shrink-0">Tomar mi cupo</button>
+        : <p className="text-sm text-text-2 flex-shrink-0">
+            Esa boleta ya no está a la venta. Escribe a quien organiza el evento
+            con este correo a mano.
+          </p>}
     </div>
   );
 }
