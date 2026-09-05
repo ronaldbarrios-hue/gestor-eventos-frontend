@@ -40,6 +40,12 @@ export default function EtiquetadoraSection({ evento }) {
      patrocinadores: otro tamaño, otro rollo y otro contenido cada una. */
   const [piezas, setPiezas] = useState(() => piezasDelEvento(evento));
   const [piezaId, setPiezaId] = useState(() => piezasDelEvento(evento)[0]?.id);
+  /* Lo último que confirmó el servidor. Sin esto no hay forma de saber si lo
+     que se está viendo ya está guardado: añadir una pieza, ajustar los
+     milímetros y cambiar de pestaña se llevaba el trabajo sin decir nada — y
+     al volver, la pantalla se veía igual que antes de empezar. */
+  const [guardado, setGuardado] = useState(() => JSON.stringify(piezasDelEvento(evento)));
+  const sinGuardar = JSON.stringify(piezas) !== guardado;
   const [guardando, setGuardando] = useState(false);
   const [midiendo, setMidiendo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -75,7 +81,9 @@ export default function EtiquetadoraSection({ evento }) {
     ps.map(x => (x.id === etq.id ? normalizarPieza({ ...x, ...patch }) : x)));
 
   const agregar = (tipo) => {
-    const nueva = piezaDesdeTipo(tipo);
+    /* Con las que ya hay: la segunda escarapela se llama «Escarapela 2» en vez
+       de quedar como un gemelo indistinguible de la primera. */
+    const nueva = piezaDesdeTipo(tipo, piezas);
     setPiezas(ps => [...ps, nueva]);
     setPiezaId(nueva.id);
   };
@@ -98,6 +106,7 @@ export default function EtiquetadoraSection({ evento }) {
       /* El PATCH mezcla por claves de primer nivel, así que mandar sólo
          `piezas` no pisa el resto de `page_json`. */
       await eventosApi.update(evento.id, { page_json: { piezas } });
+      setGuardado(JSON.stringify(piezas));
       success('Guardado. Las próximas impresiones salen así.');
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setGuardando(false); }
@@ -134,11 +143,19 @@ export default function EtiquetadoraSection({ evento }) {
                 <span className="text-text-3 tabular-nums">{pz.ancho}×{pz.alto}</span>
               </button>
             ))}
-            <select value="" onChange={e => e.target.value && agregar(e.target.value)}
-              className="input !h-8 text-xs w-auto">
-              <option value="">+ Añadir pieza…</option>
-              {TIPOS_PIEZA.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
+            {/* Un botón por tipo, y no un desplegable.
+                El `<select>` de antes se pintaba como un campo de texto ancho
+                al lado de unas fichas pequeñas —desentonaba— y escondía la
+                única información que importa aquí: que hay tres piezas
+                distintas y en qué se diferencian. Son tres: caben. */}
+            <span className="text-text-3 text-xs px-1">Añadir:</span>
+            {TIPOS_PIEZA.map(t => (
+              <button key={t.id} onClick={() => agregar(t.id)} title={t.pista}
+                className="px-2.5 py-1.5 rounded-xl text-xs border border-dashed border-border
+                           text-text-3 hover:text-text-1 hover:border-text-3 transition-colors">
+                + {t.nombre}
+              </button>
+            ))}
           </div>
 
           <p className="text-[11px] text-text-3 leading-relaxed">
@@ -268,10 +285,17 @@ export default function EtiquetadoraSection({ evento }) {
               </div>
             )}
 
-            <div className="flex items-center gap-2">
-              <button onClick={guardarMedidas} disabled={guardando} className="btn-primary btn-sm">
-                {guardando ? 'Guardando…' : 'Guardar medidas'}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={guardarMedidas} disabled={guardando || !sinGuardar} className="btn-primary btn-sm">
+                {guardando ? 'Guardando…' : sinGuardar ? 'Guardar medidas' : 'Guardado'}
               </button>
+              {/* Se dice ANTES de salir, no después de haber perdido. Las
+                  piezas viven en `page_json` y sólo llegan ahí al guardar. */}
+              {sinGuardar && (
+                <span className="text-[11px] text-warning">
+                  Cambios sin guardar. Si sales ahora, se pierden.
+                </span>
+              )}
               <button onClick={() => cambiar(piezaDesdeTipo(etq.tipo))} className="btn-ghost btn-sm">
                 Volver a las medidas de {tipoPieza(etq.tipo).nombre.toLowerCase()}
               </button>

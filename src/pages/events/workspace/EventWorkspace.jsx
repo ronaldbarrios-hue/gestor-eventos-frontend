@@ -193,7 +193,12 @@ const SECCIONES = [
     /* Los dos permisos, no uno: la escarapela la imprime quien está en la
        puerta y el carné lo diseña quien lleva los clientes. La pantalla
        comprueba dentro cuál de las dos vistas puede ver cada quien. */
-    { id: 'acreditacion', label: 'Escarapelas y carnés', perm: ['checkin', 'ver_clientes'] },
+    /* «Escarapelas y carnés» nombraba dos de las cosas que hay dentro y dejaba
+       fuera la tercera —imprimir en la etiquetadora—, así que quien buscaba
+       dónde imprimir no miraba aquí. «Acreditación» es lo que se viene a
+       hacer, y es la palabra que ya se usa en un evento; las tres piezas se
+       nombran en la línea de debajo, que es donde se buscan. */
+    { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'ver_clientes'] },
     { id: 'previos',      label: 'Invitaciones',        perm: 'ver_clientes' },
   ]},
   { id: 'equipo', label: 'Equipo y tareas', icon: UsersIcon, tabs: [

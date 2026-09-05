@@ -92,7 +92,15 @@ export const TIPOS_PIEZA = [
     id: 'manilla',
     nombre: 'Manilla',
     pista: 'Para los días completos. Ojo: el QR firmado NO cabe — ver el aviso al elegirla.',
-    medidas: { ancho: 250, alto: 25, margen: 2, qr_objetivo: 20, disposicion: 'lado' },
+    /* 210 y no 250, que es lo que decía antes.
+       `LIMITES.ancho.max` son 210 mm, así que `normalizarEtiqueta` recortaba
+       toda manilla a 210 en silencio: el catálogo prometía una medida que
+       ninguna pieza llegaba a tener nunca. Se veía «Manilla 250×25» en la
+       lista de tipos y salía una de 210.
+       Si las manillas de verdad miden 250, lo que hay que subir es el LÍMITE
+       —y comprobar antes que la impresora acepta ese ancho—, no volver a
+       declarar aquí un número que se recorta al guardarse. */
+    medidas: { ancho: 210, alto: 25, margen: 2, qr_objetivo: 20, disposicion: 'lado' },
     /* Aquí no es una preferencia: con 25 mm de alto y márgenes, el QR firmado no
        entra ni a tres puntos por módulo. La manilla se imprime con el serial. */
     qr_contenido: 'codigo',
@@ -137,10 +145,20 @@ export function normalizarPieza(p) {
   };
 }
 
-export function piezaDesdeTipo(id) {
+/* `existentes` sirve para NO repetir el nombre.
+ *
+ * Añadir dos escarapelas dejaba dos fichas llamadas «Escarapela», con las
+ * mismas medidas al lado: en pantalla eran indistinguibles, y elegir la
+ * equivocada sólo se descubre al imprimir el rollo. La segunda pasa a llamarse
+ * «Escarapela 2». Es un nombre editable, así que esto sólo tiene que ser
+ * distinto — no tiene que ser bonito. */
+export function piezaDesdeTipo(id, existentes = []) {
   const t = tipoPieza(id);
+  const usados = new Set((existentes || []).map(x => String(x?.nombre || '').trim()));
+  let nombre = t.nombre;
+  for (let n = 2; usados.has(nombre); n++) nombre = `${t.nombre} ${n}`;
   return normalizarPieza({
-    tipo: t.id, nombre: t.nombre,
+    tipo: t.id, nombre,
     qr_contenido: t.qr_contenido, formato_codigo: t.formato_codigo,
     ...t.medidas,
   });

@@ -40,6 +40,15 @@ export default function AcreditacionSection({ evento, soyOwner, permisos = [] })
 
   return (
     <div className="space-y-4">
+      {/* Qué es esto, en una línea.
+          El título de la pestaña dice el trabajo —acreditar— y aquí van las
+          piezas por su nombre: es lo que alguien busca cuando piensa «¿dónde
+          se diseña la escarapela?». */}
+      <p className="text-sm text-text-2 leading-relaxed">
+        Lo que el asistente lleva encima: <strong className="text-text-1">escarapelas</strong>,{' '}
+        <strong className="text-text-1">carnés</strong> y <strong className="text-text-1">manillas</strong>.
+        Se diseñan aquí y se imprimen desde aquí.
+      </p>
       {vistas.length > 1 && (
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit">
           {vistas.map(([k, l]) => (
