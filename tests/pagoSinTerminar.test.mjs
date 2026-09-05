@@ -88,3 +88,51 @@ test('el servidor manda el precio del tipo', () => {
   assert.match(src, /tipo:ticket_types!ticket_type_id\(nombre, descripcion, precio, currency/,
     'la ruta de la boleta dejó de mandar el precio del tipo');
 });
+
+test('«Terminar el pago» retoma ESTA boleta, no empieza otra compra', () => {
+  /* El botón era un enlace a la página del evento, o sea a empezar una compra
+     nueva: salía una segunda boleta, la primera se quedaba sin pagar para
+     siempre, y quien organiza veía dos apuntes de la misma persona sin saber
+     cuál era cuál. Y la propia frase de al lado —«si ya pagaste, escribe a
+     quien organiza»— reconocía que el camino que ofrecía era el equivocado. */
+  const src = leer();
+  assert.doesNotMatch(src, /href=\{`\/explorar\/\$\{ticket\.evento\.slug\}`\}[\s\S]{0,200}Terminar el pago/,
+    'el botón volvió a mandar a empezar otra compra');
+  assert.match(src, /pagosApi\.reanudarPago\(codigo\)/,
+    'no se retoma el pago de esta boleta');
+
+  /* Si la confirmación llegó mientras miraba la pantalla, eso no es un error:
+     es la mejor noticia posible y se recarga en vez de enseñar un fallo. */
+  assert.match(src, /if \(e\.response\?\.data\?\.ya_pagada\) \{ window\.location\.reload\(\); return; \}/,
+    'a quien ya le confirmaron el pago se le enseña un error');
+
+  /* Y el mismo cerrojo de doble toque que en la compra: dos toques abrirían
+     dos apuntes de pago para la misma boleta. */
+  assert.match(src, /if \(enviando\.current\) return;/,
+    'falta el cerrojo del doble toque en el botón de pago');
+});
+
+test('el servidor retoma la boleta con SU referencia y SU precio', () => {
+  const back = '../../../../gestor-eventos-backend/routes/pagos.js';
+  let src;
+  try { src = readFileSync(back, 'utf8').replace(/\r/g, ''); } catch { return; }  // repos separados
+
+  /* La referencia es la de siempre, `tx_<id>`, así que el webhook que ya
+     existe confirma la boleta que ya existe. Ése es todo el truco. */
+  assert.match(src, /router\.post\('\/eventos\/publicos\/ticket\/:codigo\/reanudar-pago'/,
+    'desapareció la ruta que retoma un pago a medias');
+  const ruta = src.slice(src.indexOf("/reanudar-pago'"));
+  assert.match(ruta.slice(0, 6000), /const referencia = `tx_\$\{ticket\.id\}`;/,
+    'la referencia cambió: el webhook confirmaría otra cosa, o ninguna');
+
+  /* El precio sale del apunte pendiente y no de la lista de hoy: es lo que esa
+     persona ya había aceptado pagar. Recalcularlo puede cobrarle más —se acabó
+     el early bird, su código caducó— y enterarse en la pasarela es la peor
+     forma de enterarse. */
+  assert.match(ruta.slice(0, 6000), /let monto = Number\(previa\?\.monto\) \|\| 0;/,
+    'el precio dejó de salir del intento anterior: podría cobrarse de más');
+
+  /* Y no se le cobra a quien ya pagó. */
+  assert.match(ruta.slice(0, 6000), /if \(ticket\.estado !== 'emitido' \|\| Number\(ticket\.precio_pagado\) > 0\)/,
+    'se puede pedir el enlace de pago de una boleta ya pagada');
+});

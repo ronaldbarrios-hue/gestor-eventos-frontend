@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Icono from '../../components/ui/Iconos.jsx';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
+import { pagosApi } from '../../api/pagos.js';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
@@ -148,16 +149,11 @@ export default function MiTicketPage() {
         <div className="mb-6 rounded-2xl border-2 border-warning/50 bg-warning/10 px-4 py-3.5">
           <p className="text-sm text-text-1 font-semibold">Tu pago no se completó.</p>
           <p className="text-xs text-text-2 mt-1 leading-relaxed">
-            Esta entrada está apartada, no confirmada. Vuelve a la página del evento y
-            termina el pago — si ya pagaste, escribe a quien organiza con el código de abajo
-            antes de ir.
+            Esta entrada está apartada, no confirmada. Puedes terminar el pago de{' '}
+            <strong className="text-text-1">esta misma entrada</strong> — si ya pagaste,
+            escribe a quien organiza con el código de abajo antes de volver a intentarlo.
           </p>
-          {ticket.evento?.slug && (
-            <a href={`/explorar/${ticket.evento.slug}`}
-               className="inline-block mt-3 px-4 py-2.5 rounded-full bg-text-1 text-bg text-sm font-semibold">
-              Terminar el pago
-            </a>
-          )}
+          <BotonReanudar codigo={ticket.codigo} slug={ticket.evento?.slug} />
         </div>
       )}
 
@@ -539,5 +535,54 @@ function Row({ label, value }) {
       <span className="text-[10px] uppercase tracking-widest text-text-3 font-semibold">{label}</span>
       <span className="text-sm text-text-1 text-right truncate">{value}</span>
     </div>
+  );
+}
+
+/* Terminar el pago de ESTA entrada.
+ *
+ * Antes este botón era un enlace a la página del evento, o sea a empezar otra
+ * compra: salía una segunda boleta, la primera se quedaba sin pagar para
+ * siempre, y quien organiza veía dos apuntes de la misma persona sin saber
+ * cuál era cuál. Ahora el servidor retoma la misma boleta con la misma
+ * referencia, así que el pago que llegue confirma la que ya existe.
+ *
+ * Si el servidor contesta que ya está pagada —porque la confirmación llegó
+ * mientras la persona miraba esta pantalla— se recarga en vez de enseñar un
+ * error: es la mejor noticia posible y no se puede dar como si fuera un fallo. */
+function BotonReanudar({ codigo, slug }) {
+  const [yendo, setYendo] = useState(false);
+  const [err, setErr] = useState('');
+  const enviando = useRef(false);
+
+  const ir = async () => {
+    if (enviando.current) return;
+    enviando.current = true;
+    setYendo(true); setErr('');
+    try {
+      const r = await pagosApi.reanudarPago(codigo);
+      const url = r.checkout?.url || r.checkout?.init_point || r.checkout?.sandbox_init_point;
+      if (!url) throw new Error('La pasarela no devolvió el enlace de pago.');
+      window.location.assign(url);
+    } catch (e) {
+      if (e.response?.data?.ya_pagada) { window.location.reload(); return; }
+      setErr(mensajePublico(e).texto);
+    } finally { enviando.current = false; setYendo(false); }
+  };
+
+  return (
+    <>
+      <button onClick={ir} disabled={yendo}
+        className="inline-block mt-3 px-4 py-2.5 rounded-full bg-text-1 text-bg text-sm font-semibold disabled:opacity-60">
+        {yendo ? 'Abriendo el pago…' : 'Terminar el pago'}
+      </button>
+      {err && (
+        <p className="text-xs text-danger mt-2 leading-relaxed">
+          {err}
+          {/* La salida de siempre, por si la pasarela del organizador cambió o
+              se desconectó: desde la página del evento se puede comprar. */}
+          {slug && <> <a href={`/explorar/${slug}`} className="underline">Ir a la página del evento</a>.</>}
+        </p>
+      )}
+    </>
   );
 }

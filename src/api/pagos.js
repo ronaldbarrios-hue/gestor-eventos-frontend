@@ -15,4 +15,9 @@ export const pagosApi = {
   /* Flujo público de compra */
   comprar     : (slug, body) => client.post(`/eventos/publicos/slug/${slug}/comprar`, body).then(r => r.data),
   comprarWompi: (slug, body) => client.post(`/eventos/publicos/slug/${slug}/comprar-wompi`, body).then(r => r.data),
+
+  /* Retomar el pago de una boleta que se quedo a medias. La credencial es el
+     codigo, el mismo que abre /mi-ticket: quien llega aqui no tiene cuenta. */
+  reanudarPago: (codigo) =>
+    client.post(`/eventos/publicos/ticket/${encodeURIComponent(codigo)}/reanudar-pago`).then(r => r.data),
 };
