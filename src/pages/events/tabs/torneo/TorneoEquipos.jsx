@@ -45,10 +45,13 @@ export default function EquiposView({ evento, torneo, equipos, soyOwner, onReloa
 
   const generar = async () => {
     if (equipos.length < minRequerido) { toastErr(`Se necesitan al menos ${minRequerido} equipos.`); return; }
-    if (!(await confirmDialog({ message: '¿Generar el fixture? Después de esto no podrás agregar ni quitar equipos.' }))) return;
+    const esJurado = torneo.formato === 'puntaje_jurado';
+    if (!(await confirmDialog({ message: esJurado
+      ? '¿Iniciar el torneo? Después de esto no podrás agregar ni quitar equipos.'
+      : '¿Generar el fixture? Después de esto no podrás agregar ni quitar equipos.' }))) return;
     try {
       await torneosApi.generarFixture(evento.id, torneo.id);
-      success('¡Fixture generado!');
+      success(esJurado ? '¡Torneo iniciado! Ya se puede calificar en la pestaña "Calificación".' : '¡Fixture generado!');
       onReload();
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
@@ -74,7 +77,7 @@ export default function EquiposView({ evento, torneo, equipos, soyOwner, onReloa
           </div>
           {equipos.length >= minRequerido && (
             <button onClick={generar} className="btn-primary btn-sm">
-              Generar fixture ({equipos.length} equipos)
+              {torneo.formato === 'puntaje_jurado' ? `Iniciar torneo (${equipos.length} equipos)` : `Generar fixture (${equipos.length} equipos)`}
             </button>
           )}
         </div>
