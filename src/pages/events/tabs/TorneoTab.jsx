@@ -11,6 +11,7 @@ import EquiposView from './torneo/TorneoEquipos.jsx';
 import BracketView from './torneo/TorneoBracket.jsx';
 import LigaView from './torneo/TorneoLiga.jsx';
 import GruposView from './torneo/TorneoGrupos.jsx';
+import TorneoJurado from './torneo/TorneoJurado.jsx';
 
 /* Tab Torneo — VARIOS torneos por evento (Smash, Tekken, boxeo, fútbol…),
    cada uno con su disciplina. Disponible para cualquier evento (ya no solo
@@ -204,15 +205,18 @@ export default function TorneoTab({ evento, soyOwner }) {
 
 function TorneoView({ evento, torneo, equipos, partidos, soyOwner, onReload }) {
   const esGrupos = torneo.formato === 'grupos_eliminacion';
+  const esJurado = torneo.formato === 'puntaje_jurado';
   const defaultSub = esGrupos
     ? (torneo.fase_actual === 'eliminacion' ? 'bracket' : (torneo.fase_actual === 'grupos' ? 'grupos' : 'equipos'))
+    : esJurado ? (torneo.estado === 'armando' ? 'equipos' : 'jurado')
     : (torneo.formato === 'eliminacion' ? 'bracket' : 'liga');
   const [sub, setSub] = useState('equipos');
 
   useEffect(() => { setSub(defaultSub); /* eslint-disable-next-line */ }, [torneo.id, torneo.fase_actual]);
 
   const nombreFormato = torneo.formato === 'eliminacion' ? 'Eliminación'
-    : torneo.formato === 'liga' ? 'Liga' : 'Grupos + Eliminación';
+    : torneo.formato === 'liga' ? 'Liga'
+    : esJurado ? 'Puntaje por jurado' : 'Grupos + Eliminación';
 
   return (
     <div className="space-y-5">
@@ -268,6 +272,12 @@ function TorneoView({ evento, torneo, equipos, partidos, soyOwner, onReload }) {
             Bracket
           </button>
         )}
+        {esJurado && (
+          <button onClick={() => setSub('jurado')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sub === 'jurado' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+            Calificación
+          </button>
+        )}
       </div>
 
       {sub === 'equipos' && (
@@ -281,6 +291,9 @@ function TorneoView({ evento, torneo, equipos, partidos, soyOwner, onReload }) {
       )}
       {sub === 'grupos' && (
         <GruposView evento={evento} torneo={torneo} partidos={partidos.filter(p => p.fase === 'grupos')} equipos={equipos} soyOwner={soyOwner} onReload={onReload} />
+      )}
+      {sub === 'jurado' && (
+        <TorneoJurado evento={evento} torneo={torneo} soyOwner={soyOwner} onReload={onReload} />
       )}
     </div>
   );
