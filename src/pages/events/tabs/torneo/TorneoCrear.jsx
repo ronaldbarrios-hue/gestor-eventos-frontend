@@ -21,6 +21,14 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
   const [formato, setFormato] = useState('eliminacion');
   const [numGrupos, setNumGrupos] = useState(2);
   const [avanzanPorGrupo, setAvanzanPorGrupo] = useState(2);
+  /* Puntaje por jurado ("show de talento"): dos decisiones aparte del
+     formato — cómo se califica (una nota o varias que suman) y si hay una
+     sola presentación o varias rondas eliminatorias. */
+  const [modoCalificacion, setModoCalificacion] = useState('rubrica');
+  const [puntajeUnicoMax, setPuntajeUnicoMax] = useState(10);
+  const [criterios, setCriterios] = useState([{ nombre: '', puntaje_maximo: 10 }]);
+  const [modoRondas, setModoRondas] = useState('una_ronda');
+  const [rondas, setRondas] = useState([{ nombre: 'Semifinal', avanzan: 2 }, { nombre: 'Final' }]);
   const [working, setWorking] = useState(false);
   /* Cuándo se juega, en el mismo paso.
      Ya había una forma de darle hueco en el calendario —la tarjeta
@@ -36,6 +44,24 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
   const submit = async (e) => {
     e.preventDefault();
     if (!nombre.trim()) { toastErr('El nombre del torneo es requerido.'); return; }
+    if (formato === 'puntaje_jurado') {
+      if (modoCalificacion === 'rubrica') {
+        for (const c of criterios) {
+          if (!c.nombre.trim()) { toastErr('Cada criterio necesita un nombre.'); return; }
+          if (!(Number(c.puntaje_maximo) > 0)) { toastErr(`"${c.nombre}": indica un puntaje máximo válido.`); return; }
+        }
+      } else if (!(Number(puntajeUnicoMax) > 0)) {
+        toastErr('Indica un puntaje máximo válido.'); return;
+      }
+      if (modoRondas === 'eliminatoria') {
+        for (let i = 0; i < rondas.length; i++) {
+          if (!rondas[i].nombre.trim()) { toastErr(`La ronda ${i + 1} necesita un nombre.`); return; }
+          if (i < rondas.length - 1 && !(Number(rondas[i].avanzan) >= 1)) {
+            toastErr(`"${rondas[i].nombre}": indica cuántos avanzan a la siguiente ronda (mínimo 1).`); return;
+          }
+        }
+      }
+    }
     setWorking(true);
     try {
       const body = {
@@ -46,6 +72,18 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
       if (formato === 'grupos_eliminacion') {
         body.num_grupos = Number(numGrupos);
         body.avanzan_por_grupo = Number(avanzanPorGrupo);
+      }
+      if (formato === 'puntaje_jurado') {
+        body.modo_calificacion = modoCalificacion;
+        body.modo_rondas = modoRondas;
+        body.criterios = modoCalificacion === 'puntaje_unico'
+          ? [{ puntaje_maximo: Number(puntajeUnicoMax) }]
+          : criterios.map(c => ({ nombre: c.nombre.trim(), puntaje_maximo: Number(c.puntaje_maximo) }));
+        body.rondas = modoRondas === 'una_ronda'
+          ? [{ nombre: 'Ronda única' }]
+          : rondas.map((r, i) => i === rondas.length - 1
+              ? { nombre: r.nombre.trim() }
+              : { nombre: r.nombre.trim(), avanzan: Number(r.avanzan) });
       }
       const { torneo } = await torneosApi.crear(eventoId, body);
 
@@ -121,7 +159,7 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
                 <option value="">Sin clasificar</option>
                 {aplanar(categorias).map(c => (
                   <option key={c.id} value={c.id}>
-                    {'  '.repeat(c.profundidad)}{c.profundidad > 0 ? '› ' : ''}{c.nombre}
+                    {'  '.repeat(c.profundidad)}{c.profundidad > 0 ? '› ' : ''}{c.nombre}
                   </option>
                 ))}
               </select>
@@ -146,8 +184,23 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
                 <p className="text-sm font-semibold text-text-1">Grupos + Eliminación</p>
                 <p className="text-xs text-text-3 mt-1 leading-relaxed">Fase de grupos (todos contra todos) y luego los mejores pasan a eliminación directa — como un mundial.</p>
               </button>
+              <button type="button" onClick={() => setFormato('puntaje_jurado')}
+                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${formato === 'puntaje_jurado' ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-border-2'}`}>
+                <p className="text-sm font-semibold text-text-1">Puntaje por jurado</p>
+                <p className="text-xs text-text-3 mt-1 leading-relaxed">Nadie se enfrenta a nadie: todos se presentan y un jurado califica con puntos. Ideal para un show de talento, una feria o un concurso.</p>
+              </button>
             </div>
           </div>
+
+          {formato === 'puntaje_jurado' && (
+            <CalificacionConfig
+              modoCalificacion={modoCalificacion} setModoCalificacion={setModoCalificacion}
+              puntajeUnicoMax={puntajeUnicoMax} setPuntajeUnicoMax={setPuntajeUnicoMax}
+              criterios={criterios} setCriterios={setCriterios}
+              modoRondas={modoRondas} setModoRondas={setModoRondas}
+              rondas={rondas} setRondas={setRondas}
+            />
+          )}
 
           {formato === 'grupos_eliminacion' && (
             <div className="grid grid-cols-2 gap-3 rounded-2xl bg-surface-2/40 border border-border p-4">
@@ -180,6 +233,118 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/* La configuración propia de "Puntaje por jurado": cómo se califica (una
+   nota o varias que suman) y si hay una sola presentación o varias rondas
+   eliminatorias. Aparte de CrearTorneo porque son ocho campos que sólo
+   existen para este formato — meterlos ahí habría duplicado el patrón
+   "if (formato === 'grupos_eliminacion')" con el doble de líneas. */
+function CalificacionConfig({
+  modoCalificacion, setModoCalificacion, puntajeUnicoMax, setPuntajeUnicoMax,
+  criterios, setCriterios, modoRondas, setModoRondas, rondas, setRondas,
+}) {
+  const setCriterio = (i, campo, valor) => setCriterios(cs => cs.map((c, idx) => idx === i ? { ...c, [campo]: valor } : c));
+  const agregarCriterio = () => setCriterios(cs => [...cs, { nombre: '', puntaje_maximo: 10 }]);
+  const quitarCriterio = (i) => setCriterios(cs => cs.length > 1 ? cs.filter((_, idx) => idx !== i) : cs);
+
+  const setRonda = (i, campo, valor) => setRondas(rs => rs.map((r, idx) => idx === i ? { ...r, [campo]: valor } : r));
+  const agregarRonda = () => setRondas(rs => [...rs, { nombre: '' }]);
+  const quitarRonda = (i) => setRondas(rs => rs.length > 2 ? rs.filter((_, idx) => idx !== i) : rs);
+
+  return (
+    <div className="space-y-4 rounded-2xl bg-surface-2/40 border border-border p-4">
+      <div>
+        <label className="label text-xs mb-2">¿Cómo se califica?</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setModoCalificacion('rubrica')}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-all ${modoCalificacion === 'rubrica' ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-border-2'}`}>
+            <p className="text-xs font-semibold text-text-1">Rúbrica</p>
+            <p className="text-[11px] text-text-3 mt-0.5">Varios criterios que suman.</p>
+          </button>
+          <button type="button" onClick={() => setModoCalificacion('puntaje_unico')}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-all ${modoCalificacion === 'puntaje_unico' ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-border-2'}`}>
+            <p className="text-xs font-semibold text-text-1">Puntaje único</p>
+            <p className="text-[11px] text-text-3 mt-0.5">Un solo número.</p>
+          </button>
+        </div>
+      </div>
+
+      {modoCalificacion === 'puntaje_unico' ? (
+        <div className="field">
+          <label className="label text-xs">Puntaje máximo</label>
+          <input type="number" min="1" value={puntajeUnicoMax} onChange={e => setPuntajeUnicoMax(e.target.value)}
+            className="input rounded-xl py-2.5 max-w-[10rem]" required />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <label className="label text-xs">Criterios de la rúbrica</label>
+          {criterios.map((c, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input value={c.nombre} onChange={e => setCriterio(i, 'nombre', e.target.value)}
+                placeholder="Ej. Técnica, Creatividad, Presentación"
+                className="input rounded-xl py-2 flex-1" required />
+              <input type="number" min="1" value={c.puntaje_maximo} onChange={e => setCriterio(i, 'puntaje_maximo', e.target.value)}
+                className="input rounded-xl py-2 w-20" title="Puntaje máximo" required />
+              {criterios.length > 1 && (
+                <button type="button" onClick={() => quitarCriterio(i)} aria-label="Quitar criterio"
+                  className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+            </div>
+          ))}
+          <button type="button" onClick={agregarCriterio} className="text-xs text-text-3 hover:text-text-1">+ Agregar criterio</button>
+        </div>
+      )}
+
+      <div className="border-t border-border pt-4">
+        <label className="label text-xs mb-2">¿Rondas?</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setModoRondas('una_ronda')}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-all ${modoRondas === 'una_ronda' ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-border-2'}`}>
+            <p className="text-xs font-semibold text-text-1">Una sola ronda</p>
+            <p className="text-[11px] text-text-3 mt-0.5">Todos se presentan una vez.</p>
+          </button>
+          <button type="button" onClick={() => setModoRondas('eliminatoria')}
+            className={`px-3 py-2.5 rounded-xl border text-left transition-all ${modoRondas === 'eliminatoria' ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-border-2'}`}>
+            <p className="text-xs font-semibold text-text-1">Eliminatoria</p>
+            <p className="text-[11px] text-text-3 mt-0.5">Varias rondas: los mejores avanzan.</p>
+          </button>
+        </div>
+      </div>
+
+      {modoRondas === 'eliminatoria' && (
+        <div className="space-y-2">
+          {rondas.map((r, i) => {
+            const esUltima = i === rondas.length - 1;
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <input value={r.nombre} onChange={e => setRonda(i, 'nombre', e.target.value)}
+                  placeholder={esUltima ? 'Ej. Final' : 'Ej. Semifinal'}
+                  className="input rounded-xl py-2 flex-1" required />
+                {!esUltima && (
+                  <input type="number" min="1" value={r.avanzan ?? ''} onChange={e => setRonda(i, 'avanzan', e.target.value)}
+                    title="Cuántos avanzan a la siguiente ronda" placeholder="Avanzan"
+                    className="input rounded-xl py-2 w-24" required />
+                )}
+                {rondas.length > 2 && (
+                  <button type="button" onClick={() => quitarRonda(i)} aria-label="Quitar ronda"
+                    className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          <button type="button" onClick={agregarRonda} className="text-xs text-text-3 hover:text-text-1">+ Agregar ronda</button>
+          <p className="text-[11px] text-text-3 leading-relaxed">
+            La última ronda ("{rondas[rondas.length - 1]?.nombre || 'Final'}") no necesita cuántos avanzan: ahí termina el torneo.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -266,4 +431,3 @@ export function HuecoEnCalendario({ evento, torneo, soyOwner }) {
     </div>
   );
 }
-
