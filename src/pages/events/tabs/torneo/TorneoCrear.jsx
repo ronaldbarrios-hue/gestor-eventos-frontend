@@ -113,8 +113,8 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="rounded-3xl border border-border bg-surface/40 p-6">
+    <div className="max-w-3xl mx-auto">
+      <div className="rounded-3xl border border-border bg-surface/40 p-6 sm:p-8">
         <h2 className="text-xl font-bold font-display text-text-1 tracking-tight mb-1">Nuevo torneo</h2>
         <p className="text-sm text-text-3 mb-6 leading-relaxed">
           Un evento puede tener varios torneos (por ejemplo un torneo por videojuego). Elige un formato; luego agregas los equipos participantes.
@@ -168,7 +168,7 @@ export default function CrearTorneo({ eventoId, onCreado, onCancelar, categorias
 
           <div>
             <label className="label mb-2">Formato</label>
-            <div className="space-y-2">
+            <div className="grid sm:grid-cols-2 gap-3">
               <button type="button" onClick={() => setFormato('eliminacion')}
                 className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${formato === 'eliminacion' ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-border-2'}`}>
                 <p className="text-sm font-semibold text-text-1">Eliminación directa</p>
