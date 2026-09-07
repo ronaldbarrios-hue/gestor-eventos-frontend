@@ -57,6 +57,13 @@ export const eventosApi = {
      Es lo que permite ofrecer el segundo registro justo al terminar el
      primero, sin mandar a nadie a otra pantalla. */
   sesionesPublicas: (slug) => client.get(`/eventos/publicos/slug/${slug}/sesiones`).then(r => r.data),
+  /* Lo que esta persona ya contesto al comprar su boleta, cruzado por etiqueta
+     con lo que pregunta ESTE sub-evento. Sin esto, un taller que vuelve a
+     preguntar «empresa» se la hace escribir dos veces — y las dos respuestas
+     quedan en cajas distintas, asi que despues ni cuadran. */
+  prellenarSesion: (slug, sesionId, codigo) =>
+    client.get(`/eventos/publicos/slug/${slug}/sesiones/${sesionId}/prellenar`, { params: { codigo } })
+      .then(r => r.data),
   inscribirSesion: (slug, sesionId, body) =>
     client.post(`/eventos/publicos/slug/${slug}/sesiones/${sesionId}/inscribir`, body).then(r => r.data),
   /* Catálogo */

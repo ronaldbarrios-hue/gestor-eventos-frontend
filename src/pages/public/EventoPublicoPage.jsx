@@ -14,6 +14,7 @@ import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.js
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
 import { camposVisibles } from '../../lib/camposCondicionales.js';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
 /* `verificar` y no `verificarCorreo`: la primera añade la pista cruzada
    —«eso parece un teléfono, aquí va el correo»—, que es justo lo que hace
    falta en la casilla de al lado. Llamar a la comprobación base se saltaba esa
@@ -618,7 +619,10 @@ function ShareButton() {
 
 /* ─────────── Modal lista de espera ─────────── */
 function WaitlistModal({ tipo, slug, onClose }) {
-  const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
+  /* Mismo motivo que en la reserva: quien se apunta a la lista de espera ya
+     entró, y sus datos están a mano. */
+  const { usuario } = useAuth();
+  const [form, setForm] = useState(() => datosIniciales(usuario));
   const [working, setWorking] = useState(false);
   const [done, setDone] = useState(null);
   const [err, setErr] = useState('');
@@ -771,7 +775,13 @@ function AvisoCupo({ cupo, onTomar, tipoDisponible = true }) {
 }
 
 export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', origen = '', onClose, onSuccess, embebido = false }) {
-  const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
+  /* Si hay sesión abierta, el formulario empieza con los datos de quien entró
+     en vez de en blanco. Eran tres casillas que la persona volvía a escribir a
+     mano teniendo el dato ya en el contexto. Quedan editables: quien tiene la
+     cuenta no siempre es quien va —se compran boletas para la pareja, para un
+     hijo—, así que esto ahorra trabajo sin decidir por nadie. */
+  const { usuario } = useAuth();
+  const [form, setForm] = useState(() => datosIniciales(usuario));
   const [respuestas, setRespuestas] = useState({});
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
   const [prellenado, setPrellenado] = useState(null);
