@@ -99,3 +99,37 @@ test('se dice que están rellenadas y de dónde salen', () => {
   assert.match(MODAL, /Rellenamos \$\{heredadas\} respuestas con lo que pusiste al registrarte/);
   assert.match(MODAL, /Puedes cambiarlas si algo ya no aplica/);
 });
+
+/* ── 3 · Los dos destinos que faltaban ────────────────────────────────── */
+
+test('el capitán ve rellenado lo que puso al inscribir su equipo', () => {
+  const p = sinComentarios(leer('src/pages/public/EquipoTorneoPage.jsx'));
+  /* Las sugerencias PRIMERO y lo guardado encima: lo que el equipo ya envió
+     nunca se pisa con una sugerencia. */
+  assert.match(p, /setRespuestas\(\{ \.\.\.\(d\.sugeridas \|\| \{\}\), \.\.\.\(d\.equipo\?\.respuestas \|\| \{\}\) \}\)/);
+  assert.match(leer('src/pages/public/EquipoTorneoPage.jsx'), /al inscribir tu equipo/);
+});
+
+test('la empresa ve rellenado lo que puso al comprar su stand', () => {
+  const p = sinComentarios(leer('src/pages/public/ExpositorPage.jsx'));
+  assert.match(p, /normaliza\(\{ \.\.\.\(d\.ficha \|\| \{\}\), \.\.\.\(d\.sugeridas \|\| \{\}\) \}\)/);
+  assert.match(leer('src/pages/public/ExpositorPage.jsx'), /al comprar tu stand/);
+});
+
+test('a la empresa se le dice que TODAVÍA no está guardado', () => {
+  /* Su ficha es pública: creer que ya se envió y no publicarla deja su stand en
+     blanco delante de todo el evento. */
+  assert.match(leer('src/pages/public/ExpositorPage.jsx'), /todavía no están guardados/);
+});
+
+test('los cuatro sitios que heredan lo dicen', () => {
+  /* Ver campos escritos sin explicación hace dudar de si ya se envió algo. */
+  const dicen = [
+    'src/pages/public/InscripcionSesionModal.jsx',
+    'src/pages/public/EquipoTorneoPage.jsx',
+    'src/pages/public/ExpositorPage.jsx',
+  ];
+  for (const f of dicen) {
+    assert.match(leer(f), /Rellenamos/, `${f} rellena sin decirlo`);
+  }
+});

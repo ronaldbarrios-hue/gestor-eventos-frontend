@@ -36,6 +36,8 @@ export default function EquipoTorneoPage() {
   const [email, setEmail] = useState('');
   const [respuestas, setRespuestas] = useState({});
   const [guardando, setGuardando] = useState(false);
+  /* Cuántas salieron de su inscripción, para poder decírselo. */
+  const [heredadas, setHeredadas] = useState(0);
 
   useEffect(() => {
     equipoTorneoApi.panel(codigo)
@@ -43,7 +45,12 @@ export default function EquipoTorneoPage() {
         setData(d);
         setNombre(d.equipo?.nombre || '');
         setEmail(d.equipo?.contacto_email || '');
-        setRespuestas(d.equipo?.respuestas || {});
+        /* Lo guardado, y encima lo que ya contestó al inscribir su equipo.
+           El servidor manda las sugerencias APARTE y sin pisar nada de lo
+           guardado, así que mezclarlas aquí es seguro — y es lo que hace que
+           el capitán no vuelva a escribir su teléfono media hora después. */
+        setRespuestas({ ...(d.sugeridas || {}), ...(d.equipo?.respuestas || {}) });
+        setHeredadas(Object.keys(d.sugeridas || {}).length);
       })
       /* Sin traducir, un fallo de red llegaba aquí como «Network Error» y la
          pantalla lo remataba con «el código es el de tu boleta» — o sea que se
@@ -192,6 +199,17 @@ export default function EquipoTorneoPage() {
             <p className="text-[11px] text-text-3 mt-1.5">Se usa para avisarte cuándo juega tu equipo.</p>
           </div>
 
+          {/* Se dice de dónde salen. Ver campos ya escritos sin explicación hace
+              dudar de si esto ya se envió — y aquí el capitán está mirando la
+              ficha con la que va a competir. */}
+          {heredadas > 0 && (
+            <p className="text-[11px] text-text-3 leading-relaxed rounded-xl border border-border bg-surface-2/40 px-3 py-2 mb-1">
+              {heredadas === 1
+                ? 'Rellenamos 1 campo con lo que pusiste al inscribir tu equipo.'
+                : `Rellenamos ${heredadas} campos con lo que pusiste al inscribir tu equipo.`}
+              {' '}Revísalos y guarda cuando estén bien.
+            </p>
+          )}
           {visibles.map(c => (
             <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]}
               onChange={v => setRespuestas(r => ({ ...r, [c.id]: v }))}

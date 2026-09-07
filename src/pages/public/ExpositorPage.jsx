@@ -33,12 +33,21 @@ export default function ExpositorPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [tab, setTab] = useState('ficha'); // ficha | puntos | premios
+  /* Cuántas salieron de su inscripción, para poder decírselo. */
+  const [heredadas, setHeredadas] = useState(0);
 
   useEffect(() => {
     eventosApi.fichaExpositor(codigo)
       .then(d => {
         setData(d);
-        setF(normaliza(d.ficha));
+        /* La ficha, y encima lo que la empresa ya contestó al comprar su stand.
+           El servidor manda las sugerencias APARTE y sólo para las columnas que
+           están vacías, así que esto rellena huecos y nunca pisa lo suyo.
+           Sin esto le pedíamos el teléfono, la web y el sector otra vez media
+           hora después de que los escribiera — y lo que no rellenara se quedaba
+           en blanco en una ficha que es pública. */
+        setF(normaliza({ ...(d.ficha || {}), ...(d.sugeridas || {}) }));
+        setHeredadas(Object.keys(d.sugeridas || {}).length);
         setEstado('ok');
       })
       /* El error se MIRA. Se descartaba entero, y la pantalla de abajo
@@ -125,6 +134,17 @@ export default function ExpositorPage() {
       {tab === 'premios' && <PremiosTab codigo={codigo} />}
 
       {tab === 'ficha' && (<>
+      {/* Se dice de dónde salen esos datos. Ver campos ya escritos sin
+          explicación hace dudar de si la ficha ya se envió — y aquí «enviada»
+          significa «publicada para todo el evento». */}
+      {heredadas > 0 && (
+        <div className="rounded-2xl border border-border bg-surface-2/40 px-4 py-3 mb-4 text-[13px] text-text-2 leading-relaxed">
+          {heredadas === 1
+            ? 'Rellenamos 1 dato con lo que pusiste al comprar tu stand.'
+            : `Rellenamos ${heredadas} datos con lo que pusiste al comprar tu stand.`}
+          {' '}Revísalos: todavía no están guardados.
+        </div>
+      )}
       {f.estado_ficha !== 'completa' && (
         <div className="rounded-2xl border border-warning/25 bg-warning/5 px-4 py-3 mb-5 text-sm text-text-2">
           Tu ficha está en <strong className="text-text-1">borrador</strong> y todavía no es visible. Complétala y pulsa “Publicar”.
