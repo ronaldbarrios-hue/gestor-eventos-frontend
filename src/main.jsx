@@ -24,9 +24,67 @@ import { I18nProvider } from './context/I18nContext.jsx';
  * navegación ya es la nueva. */
 const MEDIA_HORA = 30 * 60 * 1000;
 
+/* ── Y por qué además se AVISA ───────────────────────────────────────
+ *
+ * El temporizador de arriba arregla que la pestaña se entere. No arregla lo
+ * otro: que quien la tiene abierta no sabe que hay algo nuevo, así que sigue
+ * mirando la versión de antes y reportando fallos ya arreglados.
+ *
+ * Pasó cuatro veces en un solo día. Se despliega un arreglo, la persona
+ * recarga con F5 —que no basta: el service worker sirve lo que tiene
+ * guardado—, ve el fallo, y lo reporta. Y quien lo arregló se pone a buscar en
+ * el sitio equivocado.
+ *
+ * `onNeedRefresh` se dispara cuando el service worker nuevo ya está instalado
+ * y esperando. Un aviso discreto con un botón convierte media hora de
+ * confusión en un clic. No se recarga solo a propósito: puede haber un
+ * formulario a medias, o la cola de escaneos de la puerta abierta, y perder
+ * eso por una versión nueva es peor que la versión vieja. */
+function avisarDeVersionNueva(actualizar) {
+  if (document.getElementById('gestek-version-nueva')) return;
+
+  const caja = document.createElement('div');
+  caja.id = 'gestek-version-nueva';
+  caja.setAttribute('role', 'status');
+  /* Estilos en línea y no clases: esto tiene que poder salir aunque la hoja de
+     estilos sea de la versión vieja, que es exactamente el caso. */
+  caja.style.cssText = [
+    'position:fixed', 'z-index:2147483647', 'left:50%', 'bottom:20px',
+    'transform:translateX(-50%)', 'display:flex', 'align-items:center', 'gap:12px',
+    'padding:10px 14px', 'border-radius:14px',
+    'background:#1B1811', 'color:#F5F0E6', 'border:1px solid rgba(255,244,214,.18)',
+    'box-shadow:0 10px 30px rgba(0,0,0,.35)',
+    'font:500 13px/1.3 system-ui,sans-serif', 'max-width:calc(100vw - 32px)',
+  ].join(';');
+
+  const texto = document.createElement('span');
+  texto.textContent = 'Hay una versión nueva de GESTEK.';
+  const boton = document.createElement('button');
+  boton.type = 'button';
+  boton.textContent = 'Actualizar';
+  boton.style.cssText = [
+    'cursor:pointer', 'border:0', 'border-radius:10px', 'padding:6px 12px',
+    'background:#C9A227', 'color:#12100B', 'font:600 13px system-ui,sans-serif',
+  ].join(';');
+  boton.onclick = () => { boton.textContent = 'Actualizando…'; actualizar(true); };
+
+  const cerrar = document.createElement('button');
+  cerrar.type = 'button';
+  cerrar.setAttribute('aria-label', 'Ahora no');
+  cerrar.textContent = '×';
+  cerrar.style.cssText = 'cursor:pointer;border:0;background:transparent;color:inherit;font-size:18px;line-height:1;opacity:.6';
+  /* Se puede posponer: quien está en la puerta escaneando no quiere una
+     recarga a mitad de la fila. Vuelve a salir en la siguiente comprobación. */
+  cerrar.onclick = () => caja.remove();
+
+  caja.append(texto, boton, cerrar);
+  document.body.appendChild(caja);
+}
+
 if ('serviceWorker' in navigator) {
-  registerSW({
+  const actualizar = registerSW({
     immediate: true,
+    onNeedRefresh() { avisarDeVersionNueva(actualizar); },
     onRegisteredSW(_url, registro) {
       if (!registro) return;
       setInterval(() => {

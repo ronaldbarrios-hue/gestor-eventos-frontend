@@ -289,6 +289,52 @@ export default function MiTicketPage() {
         </div>
       )}
 
+      {/* ── A qué está inscrito, en la misma boleta ─────────────────────────
+       *
+       * Dentro de un evento NO se emite una boleta por taller: sería un código
+       * más por actividad, y quien llega a la puerta con tres QR no sabe cuál
+       * enseñar — ni la persona de la puerta tampoco. La escarapela es una y
+       * sirve para todo: el escáner del taller lee ESE mismo QR y encuentra la
+       * inscripción.
+       *
+       * Lo que faltaba era decirlo. La inscripción existía en la base y no se
+       * veía en ninguna parte, así que quien se apuntaba a dos talleres no
+       * tenía forma de comprobar que había quedado, ni de saber a qué hora ni
+       * dónde. Va aquí porque ésta es la pantalla que se mira antes de entrar.
+       */}
+      {(ticket.actividades || []).length > 0 && (
+        <div className="mt-8">
+          <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-2">
+            Tus actividades
+          </p>
+          <div className="rounded-2xl border border-border bg-surface/60 divide-y divide-border overflow-hidden">
+            {ticket.actividades.map(a => (
+              <div key={a.inscripcion_id} className="px-4 py-3 flex items-start gap-3">
+                <span className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${a.asistio ? 'bg-success' : 'bg-primary'}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-text-1">{a.titulo}</p>
+                  <p className="text-[11px] text-text-3">
+                    {a.inicio && new Date(a.inicio).toLocaleString('es-CO', {
+                      weekday: 'short', day: 'numeric', month: 'short',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                    {a.ubicacion ? ` · ${a.ubicacion}` : ''}
+                  </p>
+                </div>
+                {/* «Pedida» todavía puede caerse, y «ya entraste» cierra una
+                    pregunta real en un evento de dos días. */}
+                <span className="text-[10px] uppercase tracking-widest text-text-3 flex-shrink-0 mt-0.5">
+                  {a.asistio ? 'Ya entraste' : a.estado === 'inscrito' ? 'Inscrito' : a.estado}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+            No hace falta otro código: en la puerta de cada actividad se escanea este mismo QR.
+          </p>
+        </div>
+      )}
+
       {/* El momento natural para apuntarse a los talleres y torneos es éste:
           acaba de sacar la entrada y tiene la boleta delante. El código viaja
           en el enlace, así que al llegar a la agenda no hay que escribirlo —

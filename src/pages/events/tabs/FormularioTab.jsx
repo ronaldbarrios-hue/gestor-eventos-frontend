@@ -819,12 +819,35 @@ export default function FormularioTab({
                   {catalogo.agrupacion && catalogo.grupos.length > 0 && (
                     <div className="field">
                       <label className="label text-xs">Grupo</label>
-                      <select value={c.grupo || ''} onChange={e => actualizar(c._key, { grupo: e.target.value })}
-                        className="input bg-surface-2 rounded-xl py-2.5 text-sm">
-                        <option value="">Sin agrupar</option>
-                        {catalogo.grupos.map(g => <option key={g} value={g}>{g}</option>)}
-                        {c.grupo && !catalogo.grupos.includes(c.grupo) && <option value={c.grupo}>{c.grupo}</option>}
-                      </select>
+                      {/* Se escribe, no sólo se escoge.
+                       *
+                       * Era un `<select>` con siete grupos fijos, y esos siete
+                       * salen de los formatos de caracterización de las
+                       * entidades públicas: sirven para un informe oficial y
+                       * para nada más. Un evento que quiere agrupar por «Datos
+                       * de la empresa» o «Tu propuesta» no tenía dónde
+                       * escribirlo, aunque la base lo guarda tal cual —es texto
+                       * libre, hasta 80 caracteres, y nunca se validó contra la
+                       * lista—. O sea: el dato se podía guardar y la pantalla
+                       * no dejaba escribirlo.
+                       *
+                       * `datalist` deja las dos cosas: los siete siguen ahí de
+                       * sugerencia para quien hace un informe oficial, y quien
+                       * quiera otro lo escribe. */}
+                      <input
+                        list={`grupos-${c._key}`}
+                        value={c.grupo || ''}
+                        onChange={e => actualizar(c._key, { grupo: e.target.value })}
+                        placeholder="Sin agrupar"
+                        maxLength={80}
+                        className="input bg-surface-2 rounded-xl py-2.5 text-sm" />
+                      <datalist id={`grupos-${c._key}`}>
+                        {catalogo.grupos.map(g => <option key={g} value={g} />)}
+                      </datalist>
+                      <p className="text-[11px] text-text-3 mt-1">
+                        Escribe el que quieras, o elige uno de la lista. Los campos con el mismo
+                        grupo salen juntos, bajo ese título.
+                      </p>
                     </div>
                   )}
                   {tiposBoleta.length > 1 && (
