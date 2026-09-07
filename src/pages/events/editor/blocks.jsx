@@ -486,7 +486,7 @@ function TicketsEditor({ data = {}, onChange, evento }) {
       </Grupo>
       <Grupo label="Texto del boton">
         <input value={data.texto_boton || ''} onChange={(e) => onChange({ ...data, texto_boton: e.target.value })}
-          placeholder="Reservar" className="input rounded-xl py-2 text-sm" />
+          placeholder="Regístrate" className="input rounded-xl py-2 text-sm" />
       </Grupo>
     </EditorSistema>
   );
@@ -683,10 +683,17 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
                   className="px-4 py-2 rounded-full text-xs font-semibold bg-text-1 text-bg hover:bg-white transition-all disabled:bg-surface-3 disabled:text-text-3 disabled:cursor-not-allowed"
                 >
                   {/* Agotado y Cerrado son ESTADO, no etiqueta: el texto
-                      personalizado no debe taparlos. */}
+                      personalizado no debe taparlos.
+
+                      «Regístrate» y no «Reservar» cuando es gratis. Reservar es
+                      lo que se hace con una mesa: sugiere que se aparta algo y
+                      que hay que confirmarlo después. Lo que ocurre al pulsar
+                      es un registro —se dan los datos y se acabó—, y llamarlo
+                      por su nombre es lo que hace que alguien lo termine. Se
+                      puede cambiar por bloque en «Texto del botón». */}
                   {agotado ? 'Agotado'
                     : ventaCerr ? 'Cerrado'
-                    : (data?.texto_boton || (isFree ? 'Reservar' : 'Comprar'))}
+                    : (data?.texto_boton || (isFree ? 'Regístrate' : 'Comprar'))}
                 </button>
               )}
             </div>

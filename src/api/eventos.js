@@ -40,6 +40,11 @@ export const eventosApi = {
      una cédula en la query string queda escrita en los logs de acceso del
      servidor y en el historial del navegador. */
   prellenar    : (slug, documento) => client.post(`/eventos/publicos/slug/${slug}/prellenar`, { documento }).then(r => r.data),
+  /* A donde sube un archivo, y con que limites. Lo decide el SERVIDOR: si lo
+     decidiera el navegador, bastaria con no creerselo para meter un documento
+     sensible en el bucket publico y dejar su enlace eterno en el CSV. */
+  destinoDeArchivo: (slug, campoId, extension) =>
+    client.post(`/eventos/publicos/slug/${slug}/archivo/destino`, { campo_id: campoId, extension }).then(r => r.data),
   ticketByCode : (codigo)      => client.get(`/eventos/publicos/ticket/${codigo}`).then(r => r.data),
   completarFormularioTicket: (codigo, respuestas) =>
     client.post(`/eventos/publicos/ticket/${codigo}/formulario`, { respuestas }).then(r => r.data),

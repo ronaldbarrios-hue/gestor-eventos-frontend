@@ -174,7 +174,11 @@ export function ocupaFila(campo) {
    doce sitios copiandola a mano. */
 const CLS = 'input-form';
 
-export default function CampoFormulario({ campo, value, onChange, eventoId, error }) {
+/* `slug` hace falta sólo para el campo de archivo: es lo que identifica el
+   evento en la ruta pública que decide a dónde sube. Sin él, ese campo avisa en
+   vez de subir a ciegas — pedir un documento y perderlo es peor que decir que
+   ahora mismo no se puede. */
+export default function CampoFormulario({ campo, value, onChange, eventoId, slug, error }) {
   const t = tipoDe(campo);
   const req = Boolean(campo.requerido);
   /* El campo que fallo se marca EN el campo. Antes el unico aviso era un
@@ -308,6 +312,25 @@ export default function CampoFormulario({ campo, value, onChange, eventoId, erro
     );
   }
 
+  if (t === 'archivo') {
+    return (
+      <div className="field">
+        <Etiqueta />
+        {slug ? (
+          <FormFileUploaderLazy value={value} onChange={onChange} slug={slug} campo={campo} />
+        ) : (
+          /* Sin `slug` no se puede preguntar a dónde sube, y subir al bucket
+             que a uno le parezca es exactamente lo que este diseño evita. Se
+             dice, en vez de perder el archivo en silencio. */
+          <p className="text-xs text-text-3 rounded-xl border border-border bg-surface-2/40 px-3 py-2">
+            Este archivo se adjunta desde la página del evento.
+          </p>
+        )}
+        <Ayuda />
+      </div>
+    );
+  }
+
   if (t === 'foto') {
     return (
       <div className="field">
@@ -355,6 +378,17 @@ export default function CampoFormulario({ campo, value, onChange, eventoId, erro
       <Ayuda />
     </div>
   );
+}
+
+/* Mismo motivo que la foto: Storage directo desde el navegador, así que sólo
+   se trae si el formulario pide de verdad un archivo. */
+function FormFileUploaderLazy(props) {
+  const [Comp, setComp] = useState(null);
+  useEffect(() => {
+    import('./FormFileUploader.jsx').then(m => setComp(() => m.default));
+  }, []);
+  if (!Comp) return <div className="h-20 rounded-2xl bg-surface-2/40 animate-pulse" />;
+  return <Comp {...props} />;
 }
 
 /* Carga diferida: el uploader usa Storage directo desde el navegador, así que

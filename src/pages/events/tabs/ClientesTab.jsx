@@ -399,7 +399,7 @@ function DetalleModal({ cliente, evento = {}, currency, camposFormulario, onClos
     filas = Object.entries(respuestas)
       .map(([campoId, valor]) => {
         const campo = mapaCampos.get(campoId);
-        return { etiqueta: campo?.etiqueta || 'Pregunta eliminada', valor, orden: campo?.orden ?? 999 };
+        return { etiqueta: campo?.etiqueta || 'Pregunta eliminada', valor, campoId, orden: campo?.orden ?? 999 };
       })
       .sort((a, b) => a.orden - b.orden);
   }
@@ -495,8 +495,15 @@ function DetalleModal({ cliente, evento = {}, currency, camposFormulario, onClos
                 {filas.map((f, i) => (
                   <div key={i} className="px-4 py-3">
                     <p className="text-xs text-text-3 mb-0.5">{f.etiqueta}</p>
-                    {/* Fotos se muestran como imagen (con link de descarga), no como texto/URL crudo */}
-                    {typeof f.valor === 'string' && /^https?:\/\/.*\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(f.valor) ? (
+                    {/* Un archivo sensible NO tiene enlace: en la respuesta hay
+                        una referencia, no una URL. Se abre pidiendo al servidor
+                        un enlace firmado que caduca — y ahí queda registrado
+                        quién lo vio, que es la otra mitad de tratarlo como
+                        sensible. Pintar la referencia cruda enseñaría
+                        «privado:evt/campo-123.pdf», que parece un dato roto. */}
+                    {typeof f.valor === 'string' && f.valor.startsWith('privado:') ? (
+                      <AbrirArchivoPrivado eventoId={evento.id} ticketId={cliente.id} campoId={f.campoId} />
+                    ) : typeof f.valor === 'string' && /^https?:\/\/.*\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(f.valor) ? (
                       <div className="mt-1">
                         <img src={f.valor} alt={f.etiqueta} className="w-full max-w-xs rounded-xl border border-border object-cover" />
                         <a href={f.valor} download target="_blank" rel="noreferrer"
@@ -635,6 +642,44 @@ function DotsIcon({ className }) {
  * éste?»— y el estado solo no lo contesta. Es opcional a propósito: obligar a
  * escribir con alguien esperando produce «asd», que es peor que el vacío.
  */
+
+/* Abrir un archivo marcado como sensible.
+ *
+ * No hay enlace que pintar: en la respuesta vive una referencia, no una URL.
+ * Se pide al servidor uno firmado —que comprueba el permiso, dura diez minutos
+ * y deja anotado quién lo abrió— y se abre en otra pestaña.
+ *
+ * Se pide al PULSAR y no al abrir la ficha: cargarla no es querer ver el
+ * documento de nadie, y firmar por adelantado dejaría un enlace vivo en la
+ * memoria del navegador cada vez que alguien mira una boleta.
+ */
+function AbrirArchivoPrivado({ eventoId, ticketId, campoId }) {
+  const [abriendo, setAbriendo] = useState(false);
+  const [err, setErr] = useState('');
+
+  const abrir = async () => {
+    setAbriendo(true); setErr('');
+    try {
+      const d = await clientesApi.archivoPrivado(eventoId, ticketId, campoId);
+      window.open(d.url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+    } finally { setAbriendo(false); }
+  };
+
+  return (
+    <div className="mt-1">
+      <button type="button" onClick={abrir} disabled={abriendo} className="btn-secondary btn-sm">
+        {abriendo ? 'Abriendo…' : 'Abrir archivo'}
+      </button>
+      <p className="text-[11px] text-text-3 mt-1">
+        Guardado en privado. El enlace dura unos minutos y queda registrado quién lo abrió.
+      </p>
+      {err && <p className="text-[11px] text-danger-light mt-1">{err}</p>}
+    </div>
+  );
+}
+
 function ReembolsoModal({ evento, cliente, onClose, onHecho }) {
   const [motivo, setMotivo] = useState('');
   const [working, setWorking] = useState(false);
