@@ -29,8 +29,8 @@ const LIMPIO = sinComentarios(TAB);
 /* ── 1 · El torneo se crea aquí ───────────────────────────────────────── */
 
 test('el formulario deja crear el torneo sin salir', () => {
-  assert.match(LIMPIO, /const crearTorneoAqui = async \(\) => \{/);
-  assert.match(LIMPIO, /torneosApi\.crear\(eventoId, \{ nombre, formato: FORMATO_AL_VUELO \}\)/);
+  assert.match(LIMPIO, /setCreandoTorneo\(true\)/);
+  assert.match(LIMPIO, /<CrearTorneo/);
   /* Y ya no manda a otra pestaña a perder lo escrito. */
   assert.doesNotMatch(LIMPIO, /Crea uno —desde el sub-evento o en la/);
 });
@@ -42,27 +42,39 @@ test('el torneo recién creado queda elegido', () => {
   assert.match(LIMPIO, /update\('crea_torneo_id', nuevo\.id\)/);
 });
 
-test('el formato que se manda es uno que el servidor acepta', () => {
-  /* Escribir aquí un formato inventado no falla al escribirlo: falla al pulsar
-     el botón, con un «Formato inválido» que no dice cuál era el bueno. Pasó al
-     escribir esto —«eliminacion_simple», que no existe—. */
-  const m = TAB.match(/const FORMATO_AL_VUELO = '([a-z_]+)';/);
-  assert.ok(m, 'no encuentro FORMATO_AL_VUELO');
-
-  const servidor = ['../gestor-eventos-backend/routes/torneos.js',
-    '../../../../gestor-eventos-backend/routes/torneos.js']
-    .map(f => resolve(process.cwd(), f)).find(f => existsSync(f));
-  if (servidor) {
-    const lista = readFileSync(servidor, 'utf8').match(/const FORMATOS_VALIDOS = \[([^\]]+)\]/);
-    assert.ok(lista, 'no encuentro FORMATOS_VALIDOS en el servidor');
-    assert.ok(lista[1].includes(`'${m[1]}'`),
-      `el servidor no acepta el formato «${m[1]}»; acepta ${lista[1].trim()}`);
-  } else {
-    /* El backend es otro repositorio y puede no estar al lado. Se comprueba al
-       menos que no se coló el valor equivocado que ya falló una vez. */
-    assert.notEqual(m[1], 'eliminacion_simple');
-  }
+test('el atajo NO elige el formato por su cuenta', () => {
+  /* Lo hizo, y fue un error caro: el FORMATO de un torneo no se puede cambiar
+     después —la ruta sólo deja editar nombre, disciplina, orden y categoría—,
+     así que una Batalla de Pitch creada por el atajo nacía como llave de
+     eliminación y sin vuelta atrás. Su rúbrica de calificación no aparecía por
+     ningún lado porque ese torneo ya no era de jurado. Lo reportó quien lo
+     sufrió: «antes me aparecía la rúbrica y ya no».
+     Ahora se abre el formulario completo encima, que hace la pregunta que hay
+     que hacer una sola vez en la vida del torneo. */
+  assert.doesNotMatch(LIMPIO, /formato: FORMATO_AL_VUELO/);
+  assert.doesNotMatch(LIMPIO, /formato: 'eliminacion'/);
+  assert.match(LIMPIO, /<CrearTorneo/);
+  assert.match(LIMPIO, /onCreado=\{torneoCreado\}/);
 });
+
+test('y no se pierde lo escrito, que era el problema original', () => {
+  /* El formulario del tipo de boleta sigue montado debajo del modal. */
+  assert.match(LIMPIO, /\{creandoTorneo && \(/);
+  assert.match(TAB, /Esta pantalla sigue montada debajo/);
+});
+
+test('se avisa de que el formato no se puede cambiar', () => {
+  /* Es la única decisión irreversible del formulario, y quien la toma por
+     primera vez no tiene cómo saberlo. */
+  assert.match(TAB, /no se puede cambiar después/);
+  assert.match(TAB, /puntaje por jurado/);
+});
+
+/* La prueba que comparaba el formato con la lista del servidor se fue con el
+   atajo: ya no se manda ningún formato desde aquí, lo elige quien crea el
+   torneo en el formulario de verdad. Una prueba saltada que no va a volver a
+   correr es peso muerto que alguien tiene que leer para descubrir que no dice
+   nada. */
 
 /* ── 2 · Las boletas que se quedaban fuera ────────────────────────────── */
 

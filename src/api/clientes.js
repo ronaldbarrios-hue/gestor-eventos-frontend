@@ -1,6 +1,11 @@
 import client from './client.js';
 
 export const clientesApi = {
+  /* Un adjunto marcado como sensible. No hay URL que pintar: en la respuesta
+     vive una referencia. El servidor comprueba el permiso, firma un enlace que
+     caduca y anota quien lo abrio. */
+  archivoPrivado: (eventoId, ticketId, campoId) =>
+    client.get(`/eventos/${eventoId}/clientes/${ticketId}/archivo`, { params: { campo: campoId } }).then(r => r.data),
   list         : (eventoId, params = {})        => client.get(`/eventos/${eventoId}/clientes`, { params }).then(r => r.data),
   /* Cuanto trajo cada boton de registro. `origen: null` es «directo»: quien
      llego a la pagina del evento sin pasar por ningun boton. */

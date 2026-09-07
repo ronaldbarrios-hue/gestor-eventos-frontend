@@ -53,6 +53,7 @@ function nuevoCampo(preset = {}) {
     buscable: typeof preset.buscable === 'boolean' ? preset.buscable : null,
     requerido: preset.requerido ?? true,
     grupo: preset.grupo || '',
+    sensible: Boolean(preset.sensible),
     ayuda: preset.ayuda || '',
     /* '' = sin limite. Se guardan como texto porque vienen de un <input> y
        convertirlos aqui haria que borrar el contenido escribiera un 0 — que en
@@ -536,6 +537,11 @@ export default function FormularioTab({
       const payload = campos.map(c => ({
         id: c.id, tipo: c.tipo, etiqueta: c.etiqueta, opciones: c.opciones,
         requerido: c.requerido, grupo: c.grupo || null, ayuda: c.ayuda || null,
+        /* Sólo significa algo en un archivo, y el servidor lo limpia en
+           cualquier otro tipo. Se manda igual: si se filtrara aquí, marcar el
+           campo y luego cambiarle el tipo dejaría un `sensible` viejo que nadie
+           volvería a mirar. */
+        sensible: Boolean(c.sensible),
         max_caracteres: c.max_caracteres === '' ? null : Number(c.max_caracteres),
         max_palabras: c.max_palabras === '' ? null : Number(c.max_palabras),
         ticket_type_id: c.ticket_type_id || null,
@@ -790,16 +796,58 @@ export default function FormularioTab({
                   </div>
                 )}
 
+                {/* Sólo en un archivo. En cualquier otro tipo es una promesa
+                    que nadie cumple: quien la marque creerá que ese dato queda
+                    protegido, y no cambia nada. */}
+                {c.tipo === 'archivo' && (
+                  <label className="flex items-start gap-2 cursor-pointer rounded-xl border border-border bg-surface-2/40 px-3 py-2.5">
+                    <input type="checkbox" checked={Boolean(c.sensible)}
+                      onChange={e => actualizar(c._key, { sensible: e.target.checked })}
+                      className="mt-0.5" />
+                    <span className="text-xs text-text-2 leading-relaxed">
+                      <span className="font-medium text-text-1 block">Son datos sensibles</span>
+                      Para cédulas, RUT, certificados. El archivo se guarda aparte, sin enlace público:
+                      sólo se abre desde el panel, con un enlace que caduca, y queda registrado quién lo vio.
+                      <span className="block mt-1 text-text-3">
+                        Sin marcar —un portafolio, una propuesta— el enlace queda en la respuesta y sale en el Excel.
+                      </span>
+                    </span>
+                  </label>
+                )}
+
                 <div className="grid sm:grid-cols-2 gap-2">
                   {catalogo.agrupacion && catalogo.grupos.length > 0 && (
                     <div className="field">
                       <label className="label text-xs">Grupo</label>
-                      <select value={c.grupo || ''} onChange={e => actualizar(c._key, { grupo: e.target.value })}
-                        className="input bg-surface-2 rounded-xl py-2.5 text-sm">
-                        <option value="">Sin agrupar</option>
-                        {catalogo.grupos.map(g => <option key={g} value={g}>{g}</option>)}
-                        {c.grupo && !catalogo.grupos.includes(c.grupo) && <option value={c.grupo}>{c.grupo}</option>}
-                      </select>
+                      {/* Se escribe, no sólo se escoge.
+                       *
+                       * Era un `<select>` con siete grupos fijos, y esos siete
+                       * salen de los formatos de caracterización de las
+                       * entidades públicas: sirven para un informe oficial y
+                       * para nada más. Un evento que quiere agrupar por «Datos
+                       * de la empresa» o «Tu propuesta» no tenía dónde
+                       * escribirlo, aunque la base lo guarda tal cual —es texto
+                       * libre, hasta 80 caracteres, y nunca se validó contra la
+                       * lista—. O sea: el dato se podía guardar y la pantalla
+                       * no dejaba escribirlo.
+                       *
+                       * `datalist` deja las dos cosas: los siete siguen ahí de
+                       * sugerencia para quien hace un informe oficial, y quien
+                       * quiera otro lo escribe. */}
+                      <input
+                        list={`grupos-${c._key}`}
+                        value={c.grupo || ''}
+                        onChange={e => actualizar(c._key, { grupo: e.target.value })}
+                        placeholder="Sin agrupar"
+                        maxLength={80}
+                        className="input bg-surface-2 rounded-xl py-2.5 text-sm" />
+                      <datalist id={`grupos-${c._key}`}>
+                        {catalogo.grupos.map(g => <option key={g} value={g} />)}
+                      </datalist>
+                      <p className="text-[11px] text-text-3 mt-1">
+                        Escribe el que quieras, o elige uno de la lista. Los campos con el mismo
+                        grupo salen juntos, bajo ese título.
+                      </p>
                     </div>
                   )}
                   {tiposBoleta.length > 1 && (

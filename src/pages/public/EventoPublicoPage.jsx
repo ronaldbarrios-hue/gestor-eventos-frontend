@@ -1269,7 +1269,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
              de módulo; sin eso reutilizaría el nodo y la entrada no se
              dispararía. */
           <div key={`${paso}:${c.id}`} className={`${ocupaFila(c) ? 'ancho ' : ''}${claseEntrada}`}>
-            <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)}
+            <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} slug={slug}
               eventoId={evento?.id} error={errCampos[c.id]} />
           </div>
         ))}

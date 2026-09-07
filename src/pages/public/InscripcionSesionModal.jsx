@@ -30,7 +30,7 @@ import AceptarTerminos, { useLegalEvento } from '../../components/public/Aceptar
    pantalla de «quedaste inscrito» ofrece dos salidas: volver a la lista o dar el
    registro por terminado. Sin `onTerminar` (uso desde la agenda pública) hay un
    solo botón, como siempre. */
-export default function InscripcionSesionModal({ slug, sesion, preguntas = [], boleta = null, onClose, onInscrito, onTerminar }) {
+export default function InscripcionSesionModal({ slug, sesion, preguntas = [], boleta = null, onClose, onInscrito, onTerminar, onRegistroGeneral }) {
   const [conBoleta, setConBoleta] = useState(true);
   const [codigo, setCodigo] = useState(boleta?.codigo || '');
   /* Cuando ya sabemos la boleta —porque se llegó desde ella o porque hay
@@ -213,6 +213,41 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
           </div>
         ) : (
           <>
+            {/* ── El registro general va primero ───────────────────────────
+             *
+             * Un taller es una actividad DENTRO del evento: quien va tiene que
+             * estar en el evento. Apuntarse aquí sin boleta deja a alguien
+             * creyendo que ya está adentro, y el día del evento se lo
+             * encuentra la persona de la puerta principal, no la del taller.
+             *
+             * No se PROHÍBE, y es a propósito: en la práctica siempre aparece
+             * quien llega directo al taller, y si no se le puede registrar el
+             * conteo miente. Lo que se hace es pedir lo que falta y decir por
+             * qué — que es lo que resuelve el caso normal sin cerrarle la
+             * puerta al raro.
+             *
+             * `onRegistroGeneral` lo pone la página del evento, que es la que
+             * sabe abrir el registro. Sin él —en la agenda pública suelta— se
+             * dice igual, sin botón: saber que hace falta ya es la mitad. */}
+            <div className="rounded-2xl border border-warning/40 bg-warning/5 px-4 py-3 space-y-2">
+              <p className="text-[13px] text-text-2 leading-relaxed">
+                Esta actividad es parte del evento, así que primero hay que estar registrado en él.
+                {onRegistroGeneral
+                  ? ' Regístrate y vuelves aquí: no tendrás que escribir tus datos otra vez.'
+                  : ' Regístrate en el evento y vuelve con el código de tu boleta.'}
+              </p>
+              {onRegistroGeneral && (
+                <button type="button" onClick={onRegistroGeneral} className="btn btn-sm">
+                  Registrarme en el evento
+                </button>
+              )}
+              <p className="text-[11px] text-text-3 leading-relaxed">
+                Si ya te registraste, usa <b className="text-text-2">Tengo boleta</b> con tu código.
+                Y si estás en la puerta del taller sin haber pasado por la entrada, sigue aquí abajo:
+                el equipo te registra igual.
+              </p>
+            </div>
+
             <div className="field">
               <label className="label">Nombre completo *</label>
               <input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}

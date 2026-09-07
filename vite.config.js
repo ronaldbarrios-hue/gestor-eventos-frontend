@@ -14,7 +14,23 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.js',
-      registerType: 'autoUpdate',
+      /* `prompt` y no `autoUpdate`, y el porqué es medido:
+       *
+       * Con `autoUpdate` el plugin recarga la página cuando el service worker
+       * NUEVO se activa. Pero un service worker sólo se activa cuando no queda
+       * ningún cliente del viejo — y `src/sw.js` no llama a `skipWaiting()`.
+       * Con la pestaña abierta, eso no pasa nunca. La recarga automática era
+       * una promesa que no se cumplía: se desplegaba un arreglo, la persona
+       * recargaba con F5 —que tampoco basta, el service worker sirve lo suyo—,
+       * seguía viendo el fallo, y lo reportaba. Cuatro veces en un solo día.
+       *
+       * La salida NO es meter `skipWaiting()`: esta aplicación se usa en la
+       * puerta con una cola de escaneos sin conexión, y cambiarle el paquete
+       * por debajo a alguien a mitad de una fila es peor que la versión vieja.
+       *
+       * Con `prompt` se avisa y decide quien está usando la aplicación. El
+       * aviso lo pinta `onNeedRefresh` en `src/main.jsx`. */
+      registerType: 'prompt',
       manifest: false,
       includeAssets: ['icon-192.svg', 'icon-512.svg', 'icon-maskable.svg'],
       injectManifest: {

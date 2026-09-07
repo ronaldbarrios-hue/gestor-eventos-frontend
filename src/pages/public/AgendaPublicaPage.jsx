@@ -298,6 +298,11 @@ export default function AgendaPublicaPage() {
           sesion={inscribiendo}
           preguntas={preguntas[inscribiendo.id] || []}
           boleta={boleta}
+          /* Quien llega a la agenda sin boleta se apuntaría a un taller y se
+             quedaría creyendo que ya está adentro — y el día del evento se lo
+             encuentra la persona de la puerta principal, no la del taller.
+             Esto lo lleva al registro del evento, que es donde se resuelve. */
+          onRegistroGeneral={() => { window.location.href = `/explorar/${slug}`; }}
           onClose={() => setInscribiendo(null)}
           onInscrito={(id) => {
             setInscritas(prev => new Set(prev).add(id));
