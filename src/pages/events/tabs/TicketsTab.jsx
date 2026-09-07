@@ -212,9 +212,15 @@ function TicketCard({ ticket, isEditing, onStartEdit, onCancelEdit, onSave, onDe
   );
 }
 
+/* El formato con el que nace un torneo creado al vuelo desde aquí. Tiene que
+   ser uno de `FORMATOS_VALIDOS` del servidor (routes/torneos.js); lo comprueba
+   `tests/torneoAlVuelo.test.mjs`. */
+const FORMATO_AL_VUELO = 'eliminacion';
+
 /* ─────────── Form crear/editar ─────────── */
 
 function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
+  const toast = useToast();
   const [form, setForm] = useState({
     nombre           : initial?.nombre || '',
     descripcion      : initial?.descripcion || '',
@@ -233,6 +239,15 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
   });
   const [torneos, setTorneos] = useState([]);
   const [falloTorneos, setFalloTorneos] = useState(false);
+  /* Crear el torneo sin salir de aquí. Antes el aviso mandaba a otra pestaña, y
+     volver significaba perder el nombre, el precio y la descripción ya
+     escritos — con lo que la salida real era cancelar y empezar de cero. */
+  const [creandoTorneo, setCreandoTorneo] = useState(false);
+  const [nombreTorneo, setNombreTorneo] = useState('');
+  /* Boletas de este tipo vendidas antes de que dijera «crea un equipo». Sólo
+     tiene sentido preguntarlo sobre un tipo que YA existe. */
+  const [sueltas, setSueltas] = useState(null);
+  const [metiendo, setMetiendo] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(
     Boolean(initial?.early_bird_precio || initial?.early_bird_hasta || initial?.venta_hasta)
@@ -253,6 +268,66 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
       .then(d => { setTorneos(d.torneos || []); setFalloTorneos(false); })
       .catch(() => setFalloTorneos(true));
   }, [eventoId]);
+
+  /* ¿Cuántas boletas se quedarían fuera del torneo?
+   *
+   * Quien mete al equipo es un disparador de la base que corre
+   * `AFTER INSERT OR UPDATE OF estado` sobre la boleta: sólo cuando nace o
+   * cambia de estado. Las que ya están pagadas no van a cambiar, así que al
+   * pasar un tipo a «Un equipo» se quedan fuera **sin un solo error** — y se
+   * descubre el día de la competencia, contando sillas.
+   *
+   * Se pregunta al elegir «Un equipo» y no al guardar: avisar antes es lo que
+   * deja decidir; avisar después es contar un problema ya hecho. */
+  useEffect(() => {
+    if (!initial?.id || form.crea !== 'equipo') { setSueltas(null); return; }
+    let vivo = true;
+    ticketsApi.boletasSinEquipo(eventoId, initial.id)
+      .then(d => { if (vivo) setSueltas(d); })
+      /* Si no se puede preguntar, no se inventa un número: se calla. Decir
+         «0 boletas sueltas» cuando no se sabe es peor que no decir nada. */
+      .catch(() => { if (vivo) setSueltas(null); });
+    return () => { vivo = false; };
+  }, [eventoId, initial?.id, form.crea]);
+
+  const crearTorneoAqui = async () => {
+    const nombre = nombreTorneo.trim();
+    if (!nombre) return;
+    setCreandoTorneo(true);
+    try {
+      /* `eliminacion` es el formato que menos preguntas pide —los otros piden
+         número de grupos, o la rúbrica entera del jurado—, y aquí lo que
+         importa es que el torneo EXISTA para poder apuntar la boleta a él. El
+         formato se cambia después sin perder nada.
+
+         El nombre del formato tiene que ser uno de los que acepta el servidor
+         (`FORMATOS_VALIDOS` en routes/torneos.js). Escribir aquí uno inventado
+         no falla al escribirlo: falla al pulsar el botón, con un «Formato
+         inválido» que no dice cuál era el bueno. Hay una prueba que compara
+         esta cadena con la lista del servidor. */
+      const d = await torneosApi.crear(eventoId, { nombre, formato: FORMATO_AL_VUELO });
+      const nuevo = d.torneo || d;
+      setTorneos(ts => [...ts, nuevo]);
+      update('crea_torneo_id', nuevo.id);
+      setNombreTorneo('');
+      toast?.success?.(`Torneo «${nombre}» creado. Ajusta el formato en Actividades → Torneos.`);
+    } catch (err) {
+      toast?.error?.(err.response?.data?.error || err.message);
+    } finally { setCreandoTorneo(false); }
+  };
+
+  const meterLasVendidas = async () => {
+    setMetiendo(true);
+    try {
+      const d = await ticketsApi.crearEquipos(eventoId, initial.id);
+      toast?.success?.(d.creados === 1
+        ? '1 equipo creado desde las boletas ya vendidas.'
+        : `${d.creados} equipos creados desde las boletas ya vendidas.`);
+      setSueltas({ cuantas: 0, aviso: null });
+    } catch (err) {
+      toast?.error?.(err.response?.data?.error || err.message);
+    } finally { setMetiendo(false); }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -375,12 +450,53 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
                 — puede que sí haya y no hayamos podido preguntarlo.
               </p>
             ) : (
-              /* Sin torneo no se puede guardar, y decirlo aquí evita que el
-                 formulario se rechace al enviarlo sin explicar por qué. */
-              <p className="text-[11px] text-warning-light">
-                Este evento todavía no tiene ningún torneo. Crea uno —desde el sub-evento o en la
-                pestaña Torneo— y vuelve: un tipo de boleta que crea equipos tiene que decir a cuál.
-              </p>
+              /* Se crea AQUÍ. Antes esto mandaba a otra pestaña, y volver
+                 significaba perder el nombre, el precio y la descripción ya
+                 escritos: la salida real era cancelar y empezar de cero. */
+              <div className="rounded-2xl border border-warning/40 bg-warning/5 p-3 space-y-2">
+                <p className="text-[11px] text-text-2 leading-relaxed">
+                  Este evento todavía no tiene ningún torneo, y una boleta que crea equipos tiene que
+                  decir a cuál. Créalo aquí mismo sin perder lo que ya escribiste:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={nombreTorneo}
+                    onChange={e => setNombreTorneo(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); crearTorneoAqui(); } }}
+                    placeholder="Nombre del torneo (ej. Batalla de Pitch)"
+                    className="input bg-surface-2 rounded-2xl py-2.5 text-sm flex-1 min-w-[14rem]"
+                  />
+                  <button type="button" onClick={crearTorneoAqui}
+                    disabled={creandoTorneo || !nombreTorneo.trim()} className="btn btn-sm">
+                    {creandoTorneo ? 'Creando…' : 'Crear torneo'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-text-3 leading-relaxed">
+                  Nace como eliminación simple. El formato, las categorías y lo demás se ajustan
+                  después en <b className="text-text-2">Actividades → Torneos</b>.
+                </p>
+              </div>
+            )}
+
+            {/* Las boletas que se vendieron antes de que este tipo dijera «crea
+                un equipo». Sin este aviso se quedan fuera sin que nadie lo vea:
+                el disparador de la base sólo corre cuando la boleta cambia de
+                estado, y las pagadas ya no cambian. */}
+            {sueltas?.cuantas > 0 && (
+              <div className="mt-2 rounded-2xl border border-warning/40 bg-warning/5 p-3 space-y-2">
+                <p className="text-[11px] text-text-2 leading-relaxed">
+                  {sueltas.aviso} Se vendieron antes de que este tipo entrara al torneo, así que
+                  nadie las va a meter por su cuenta.
+                </p>
+                <button type="button" onClick={meterLasVendidas} disabled={metiendo}
+                  className="btn-secondary btn-sm">
+                  {metiendo ? 'Metiéndolas…' : `Meterlas al torneo (${sueltas.cuantas})`}
+                </button>
+                <p className="text-[11px] text-text-3 leading-relaxed">
+                  Cada una entra como un equipo a nombre de quien compró. El capitán completa el
+                  resto por su enlace, igual que las que se vendan de aquí en adelante.
+                </p>
+              </div>
             )}
           </div>
         )}
