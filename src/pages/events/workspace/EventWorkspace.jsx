@@ -103,6 +103,17 @@ const SECCIONES = [
     { id: 'landing',     label: 'Landing',            perm: 'editar_pagina_publica' },
     { id: 'publicacion', label: 'Publicación',        perm: 'editar_pagina_publica' },
     { id: 'seo',         label: 'SEO',                perm: 'editar_pagina_publica' },
+    /* Estas dos existían y NO estaban en el menú: sólo se llegaba escribiendo
+       la dirección a mano. La pantalla se pintaba perfecta y no había forma de
+       llegar a ella — el fallo callado de siempre, y esta vez costó que un
+       organizador buscara media hora dónde se agrupan los campos del
+       formulario y concluyera que no se podía.
+
+       La prueba `menu.test.mjs` comprobaba «toda pestaña del menú tiene una
+       pantalla que pintar» y no el sentido contrario, así que no lo cazó. Ya
+       comprueba los dos. */
+    { id: 'formularios', label: 'Formularios',        perm: 'editar_evento' },
+    { id: 'whitelabel',  label: 'Marca del evento',   perm: 'editar_pagina_publica' },
     /* «Proceso de compra» se fue a «Entradas y dinero». Estaba aquí porque se
        edita como se edita la landing —con un formulario y una previa—, pero lo
        que decide no es cómo se ve: es qué datos se piden para cobrar y qué pasa
