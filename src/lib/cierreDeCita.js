@@ -118,3 +118,46 @@ export function informeCSV(citas = [], tituloEvento = '') {
   ];
   return `﻿${filas.join('\r\n')}\r\n`;
 }
+
+/* ── La agenda de cada participante ──────────────────────────────────────
+ *
+ * Una rueda genera dos papeles, y hasta ahora no salía ninguno: la parrilla
+ * para quien coordina, y **la agenda de cada empresa**, que se entrega impresa
+ * o se manda por correo la víspera. Sin ella, cada participante tiene que
+ * apuntarse sus horas a mano de una pantalla — y la mitad se equivoca de mesa.
+ *
+ * Se agrupa por PERSONA y no por mesa: la mesa ya la tiene la parrilla. Y por
+ * correo, no por nombre: dos personas se llaman igual más a menudo de lo que
+ * parece, y el correo es lo que el evento usa como identidad en todas partes.
+ *
+ * Las canceladas no entran: una agenda es lo que hay que hacer, no lo que se
+ * deshizo. Las PEDIDAS sí, marcadas — quien la recibe tiene que saber que esa
+ * hora todavía puede caerse.
+ */
+export function agendasPorParticipante(citas = []) {
+  const por = new Map();
+
+  for (const c of citas) {
+    if (c.estado === 'cancelada') continue;
+    const p = c.persona || {};
+    const clave = (p.email || '').toLowerCase() || p.nombre || c.user_id || c.guest_email || 'sin-identificar';
+    const ficha = por.get(clave) || {
+      clave,
+      nombre: p.nombre || p.email || 'Sin identificar',
+      email : p.email || null,
+      citas : [],
+    };
+    /* El nombre mejor gana: la misma persona puede llegar con nombre en una
+       cita y sólo con correo en otra —una la reservó ella, la otra se la puso
+       el equipo—, y la agenda no puede salir a nombre de un correo si en algún
+       sitio hay un nombre. */
+    if (p.nombre) ficha.nombre = p.nombre;
+    ficha.citas.push(c);
+    por.set(clave, ficha);
+  }
+
+  const enOrden = (a, b) => new Date(a.horario?.inicio) - new Date(b.horario?.inicio);
+  return [...por.values()]
+    .map(f => ({ ...f, citas: f.citas.sort(enOrden) }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}

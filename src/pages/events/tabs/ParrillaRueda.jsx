@@ -4,6 +4,7 @@ import { clientesApi } from '../../../api/clientes.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import { limpiarMotivo, MOTIVO_MAX } from '../../../lib/ajustesRueda.js';
 
 /* La parrilla de la rueda: horas × mesas.
  *
@@ -141,12 +142,41 @@ export default function ParrillaRueda({ evento, soyOwner }) {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="parrilla-print">
+      {/* Imprimir la parrilla.
+       *
+       * El día del evento hay una copia en papel pegada en la entrada y otra en
+       * la mano de quien coordina: el wifi del recinto no es una cosa con la
+       * que se pueda contar, y una parrilla que sólo existe en una pantalla se
+       * queda sin existir cuando el móvil se apaga.
+       *
+       * `visibility` y no `display`: la tabla tiene celdas pegadas (`sticky`) y
+       * al esconder el resto con `display:none` el navegador recalcula el
+       * ancho y parte la última columna a otra hoja. */}
+      <style>{`@media print {
+        body * { visibility: hidden !important; }
+        #parrilla-print, #parrilla-print * { visibility: visible !important; }
+        #parrilla-print { position: absolute; left: 0; top: 0; width: 100%; }
+        #parrilla-print .no-print { display: none !important; }
+        #parrilla-print .overflow-x-auto { overflow: visible !important; }
+        #parrilla-print table { font-size: 10px; }
+        @page { size: landscape; margin: 10mm; }
+      }`}</style>
+
+      <div className="flex items-center justify-between gap-3 flex-wrap no-print">
+        <p className="text-sm text-text-2">
+          {conMesas.length} mesa{conMesas.length === 1 ? '' : 's'} · {citas.length} cita{citas.length === 1 ? '' : 's'}
+        </p>
+        <button onClick={() => window.print()} className="btn-secondary btn-sm rounded-full">
+          Imprimir la parrilla
+        </button>
+      </div>
+
       {/* Lo que está pasando ahora mismo, arriba y no al lado: si se levantó
           una cita, todo lo demás de la pantalla significa otra cosa. */}
       {enMano && (
         <div className="sticky top-2 z-20 flex items-center justify-between gap-3 flex-wrap
-                        rounded-2xl border border-accent bg-accent/10 px-4 py-2.5">
+                        rounded-2xl border border-accent bg-accent/10 px-4 py-2.5 no-print">
           <p className="text-sm text-text-1">
             Moviendo a <b>{enMano.persona?.nombre || enMano.persona?.email || 'alguien'}</b> —
             toca la casilla a la que va.
@@ -242,6 +272,9 @@ function Leyenda() {
         <i className="w-3 h-3 rounded border border-dashed border-border" /> Libre
       </span>
       <span className="inline-flex items-center gap-1.5">
+        <i className="w-3 h-3 rounded bg-surface-2 border border-text-3/30" /> Bloqueada por el equipo
+      </span>
+      <span className="inline-flex items-center gap-1.5">
         <i className="w-3 h-3 rounded bg-surface-2" /> Esa mesa no atiende a esa hora
       </span>
     </div>
@@ -267,6 +300,23 @@ function Casilla({ horario, cita, enMano, busy, onAbrir, onSentar, onSoltarAqui 
             ? 'border-border text-text-3 cursor-not-allowed'
             : 'border-accent text-accent hover:bg-accent/10'}`}>
         {ocupada ? 'Ocupada' : 'Mover aquí'}
+      </button>
+    );
+  }
+
+  /* Bloqueada por el equipo (0113). «Esta empresa no está de 11 a 12» sólo se
+     podía decir borrando la franja, y borrar pierde el porqué: nadie sabe luego
+     si esa hora no existió o si se quitó. Se pinta distinta de la libre y de la
+     ocupada porque son tres cosas distintas para quien coordina. */
+  if (!cita && horario.bloqueado) {
+    return (
+      <button type="button" disabled={busy} onClick={onSentar} title={horario.bloqueo_motivo || 'Bloqueada'}
+        className="w-full h-[3.25rem] rounded-lg border border-text-3/30 bg-surface-2
+                   px-2 py-1 text-left hover:border-text-3/60 transition-colors">
+        <span className="block text-[11px] text-text-2 font-medium">Bloqueada</span>
+        <span className="block text-[10px] text-text-3 truncate">
+          {horario.bloqueo_motivo || 'Sin motivo'}
+        </span>
       </button>
     );
   }
@@ -416,6 +466,7 @@ function ModalSentar({ evento, casilla, onCerrar, onHecho }) {
      Sin decirlo, un 403 se leería como «no hay nadie con ese nombre» y se
      buscaría a la misma persona diez veces. */
   const [sinPermiso, setSinPermiso] = useState(false);
+  const [motivo, setMotivo] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -430,18 +481,46 @@ function ModalSentar({ evento, casilla, onCerrar, onHecho }) {
     return () => { vivo = false; clearTimeout(t); };
   }, [q, evento.id]);
 
-  async function sentar(userId) {
+  /* `quien` es `{ user_id }` o `{ email, nombre }`. Las dos formas valen desde
+     la 0108, y hacen falta las dos: comprar una boleta es anónimo a propósito
+     y de la mayoría de asistentes lo único que queda es su correo. */
+  async function sentar(quien) {
     setBusy(true);
     try {
-      await networkingApi.sentar(evento.id, casilla.horario.id, userId);
+      await networkingApi.sentar(evento.id, casilla.horario.id, quien);
       success('Persona sentada. Le llega el aviso.');
       onHecho();
     } catch (e) {
-      toastErr(e.message || 'No se pudo sentar.');
+      toastErr(e.response?.data?.error || e.message || 'No se pudo sentar.');
     } finally {
       setBusy(false);
     }
   }
+
+  /* Sentar a un correo que no está en la lista. Es el caso de la rueda que se
+     arma la víspera con una hoja de cálculo delante: se tiene el correo y no
+     se tiene tiempo de buscarlo. El servidor comprueba que ese correo esté
+     registrado en el evento y contesta si no lo está. */
+  async function cambiarBloqueo(bloqueado) {
+    setBusy(true);
+    try {
+      await networkingApi.bloquearHorario(evento.id, casilla.horario.id, {
+        bloqueado, motivo: bloqueado ? limpiarMotivo(motivo) : null,
+      });
+      success(bloqueado ? 'Franja bloqueada.' : 'Franja libre otra vez.');
+      onHecho();
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+    } finally { setBusy(false); }
+  }
+  const bloquearFranja = () => cambiarBloqueo(true);
+  const soltarFranja   = () => cambiarBloqueo(false);
+
+  const correoEscrito = q.trim().toLowerCase();
+  const pareceCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoEscrito);
+  const yaEnLaLista = (gente || []).some(
+    t => (t.usuario?.email || t.guest_email || '').toLowerCase() === correoEscrito,
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onCerrar}>
@@ -458,6 +537,17 @@ function ModalSentar({ evento, casilla, onCerrar, onHecho }) {
         <input autoFocus value={q} onChange={e => setQ(e.target.value)}
           placeholder="Buscar por nombre, correo o código…" className="input w-full text-sm" />
 
+        {pareceCorreo && !yaEnLaLista && (
+          <button type="button" disabled={busy} onClick={() => sentar({ email: correoEscrito })}
+            className="w-full text-left px-3 py-2 rounded-xl border border-accent/40 bg-accent/5
+                       hover:bg-accent/10 transition-colors">
+            <span className="text-sm text-text-1 block truncate">Sentar a {correoEscrito}</span>
+            <span className="text-[11px] text-text-3 block">
+              Con sólo el correo, sin que tenga cuenta. Tiene que estar registrado en el evento.
+            </span>
+          </button>
+        )}
+
         <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-1">
           {gente === null && <div className="py-6 flex justify-center"><Spinner /></div>}
           {sinPermiso && (
@@ -470,28 +560,56 @@ function ModalSentar({ evento, casilla, onCerrar, onHecho }) {
             <p className="text-sm text-text-3 text-center py-6">Nadie con ese nombre.</p>
           )}
           {(gente || []).map(t => {
-            /* Sin cuenta no se puede sentar: la cita cuelga de una persona, no
-               de una boleta. Se enseñan igual y con el motivo, porque
-               esconderlos haría buscar sin encontrar a alguien que sí está en
-               la lista de asistentes. */
-            const sinCuenta = !t.usuario?.id;
+            /* Sin cuenta TAMBIÉN se puede sentar (0108): la cita puede colgar
+               de un correo. Antes esta lista los pintaba en gris y sin poder
+               tocarse —«compró como invitado, sin cuenta»—, que era la mayoría
+               de la gente del evento: comprar una boleta es anónimo a propósito
+               y lo único que queda de la compra es el correo. */
+            const email = t.usuario?.email || t.guest_email || null;
+            const nombre = t.usuario?.nombre || t.guest_nombre || null;
+            const sinCorreo = !t.usuario?.id && !email;
+            const quien = t.usuario?.id ? { user_id: t.usuario.id } : { email, nombre };
             return (
-              <button key={t.id} type="button" disabled={busy || sinCuenta}
-                onClick={() => sentar(t.usuario.id)}
+              <button key={t.id} type="button" disabled={busy || sinCorreo}
+                onClick={() => sentar(quien)}
                 className={`w-full text-left px-3 py-2 rounded-xl border transition-colors ${
-                  sinCuenta
+                  sinCorreo
                     ? 'border-border/60 opacity-60 cursor-not-allowed'
                     : 'border-border hover:bg-surface-2'}`}>
                 <span className="text-sm text-text-1 block truncate">
-                  {t.usuario?.nombre || t.guest_nombre || 'Sin nombre'}
+                  {nombre || 'Sin nombre'}
                 </span>
                 <span className="text-[11px] text-text-3 block truncate">
-                  {t.usuario?.email || t.guest_email || t.codigo}
-                  {sinCuenta ? ' · compró como invitado, sin cuenta' : ''}
+                  {email || t.codigo}
+                  {sinCorreo ? ' · sin correo, no se le puede avisar' : ''}
                 </span>
               </button>
             );
           })}
+        </div>
+
+        {/* Bloquear la franja vive AQUÍ, en el mismo sitio al que se llega
+            pulsando la casilla, porque es la otra respuesta a la misma
+            pregunta: «¿qué hago con este hueco?». Un botón aparte en la
+            cabecera obligaría a saber de antemano cuál de las dos se quiere. */}
+        <div className="border-t border-border pt-3 space-y-2">
+          {casilla.horario?.bloqueado ? (
+            <button onClick={soltarFranja} disabled={busy} className="btn-secondary text-sm w-full">
+              Soltar la franja{casilla.horario.bloqueo_motivo ? ` («${casilla.horario.bloqueo_motivo}»)` : ''}
+            </button>
+          ) : (
+            <>
+              <input value={motivo} onChange={e => setMotivo(e.target.value)} maxLength={MOTIVO_MAX}
+                placeholder="Motivo (opcional): almuerzo, llega a las 11:30…"
+                className="input w-full text-sm" />
+              <button onClick={bloquearFranja} disabled={busy} className="btn-ghost text-sm w-full">
+                Bloquear esta franja
+              </button>
+              <p className="text-[11px] text-text-3 leading-relaxed">
+                La casilla se queda en la parrilla, marcada y sin poder reservarse. Se puede soltar cuando quieras.
+              </p>
+            </>
+          )}
         </div>
 
         <button onClick={onCerrar} className="btn-secondary text-sm w-full">Cerrar</button>

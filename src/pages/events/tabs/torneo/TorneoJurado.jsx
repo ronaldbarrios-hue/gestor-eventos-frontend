@@ -12,6 +12,7 @@ import Spinner from '../../../../components/ui/Spinner.jsx';
    · Calificar — la hoja de notas del jurado asignado, para la ronda abierta.
    · Tabla     — el ranking de la ronda (o de una ronda pasada, si eres owner).
    · Jurados   — quién califica este torneo (gestión, sólo para quien organiza).
+   · Rúbrica   — corregir criterios y rondas, sólo mientras el torneo se arma.
 
    "Jurados" se muestra sólo a `soyOwner`, igual que el resto de acciones de
    gestión en este módulo (Equipos, Borrar torneo): el backend en realidad
@@ -40,11 +41,180 @@ export default function TorneoJurado({ evento, torneo, soyOwner, onReload }) {
             Jurados
           </button>
         )}
+        {/* Sólo mientras se arma: el servidor rechaza los dos guardados en
+            cuanto el torneo se genera —cambiar la rúbrica con notas puestas
+            invalidaría lo ya calificado— y una pestaña que sólo sabe contestar
+            «ya no se puede» es peor que no estar. */}
+        {soyOwner && torneo?.estado === 'armando' && (
+          <button onClick={() => setSub('rubrica')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sub === 'rubrica' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+            Rúbrica
+          </button>
+        )}
       </div>
 
       {sub === 'calificar' && <CalificarView evento={evento} torneo={torneo} />}
       {sub === 'tabla' && <TablaJuradoView evento={evento} torneo={torneo} soyOwner={soyOwner} onReload={onReload} />}
       {sub === 'jurados' && soyOwner && <JuradosView evento={evento} torneo={torneo} />}
+      {sub === 'rubrica' && soyOwner && torneo?.estado === 'armando' && (
+        <RubricaView evento={evento} torneo={torneo} />
+      )}
+    </div>
+  );
+}
+
+/* ─────────── Rúbrica: criterios y rondas ───────────
+ *
+ * Los criterios y las rondas se eligen al CREAR el torneo, dentro del mismo
+ * formulario. El servidor tiene desde el primer día las rutas para cambiarlos
+ * después (`PATCH .../criterios` y `PATCH .../rondas`) y no las llamaba
+ * ninguna pantalla: quien escribía «Puntualdiad» al crear el torneo se quedaba
+ * con esa palabra en la hoja de todos los jurados, sin forma de arreglarlo.
+ *
+ * Sólo mientras `estado === 'armando'`, que es el candado que ya pone el
+ * servidor: una vez generado el torneo hay notas puestas, y mover la rúbrica
+ * debajo de ellas convierte un 8 sobre 10 en un 8 sobre otra cosa.
+ *
+ * Los dos guardados REEMPLAZAN la lista entera —así están hechas las rutas—,
+ * así que se manda siempre completa y nunca un parche.
+ */
+function RubricaView({ evento, torneo }) {
+  const { success, error: toastErr } = useToast();
+  const [criterios, setCriterios] = useState(null);
+  const [rondas, setRondas] = useState([]);
+  const [modoRondas, setModoRondas] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const cargar = useCallback(() => {
+    /* Las dos a la vez y con su error mirado: si fallara una en silencio,
+       vendría vacía y la pantalla ofrecería guardar una lista en blanco encima
+       de la que hay. */
+    Promise.all([
+      torneoJuradoApi.criterios(evento.id, torneo.id),
+      torneoJuradoApi.rondas(evento.id, torneo.id),
+    ]).then(([c, r]) => {
+      setCriterios(c.criterios || []);
+      setRondas(r.rondas || []);
+      setModoRondas(r.modo_rondas);
+    }).catch(e => {
+      toastErr(e.response?.data?.error || e.message);
+      setCriterios([]);
+    });
+  }, [evento.id, torneo.id, toastErr]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const guardarCriterios = async () => {
+    const limpios = criterios
+      .map(c => ({ nombre: (c.nombre || '').trim(), puntaje_maximo: Number(c.puntaje_maximo) }))
+      .filter(c => c.nombre);
+    if (!limpios.length) { toastErr('Deja al menos un criterio con nombre.'); return; }
+    if (limpios.some(c => !(c.puntaje_maximo >= 1))) {
+      toastErr('Cada criterio necesita un puntaje máximo de al menos 1.'); return;
+    }
+    setGuardando(true);
+    try {
+      await torneoJuradoApi.guardarCriterios(evento.id, torneo.id, limpios);
+      success('Rúbrica guardada.');
+      cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setGuardando(false); }
+  };
+
+  const guardarRondas = async () => {
+    /* La última no lleva «cuántos avanzan»: no hay siguiente ronda a la que
+       avanzar, y mandárselo hace que el servidor lo rechace. */
+    const limpias = rondas.map((r, i) => (
+      i < rondas.length - 1
+        ? { nombre: (r.nombre || '').trim(), avanzan: Number(r.avanzan) }
+        : { nombre: (r.nombre || '').trim() }
+    ));
+    if (limpias.some(r => !r.nombre)) { toastErr('Cada ronda necesita un nombre.'); return; }
+    if (limpias.slice(0, -1).some(r => !(r.avanzan >= 1))) {
+      toastErr('Indica cuántos avanzan en cada ronda menos la última (mínimo 1).'); return;
+    }
+    setGuardando(true);
+    try {
+      await torneoJuradoApi.guardarRondas(evento.id, torneo.id, limpias);
+      success('Rondas guardadas.');
+      cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setGuardando(false); }
+  };
+
+  if (criterios === null) return <GLoader message="Cargando la rúbrica…" />;
+
+  const tocarCriterio = (i, campo, valor) =>
+    setCriterios(cs => cs.map((c, j) => (j === i ? { ...c, [campo]: valor } : c)));
+  const tocarRonda = (i, campo, valor) =>
+    setRondas(rs => rs.map((r, j) => (j === i ? { ...r, [campo]: valor } : r)));
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <p className="text-xs text-text-3 leading-relaxed">
+        Esto se cambia <b className="text-text-2">sólo mientras el torneo se arma</b>.
+        En cuanto se genere habrá notas puestas, y mover la rúbrica debajo de ellas
+        convertiría un 8 sobre 10 en un 8 sobre otra cosa.
+      </p>
+
+      <div className="card">
+        <div className="card-header"><h3 className="text-base font-semibold text-text-1">Criterios</h3></div>
+        <div className="card-body space-y-2">
+          {criterios.map((c, i) => (
+            <div key={c.id || i} className="flex items-center gap-2">
+              <input value={c.nombre || ''} onChange={e => tocarCriterio(i, 'nombre', e.target.value)}
+                placeholder="Nombre del criterio" className="input flex-1 text-sm" />
+              <input type="number" min="1" value={c.puntaje_maximo ?? 10}
+                onChange={e => tocarCriterio(i, 'puntaje_maximo', e.target.value)}
+                className="input w-24 text-sm" aria-label="Puntaje máximo" />
+              {criterios.length > 1 && (
+                <button type="button" onClick={() => setCriterios(cs => cs.filter((_, j) => j !== i))}
+                  className="text-text-3 hover:text-danger px-2" aria-label="Quitar criterio">×</button>
+              )}
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button type="button" onClick={() => setCriterios(cs => [...cs, { nombre: '', puntaje_maximo: 10 }])}
+              className="btn-ghost btn-sm">+ Añadir criterio</button>
+            <button type="button" onClick={guardarCriterios} disabled={guardando} className="btn-secondary btn-sm">
+              {guardando ? 'Guardando…' : 'Guardar criterios'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Las rondas sólo existen en eliminatoria: el servidor contesta «este
+          torneo es de una sola ronda» si se mandan, así que no se ofrecen. */}
+      {modoRondas === 'eliminatoria' && (
+        <div className="card">
+          <div className="card-header"><h3 className="text-base font-semibold text-text-1">Rondas</h3></div>
+          <div className="card-body space-y-2">
+            {rondas.map((r, i) => (
+              <div key={r.id || i} className="flex items-center gap-2">
+                <input value={r.nombre || ''} onChange={e => tocarRonda(i, 'nombre', e.target.value)}
+                  placeholder={`Ronda ${i + 1}`} className="input flex-1 text-sm" />
+                {i < rondas.length - 1 ? (
+                  <input type="number" min="1" value={r.avanzan ?? ''}
+                    onChange={e => tocarRonda(i, 'avanzan', e.target.value)}
+                    placeholder="Avanzan" className="input w-28 text-sm" aria-label="Cuántos avanzan" />
+                ) : (
+                  <span className="text-[11px] text-text-3 w-28 text-center">Última</span>
+                )}
+                {rondas.length > 1 && (
+                  <button type="button" onClick={() => setRondas(rs => rs.filter((_, j) => j !== i))}
+                    className="text-text-3 hover:text-danger px-2" aria-label="Quitar ronda">×</button>
+                )}
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button type="button" onClick={() => setRondas(rs => [...rs, { nombre: '', avanzan: 2 }])}
+                className="btn-ghost btn-sm">+ Añadir ronda</button>
+              <button type="button" onClick={guardarRondas} disabled={guardando} className="btn-secondary btn-sm">
+                {guardando ? 'Guardando…' : 'Guardar rondas'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -99,11 +99,23 @@ export function modoPublicacion(valor) {
   return MODOS_PUBLICACION.find(m => m.value === valor) || MODOS_PUBLICACION[0];
 }
 
+/* «Auto» sigue al sitio que lo incrusta cuando ese sitio nos lo puede contar
+   —lo hace el script que va con este código—, y si no, se ve como la página
+   del evento, que es oscura. Antes seguía al SISTEMA OPERATIVO de quien
+   miraba, que no tiene nada que ver ni con el evento ni con la web donde está:
+   el mismo formulario se veía distinto según el portátil de quien entraba, y
+   sobre una web oscura salía ilegible. */
 export const EMBED_TEMAS = [
   { value: 'auto',   label: 'Seguir al sitio que lo incrusta' },
   { value: 'claro',  label: 'Siempre claro' },
   { value: 'oscuro', label: 'Siempre oscuro' },
 ];
+
+/* La pista que va debajo del selector. Vive aquí, junto a las opciones, para
+   que no derive: una ayuda que describe otro comportamiento es peor que
+   ninguna. */
+export const EMBED_TEMA_PISTA =
+  'Si tu web es clara, elige «Siempre claro»: sin eso la sección se ve como la página del evento, que es oscura.';
 
 /* Slug corto y estable para identificar el iframe en el DOM del anfitrión. */
 export function embedFrameId(slug, seccion) {
@@ -149,11 +161,46 @@ export function embedSnippet({ origin, slug, seccion, titulo, tema = 'auto', fon
 (function () {
   var f = document.getElementById('${fid}');
   if (!f) return;
-${heredarEstilo ? `  function estilo() {
+${heredarEstilo ? `  /* El fondo de VERDAD detrás del recuadro: se sube por los padres hasta el
+     primero que pinte algo, porque un div sin fondo dentro de una seccion
+     azul es azul y preguntarle a el solo devuelve rgba(0,0,0,0).
+     Con esto el formulario se pinta con el tema de ESTA pagina y no con el
+     del sistema operativo de quien mira: son dos cosas que no tienen por que
+     coincidir, y cuando no coinciden el formulario sale ilegible. */
+  function partes(c) {
+    /* Sin expresion regular a proposito: este trozo viaja pegado dentro de una
+       plantilla, y una barra invertida de mas o de menos por el camino lo
+       deja como un patron que no casa con nada y que falla en silencio.
+       getComputedStyle siempre devuelve "rgb(r, g, b)" o "rgba(r, g, b, a)",
+       asi que partir por lo que no es numero basta y no se puede romper. */
+    var i = c.indexOf('(');
+    if (i < 0) return null;
+    var v = c.slice(i + 1, c.indexOf(')')).split(/[^0-9.]+/).filter(Boolean).map(Number);
+    return v.length >= 3 ? v : null;
+  }
+  function fondoDeAqui() {
+    var n = f, i = 0;
+    while (n && i++ < 30) {
+      var v = partes(getComputedStyle(n).backgroundColor || '');
+      /* Casi transparente es transparente: un velo al 5% no manda sobre lo que
+         hay debajo, y tomarlo por el fondo da el color equivocado. */
+      if (v && (v.length < 4 || v[3] > 0.5)) return v;
+      n = n.parentElement;
+    }
+    return null;
+  }
+  function esquemaDeAqui() {
+    var v = fondoDeAqui();
+    if (!v) return null;
+    function l(c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+    return (0.2126 * l(v[0]) + 0.7152 * l(v[1]) + 0.0722 * l(v[2])) < 0.18 ? 'oscuro' : 'claro';
+  }
+  function estilo() {
     try {
       f.contentWindow.postMessage({
         gestek: 'estilo', fid: '${fid}',
-        fuente: getComputedStyle(document.body).fontFamily
+        fuente: getComputedStyle(document.body).fontFamily,
+        esquema: esquemaDeAqui()
       }, ${destino});
     } catch (e) {}
   }

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { networkingApi } from '../../../api/networking.js';
 import { guardarBorrador, leerBorrador, olvidarBorrador, filtrarCitas, citasComoCSV } from '../../../lib/notasDeCita.js';
-import { RESULTADOS, PLAZOS, sePuedeCerrar, informeCSV } from '../../../lib/cierreDeCita.js';
+import { RESULTADOS, PLAZOS, sePuedeCerrar, informeCSV, agendasPorParticipante } from '../../../lib/cierreDeCita.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
@@ -75,6 +75,16 @@ export default function NetworkingTab({ evento, soyOwner }) {
               Gestionar
             </button>
           )}
+          {/* La parrilla enseña todas las mesas a la vez: correcto para operar
+              el salón, y lo peor para contestar «¿qué tiene mañana Café del
+              Tolima?». Eso se preguntaba de una mesa concreta y no había dónde
+              mirarlo. */}
+          {soyOwner && (
+            <button onClick={() => setSub('mesas')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'mesas' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+              Por empresa
+            </button>
+          )}
           <button onClick={() => setSub('explorar')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'explorar' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
             Explorar
@@ -89,6 +99,7 @@ export default function NetworkingTab({ evento, soyOwner }) {
       {sub === 'parrilla' && soyOwner && <ParrillaRueda evento={evento} soyOwner={soyOwner} />}
       {sub === 'informe'  && soyOwner && <InformeRueda evento={evento} />}
       {sub === 'admin'    && soyOwner && <AdminView evento={evento} />}
+      {sub === 'mesas'    && soyOwner && <AgendaPorEmpresa evento={evento} />}
       {sub === 'explorar' && <ExplorarView evento={evento} />}
       {sub === 'mis-citas' && <MisCitasView evento={evento} />}
     </div>
@@ -683,9 +694,14 @@ function InformeRueda({ evento }) {
           Lo que salió de la rueda. Las reuniones sin cerrar se cuentan aparte:
           no se sabe si ocurrieron, y contarlas como que no habría sido inventar.
         </p>
-        <button onClick={descargar} className="btn-secondary btn-sm rounded-full flex-shrink-0">
-          Descargar informe (CSV)
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0 no-print">
+          <button onClick={() => window.print()} className="btn-secondary btn-sm rounded-full">
+            Imprimir las agendas
+          </button>
+          <button onClick={descargar} className="btn-secondary btn-sm rounded-full">
+            Descargar informe (CSV)
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -694,6 +710,8 @@ function InformeRueda({ evento }) {
         <Dato n={r.no_asistio} label="No asistió alguna de las partes" cls="text-warning" />
         <Dato n={r.sin_registrar} label="Sin cerrar todavía" cls="text-text-3" />
       </div>
+
+      <AgendasImprimibles evento={evento} citas={datos.citas || []} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="rounded-2xl border border-border bg-surface/40 p-4">
@@ -736,6 +754,94 @@ function InformeRueda({ evento }) {
             {r.canceladas > 0 && `${r.canceladas} cita${r.canceladas === 1 ? '' : 's'} cancelada${r.canceladas === 1 ? '' : 's'} aparte`}
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* La agenda de cada participante, para entregarla.
+ *
+ * ── Por qué esto es papel y no una pantalla ──────────────────────────────
+ *
+ * Una rueda genera dos papeles: la parrilla de quien coordina y la agenda de
+ * cada empresa. La segunda se imprime o se manda la víspera, y sin ella cada
+ * participante se apunta sus horas a mano de una pantalla — y la mitad se
+ * equivoca de mesa. El wifi de un recinto tampoco es algo con lo que se pueda
+ * contar el día del evento.
+ *
+ * ── Se ve en pantalla plegada, y sale entera al imprimir ────────────────
+ *
+ * Con doscientas empresas, enseñarlas todas convertiría el informe en una
+ * lista interminable por la que hay que bajar para llegar a los números. En
+ * papel, en cambio, salen todas y **una por hoja**: cada una se recorta y se
+ * entrega.
+ */
+function AgendasImprimibles({ evento, citas }) {
+  const [abierto, setAbierto] = useState(false);
+  const agendas = useMemo(() => agendasPorParticipante(citas), [citas]);
+
+  if (agendas.length === 0) return null;
+
+  const hora = (iso) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('es-CO', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden" id="agendas-print">
+      {/* `visibility` y no `display`: esconder con `display:none` reflowea la
+          página y parte las tablas entre hojas por sitios raros. */}
+      <style>{`@media print {
+        body * { visibility: hidden !important; }
+        #agendas-print, #agendas-print * { visibility: visible !important; }
+        #agendas-print { position: absolute; left: 0; top: 0; width: 100%; border: 0; }
+        #agendas-print .no-print { display: none !important; }
+        #agendas-print .agenda { break-after: page; page-break-after: always; }
+        #agendas-print .agenda:last-child { break-after: auto; page-break-after: auto; }
+        @page { margin: 14mm; }
+      }`}</style>
+
+      <button onClick={() => setAbierto(v => !v)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-2/60 transition-colors no-print">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-1">Agenda de cada participante</p>
+          <p className="text-[11px] text-text-3">
+            {agendas.length} persona{agendas.length === 1 ? '' : 's'} · al imprimir sale una por hoja
+          </p>
+        </div>
+        <span className="text-xs text-text-3 flex-shrink-0">{abierto ? 'Ocultar' : 'Ver'}</span>
+      </button>
+
+      <div className={abierto ? 'border-t border-border' : 'hidden print:block'}>
+        {agendas.map(a => (
+          <div key={a.clave} className="agenda px-4 py-4 border-b border-border last:border-b-0">
+            <p className="text-sm font-semibold text-text-1">{a.nombre}</p>
+            <p className="text-[11px] text-text-3 mb-2">
+              {a.email || 'sin correo'} · {evento.titulo}
+            </p>
+            <table className="w-full text-sm">
+              <tbody>
+                {a.citas.map(c => (
+                  <tr key={c.id} className="border-t border-border/60">
+                    <td className="py-1.5 pr-3 tabular-nums whitespace-nowrap text-text-2">{hora(c.horario?.inicio)}</td>
+                    <td className="py-1.5 pr-3 text-text-1">{c.horario?.expositor?.nombre}</td>
+                    <td className="py-1.5 pr-3 text-text-3 whitespace-nowrap">
+                      {c.horario?.expositor?.stand ? `Stand ${c.horario.expositor.stand}` : ''}
+                    </td>
+                    {/* Una cita PEDIDA todavía puede caerse: quien recibe la
+                        agenda tiene que saberlo antes de organizar su día. */}
+                    <td className="py-1.5 text-[11px] text-warning whitespace-nowrap">
+                      {c.estado === 'solicitada' ? 'sin confirmar' : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -793,6 +899,155 @@ function ModoRueda({ evento }) {
       <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
         Se puede cambiar en cualquier momento. Lo ya reservado no se toca.
       </p>
+    </div>
+  );
+}
+
+/* ─────────── La agenda de una empresa ───────────
+ *
+ * ── El hueco que tapa ────────────────────────────────────────────────────
+ *
+ * Una rueda tiene dos lados y hasta ahora sólo uno podía consultar su día.
+ * Quien visita ve «Mis citas». La empresa SENTADA en la mesa no tenía ninguna
+ * pantalla: para saber a quién iba a recibir a las 10:15 había que pedírselo a
+ * quien organiza, que lo leía de la parrilla — y el día del evento eso es una
+ * fila de gente preguntando lo mismo.
+ *
+ * Y quien organiza tampoco podía mirar una sola: la parrilla las enseña todas
+ * a la vez, que es lo correcto para operar el salón y lo peor para contestar
+ * «¿qué tiene mañana Café del Tolima?».
+ *
+ * ── Los huecos se enseñan ────────────────────────────────────────────────
+ *
+ * La agenda trae TODAS las franjas, con y sin cita. Los huecos son la mitad de
+ * la información: dicen cuándo esa mesa está libre, que es lo que hace falta
+ * para meter ahí a alguien que se quedó sin reuniones.
+ *
+ * La misma agenda la puede abrir la empresa por su cuenta, con el código de su
+ * boleta-stand y sin cuenta (`/eventos/publicos/expositor/:codigo/citas`).
+ */
+function AgendaPorEmpresa({ evento }) {
+  const [mesas, setMesas] = useState(null);
+  const [elegida, setElegida] = useState('');
+  const [datos, setDatos] = useState(null);
+  const { error: toastErr } = useToast();
+
+  useEffect(() => {
+    networkingApi.admin(evento.id)
+      .then(d => {
+        const lista = (d.expositores || []).filter(e => (e.horarios || []).length > 0);
+        setMesas(lista);
+        /* Se abre en la primera en vez de en un desplegable vacío: con una sola
+           mesa, elegirla es un clic que no decide nada. */
+        if (lista.length) setElegida(lista[0].id);
+      })
+      .catch(e => toastErr(e.response?.data?.error || e.message));
+  }, [evento.id, toastErr]);
+
+  useEffect(() => {
+    if (!elegida) return;
+    setDatos(null);
+    networkingApi.agendaDeMesa(evento.id, elegida)
+      .then(setDatos)
+      .catch(e => toastErr(e.response?.data?.error || e.message));
+  }, [evento.id, elegida, toastErr]);
+
+  if (mesas === null) return <GLoader message="Cargando las mesas…" />;
+  if (mesas.length === 0) return (
+    <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
+      <p className="text-sm text-text-2">Todavía no hay mesas con horario.</p>
+      <p className="text-xs text-text-3 mt-1">En <b className="text-text-2">Gestionar</b> se crean y se les generan las franjas.</p>
+    </div>
+  );
+
+  const hora = (iso) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('es-CO', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+  };
+  const r = datos?.resumen;
+
+  return (
+    <div className="space-y-4" id="agenda-empresa-print">
+      {/* `visibility` y no `display`: esconder con `display:none` reflowea la
+          página y parte la tabla entre hojas por sitios raros. */}
+      <style>{`@media print {
+        body * { visibility: hidden !important; }
+        #agenda-empresa-print, #agenda-empresa-print * { visibility: visible !important; }
+        #agenda-empresa-print { position: absolute; left: 0; top: 0; width: 100%; }
+        #agenda-empresa-print .no-print { display: none !important; }
+        @page { margin: 14mm; }
+      }`}</style>
+
+      <div className="flex flex-wrap items-end gap-3 no-print">
+        <label className="flex-1 min-w-[16rem]">
+          <span className="text-[11px] uppercase tracking-widest text-text-3 font-semibold block mb-1">Empresa</span>
+          <select value={elegida} onChange={e => setElegida(e.target.value)} className="input w-full text-sm">
+            {mesas.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.nombre}{m.stand ? ` · Mesa ${m.stand}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button onClick={() => window.print()} className="btn-secondary btn-sm rounded-full">
+          Imprimir esta agenda
+        </button>
+      </div>
+
+      {!datos ? <GLoader message="Cargando la agenda…" /> : (
+        <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-sm font-semibold text-text-1">{datos.expositor?.nombre}</p>
+            <p className="text-[11px] text-text-3">
+              {datos.expositor?.stand ? `Mesa ${datos.expositor.stand}` : 'Mesa por asignar'}
+              {datos.expositor?.categoria_negocio ? ` · ${datos.expositor.categoria_negocio}` : ''}
+            </p>
+            {r && (
+              <p className="text-[11px] text-text-2 mt-1.5 tabular-nums">
+                {r.ocupadas} de {r.franjas} franja{r.franjas === 1 ? '' : 's'} con cita
+                {r.pedidas ? ` · ${r.pedidas} sin aprobar` : ''}
+                {r.libres ? ` · ${r.libres} libre${r.libres === 1 ? '' : 's'}` : ''}
+                {r.bloqueadas ? ` · ${r.bloqueadas} bloqueada${r.bloqueadas === 1 ? '' : 's'}` : ''}
+              </p>
+            )}
+          </div>
+
+          <table className="w-full text-sm">
+            <tbody>
+              {datos.agenda.map(f => (
+                <tr key={f.horario_id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2.5 text-text-2 whitespace-nowrap align-top w-40 tabular-nums">
+                    {hora(f.inicio)}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {f.cita ? (
+                      <>
+                        <span className="text-text-1 block">
+                          {f.cita.persona?.nombre || f.cita.persona?.email || 'Sin identificar'}
+                        </span>
+                        <span className="text-[11px] text-text-3 block">
+                          {f.cita.persona?.nombre && f.cita.persona?.email ? `${f.cita.persona.email} · ` : ''}
+                          {/* «Pedida» y «Reservada» no son lo mismo para quien
+                              mira su día: una todavía puede caerse. */}
+                          {f.cita.estado === 'solicitada' ? 'Pedida, sin aprobar' : 'Confirmada'}
+                        </span>
+                      </>
+                    ) : f.bloqueado ? (
+                      <span className="text-text-3">
+                        Bloqueada{f.bloqueo_motivo ? ` · ${f.bloqueo_motivo}` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-text-3">Libre</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

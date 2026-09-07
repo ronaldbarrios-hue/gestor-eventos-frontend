@@ -99,14 +99,60 @@ export default function EmbedPage() {
   const [fuenteHost, setFuenteHost] = useState('');
   const fuente = fuenteParam || fuenteHost;
 
-  /* Tema: se decide una vez, cooperando con ThemeProvider (no tocamos
-     la clase del <html> a mano, que la sobreescribiría al montar). */
+  /* El tema de la web anfitriona, si nos lo cuenta (widget.js y el snippet de
+     sección lo mandan con la tipografía). Ver el porqué justo abajo. */
+  const [esquemaHost, setEsquemaHost] = useState(null);
+
+  /* ── Tema: quién manda ───────────────────────────────────────────────────
+   *
+   * Se decide una vez, cooperando con ThemeProvider (no tocamos la clase del
+   * <html> a mano, que la sobreescribiría al montar).
+   *
+   * El orden importa y estaba mal. Antes, con `tema=auto` —el valor por
+   * omisión— mandaba `prefers-color-scheme`, o sea el sistema operativo de
+   * QUIEN MIRA. Pero con `fondo=transparente` —también el valor por omisión, y
+   * lo que pidió el cliente: «que se vea como parte de su página»— el fondo lo
+   * pone la web anfitriona. Dos mitades decidiendo por separado el mismo
+   * dibujo.
+   *
+   * Cuando no coinciden, el formulario queda ilegible. Llegó en una foto de
+   * FESTECH: su web es azul noche, el visitante tenía el portátil en modo
+   * claro, y el registro salió con la paleta clara encima del azul — el título
+   * en #15171C sobre casi negro, invisible, y los campos en #E4DFD1, unos
+   * recuadros color crema flotando. Nada falló: cada mitad hizo lo suyo.
+   *
+   * La regla ahora: **si el fondo lo pone la web anfitriona, el tema también.**
+   *
+   * ── Y cuando la web anfitriona no nos lo cuenta ──────────────────────────
+   *
+   * Pasa más de lo que parece. Lo cuenta el script del snippet, que se COPIA a
+   * la página del cliente: quien pegó el suyo hace meses tiene la versión de
+   * entonces, y arreglar el snippet no le llega. Comprobado en la página de
+   * FESTECH, cuya copia además está retocada a mano — volver a pegarla les
+   * costaría perder sus cambios. Y Notion, Wix y demás bloques de «insertar
+   * web» no ejecutan script ninguno.
+   *
+   * Con el fondo transparente y sin nadie que nos diga nada, `prefers-color-
+   * scheme` no es un valor por omisión: es un sorteo. El mismo formulario, en
+   * la misma web, se ve distinto según el portátil de quien entra — y la mitad
+   * de las veces ilegible. Lo que sí se sabe es de qué evento es esta sección,
+   * y **la página pública de un evento es oscura siempre** (`PublicLayout` la
+   * fuerza). Esta sección es un trozo de esa página: se ve como ella, que es
+   * además como el organizador la previsualizó al generar el código.
+   *
+   * Quien la incruste en una web clara tiene la salida a un clic: «Tema →
+   * Claro» en el mismo panel donde generó el código. Un ajuste que se elige
+   * una vez es mejor que un sorteo por visitante. */
   useEffect(() => {
     if (tema === 'oscuro') { setDark(); return; }
     if (tema === 'claro')  { setLight(); return; }
+    if (fondo === 'transparente') {
+      if (esquemaHost === 'claro') setLight(); else setDark();
+      return;
+    }
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (mq?.matches) setDark(); else setLight();
-  }, [tema, setDark, setLight]);
+  }, [tema, fondo, esquemaHost, setDark, setLight]);
 
   /* Fondo transparente: el color lo pone la web anfitriona. */
   useEffect(() => {
@@ -128,6 +174,9 @@ export default function EmbedPage() {
       if (d.fid && fid && d.fid !== fid) return;
       const f = fuenteSegura(d.fuente);
       if (f) setFuenteHost(f);
+      /* Sólo los dos valores que existen: cualquier otra cosa deja el tema
+         como estaba, que es mejor que darle la vuelta por un mensaje raro. */
+      if (d.esquema === 'oscuro' || d.esquema === 'claro') setEsquemaHost(d.esquema);
     };
     window.addEventListener('message', alMensaje);
     try { window.parent?.postMessage({ gestek: 'pide-estilo', fid }, '*'); } catch { /* cross-origin */ }

@@ -40,6 +40,15 @@ export const networkingApi = {
   borrarExpositor : (eventoId, expositorId) => client.delete(`/eventos/${eventoId}/networking/expositores/${expositorId}`).then(r => r.data),
   generarHorarios : (eventoId, expositorId, body) => client.post(`/eventos/${eventoId}/networking/expositores/${expositorId}/horarios`, body).then(r => r.data),
   borrarHorario   : (eventoId, horarioId) => client.delete(`/eventos/${eventoId}/networking/horarios/${horarioId}`).then(r => r.data),
+  /* Bloquear una franja en vez de borrarla (0113): «esta empresa no está de 11
+     a 12» se decia borrando esos horarios, y borrar pierde el porque. */
+  bloquearHorario : (eventoId, horarioId, body) => client.patch(`/eventos/${eventoId}/networking/horarios/${horarioId}`, body).then(r => r.data),
+  /* La agenda de UNA mesa. La rueda tiene dos lados y solo uno podia consultar
+     su dia: quien visita ve «Mis citas», y la empresa sentada en la mesa no
+     tenia ninguna pantalla — para saber a quien iba a recibir a las 10:15
+     habia que pedirselo a quien organiza. La ve el equipo y tambien el
+     contacto de esa misma empresa, por su `contacto_email`. */
+  agendaDeMesa    : (eventoId, expositorId) => client.get(`/eventos/${eventoId}/networking/expositores/${expositorId}/citas`).then(r => r.data),
 
   /* La parrilla. Existía entera en el servidor —ver, aprobar, mover, sentar— y
      no la llamaba nadie: quien organiza tenía las rutas y ninguna pantalla.
@@ -53,6 +62,12 @@ export const networkingApi = {
     client.patch(`/eventos/${eventoId}/networking/citas/${citaId}`, body).then(r => r.data),
   /* Sentar a alguien a mano: nace confirmada, porque pedirle que apruebe una
      cita que le acaban de poner sería devolverle el trabajo. */
-  sentar      : (eventoId, horarioId, userId) =>
-    client.post(`/eventos/${eventoId}/networking/citas`, { horario_id: horarioId, user_id: userId }).then(r => r.data),
+  sentar      : (eventoId, horarioId, quien) =>
+    /* `quien` es `{ user_id }` O `{ email, nombre }`. Pedir siempre una cuenta
+       —que es lo que hacia esta funcion— dejaba fuera a la mayoria: comprar una
+       boleta es anonimo a proposito y de la compra solo queda un correo. El
+       servidor acepta las dos formas desde la 0108; el panel seguia mandando
+       solo la primera, asi que armar la agenda a mano era imposible para casi
+       todos los asistentes. */
+    client.post(`/eventos/${eventoId}/networking/citas`, { horario_id: horarioId, ...quien }).then(r => r.data),
 };
