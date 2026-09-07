@@ -53,7 +53,6 @@ import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
 import Volver from '../../../components/ui/Volver.jsx';
 import { guardarEvento, leerEvento } from '../../../lib/eventoEnCache.js';
-import { ruedaEncendida, topeValido, TOPE_MAX } from '../../../lib/ajustesRueda.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Workspace del evento — Rework Fase 3
@@ -62,6 +61,7 @@ import { ruedaEncendida, topeValido, TOPE_MAX } from '../../../lib/ajustesRueda.
    las 7 secciones del PDF (+ Dinámicas), badge de rol y salida clara.
    ────────────────────────────────────────────────────────────────── */
 
+const CATEGORIAS_NETWORKING = ['negocios', 'marketing', 'tecnologia'];
 
 /* Secciones y sub-tabs. perm: permiso requerido para miembros (owner ve todo).
    null = todo el equipo. 'placeholder' marca módulos aún en construcción. */
@@ -102,18 +102,14 @@ const SECCIONES = [
   { id: 'pagina', label: 'Tu página', icon: SparkIcon, tabs: [
     { id: 'landing',     label: 'Landing',            perm: 'editar_pagina_publica' },
     { id: 'publicacion', label: 'Publicación',        perm: 'editar_pagina_publica' },
+    /* Se cayó de esta lista en el reagrupe de las 9 secciones (fd43248): esa
+       misma migración de menú movió «Proceso de compra» y «Emails» a otras
+       secciones y, sin querer, no reubicó «Marca» a ningún lado — se quedó
+       sin entrada aquí. El componente (`WhiteLabelSection`) y su ruta
+       (`case 'pagina/whitelabel'`, más abajo) nunca se tocaron: sólo faltaba
+       el enlace del menú para llegar a ellos. */
+    { id: 'whitelabel',  label: 'Marca',              perm: 'editar_pagina_publica' },
     { id: 'seo',         label: 'SEO',                perm: 'editar_pagina_publica' },
-    /* Estas dos existían y NO estaban en el menú: sólo se llegaba escribiendo
-       la dirección a mano. La pantalla se pintaba perfecta y no había forma de
-       llegar a ella — el fallo callado de siempre, y esta vez costó que un
-       organizador buscara media hora dónde se agrupan los campos del
-       formulario y concluyera que no se podía.
-
-       La prueba `menu.test.mjs` comprobaba «toda pestaña del menú tiene una
-       pantalla que pintar» y no el sentido contrario, así que no lo cazó. Ya
-       comprueba los dos. */
-    { id: 'formularios', label: 'Formularios',        perm: 'editar_evento' },
-    { id: 'whitelabel',  label: 'Marca del evento',   perm: 'editar_pagina_publica' },
     /* «Proceso de compra» se fue a «Entradas y dinero». Estaba aquí porque se
        edita como se edita la landing —con un formulario y una previa—, pero lo
        que decide no es cómo se ve: es qué datos se piden para cobrar y qué pasa
@@ -364,11 +360,7 @@ export default function EventWorkspace() {
   /* Secciones visibles según permisos y categoría */
   const secciones = useMemo(() => {
     if (!evento) return [];
-    /* La rueda la decide quien organiza (0113), no la categoría del evento.
-       Antes esta lista estaba escrita aquí Y en `routes/networking.js`, y una
-       cámara de comercio que organiza una rueda de agroindustria —categoría
-       que ni existe en el catálogo— no podía montarla. */
-    const permiteNetworking = ruedaEncendida(evento);
+    const permiteNetworking = CATEGORIAS_NETWORKING.includes(evento.categoria?.slug);
     /* Torneos disponibles para CUALQUIER evento: una convención de videojuegos
        o una feria también organiza torneos (parte del "Espacio del evento"). */
     return SECCIONES
@@ -668,14 +660,14 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'asistentes/previos'       : return <PreviosSection evento={evento} soyOwner={soyOwner} />;
     case 'mensajes/chat'        : return <ChatTab evento={evento} />;
     case 'mensajes/anuncios'    : return <AnunciosSection evento={evento} onAnuncio={onAnuncio} recargar={anunciosVersion} />;
-    case 'configuracion/general'    : return <ConfigGeneral evento={evento} reload={reload} />;
+    case 'configuracion/general'    : return <ConfigGeneral evento={evento} />;
     case 'configuracion/automatizaciones': return <AutomatizacionesSection evento={evento} />;
     case 'configuracion/integraciones': return <IntegracionesSection />;
     default: return <PlaceholderTab title={t(tab.label)} desc={t('Módulo en construcción dentro del rework.')} icon="spark" />;
   }
 }
 
-function ConfigGeneral({ evento, reload }) {
+function ConfigGeneral({ evento }) {
   const { success, error: toastErr } = useToast();
   const [esPlantilla, setEsPlantilla] = useState(Boolean(evento.page_json?.plantilla));
   const [guardando, setGuardando] = useState(false);
@@ -709,107 +701,6 @@ function ConfigGeneral({ evento, reload }) {
         </div>
       </div>
       <p className="text-xs text-text-3">Al marcarlo como plantilla, este evento aparece al crear uno nuevo para reutilizar su configuración (landing, marca, checkout, SEO y boletas) — sin copiar asistentes ni ventas.</p>
-
-      <RuedaDelEvento evento={evento} reload={reload} />
-    </div>
-  );
-}
-
-/* El interruptor de la rueda de negocios.
- *
- * Vive AQUÍ y no dentro de la pestaña de la rueda por una razón tonta y
- * decisiva: con la rueda apagada esa pestaña no existe, así que un interruptor
- * dentro de ella sólo sabría apagarla.
- *
- * Hasta la 0113 esto lo decidía la categoría del evento, y la lista estaba
- * escrita dos veces —servidor y panel—. Una cámara de comercio que organiza una
- * rueda de agroindustria o de turismo no tenía forma de montarla: esas
- * categorías ni siquiera existen en el catálogo, y su evento caía en «Otros».
- */
-function RuedaDelEvento({ evento, reload }) {
-  const { success, error: toastErr } = useToast();
-  const [activa, setActiva] = useState(ruedaEncendida(evento));
-  const [tope, setTope] = useState(
-    evento.networking_tope_por_empresa == null ? '' : String(evento.networking_tope_por_empresa),
-  );
-  const [guardando, setGuardando] = useState(false);
-
-  /* Devuelve si se guardó. No lanza: quien llama necesita saberlo para
-     deshacer lo que ya pintó, y una excepción obligaba a un `catch` vacío en
-     cada sitio —que es justo la forma de tragarse un error sin decir nada. */
-  const guardar = async (cambios, aviso) => {
-    setGuardando(true);
-    try {
-      await eventosApi.update(evento.id, cambios);
-      success(aviso);
-      /* Se recarga el evento: de esto depende que la pestaña aparezca o
-         desaparezca del menú, y sin recargar habría que salir y volver a
-         entrar para verlo — que es justo cuando uno cree que no se guardó. */
-      reload?.();
-      return true;
-    } catch (e) {
-      toastErr(e.response?.data?.error || e.message);
-      return false;
-    } finally { setGuardando(false); }
-  };
-
-  const cambiarInterruptor = async () => {
-    const nuevo = !activa;
-    /* Se pinta ya —es un interruptor, no un formulario— y se devuelve a su
-       sitio si el guardado no cuajó: dejarlo puesto diría que hay rueda donde
-       el servidor dice que no. */
-    setActiva(nuevo);
-    const ok = await guardar({ networking_activo: nuevo },
-      nuevo ? 'Rueda de negocios activada. Ya aparece en Actividades.' : 'Rueda de negocios desactivada.');
-    if (!ok) setActiva(!nuevo);
-  };
-
-  const guardarTope = async () => {
-    const n = topeValido(tope);
-    if (n === undefined) {
-      toastErr(`El tope tiene que ser un número entre 1 y ${TOPE_MAX}. Déjalo vacío para no poner tope.`);
-      return;
-    }
-    await guardar({ networking_tope_por_empresa: n },
-      n ? `Máximo ${n} cita${n === 1 ? '' : 's'} por participante.` : 'Sin tope de citas.');
-  };
-
-  return (
-    <div className="card">
-      <div className="card-header"><h3 className="text-base font-semibold text-text-1">Rueda de negocios</h3></div>
-      <div className="card-body space-y-4">
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" checked={activa} onChange={cambiarInterruptor} disabled={guardando}
-            className="mt-0.5 w-4 h-4 accent-current text-primary" />
-          <span>
-            <span className="text-sm text-text-1 block">Este evento tiene rueda de negocios</span>
-            <span className="text-xs text-text-3 block leading-relaxed">
-              Añade «Rueda» en Actividades: mesas, franjas de reunión y agenda de citas.
-              Sirve para cualquier tipo de evento — agroindustria, turismo, salud— no sólo para los de negocios.
-            </span>
-          </span>
-        </label>
-
-        {activa && (
-          <div className="pt-3 border-t border-border">
-            <label className="text-sm text-text-1 block">Máximo de citas por participante</label>
-            <p className="text-xs text-text-3 leading-relaxed mt-0.5">
-              Sin esto, una empresa puede llevarse quince citas y dejar a otras sin ninguna.
-              Déjalo vacío para no poner tope. Las canceladas no cuentan.
-            </p>
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                type="number" min="1" max={TOPE_MAX} value={tope} placeholder="Sin tope"
-                onChange={(e) => setTope(e.target.value)}
-                className="input w-32" disabled={guardando}
-              />
-              <button onClick={guardarTope} disabled={guardando} className="btn-secondary btn-sm">
-                {guardando ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
