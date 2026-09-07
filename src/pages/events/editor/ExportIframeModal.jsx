@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../../context/ToastContext.jsx';
-import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
+import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_TEMA_PISTA, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
 
 /* Exportar UNA sección de la landing como iframe: la empresa arma su web
    donde quiera y trae de GESTEK solo lo que le sirve (boletas, cómo llegar,
@@ -195,6 +195,9 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
             <select value={tema} onChange={e => opcTema(e.target.value)} className="input text-sm w-full">
               {EMBED_TEMAS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
+            {tema === 'auto' && (
+              <p className="text-[11px] text-text-3 mt-1 leading-relaxed">{EMBED_TEMA_PISTA}</p>
+            )}
           </Campo>
 
           <Campo label="Alto inicial (px)">

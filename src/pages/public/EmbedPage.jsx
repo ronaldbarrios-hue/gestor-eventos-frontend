@@ -122,15 +122,32 @@ export default function EmbedPage() {
    * recuadros color crema flotando. Nada falló: cada mitad hizo lo suyo.
    *
    * La regla ahora: **si el fondo lo pone la web anfitriona, el tema también.**
-   * El sistema operativo del visitante decide sólo cuando no hay nada que
-   * copiar — cuando pintamos nuestro propio fondo (`fondo=solido`, que es como
-   * abre el botón flotante), o cuando la web anfitriona no ejecuta el script
-   * que nos lo cuenta (Notion, Wix y demás bloques de «insertar web»). */
+   *
+   * ── Y cuando la web anfitriona no nos lo cuenta ──────────────────────────
+   *
+   * Pasa más de lo que parece. Lo cuenta el script del snippet, que se COPIA a
+   * la página del cliente: quien pegó el suyo hace meses tiene la versión de
+   * entonces, y arreglar el snippet no le llega. Comprobado en la página de
+   * FESTECH, cuya copia además está retocada a mano — volver a pegarla les
+   * costaría perder sus cambios. Y Notion, Wix y demás bloques de «insertar
+   * web» no ejecutan script ninguno.
+   *
+   * Con el fondo transparente y sin nadie que nos diga nada, `prefers-color-
+   * scheme` no es un valor por omisión: es un sorteo. El mismo formulario, en
+   * la misma web, se ve distinto según el portátil de quien entra — y la mitad
+   * de las veces ilegible. Lo que sí se sabe es de qué evento es esta sección,
+   * y **la página pública de un evento es oscura siempre** (`PublicLayout` la
+   * fuerza). Esta sección es un trozo de esa página: se ve como ella, que es
+   * además como el organizador la previsualizó al generar el código.
+   *
+   * Quien la incruste en una web clara tiene la salida a un clic: «Tema →
+   * Claro» en el mismo panel donde generó el código. Un ajuste que se elige
+   * una vez es mejor que un sorteo por visitante. */
   useEffect(() => {
     if (tema === 'oscuro') { setDark(); return; }
     if (tema === 'claro')  { setLight(); return; }
-    if (fondo === 'transparente' && esquemaHost) {
-      if (esquemaHost === 'oscuro') setDark(); else setLight();
+    if (fondo === 'transparente') {
+      if (esquemaHost === 'claro') setLight(); else setDark();
       return;
     }
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');

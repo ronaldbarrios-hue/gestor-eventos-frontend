@@ -22,6 +22,7 @@ import { readFileSync } from 'node:fs';
 
 import { aRGB, luminancia, esquemaDeFondo, fondoDetrasDe } from '../src/lib/esquemaAnfitrion.js';
 import { embedSnippet } from '../src/lib/embed.js';
+import * as embedLib from '../src/lib/embed.js';
 
 const leer = (f) => readFileSync(f, 'utf8').replace(/\r/g, '');
 
@@ -128,13 +129,35 @@ test('con el fondo transparente manda la web anfitriona', () => {
      buscarlo en el texto entero mide el orden de la explicación y no el de las
      comprobaciones. */
   const p = leer('src/pages/public/EmbedPage.jsx').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(p, /if \(fondo === 'transparente' && esquemaHost\) \{/);
+  assert.match(p, /if \(fondo === 'transparente'\) \{/);
+  assert.match(p, /esquemaHost === 'claro'/);
   /* Y el orden: un tema pedido a mano (`tema=oscuro`) sigue ganando — quien lo
      escribió sabe algo que nosotros no. */
   assert.ok(p.indexOf("if (tema === 'oscuro')") < p.indexOf("if (fondo === 'transparente'"));
-  /* `prefers-color-scheme` queda de último: sólo cuando no hay nada que copiar
-     —fondo sólido, o una web que no ejecuta el script (Notion, Wix)—. */
-  assert.ok(p.indexOf("if (fondo === 'transparente'") < p.indexOf('prefers-color-scheme'));
+});
+
+test('sin nadie que nos lo diga, no se sortea por el portátil del visitante', () => {
+  /* El script del snippet se COPIA a la web del cliente: quien pegó el suyo
+     hace meses tiene la versión de entonces, y arreglar el snippet no le llega
+     — comprobado en la página de FESTECH, cuya copia además está retocada a
+     mano. Y Notion o Wix no ejecutan script ninguno.
+
+     En ese caso `prefers-color-scheme` no es un valor por omisión: es un
+     sorteo. El mismo formulario, en la misma web, se ve distinto según el
+     portátil de quien entra, y la mitad de las veces ilegible. La sección es
+     un trozo de la página del evento, que es oscura siempre. */
+  const p = leer('src/pages/public/EmbedPage.jsx').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(p, /if \(esquemaHost === 'claro'\) setLight\(\); else setDark\(\);/);
+  /* Y `prefers-color-scheme` sólo queda para el fondo sólido, donde pintamos
+     nuestro propio fondo y cualquiera de los dos temas se lee. */
+  assert.ok(p.indexOf("if (fondo === 'transparente')") < p.indexOf('prefers-color-scheme'));
+});
+
+test('la ayuda del panel dice lo que de verdad pasa', () => {
+  /* Una pista que describe otro comportamiento es peor que ninguna. */
+  const { EMBED_TEMA_PISTA } = embedLib;
+  assert.match(EMBED_TEMA_PISTA, /Siempre claro/);
+  assert.match(leer('src/pages/events/editor/ExportIframeModal.jsx'), /EMBED_TEMA_PISTA/);
 });
 
 test('sólo se aceptan los dos valores que existen', () => {

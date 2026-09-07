@@ -99,11 +99,23 @@ export function modoPublicacion(valor) {
   return MODOS_PUBLICACION.find(m => m.value === valor) || MODOS_PUBLICACION[0];
 }
 
+/* «Auto» sigue al sitio que lo incrusta cuando ese sitio nos lo puede contar
+   —lo hace el script que va con este código—, y si no, se ve como la página
+   del evento, que es oscura. Antes seguía al SISTEMA OPERATIVO de quien
+   miraba, que no tiene nada que ver ni con el evento ni con la web donde está:
+   el mismo formulario se veía distinto según el portátil de quien entraba, y
+   sobre una web oscura salía ilegible. */
 export const EMBED_TEMAS = [
   { value: 'auto',   label: 'Seguir al sitio que lo incrusta' },
   { value: 'claro',  label: 'Siempre claro' },
   { value: 'oscuro', label: 'Siempre oscuro' },
 ];
+
+/* La pista que va debajo del selector. Vive aquí, junto a las opciones, para
+   que no derive: una ayuda que describe otro comportamiento es peor que
+   ninguna. */
+export const EMBED_TEMA_PISTA =
+  'Si tu web es clara, elige «Siempre claro»: sin eso la sección se ve como la página del evento, que es oscura.';
 
 /* Slug corto y estable para identificar el iframe en el DOM del anfitrión. */
 export function embedFrameId(slug, seccion) {
