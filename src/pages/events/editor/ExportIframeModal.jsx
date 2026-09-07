@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../../context/ToastContext.jsx';
-import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_TEMA_PISTA, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
+import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_TEMA_PISTA, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES, recomendacionesPara } from '../../../lib/embed.js';
 
 /* Exportar UNA sección de la landing como iframe: la empresa arma su web
    donde quiera y trae de GESTEK solo lo que le sirve (boletas, cómo llegar,
@@ -125,6 +125,19 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
         <button onClick={onClose} aria-label="Cerrar" className="text-text-3 hover:text-text-1">✕</button>
       </div>
 
+      {/* Cómo se usa esto bien.
+       *
+       * Va ARRIBA y no al pie por una razón concreta: son decisiones que se
+       * toman antes de copiar. Al pie se leen cuando el código ya está pegado
+       * en la web del cliente, y ahí nadie vuelve — la copia de FESTECH lleva
+       * meses con el script retocado a mano y nadie lo supo hasta que llegó
+       * una foto del formulario ilegible.
+       *
+       * Plegado por omisión: quien exporta la quinta sección ya las leyó, y
+       * siete avisos abiertos delante del código son siete avisos que se
+       * saltan. Se abre de un clic y se queda abierto mientras dure el modal. */}
+      {alcance !== 'boton' && <Recomendaciones opciones={{ tema, autoAlto, heredarEstilo }} />}
+
       <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-0 max-h-[75vh] overflow-y-auto">
         {/* Vista previa real: es el mismo iframe que verá el visitante */}
         <div className="p-6 border-r border-border min-w-0">
@@ -217,8 +230,13 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
           <label className="flex items-start gap-2 cursor-pointer">
             <input type="checkbox" checked={heredarEstilo} onChange={e => opcHeredar(e.target.checked)} className="mt-0.5" />
             <span className="text-xs text-text-2">
-              <span className="font-medium text-text-1">Heredar la tipografía de mi web</span><br />
-              La sección usa la misma fuente que el resto de tu página, para que no parezca traída de fuera.
+              {/* Ya no es sólo la tipografía: desde el arreglo del contraste
+                  también viaja el COLOR del fondo, que es lo que decide si la
+                  sección se pinta clara u oscura. Una casilla que promete una
+                  cosa y hace dos se desmarca por lo que no dice. */}
+              <span className="font-medium text-text-1">Heredar el estilo de mi web</span><br />
+              La sección usa la misma fuente que el resto de tu página y se pinta clara u oscura
+              según el fondo que tenga, para que no parezca traída de fuera.
             </span>
           </label>
           </>)}
@@ -301,6 +319,35 @@ function Fondo({ children, onClose }) {
            onClick={e => e.stopPropagation()}>
         {children}
       </div>
+    </div>
+  );
+}
+
+function Recomendaciones({ opciones }) {
+  const [abierto, setAbierto] = useState(false);
+  const lista = recomendacionesPara(opciones);
+  if (!lista.length) return null;
+
+  return (
+    <div className="mx-6 mt-4 rounded-xl border border-primary/30 bg-primary/5 overflow-hidden">
+      <button type="button" onClick={() => setAbierto(v => !v)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-primary/10 transition-colors">
+        <span className="text-xs font-semibold text-text-1">
+          Antes de copiar: {lista.length} cosas que evitan que se vea mal en tu web
+        </span>
+        <span className="text-text-3 text-xs flex-shrink-0">{abierto ? 'Ocultar' : 'Ver'}</span>
+      </button>
+
+      {abierto && (
+        <ul className="px-4 pb-3 space-y-2.5 border-t border-primary/20 pt-3">
+          {lista.map(r => (
+            <li key={r.clave}>
+              <p className="text-xs font-medium text-text-1">{r.titulo}</p>
+              <p className="text-[11px] text-text-3 leading-relaxed mt-0.5">{r.detalle}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

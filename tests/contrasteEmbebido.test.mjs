@@ -166,3 +166,59 @@ test('sólo se aceptan los dos valores que existen', () => {
   const p = leer('src/pages/public/EmbedPage.jsx');
   assert.match(p, /d\.esquema === 'oscuro' \|\| d\.esquema === 'claro'/);
 });
+
+/* ── Las recomendaciones del modal ───────────────────────────────────── */
+
+test('las recomendaciones salen antes de copiar, no al pie', () => {
+  /* Al pie se leen cuando el código ya está pegado en la web del cliente, y
+     ahí nadie vuelve: la copia de FESTECH lleva meses con el script retocado a
+     mano y no se supo hasta que llegó una foto del formulario ilegible. */
+  const m = leer('src/pages/events/editor/ExportIframeModal.jsx');
+  const iReco = m.indexOf('<Recomendaciones');
+  const iCodigo = m.indexOf('Código para pegar');
+  assert.ok(iReco > 0 && iReco < iCodigo, 'las recomendaciones no van antes del código');
+});
+
+test('cada recomendación sale de algo que pasó de verdad', () => {
+  /* Se comprueban por clave y no por texto: el texto se reescribe, y una
+     prueba que se rompe al mejorar la redacción acaba borrada. */
+  const { EMBED_RECOMENDACIONES } = embedLib;
+  const claves = EMBED_RECOMENDACIONES.map(r => r.clave);
+  for (const c of ['no-tocar-el-script', 'volver-a-pegar', 'tema-claro',
+    'sin-alto-fijo', 'una-por-pagina', 'sin-script', 'pago-en-pestana']) {
+    assert.ok(claves.includes(c), `falta la recomendación «${c}»`);
+  }
+  /* Ninguna vacía: una recomendación con título y sin explicación no cambia
+     nada de lo que hace quien la lee. */
+  for (const r of EMBED_RECOMENDACIONES) {
+    assert.ok(r.titulo?.length > 10 && r.detalle?.length > 40, `«${r.clave}» está a medias`);
+  }
+});
+
+test('las que dependen de la configuración no salen siempre', () => {
+  /* «Elige tema claro» delante de quien ya lo eligió es ruido, y el ruido es
+     lo que enseña a saltarse el bloque entero. */
+  const { recomendacionesPara } = embedLib;
+  const conAuto = recomendacionesPara({ tema: 'auto', autoAlto: true }).map(r => r.clave);
+  const conClaro = recomendacionesPara({ tema: 'claro', autoAlto: true }).map(r => r.clave);
+  assert.ok(conAuto.includes('tema-claro'));
+  assert.ok(!conClaro.includes('tema-claro'));
+
+  const sinAuto = recomendacionesPara({ tema: 'claro', autoAlto: false }).map(r => r.clave);
+  assert.ok(!sinAuto.includes('sin-alto-fijo'), 'sin ajuste de alto, ese aviso no aplica');
+});
+
+test('el embebido no se sirve desde la caché de la aplicación', () => {
+  /* Es un trozo de GESTEK dentro de la web de otra empresa: «una versión por
+     detrás» es lo que le ve el público del cliente. Comprobado en producción —
+     recién desplegado el arreglo del contraste, el navegador seguía sirviendo
+     el bundle anterior desde el service worker y el formulario seguía
+     ilegible. */
+  const sw = leer('src/sw.js');
+  /* Sin expresión regular: el patrón que hay que buscar está hecho de barras
+     invertidas, y escribirlo dentro de otra expresión regular es la forma más
+     fácil de que la prueba pase por una razón equivocada. */
+  const linea = sw.split('\n').find(l => l.includes('denylist:'));
+  assert.ok(linea, 'no hay denylist en el service worker');
+  assert.ok(linea.includes('/^\\/embed\\//'), `el embebido sigue cayendo en el precache: ${linea.trim()}`);
+});
