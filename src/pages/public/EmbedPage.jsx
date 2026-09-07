@@ -99,14 +99,43 @@ export default function EmbedPage() {
   const [fuenteHost, setFuenteHost] = useState('');
   const fuente = fuenteParam || fuenteHost;
 
-  /* Tema: se decide una vez, cooperando con ThemeProvider (no tocamos
-     la clase del <html> a mano, que la sobreescribiría al montar). */
+  /* El tema de la web anfitriona, si nos lo cuenta (widget.js y el snippet de
+     sección lo mandan con la tipografía). Ver el porqué justo abajo. */
+  const [esquemaHost, setEsquemaHost] = useState(null);
+
+  /* ── Tema: quién manda ───────────────────────────────────────────────────
+   *
+   * Se decide una vez, cooperando con ThemeProvider (no tocamos la clase del
+   * <html> a mano, que la sobreescribiría al montar).
+   *
+   * El orden importa y estaba mal. Antes, con `tema=auto` —el valor por
+   * omisión— mandaba `prefers-color-scheme`, o sea el sistema operativo de
+   * QUIEN MIRA. Pero con `fondo=transparente` —también el valor por omisión, y
+   * lo que pidió el cliente: «que se vea como parte de su página»— el fondo lo
+   * pone la web anfitriona. Dos mitades decidiendo por separado el mismo
+   * dibujo.
+   *
+   * Cuando no coinciden, el formulario queda ilegible. Llegó en una foto de
+   * FESTECH: su web es azul noche, el visitante tenía el portátil en modo
+   * claro, y el registro salió con la paleta clara encima del azul — el título
+   * en #15171C sobre casi negro, invisible, y los campos en #E4DFD1, unos
+   * recuadros color crema flotando. Nada falló: cada mitad hizo lo suyo.
+   *
+   * La regla ahora: **si el fondo lo pone la web anfitriona, el tema también.**
+   * El sistema operativo del visitante decide sólo cuando no hay nada que
+   * copiar — cuando pintamos nuestro propio fondo (`fondo=solido`, que es como
+   * abre el botón flotante), o cuando la web anfitriona no ejecuta el script
+   * que nos lo cuenta (Notion, Wix y demás bloques de «insertar web»). */
   useEffect(() => {
     if (tema === 'oscuro') { setDark(); return; }
     if (tema === 'claro')  { setLight(); return; }
+    if (fondo === 'transparente' && esquemaHost) {
+      if (esquemaHost === 'oscuro') setDark(); else setLight();
+      return;
+    }
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (mq?.matches) setDark(); else setLight();
-  }, [tema, setDark, setLight]);
+  }, [tema, fondo, esquemaHost, setDark, setLight]);
 
   /* Fondo transparente: el color lo pone la web anfitriona. */
   useEffect(() => {
@@ -128,6 +157,9 @@ export default function EmbedPage() {
       if (d.fid && fid && d.fid !== fid) return;
       const f = fuenteSegura(d.fuente);
       if (f) setFuenteHost(f);
+      /* Sólo los dos valores que existen: cualquier otra cosa deja el tema
+         como estaba, que es mejor que darle la vuelta por un mensaje raro. */
+      if (d.esquema === 'oscuro' || d.esquema === 'claro') setEsquemaHost(d.esquema);
     };
     window.addEventListener('message', alMensaje);
     try { window.parent?.postMessage({ gestek: 'pide-estilo', fid }, '*'); } catch { /* cross-origin */ }

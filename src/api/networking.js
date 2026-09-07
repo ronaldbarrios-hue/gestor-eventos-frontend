@@ -43,6 +43,12 @@ export const networkingApi = {
   /* Bloquear una franja en vez de borrarla (0113): «esta empresa no está de 11
      a 12» se decia borrando esos horarios, y borrar pierde el porque. */
   bloquearHorario : (eventoId, horarioId, body) => client.patch(`/eventos/${eventoId}/networking/horarios/${horarioId}`, body).then(r => r.data),
+  /* La agenda de UNA mesa. La rueda tiene dos lados y solo uno podia consultar
+     su dia: quien visita ve «Mis citas», y la empresa sentada en la mesa no
+     tenia ninguna pantalla — para saber a quien iba a recibir a las 10:15
+     habia que pedirselo a quien organiza. La ve el equipo y tambien el
+     contacto de esa misma empresa, por su `contacto_email`. */
+  agendaDeMesa    : (eventoId, expositorId) => client.get(`/eventos/${eventoId}/networking/expositores/${expositorId}/citas`).then(r => r.data),
 
   /* La parrilla. Existía entera en el servidor —ver, aprobar, mover, sentar— y
      no la llamaba nadie: quien organiza tenía las rutas y ninguna pantalla.

@@ -95,6 +95,49 @@
     return 'linear-gradient(' + cfg.gradiente + ', ' + cfg.color + ', ' + cfg.color2 + ')';
   }
 
+  /* ── De qué color es ESTA página ─────────────────────────────────────────
+   *
+   * El formulario de dentro decidía su tema con `prefers-color-scheme`, o sea
+   * con el sistema operativo de QUIEN MIRA, mientras el fondo lo pone la web
+   * anfitriona. Son dos cosas que no tienen por qué coincidir, y cuando no
+   * coinciden el formulario queda ilegible: web azul noche + portátil en modo
+   * claro = título casi negro sobre casi negro y campos color crema flotando.
+   * Llegó en una foto de FESTECH, y nada había fallado: cada mitad hizo lo suyo.
+   *
+   * Se mira el fondo de VERDAD, subiendo por los padres hasta el primero que
+   * pinte algo: un `<div>` sin fondo dentro de una sección azul es azul, y
+   * preguntarle a él solo devuelve `rgba(0,0,0,0)`.
+   *
+   * Sin expresión regular a propósito: `getComputedStyle` siempre devuelve
+   * `rgb(r, g, b)` o `rgba(r, g, b, a)`, así que partir por lo que no es
+   * número basta — y este archivo se sirve tal cual a webs ajenas, donde un
+   * patrón que no casa falla en silencio y nadie se entera. */
+  function partesDeColor(c) {
+    var i = String(c || '').indexOf('(');
+    if (i < 0) return null;
+    var v = String(c).slice(i + 1, String(c).indexOf(')')).split(/[^0-9.]+/);
+    var n = [], k;
+    for (k = 0; k < v.length; k++) if (v[k] !== '') n.push(Number(v[k]));
+    return n.length >= 3 ? n : null;
+  }
+
+  function esquemaDeLaPagina() {
+    var n = document.body, i = 0, v = null;
+    while (n && i++ < 30) {
+      var p = partesDeColor(getComputedStyle(n).backgroundColor);
+      /* Casi transparente es transparente: un velo al 5 % no manda sobre lo
+         que hay debajo, y tomarlo por el fondo da el color equivocado. */
+      if (p && (p.length < 4 || p[3] > 0.5)) { v = p; break; }
+      n = n.parentElement;
+    }
+    if (!v) return null;
+    function lin(c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+    /* Luminancia relativa de la WCAG, no el promedio de los tres canales: el
+       verde pesa siete veces más que el azul para el ojo. */
+    var L = 0.2126 * lin(v[0]) + 0.7152 * lin(v[1]) + 0.0722 * lin(v[2]);
+    return L < 0.18 ? 'oscuro' : 'claro';
+  }
+
   function sombraDe(cfg) {
     /* Un valor conocido, o lo que haya escrito el organizador tal cual: quien
        quiera una sombra rara puede ponerla entera. */
@@ -203,6 +246,7 @@
         marco.contentWindow.postMessage({
           gestek: 'estilo', fid: fid,
           fuente: getComputedStyle(document.body).fontFamily,
+          esquema: esquemaDeLaPagina(),
         }, ORIGEN || '*');
       } catch (e) { /* el iframe aún no ha navegado */ }
     }

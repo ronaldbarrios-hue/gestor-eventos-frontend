@@ -75,6 +75,16 @@ export default function NetworkingTab({ evento, soyOwner }) {
               Gestionar
             </button>
           )}
+          {/* La parrilla enseña todas las mesas a la vez: correcto para operar
+              el salón, y lo peor para contestar «¿qué tiene mañana Café del
+              Tolima?». Eso se preguntaba de una mesa concreta y no había dónde
+              mirarlo. */}
+          {soyOwner && (
+            <button onClick={() => setSub('mesas')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'mesas' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
+              Por empresa
+            </button>
+          )}
           <button onClick={() => setSub('explorar')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'explorar' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
             Explorar
@@ -89,6 +99,7 @@ export default function NetworkingTab({ evento, soyOwner }) {
       {sub === 'parrilla' && soyOwner && <ParrillaRueda evento={evento} soyOwner={soyOwner} />}
       {sub === 'informe'  && soyOwner && <InformeRueda evento={evento} />}
       {sub === 'admin'    && soyOwner && <AdminView evento={evento} />}
+      {sub === 'mesas'    && soyOwner && <AgendaPorEmpresa evento={evento} />}
       {sub === 'explorar' && <ExplorarView evento={evento} />}
       {sub === 'mis-citas' && <MisCitasView evento={evento} />}
     </div>
@@ -888,6 +899,155 @@ function ModoRueda({ evento }) {
       <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
         Se puede cambiar en cualquier momento. Lo ya reservado no se toca.
       </p>
+    </div>
+  );
+}
+
+/* ─────────── La agenda de una empresa ───────────
+ *
+ * ── El hueco que tapa ────────────────────────────────────────────────────
+ *
+ * Una rueda tiene dos lados y hasta ahora sólo uno podía consultar su día.
+ * Quien visita ve «Mis citas». La empresa SENTADA en la mesa no tenía ninguna
+ * pantalla: para saber a quién iba a recibir a las 10:15 había que pedírselo a
+ * quien organiza, que lo leía de la parrilla — y el día del evento eso es una
+ * fila de gente preguntando lo mismo.
+ *
+ * Y quien organiza tampoco podía mirar una sola: la parrilla las enseña todas
+ * a la vez, que es lo correcto para operar el salón y lo peor para contestar
+ * «¿qué tiene mañana Café del Tolima?».
+ *
+ * ── Los huecos se enseñan ────────────────────────────────────────────────
+ *
+ * La agenda trae TODAS las franjas, con y sin cita. Los huecos son la mitad de
+ * la información: dicen cuándo esa mesa está libre, que es lo que hace falta
+ * para meter ahí a alguien que se quedó sin reuniones.
+ *
+ * La misma agenda la puede abrir la empresa por su cuenta, con el código de su
+ * boleta-stand y sin cuenta (`/eventos/publicos/expositor/:codigo/citas`).
+ */
+function AgendaPorEmpresa({ evento }) {
+  const [mesas, setMesas] = useState(null);
+  const [elegida, setElegida] = useState('');
+  const [datos, setDatos] = useState(null);
+  const { error: toastErr } = useToast();
+
+  useEffect(() => {
+    networkingApi.admin(evento.id)
+      .then(d => {
+        const lista = (d.expositores || []).filter(e => (e.horarios || []).length > 0);
+        setMesas(lista);
+        /* Se abre en la primera en vez de en un desplegable vacío: con una sola
+           mesa, elegirla es un clic que no decide nada. */
+        if (lista.length) setElegida(lista[0].id);
+      })
+      .catch(e => toastErr(e.response?.data?.error || e.message));
+  }, [evento.id, toastErr]);
+
+  useEffect(() => {
+    if (!elegida) return;
+    setDatos(null);
+    networkingApi.agendaDeMesa(evento.id, elegida)
+      .then(setDatos)
+      .catch(e => toastErr(e.response?.data?.error || e.message));
+  }, [evento.id, elegida, toastErr]);
+
+  if (mesas === null) return <GLoader message="Cargando las mesas…" />;
+  if (mesas.length === 0) return (
+    <div className="rounded-3xl border border-border bg-surface/40 px-6 py-16 text-center">
+      <p className="text-sm text-text-2">Todavía no hay mesas con horario.</p>
+      <p className="text-xs text-text-3 mt-1">En <b className="text-text-2">Gestionar</b> se crean y se les generan las franjas.</p>
+    </div>
+  );
+
+  const hora = (iso) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('es-CO', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+  };
+  const r = datos?.resumen;
+
+  return (
+    <div className="space-y-4" id="agenda-empresa-print">
+      {/* `visibility` y no `display`: esconder con `display:none` reflowea la
+          página y parte la tabla entre hojas por sitios raros. */}
+      <style>{`@media print {
+        body * { visibility: hidden !important; }
+        #agenda-empresa-print, #agenda-empresa-print * { visibility: visible !important; }
+        #agenda-empresa-print { position: absolute; left: 0; top: 0; width: 100%; }
+        #agenda-empresa-print .no-print { display: none !important; }
+        @page { margin: 14mm; }
+      }`}</style>
+
+      <div className="flex flex-wrap items-end gap-3 no-print">
+        <label className="flex-1 min-w-[16rem]">
+          <span className="text-[11px] uppercase tracking-widest text-text-3 font-semibold block mb-1">Empresa</span>
+          <select value={elegida} onChange={e => setElegida(e.target.value)} className="input w-full text-sm">
+            {mesas.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.nombre}{m.stand ? ` · Mesa ${m.stand}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button onClick={() => window.print()} className="btn-secondary btn-sm rounded-full">
+          Imprimir esta agenda
+        </button>
+      </div>
+
+      {!datos ? <GLoader message="Cargando la agenda…" /> : (
+        <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-sm font-semibold text-text-1">{datos.expositor?.nombre}</p>
+            <p className="text-[11px] text-text-3">
+              {datos.expositor?.stand ? `Mesa ${datos.expositor.stand}` : 'Mesa por asignar'}
+              {datos.expositor?.categoria_negocio ? ` · ${datos.expositor.categoria_negocio}` : ''}
+            </p>
+            {r && (
+              <p className="text-[11px] text-text-2 mt-1.5 tabular-nums">
+                {r.ocupadas} de {r.franjas} franja{r.franjas === 1 ? '' : 's'} con cita
+                {r.pedidas ? ` · ${r.pedidas} sin aprobar` : ''}
+                {r.libres ? ` · ${r.libres} libre${r.libres === 1 ? '' : 's'}` : ''}
+                {r.bloqueadas ? ` · ${r.bloqueadas} bloqueada${r.bloqueadas === 1 ? '' : 's'}` : ''}
+              </p>
+            )}
+          </div>
+
+          <table className="w-full text-sm">
+            <tbody>
+              {datos.agenda.map(f => (
+                <tr key={f.horario_id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2.5 text-text-2 whitespace-nowrap align-top w-40 tabular-nums">
+                    {hora(f.inicio)}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {f.cita ? (
+                      <>
+                        <span className="text-text-1 block">
+                          {f.cita.persona?.nombre || f.cita.persona?.email || 'Sin identificar'}
+                        </span>
+                        <span className="text-[11px] text-text-3 block">
+                          {f.cita.persona?.nombre && f.cita.persona?.email ? `${f.cita.persona.email} · ` : ''}
+                          {/* «Pedida» y «Reservada» no son lo mismo para quien
+                              mira su día: una todavía puede caerse. */}
+                          {f.cita.estado === 'solicitada' ? 'Pedida, sin aprobar' : 'Confirmada'}
+                        </span>
+                      </>
+                    ) : f.bloqueado ? (
+                      <span className="text-text-3">
+                        Bloqueada{f.bloqueo_motivo ? ` · ${f.bloqueo_motivo}` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-text-3">Libre</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
