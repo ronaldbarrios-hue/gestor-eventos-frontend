@@ -35,8 +35,23 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), {
   /* Lo que NO es una pantalla de la aplicación y no debe caer al armazón.
      Sin esta lista, entrar a `/api/...` o descargar un archivo servido por el
      mismo dominio devolvería el HTML de la aplicación en vez del recurso, y
-     el fallo se leería como «respuesta corrupta» en vez de como un 404. */
-  denylist: [/^\/api\//, /^\/assets\//, /\.[^/]+$/],
+     el fallo se leería como «respuesta corrupta» en vez de como un 404.
+
+     ── Y `/embed/`, que no es una pantalla nuestra ────────────────────────
+
+     Es un trozo de GESTEK dentro de la web de OTRA empresa, y ahí «una versión
+     por detrás» no es un detalle: es lo que le ve el público del cliente.
+     Servido desde el precache, quien ya había cargado el formulario alguna vez
+     recibía el armazón viejo en su siguiente visita —y el arreglo desplegado
+     no le llegaba hasta que el service worker se relevara, que con la pestaña
+     abierta puede no pasar en toda la jornada—. Se comprobó en producción:
+     recién desplegado el arreglo del contraste, el navegador seguía sirviendo
+     el bundle anterior desde la caché y el formulario seguía ilegible.
+
+     Y no pierde nada: el embebido necesita la API para tener algo que enseñar,
+     así que no tiene historia sin conexión que proteger. La cola de escaneos
+     de la puerta —que es para lo que existe todo esto— no pasa por aquí. */
+  denylist: [/^\/api\//, /^\/assets\//, /^\/embed\//, /\.[^/]+$/],
 }));
 
 /* ─────────── Notificaciones Push ─────────── */

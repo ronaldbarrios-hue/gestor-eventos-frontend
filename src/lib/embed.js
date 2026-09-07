@@ -117,6 +117,63 @@ export const EMBED_TEMAS = [
 export const EMBED_TEMA_PISTA =
   'Si tu web es clara, elige «Siempre claro»: sin eso la sección se ve como la página del evento, que es oscura.';
 
+/* ── Cómo se usa esto bien ──────────────────────────────────────────────────
+ *
+ * No es un texto de relleno: cada línea sale de algo que ya pasó en una web de
+ * verdad, y va arriba del modal porque son decisiones que se toman ANTES de
+ * copiar — después ya está pegado en la web del cliente y nadie vuelve.
+ *
+ * La lista vive aquí, junto al generador del código, para que no derive: una
+ * recomendación que describe otro comportamiento es peor que ninguna.
+ *
+ * `clave` es para las pruebas y para poder enlazar una desde otro sitio.
+ * `cuando` acota a qué configuración aplica; sin él, sale siempre.
+ */
+export const EMBED_RECOMENDACIONES = [
+  {
+    clave: 'no-tocar-el-script',
+    titulo: 'Pégalo entero, sin quitarle el script',
+    detalle: 'Esas líneas hacen tres cosas: ajustan el alto, copian la tipografía y el tema de tu web, y sacan el pago a una pestaña. Sin ellas la sección sale cortada y quien intente pagar se queda mirando.',
+  },
+  {
+    clave: 'volver-a-pegar',
+    titulo: 'Si rediseñas tu web, vuelve a copiar el código',
+    detalle: 'El código lleva dentro una copia de nuestro script: el que pegaste hace meses es el de entonces, y las mejoras posteriores no le llegan solas.',
+  },
+  {
+    clave: 'tema-claro',
+    titulo: '¿Tu web es clara? Elige «Tema → Siempre claro»',
+    detalle: 'Con «Seguir al sitio» la sección se ve como la página del evento, que es oscura, salvo que tu web nos diga su color — cosa que sólo hace si pegaste el código completo y reciente.',
+    cuando: (o) => o.tema === 'auto',
+  },
+  {
+    clave: 'sin-alto-fijo',
+    titulo: 'No lo encierres en una caja de alto fijo',
+    detalle: 'El recuadro crece solo cuando alguien abre el formulario. Si el contenedor de tu web tiene un alto fijo o `overflow: hidden`, el formulario queda cortado justo cuando se está usando.',
+    cuando: (o) => o.autoAlto,
+  },
+  {
+    clave: 'una-por-pagina',
+    titulo: 'Una misma sección, una sola vez por página',
+    detalle: 'El código identifica el recuadro por un nombre que sale del evento y de la sección. Dos copias de la misma sección en la misma página comparten ese nombre, y el ajuste de alto se lo lleva sólo la primera.',
+  },
+  {
+    clave: 'sin-script',
+    titulo: 'Si tu gestor de páginas no deja pegar <script>',
+    detalle: 'Algunos bloques de «insertar web» (Notion, ciertos Wix) sólo aceptan el recuadro. Entonces: pon un alto inicial generoso y fija el tema a mano — sin script no podemos saber ni cuánto ocupa ni de qué color es tu página.',
+  },
+  {
+    clave: 'pago-en-pestana',
+    titulo: 'El pago abre una pestaña, y tiene que ser así',
+    detalle: 'El formulario y la reserva gratuita ocurren dentro de tu web. El cobro no: las pasarelas se niegan a cargarse dentro de un recuadro ajeno (3-D Secure, cookies de terceros). Para entonces la boleta ya está creada y no se pierde nada de lo escrito.',
+  },
+];
+
+/* Las que aplican a esta configuración. */
+export function recomendacionesPara(opciones = {}) {
+  return EMBED_RECOMENDACIONES.filter(r => !r.cuando || r.cuando(opciones));
+}
+
 /* Slug corto y estable para identificar el iframe en el DOM del anfitrión. */
 export function embedFrameId(slug, seccion) {
   return `gestek-${String(slug || 'evento')}-${String(seccion || 'seccion')}`
