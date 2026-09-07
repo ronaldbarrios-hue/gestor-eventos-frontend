@@ -14,7 +14,6 @@ import Turnstile, { turnstileActivo } from '../../components/public/Turnstile.js
 import CampoFormulario, { fallosDe, ocupaFila } from '../../components/ui/CampoFormulario.jsx';
 import { camposVisibles } from '../../lib/camposCondicionales.js';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
 /* `verificar` y no `verificarCorreo`: la primera añade la pista cruzada
    —«eso parece un teléfono, aquí va el correo»—, que es justo lo que hace
    falta en la casilla de al lado. Llamar a la comprobación base se saltaba esa
@@ -29,6 +28,7 @@ import BoletaConocida, { guardarBoleta } from '../../components/public/BoletaCon
 import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
+import { guardarProgreso, leerProgreso, olvidarProgreso } from '../../lib/registroEnCurso.js';
 import Volver from '../../components/ui/Volver.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
@@ -619,10 +619,7 @@ function ShareButton() {
 
 /* ─────────── Modal lista de espera ─────────── */
 function WaitlistModal({ tipo, slug, onClose }) {
-  /* Mismo motivo que en la reserva: quien se apunta a la lista de espera ya
-     entró, y sus datos están a mano. */
-  const { usuario } = useAuth();
-  const [form, setForm] = useState(() => datosIniciales(usuario));
+  const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
   const [working, setWorking] = useState(false);
   const [done, setDone] = useState(null);
   const [err, setErr] = useState('');
@@ -775,14 +772,13 @@ function AvisoCupo({ cupo, onTomar, tipoDisponible = true }) {
 }
 
 export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', origen = '', onClose, onSuccess, embebido = false }) {
-  /* Si hay sesión abierta, el formulario empieza con los datos de quien entró
-     en vez de en blanco. Eran tres casillas que la persona volvía a escribir a
-     mano teniendo el dato ya en el contexto. Quedan editables: quien tiene la
-     cuenta no siempre es quien va —se compran boletas para la pareja, para un
-     hijo—, así que esto ahorra trabajo sin decidir por nadie. */
-  const { usuario } = useAuth();
-  const [form, setForm] = useState(() => datosIniciales(usuario));
-  const [respuestas, setRespuestas] = useState({});
+  /* Lo que ya había escrito, si volvió a abrir esta misma boleta sin haber
+     terminado. `useState(() => …)` para que `leerProgreso` (localStorage +
+     JSON.parse) se ejecute una sola vez, en el primer render, y no en cada
+     uno. Ver `lib/registroEnCurso.js`. */
+  const [progresoInicial] = useState(() => leerProgreso(slug, tipo.id));
+  const [form, setForm] = useState(() => progresoInicial?.form || { nombre: '', email: '', telefono: '' });
+  const [respuestas, setRespuestas] = useState(() => progresoInicial?.respuestas || {});
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
   const [prellenado, setPrellenado] = useState(null);
   const [working, setWorking] = useState(false);
@@ -800,7 +796,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
      escribirlas: el organizador anunciaba un código y la página cobraba el
      precio entero. Lo que se manda al servidor es el CÓDIGO; el importe lo
      calcula él y lo vuelve a calcular al cobrar. Esto de aquí sólo pinta. */
-  const [promoCodigo, setPromoCodigo] = useState('');
+  const [promoCodigo, setPromoCodigo] = useState(() => progresoInicial?.promoCodigo || '');
   const [promo, setPromo] = useState(null);
   const [promoErr, setPromoErr] = useState('');
   const [promoBusy, setPromoBusy] = useState(false);
@@ -840,7 +836,14 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
   const modulos = dividirEnModulos(camposForm);
   const paginado = convienePaginar(modulos, camposForm.length);
   const pasos = paginado ? ['Tus datos', ...modulos.map(m => m.titulo)] : [];
-  const [paso, setPaso] = useState(0);
+  /* Si el paso guardado ya no cabe —el organizador quitó preguntas y ahora
+     hay menos pasos que antes— se cae al último válido y no a uno que ya no
+     existe. */
+  const [paso, setPaso] = useState(() => {
+    const guardadoPaso = progresoInicial?.paso;
+    if (!paginado || typeof guardadoPaso !== 'number') return 0;
+    return Math.min(Math.max(guardadoPaso, 0), pasos.length - 1);
+  });
   /* Hacia dónde se fue el último cambio, para que el bloque de campos entre
      por el lado que corresponde: desde la derecha al avanzar, desde la
      izquierda al volver. Sin esto los campos se sustituyen de golpe y en
@@ -878,6 +881,18 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
       : 'animate-[pasoAtras_180ms_cubic-bezier(0.16,1,0.3,1)]';
 
   const setRespuesta = (id, value) => setRespuestas(r => ({ ...r, [id]: value }));
+
+  /* Guarda el progreso a cada cambio, para encontrarlo donde se dejó si la
+     persona cierra el formulario, se le va la conexión o recarga la página a
+     mitad de camino. Se borra solo si vuelve a quedar en blanco (para no
+     dejar un registro fantasma) y se borra también al terminar —una vez
+     enviado, ya no es "en curso". Ver `submit`, más abajo. */
+  useEffect(() => {
+    const vacio = paso === 0 && !form.nombre && !form.email && !form.telefono
+      && Object.keys(respuestas).length === 0 && !promoCodigo;
+    if (vacio) { olvidarProgreso(slug, tipo.id); return; }
+    guardarProgreso(slug, tipo.id, { form, respuestas, paso, promoCodigo });
+  }, [slug, tipo.id, form, respuestas, paso, promoCodigo]);
 
   /* Términos PROPIOS del evento (0059). Si el organizador los publicó, la
      casilla es obligatoria y la aceptación queda registrada con la boleta. */
@@ -1066,6 +1081,10 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
           ...(origen ? { origen } : {}),
           ...(promo ? { promocion_codigo: promo.codigo } : {}),
         });
+        /* Ya no está "en curso": se emitió la boleta. Si volviera a abrir
+           esta misma pantalla más adelante, tiene que empezar de cero y no
+           encontrar un formulario viejo con una reserva que ya existe. */
+        olvidarProgreso(slug, tipo.id);
         /* El PDF de la boleta se arma en el navegador con lo que se acaba de
            escribir: la respuesta de `reservar` sólo trae id, código y estado.
            Si no viajaran aquí, el archivo saldría sin nombre ni respuestas y
@@ -1094,11 +1113,16 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
           const res = await pagosApi.comprarWompi(slug, body);
           const url = res.checkout?.url;
           if (!url) throw new Error('Wompi no devolvió el link de pago.');
+          /* La reserva ya quedó creada en el servidor (pendiente de pago); el
+             formulario ya cumplió su parte. Volver a esta pantalla más tarde
+             no debe reabrir un formulario viejo. */
+          olvidarProgreso(slug, tipo.id);
           irAPagar(url);
         } else {
           const res = await pagosApi.comprar(slug, body);
           const url = res.checkout?.init_point || res.checkout?.sandbox_init_point;
           if (!url) throw new Error('Mercado Pago no devolvió el link de pago.');
+          olvidarProgreso(slug, tipo.id);
           irAPagar(url);
         }
       }
@@ -1269,7 +1293,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
              de módulo; sin eso reutilizaría el nodo y la entrada no se
              dispararía. */
           <div key={`${paso}:${c.id}`} className={`${ocupaFila(c) ? 'ancho ' : ''}${claseEntrada}`}>
-            <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)} slug={slug}
+            <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setRespuesta(c.id, v)}
               eventoId={evento?.id} error={errCampos[c.id]} />
           </div>
         ))}
