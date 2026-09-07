@@ -20,6 +20,16 @@ export const emailsApi = {
      está aplicada: entonces el editor avisa en vez de fingir que guarda). */
   plantillas: (eventoId) =>
     client.get(`/eventos/${eventoId}/emails`).then(r => r.data),
+
+  /* ¿Sale de verdad un correo?
+   *
+   * El diagnostico que viaja con las plantillas dice si las VARIABLES estan
+   * puestas. Eso no es lo mismo que si el correo funciona: una contraseña
+   * equivocada da `configurado: true` y los envios se descartan en silencio.
+   * `?verificar=1` abre la conexion y hace login de verdad. Tarda un segundo,
+   * asi que se pide al pulsar y no al entrar. */
+  probarConexion: (eventoId) =>
+    client.get(`/eventos/${eventoId}/emails/diagnostico`, { params: { verificar: 1 } }).then(r => r.data),
   guardarPlantilla: (eventoId, tipo, body) =>
     client.put(`/eventos/${eventoId}/emails/${tipo}`, body).then(r => r.data),
   borrarPlantilla: (eventoId, tipo) =>

@@ -65,6 +65,9 @@ export default function EmailsSection({ evento, reload }) {
      descarta—, así que el organizador escribe plantillas, le da a enviar y no
      pasa nada, sin un solo aviso. */
   const [diagnostico, setDiagnostico] = useState(null);
+  /* La prueba de conexión de verdad: null = no se ha probado. */
+  const [conexion, setConexion] = useState(null);
+  const [probando, setProbando] = useState(false);
 
   useEffect(() => {
     /* De la TABLA, no de `page_json`. El GET hereda lo que quedara en el sitio
@@ -197,6 +200,59 @@ export default function EmailsSection({ evento, reload }) {
           los envíos se descartan —sin error—, así que nadie recibe su boleta. Configura el buzón
           del evento aquí abajo, o pídele al administrador que conecte el de la plataforma.
         </p>
+      </div>
+    )}
+
+    {/* ── «Configurado» no es «funciona» ──────────────────────────────────
+     *
+     * El diagnóstico que llega con las plantillas dice si las VARIABLES están
+     * puestas. Una contraseña equivocada da `configurado: true` y los envíos se
+     * descartan en silencio: nadie recibe su boleta y en el panel todo se ve
+     * bien. La ruta que lo comprueba de verdad existe desde el primer día —
+     * abre la conexión y hace login— y no la llamaba nadie: su propio
+     * comentario daba por hecho un botón «Probar conexión» que nunca se
+     * construyó.
+     *
+     * Se prueba al PULSAR y no al entrar: tarda un segundo, y esta pantalla se
+     * abre para editar plantillas, no para diagnosticar. */}
+    {diagnostico?.configurado && (
+      <div className="rounded-2xl border border-border bg-surface/40 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-text-2 leading-relaxed flex-1 min-w-[14rem]">
+            Las credenciales están puestas. Eso no garantiza que el correo salga:
+            una contraseña equivocada se ve igual desde aquí.
+          </p>
+          <button type="button" disabled={probando}
+            onClick={async () => {
+              setProbando(true); setConexion(null);
+              try {
+                const d = await emailsApi.probarConexion(evento.id);
+                setConexion(d.conexion || { ok: false, mensaje: 'No pudimos comprobarlo.' });
+              } catch (e) {
+                setConexion({ ok: false, mensaje: e.response?.data?.error || e.message });
+              } finally { setProbando(false); }
+            }}
+            className="btn-secondary btn-sm flex-shrink-0">
+            {probando ? 'Probando…' : 'Probar conexión'}
+          </button>
+        </div>
+
+        {conexion && (
+          <div className={`mt-2 rounded-xl px-3 py-2 border ${conexion.ok
+            ? 'border-success/30 bg-success/5'
+            : 'border-danger/30 bg-danger/5'}`}>
+            <p className="text-xs text-text-1">
+              {conexion.ok
+                ? 'El servidor de correo respondió y aceptó las credenciales.'
+                : conexion.mensaje || 'El servidor de correo no aceptó las credenciales.'}
+            </p>
+            {/* La sugerencia del servidor dice DÓNDE mirar. Sin ella, «no se
+                pudo conectar» manda a revisar todo. */}
+            {!conexion.ok && conexion.sugerencia && (
+              <p className="text-[11px] text-text-3 mt-1 leading-relaxed">{conexion.sugerencia}</p>
+            )}
+          </div>
+        )}
       </div>
     )}
 
