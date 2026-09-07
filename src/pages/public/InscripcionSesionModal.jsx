@@ -58,6 +58,48 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
 
   const setResp = (id, v) => setRespuestas(r => ({ ...r, [id]: v }));
 
+  /* ── Lo que ya contestó al comprar su boleta ──────────────────────────────
+   *
+   * La identidad ya se heredaba —quien va con su código no vuelve a escribir su
+   * nombre ni su correo— pero las respuestas del formulario no viajaban a
+   * ninguna parte. Si el formulario general pregunta «empresa» y el taller
+   * vuelve a preguntar «empresa», la escribía dos veces; y las dos respuestas
+   * quedaban en cajas distintas, así que después ni siquiera cuadraban.
+   *
+   * El servidor cruza por ETIQUETA —es lo único que une dos campos que viven en
+   * filas distintas— y devuelve SÓLO lo que este formulario pregunta.
+   *
+   * Se pide cuando hay código y hay preguntas. Lo que ya esté escrito no se
+   * toca: esto rellena huecos, no corrige a nadie. */
+  const [heredadas, setHeredadas] = useState(0);
+  const codigoListo = conBoleta ? codigo.trim().toUpperCase() : '';
+  useEffect(() => {
+    if (!codigoListo || codigoListo.length < 4 || !pide.length) return;
+    let vivo = true;
+    eventosApi.prellenarSesion(slug, sesion.id, codigoListo)
+      .then(d => {
+        if (!vivo || !d?.respuestas) return;
+        setRespuestas(r => {
+          const nuevas = { ...r };
+          let n = 0;
+          for (const [id, v] of Object.entries(d.respuestas)) {
+            /* Lo escrito manda. Pisar lo que alguien acaba de teclear es peor
+               que no prellenar nada. */
+            const yaHay = nuevas[id];
+            const vacio = yaHay === undefined || yaHay === null || yaHay === ''
+              || (Array.isArray(yaHay) && yaHay.length === 0);
+            if (vacio) { nuevas[id] = v; n++; }
+          }
+          setHeredadas(n);
+          return nuevas;
+        });
+      })
+      /* Que esto falle no puede impedir apuntarse: es una comodidad, no un
+         requisito. Se queda todo en blanco y ya. */
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [slug, sesion.id, codigoListo, pide.length]);
+
   const submit = async (e) => {
     e.preventDefault();
     setErr('');
@@ -189,6 +231,16 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
           </>
         )}
 
+        {/* Se dice que están rellenadas y de dónde salen. Ver aparecer datos
+            escritos sin explicación hace dudar de si ya se envió algo. */}
+        {heredadas > 0 && (
+          <p className="text-[11px] text-text-3 leading-relaxed rounded-xl border border-border bg-surface-2/40 px-3 py-2">
+            {heredadas === 1
+              ? 'Rellenamos 1 respuesta con lo que pusiste al registrarte.'
+              : `Rellenamos ${heredadas} respuestas con lo que pusiste al registrarte.`}
+            {' '}Puedes cambiarlas si algo ya no aplica.
+          </p>
+        )}
         {pide.map(c => (
           <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setResp(c.id, v)} />
         ))}

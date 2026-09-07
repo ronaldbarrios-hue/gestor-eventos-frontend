@@ -71,6 +71,29 @@ test('toda pestaña del menú tiene una pantalla que pintar', () => {
   assert.deepEqual(huerfanas, [], `pestañas sin pantalla: ${huerfanas.join(', ')}`);
 });
 
+test('toda pantalla que existe se puede alcanzar desde el menú', () => {
+  /* El sentido contrario del de arriba, y el que faltaba.
+   *
+   * Una pantalla sin entrada en el menú no da error: se pinta perfecta y no
+   * hay forma de llegar a ella salvo escribiendo la dirección a mano. Es
+   * exactamente lo que pasó con «Formularios» y «Marca del evento» al reagrupar
+   * el workspace — el editor entero del formulario del evento quedó fuera del
+   * menú, y costó que un organizador buscara media hora dónde se agrupan los
+   * campos y concluyera que no se podía.
+   *
+   * Si alguna vez hace falta una pantalla a la que sólo se llegue desde otra
+   * —un detalle que se abre al pulsar una fila—, esta prueba es el sitio donde
+   * declararlo, con su motivo. Una lista de excepciones sin motivos vuelve a
+   * dejar pasar lo de siempre. */
+  const SOLO_POR_ENLACE = {
+    /* Ninguna hoy. Al añadir una, se escribe aquí por qué no está en el menú. */
+  };
+  const menu = new Set(delMenu());
+  const sinMenu = [...conCaso].filter(c => !menu.has(c) && !(c in SOLO_POR_ENLACE));
+  assert.deepEqual(sinMenu.sort(), [],
+    `estas pantallas existen y no hay forma de llegar a ellas: ${sinMenu.join(', ')}`);
+});
+
 test('toda ruta vieja lleva a una pestaña que existe', () => {
   const menu = new Set(delMenu());
   const rotas = reubicadas.filter(r => !menu.has(r.nueva) && !conCaso.has(r.nueva));
