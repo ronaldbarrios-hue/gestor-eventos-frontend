@@ -6,6 +6,7 @@ import Spinner from '../../../components/ui/Spinner.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import BarraProgreso from '../../../components/ui/BarraProgreso.jsx';
 import { torneosApi } from '../../../api/torneos.js';
+import CrearTorneo from './torneo/TorneoCrear.jsx';
 
 /* Tab Tickets — tipos de boleta del evento. Minimalista Apple. */
 
@@ -212,11 +213,6 @@ function TicketCard({ ticket, isEditing, onStartEdit, onCancelEdit, onSave, onDe
   );
 }
 
-/* El formato con el que nace un torneo creado al vuelo desde aquí. Tiene que
-   ser uno de `FORMATOS_VALIDOS` del servidor (routes/torneos.js); lo comprueba
-   `tests/torneoAlVuelo.test.mjs`. */
-const FORMATO_AL_VUELO = 'eliminacion';
-
 /* ─────────── Form crear/editar ─────────── */
 
 function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
@@ -239,11 +235,20 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
   });
   const [torneos, setTorneos] = useState([]);
   const [falloTorneos, setFalloTorneos] = useState(false);
-  /* Crear el torneo sin salir de aquí. Antes el aviso mandaba a otra pestaña, y
-     volver significaba perder el nombre, el precio y la descripción ya
-     escritos — con lo que la salida real era cancelar y empezar de cero. */
+  /* Crear el torneo sin salir de aquí, con el formulario DE VERDAD.
+   *
+   * Antes esto era una casilla de nombre que creaba el torneo como
+   * «eliminación» sin preguntar. Fue un error, y de los caros: el FORMATO de un
+   * torneo NO se puede cambiar después —la ruta sólo deja editar nombre,
+   * disciplina, orden y categoría—, así que una Batalla de Pitch creada por el
+   * atajo nacía como una llave de eliminación y sin forma de volver atrás. Su
+   * rúbrica de calificación no aparecía por ninguna parte, porque ese torneo
+   * ya no era de jurado.
+   *
+   * Abrir el formulario completo encima cuesta lo mismo —esta pantalla sigue
+   * montada debajo, así que no se pierde nada de lo escrito— y hace la
+   * pregunta que hay que hacer una sola vez en la vida del torneo. */
   const [creandoTorneo, setCreandoTorneo] = useState(false);
-  const [nombreTorneo, setNombreTorneo] = useState('');
   /* Boletas de este tipo vendidas antes de que dijera «crea un equipo». Sólo
      tiene sentido preguntarlo sobre un tipo que YA existe. */
   const [sueltas, setSueltas] = useState(null);
@@ -290,30 +295,15 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
     return () => { vivo = false; };
   }, [eventoId, initial?.id, form.crea]);
 
-  const crearTorneoAqui = async () => {
-    const nombre = nombreTorneo.trim();
-    if (!nombre) return;
-    setCreandoTorneo(true);
-    try {
-      /* `eliminacion` es el formato que menos preguntas pide —los otros piden
-         número de grupos, o la rúbrica entera del jurado—, y aquí lo que
-         importa es que el torneo EXISTA para poder apuntar la boleta a él. El
-         formato se cambia después sin perder nada.
-
-         El nombre del formato tiene que ser uno de los que acepta el servidor
-         (`FORMATOS_VALIDOS` en routes/torneos.js). Escribir aquí uno inventado
-         no falla al escribirlo: falla al pulsar el botón, con un «Formato
-         inválido» que no dice cuál era el bueno. Hay una prueba que compara
-         esta cadena con la lista del servidor. */
-      const d = await torneosApi.crear(eventoId, { nombre, formato: FORMATO_AL_VUELO });
-      const nuevo = d.torneo || d;
-      setTorneos(ts => [...ts, nuevo]);
-      update('crea_torneo_id', nuevo.id);
-      setNombreTorneo('');
-      toast?.success?.(`Torneo «${nombre}» creado. Ajusta el formato en Actividades → Torneos.`);
-    } catch (err) {
-      toast?.error?.(err.response?.data?.error || err.message);
-    } finally { setCreandoTorneo(false); }
+  /* El torneo recién creado queda elegido: crearlo y dejar el desplegable en
+     «¿a qué torneo entra?» sería hacer el trabajo y no cerrarlo. */
+  const torneoCreado = (t) => {
+    const nuevo = t?.torneo || t;
+    if (!nuevo?.id) return;
+    setTorneos(ts => [...ts, nuevo]);
+    update('crea_torneo_id', nuevo.id);
+    setCreandoTorneo(false);
+    toast?.success?.(`Torneo «${nuevo.nombre}» creado y elegido.`);
   };
 
   const meterLasVendidas = async () => {
@@ -456,24 +446,15 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
               <div className="rounded-2xl border border-warning/40 bg-warning/5 p-3 space-y-2">
                 <p className="text-[11px] text-text-2 leading-relaxed">
                   Este evento todavía no tiene ningún torneo, y una boleta que crea equipos tiene que
-                  decir a cuál. Créalo aquí mismo sin perder lo que ya escribiste:
+                  decir a cuál. Créalo aquí mismo sin perder lo que ya escribiste.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    value={nombreTorneo}
-                    onChange={e => setNombreTorneo(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); crearTorneoAqui(); } }}
-                    placeholder="Nombre del torneo (ej. Batalla de Pitch)"
-                    className="input bg-surface-2 rounded-2xl py-2.5 text-sm flex-1 min-w-[14rem]"
-                  />
-                  <button type="button" onClick={crearTorneoAqui}
-                    disabled={creandoTorneo || !nombreTorneo.trim()} className="btn btn-sm">
-                    {creandoTorneo ? 'Creando…' : 'Crear torneo'}
-                  </button>
-                </div>
+                <button type="button" onClick={() => setCreandoTorneo(true)} className="btn btn-sm">
+                  Crear un torneo
+                </button>
                 <p className="text-[11px] text-text-3 leading-relaxed">
-                  Nace como eliminación simple. El formato, las categorías y lo demás se ajustan
-                  después en <b className="text-text-2">Actividades → Torneos</b>.
+                  Se abre el formulario completo: el <b className="text-text-2">formato</b> hay que
+                  elegirlo bien ahora, porque no se puede cambiar después. Para una batalla de pitch
+                  es «puntaje por jurado», que es el que trae la rúbrica de calificación.
                 </p>
               </div>
             )}
@@ -501,6 +482,25 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
           </div>
         )}
       </div>
+
+      {/* El formulario de verdad, encima. Esta pantalla sigue montada debajo, así
+          que nada de lo escrito se pierde — que era todo el problema que el
+          atajo intentaba resolver, y lo resolvía rompiendo otra cosa. */}
+      {creandoTorneo && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/70 backdrop-blur-md p-4"
+          onClick={() => setCreandoTorneo(false)}>
+          <div className="min-h-full flex items-start sm:items-center justify-center">
+            <div onClick={e => e.stopPropagation()}
+              className="w-full max-w-2xl rounded-3xl border border-border-2 bg-surface shadow-2xl p-5 my-4">
+              <CrearTorneo
+                eventoId={eventoId}
+                onCreado={torneoCreado}
+                onCancelar={() => setCreandoTorneo(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Avanzado */}
       <button
