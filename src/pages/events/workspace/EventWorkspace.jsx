@@ -41,6 +41,7 @@ import AutomatizacionesSection from './AutomatizacionesSection.jsx';
 import IntegracionesSection from './IntegracionesSection.jsx';
 import RankingTab        from '../tabs/RankingTab.jsx';
 import TicketsTab        from '../tabs/TicketsTab.jsx';
+import PlanoTab          from '../tabs/PlanoTab.jsx';
 import AnalyticsTab      from '../tabs/AnalyticsTab.jsx';
 import ClientesTab       from '../tabs/ClientesTab.jsx';
 import CheckinTab        from '../tabs/CheckinTab.jsx';
@@ -185,6 +186,10 @@ const SECCIONES = [
      antes que «Pagos» — el resultado se lee, no se explica. */
   { id: 'comercial', label: 'Entradas y dinero', icon: WalletIcon, tabs: [
     { id: 'boletas',      label: 'Boletas',           perm: 'gestionar_tickets' },
+    /* Para eventos donde se compra un sitio concreto —silla, mesa, palco—. Va
+       junto a Boletas porque el plano y el precio son la misma decisión: una
+       localidad ES un tipo de boleta sobre un conjunto de espacios. */
+    { id: 'plano',        label: 'Plano de venta',    perm: 'gestionar_tickets' },
     { id: 'checkout',     label: 'Proceso de compra', perm: 'gestionar_tickets' },
     { id: 'promociones',  label: 'Promociones',       perm: 'gestionar_descuentos' },
     { id: 'pagos',        label: 'Pagos',             perm: 'editar_evento' },
@@ -670,6 +675,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'zonas/accesos'          : return <AccesosSection evento={evento} />;
     case 'actividades/ranking'          : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
+    case 'comercial/plano'          : return <PlanoTab evento={evento} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
     case 'comercial/dinero'         : return <DineroSection evento={evento} />;
     case 'resumen/analytics'      : return <AnalyticsTab evento={evento} />;

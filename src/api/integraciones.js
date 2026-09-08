@@ -3,7 +3,9 @@ import client from './client.js';
 export const integracionesApi = {
   /* tokens */
   listTokens : ()      => client.get('/me/integraciones/tokens').then(r => r.data),
-  crearToken : (nombre)=> client.post('/me/integraciones/tokens', { nombre }).then(r => r.data),
+  /* `scopes` decide qué puede hacer Claude. Va desde que se crea y no después:
+     un token que nace pudiendo todo y se limita luego ya estuvo pudiendo todo. */
+  crearToken : (nombre, scopes) => client.post('/me/integraciones/tokens', { nombre, scopes }).then(r => r.data),
   revocarToken:(id)    => client.delete(`/me/integraciones/tokens/${id}`).then(r => r.data),
 
   /* webhooks */
