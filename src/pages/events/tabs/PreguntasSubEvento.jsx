@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { agendaApi } from '../../../api/agenda.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import CondicionEditor from '../../../components/CondicionEditor.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Las preguntas propias de un sub-evento.
@@ -12,12 +13,20 @@ import Spinner from '../../../components/ui/Spinner.jsx';
    cero y se comportaba igual que 'ninguno'. El selector lo advertía en vez de
    prometerlo. Esta es la pantalla que faltaba.
 
-   Deliberadamente corto: sin grupos, sin ayuda por campo, sin "solo para el
-   tipo VIP". Esas cosas son del formulario de compra del evento, que ya tiene
-   su editor grande. Aquí son tres o cuatro preguntas sobre la actividad —
-   talla de camiseta, si trae equipo, nivel— y el tope está en doce a
-   propósito: quien necesite treinta quiere el formulario del evento, y para
-   eso está el modo 'evento'.
+   Corto en opciones: sin grupos, sin ayuda por campo, sin "solo para el tipo
+   VIP". Esas cosas son del formulario de compra del evento, que ya tiene su
+   editor grande.
+
+   Pero NO corto en preguntas. Aquí decía que el tope estaba «en doce a
+   propósito: quien necesite treinta quiere el formulario del evento». Era una
+   suposición sobre cómo trabaja la gente, y falló: un formulario de 21
+   preguntas para una batalla de pitch no cabía. Describir una startup pide
+   más que comprar una entrada, no menos. El tope ahora es el mismo de los tres
+   formularios y lo manda el servidor en `max_campos`.
+
+   Y las condiciones —«mostrar sólo si…»— sí están: el servidor las guardaba y
+   la página pública las respetaba desde siempre, pero esta pantalla no tenía
+   dónde ponerlas. Eran tres formularios y una sola donde configurarlas.
    ────────────────────────────────────────────────────────────────── */
 
 /* Sólo los tipos que tienen sentido en una pregunta corta. El catálogo
@@ -70,7 +79,10 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   const { success, error: toastErr } = useToast();
   const f = fuente || fuenteDeSesion(evento, sesion);
   const [campos, setCampos] = useState(null);   // null = cargando
-  const [max, setMax] = useState(12);
+  /* Mientras llega la respuesta del servidor. No un número bajo: si se queda
+     corto, el botón de añadir sale deshabilitado durante ese instante y
+     parece que ya no caben más. */
+  const [max, setMax] = useState(60);
   const [tipos, setTipos] = useState(
     TIPOS_PERMITIDOS.map(id => ({ id, label: ETIQUETAS_RESPALDO[id] })));
   const [saving, setSaving] = useState(false);
@@ -109,7 +121,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   });
   const agregar = () => setCampos(cs => [
     ...cs,
-    { _k: claveLocal(), tipo: 'texto', etiqueta: '', requerido: false, opciones: null },
+    { _k: claveLocal(), tipo: 'texto', etiqueta: '', requerido: false, opciones: null, visible_si: null },
   ]);
 
   const guardar = async () => {
@@ -133,6 +145,10 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
            una pregunta que no se puede responder. */
         max_caracteres: c.max_caracteres ? Number(c.max_caracteres) : null,
         max_palabras: c.max_palabras ? Number(c.max_palabras) : null,
+        /* Sin esta línea la condición se pierde al guardar: el editor la
+           muestra, se define, y el objeto que viaja al servidor la deja
+           fuera. Ya pasó una vez en el formulario del evento. */
+        visible_si: c.visible_si || null,
       }));
       const d = await f.guardar(payload);
       success(f.textoGuardado(payload.length));
@@ -166,6 +182,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
             <Pregunta
               key={c._k}
               campo={c}
+              campos={campos}
               tipos={tipos}
               primera={i === 0}
               ultima={i === campos.length - 1}
@@ -203,7 +220,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   );
 }
 
-function Pregunta({ campo, tipos, primera, ultima, onChange, onQuitar, onSubir, onBajar }) {
+function Pregunta({ campo, campos, tipos, primera, ultima, onChange, onQuitar, onSubir, onBajar }) {
   const conOpciones = CON_OPCIONES.has(campo.tipo);
   const opciones = campo.opciones || [];
 
@@ -290,6 +307,12 @@ function Pregunta({ campo, tipos, primera, ultima, onChange, onQuitar, onSubir, 
             className="text-xs text-accent hover:underline">+ Añadir opción</button>
         </div>
       )}
+
+      {/* El mismo editor que el formulario del evento, no una copia. */}
+      <div className="pl-7">
+        <CondicionEditor campo={campo} campos={campos}
+          onChange={visible_si => onChange({ visible_si })} />
+      </div>
     </div>
   );
 }
