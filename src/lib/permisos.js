@@ -27,6 +27,22 @@
    su propio editor no enseñaba. */
 
 export const PERMISOS = [
+  /* Co-dueño.
+   *
+   * Va primero y aparte porque no es un permiso más: es «manda igual que
+   * quien lo creó». Existe porque en FESTECH el evento lo llevan varias
+   * organizaciones y todas mandan igual — y el rol más alto, «Administrador»,
+   * enumera 22 permisos y aun así no llega a cinco pantallas que el panel
+   * reserva a quien figura como dueño. La salida hasta hoy era compartir la
+   * cuenta.
+   *
+   * El servidor ya conocía esta cadena en `core/permisos/puede()`; lo que no
+   * la conocía era `lib/acceso.js`, que es quien vigila las 58 rutas. Un
+   * miembro con `*` pasaba un guardia y lo paraba el otro. */
+  { id: '*', grupo: 'Co-dueño', label: 'Manda igual que quien creó el evento',
+    desc: 'Todos los permisos, incluidas las pantallas de ajustes, integraciones y anuncios. No incluye borrar el evento ni transferirlo: eso se queda en quien lo creó.',
+    aplicado: true },
+
   /* Evento */
   { id: 'editar_evento',         grupo: 'Evento',    label: 'Editar evento',           desc: 'Cambiar título, descripción, fechas, ubicación y modalidad.', aplicado: true },
   { id: 'publicar_evento',       grupo: 'Evento',    label: 'Publicar / cancelar',     desc: 'Cambiar el estado del evento.', aplicado: true },
