@@ -5,6 +5,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import PlanoSVG from '../../../components/public/PlanoSVG.jsx';
 
 /* El plano: montar los sitios que se venden uno a uno.
  *
@@ -38,6 +39,12 @@ export default function PlanoTab({ evento }) {
   const [creando, setCreando] = useState(false);
   const [generandoEn, setGenerandoEn] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
+  /* Ver el plano como lo verá quien compra, SIN publicar el evento.
+     Salió montando un concierto: se arman 124 sitios y la única forma de ver
+     lo que verá el público era hacer el evento público. Y no hace falta ningún
+     endpoint nuevo — el panel ya tiene los espacios y las reservas, y el
+     componente del mapa es literalmente el mismo que se sirve fuera. */
+  const [previa, setPrevia] = useState(false);
 
   const cargar = async () => {
     try {
@@ -191,14 +198,41 @@ export default function PlanoTab({ evento }) {
         </div>
       )}
 
-      {(datos.arbol || []).map(nodo => (
+      {vendibles.length > 0 && (
+        <div className="space-y-2">
+          <button onClick={() => setPrevia(v => !v)} className="text-xs text-accent hover:underline">
+            {previa ? 'Volver a la lista' : 'Ver como lo verá quien compra'}
+          </button>
+          {previa && (
+            <>
+              {/* El MISMO componente que se sirve al público, con los datos que
+                  el panel ya tenía. Una copia «de previsualización» acabaría
+                  enseñando algo que no es lo que se vende. */}
+              <PlanoSVG
+                unidades={vendibles.map(e => ({
+                  id: e.id, nombre: e.nombre, capacidad: e.capacidad,
+                  geometria: e.geometria, libre: !ocupado.get(e.id),
+                }))}
+                valor={null} onElegir={() => {}}
+                ocupadoTitulo="vendida o retenida" />
+              <p className="text-[11px] text-text-3">
+                Así se ve el plano. Aquí sólo se mira: quien compra elige desde la página del evento.
+                {vendibles.some(e => !precioDe.get(e.id)) &&
+                  ' Los sitios sin tipo de boleta se ven igual y no se pueden comprar.'}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {!previa && (datos.arbol || []).map(nodo => (
         <Nodo key={nodo.id} nodo={nodo} nivel={0}
           ocupado={ocupado} precioDe={precioDe} tipos={tipos}
           onGenerar={() => setGenerandoEn(nodo)}
           onBorrar={borrar} onLiberar={liberar} onLocalidad={ponerLocalidad} onRenombrar={renombrar} />
       ))}
 
-      {(datos.arbol || []).length > 0 && !creando && (
+      {!previa && (datos.arbol || []).length > 0 && !creando && (
         <button onClick={() => setCreando(true)} className="btn-ghost btn-sm">+ Otra zona</button>
       )}
 
