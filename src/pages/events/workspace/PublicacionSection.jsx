@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { agendaApi } from '../../../api/agenda.js';
+import Recomendaciones from '../../../components/Recomendaciones.jsx';
 import { clientesApi } from '../../../api/clientes.js';
 import {
   botonesDelEvento, nuevoBoton, cruzarConUso, codigoDeOrigen,
@@ -390,6 +391,11 @@ El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0
           quien se registra no sale de tu sitio.
         </p>
       </div>
+
+      {/* Arriba del generador, no al pie: son decisiones que se toman ANTES de
+          copiar. Después ya está pegado en la web del cliente y nadie vuelve —
+          es literalmente lo que pasó en FESTECH. */}
+      <Recomendaciones ambito="boton" className="mx-4 mt-4" opciones={{}} />
 
       <div className="p-4 grid lg:grid-cols-[1fr_minmax(260px,320px)] gap-5 items-start">
         <div className="space-y-3 min-w-0">
