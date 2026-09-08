@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { eventosApi } from '../../api/eventos.js';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
+import CamposAgrupados from '../../components/CamposAgrupados.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Apuntarse a un sub-evento desde la agenda pública.
@@ -276,9 +277,9 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
             {' '}Puedes cambiarlas si algo ya no aplica.
           </p>
         )}
-        {pide.map(c => (
-          <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setResp(c.id, v)} />
-        ))}
+        <CamposAgrupados campos={pide} render={c => (
+          <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setResp(c.id, v)} />
+        )} />
 
         {/* El modo 'evento' reutiliza el formulario de compra: preguntarlo aquí
             otra vez sería pedirle lo mismo dos veces a la misma persona. */}
