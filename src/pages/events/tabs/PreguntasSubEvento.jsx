@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { agendaApi } from '../../../api/agenda.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import CondicionEditor from '../../../components/CondicionEditor.jsx';
+import CampoSensible from '../../../components/CampoSensible.jsx';
+import { useCierreSeguro, alPulsarElFondo } from '../../../components/ui/cierreSeguro.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Las preguntas propias de un sub-evento.
@@ -12,12 +15,28 @@ import Spinner from '../../../components/ui/Spinner.jsx';
    cero y se comportaba igual que 'ninguno'. El selector lo advertía en vez de
    prometerlo. Esta es la pantalla que faltaba.
 
-   Deliberadamente corto: sin grupos, sin ayuda por campo, sin "solo para el
-   tipo VIP". Esas cosas son del formulario de compra del evento, que ya tiene
-   su editor grande. Aquí son tres o cuatro preguntas sobre la actividad —
-   talla de camiseta, si trae equipo, nivel— y el tope está en doce a
-   propósito: quien necesite treinta quiere el formulario del evento, y para
-   eso está el modo 'evento'.
+   Lo unico que NO tiene y el del evento si: «solo para el tipo VIP», que no
+   significa nada aqui —a un sub-evento no se entra con una boleta u otra— y
+   las fichas prearmadas, que son para el registro del evento.
+
+   Todo lo demas si. Durante un tiempo no, y el comentario que estaba aqui lo
+   justificaba: «sin grupos, sin ayuda por campo... esas cosas son del
+   formulario de compra». Era mentira por omision: la base guarda `grupo` y
+   `ayuda` para estas preguntas igual que para las otras —viven en la misma
+   tabla—, y el renderizador publico ya pintaba las dos. Lo que faltaba era
+   donde escribirlas. Un campo que la base guarda y la pantalla no deja llenar
+   no es una decision de diseno, es un hueco.
+
+   Pero NO corto en preguntas. Aquí decía que el tope estaba «en doce a
+   propósito: quien necesite treinta quiere el formulario del evento». Era una
+   suposición sobre cómo trabaja la gente, y falló: un formulario de 21
+   preguntas para una batalla de pitch no cabía. Describir una startup pide
+   más que comprar una entrada, no menos. El tope ahora es el mismo de los tres
+   formularios y lo manda el servidor en `max_campos`.
+
+   Y las condiciones —«mostrar sólo si…»— sí están: el servidor las guardaba y
+   la página pública las respetaba desde siempre, pero esta pantalla no tenía
+   dónde ponerlas. Eran tres formularios y una sola donde configurarlas.
    ────────────────────────────────────────────────────────────────── */
 
 /* Sólo los tipos que tienen sentido en una pregunta corta. El catálogo
@@ -34,14 +53,36 @@ import Spinner from '../../../components/ui/Spinner.jsx';
    ofrecer el catálogo entero invita a montar aquí la ficha de caracterización,
    que va en el formulario del evento. Las etiquetas se toman del servidor
    cuando llegan, para no volver a mantener dos textos. */
-const TIPOS_PERMITIDOS = ['texto', 'parrafo', 'numero', 'seleccion', 'multiple',
-                          'checkbox', 'email', 'telefono', 'fecha'];
+/* Los tipos que se pueden pedir aquí.
+ *
+ * Era una lista de NUEVE, escrita a mano, cuando el servidor conoce más — y
+ * `archivo` y `foto` se quedaban fuera. O sea: en un sub-evento o un torneo se
+ * podía pedir un texto, pero no un documento. Y no fallaba nada: el tipo
+ * simplemente no salía en el desplegable, y quien lo buscaba concluía que la
+ * plataforma no lo hacía. La base lo guarda, el renderizador público lo pinta
+ * y la ruta de subida lo autoriza desde la 0115; sólo este desplegable no lo
+ * ofrecía.
+ *
+ * Ahora manda el catálogo del servidor, que es la fuente. La lista de abajo
+ * sólo es el respaldo para el instante en que todavía no ha llegado la
+ * respuesta —y para eso tiene que estar completa, no recortada: si se queda
+ * corta, el desplegable cambia de opciones al cargar. */
 const ETIQUETAS_RESPALDO = {
   texto: 'Texto corto', parrafo: 'Texto largo', numero: 'Número',
   seleccion: 'Elegir una', multiple: 'Elegir varias', checkbox: 'Sí / no',
   email: 'Correo', telefono: 'Teléfono', fecha: 'Fecha',
+  documento: 'Documento de identidad', archivo: 'Archivo adjunto (PDF, Word, presentación)', foto: 'Foto',
 };
+const TIPOS_PERMITIDOS = Object.keys(ETIQUETAS_RESPALDO);
 const CON_OPCIONES = new Set(['seleccion', 'multiple']);
+
+/* Lo que cuenta como «lo que hay escrito». Se dejan fuera las claves locales
+   (`_k`), que cambian al anadir una pregunta sin que nadie haya escrito nada. */
+const huella = (cs) => JSON.stringify((cs || []).map(c => [
+  c.tipo, c.etiqueta || '', c.requerido || false, c.opciones || null,
+  c.max_caracteres ?? '', c.max_palabras ?? '', c.visible_si || null,
+  c.sensible || false, c.ayuda || '', c.grupo || '',
+]));
 
 let contador = 0;
 const claveLocal = () => `nueva_${++contador}`;
@@ -70,25 +111,37 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   const { success, error: toastErr } = useToast();
   const f = fuente || fuenteDeSesion(evento, sesion);
   const [campos, setCampos] = useState(null);   // null = cargando
-  const [max, setMax] = useState(12);
+  /* Mientras llega la respuesta del servidor. No un número bajo: si se queda
+     corto, el botón de añadir sale deshabilitado durante ese instante y
+     parece que ya no caben más. */
+  const [max, setMax] = useState(60);
   const [tipos, setTipos] = useState(
     TIPOS_PERMITIDOS.map(id => ({ id, label: ETIQUETAS_RESPALDO[id] })));
+  /* Sugerencias de grupo. `grupo` es columna de `event_form_fields` desde la
+     0055 y estos formularios ya la guardaban; lo que faltaba era ofrecerla. */
+  const [grupos, setGrupos] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [original, setOriginal] = useState(null);
 
   useEffect(() => {
     let vivo = true;
     f.cargar()
       .then(d => {
         if (!vivo) return;
-        setCampos((d.campos || []).map(c => ({ ...c, _k: c.id })));
+        const cargados = (d.campos || []).map(c => ({ ...c, _k: c.id }));
+        setCampos(cargados);
+        /* La foto de lo que vino, para poder distinguir «no toqué nada» de
+           «escribí ocho preguntas». Sin esto habria que preguntar siempre, y
+           una pregunta que sale aunque no haya nada que perder se aprende a
+           despachar sin leerla — y entonces no protege el dia que si hay. */
+        setOriginal(huella(cargados));
         if (d.max_campos) setMax(d.max_campos);
-        /* El catálogo viaja con la respuesta; se filtra al subconjunto. */
-        if (Array.isArray(d.tipos) && d.tipos.length) {
-          const porId = new Map(d.tipos.map(t => [t.id, t.label]));
-          setTipos(TIPOS_PERMITIDOS
-            .filter(id => porId.has(id))
-            .map(id => ({ id, label: porId.get(id) })));
-        }
+        /* El catálogo viaja con la respuesta y se usa ENTERO. Antes se
+           cruzaba con la lista de aquí, así que un tipo nuevo del servidor no
+           llegaba nunca a este editor: había que acordarse de añadirlo a mano
+           en dos sitios, y no se hizo. */
+        if (Array.isArray(d.tipos) && d.tipos.length) setTipos(d.tipos);
+        if (Array.isArray(d.grupos)) setGrupos(d.grupos);
       })
       .catch(e => { if (vivo) { toastErr(e.response?.data?.error || e.message); setCampos([]); } });
     return () => { vivo = false; };
@@ -96,6 +149,12 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
        dependencias: la carga se repetiría sin parar. Lo que la identifica son
        el evento y de quién son las preguntas. */
   }, [evento.id, sesion?.id, fuente?.clave, toastErr]);
+
+  /* Cambios sin guardar. Se compara el contenido, no la identidad: mover una
+     pregunta y devolverla a su sitio no es un cambio, y avisar de eso enseña a
+     ignorar el aviso. */
+  const hayCambios = campos !== null && original !== null && huella(campos) !== original;
+  const cerrar = useCierreSeguro(hayCambios, onClose);
 
   const set = (k, patch) => setCampos(cs => cs.map(c => (c._k === k ? { ...c, ...patch } : c)));
   const quitar = (k) => setCampos(cs => cs.filter(c => c._k !== k));
@@ -109,7 +168,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   });
   const agregar = () => setCampos(cs => [
     ...cs,
-    { _k: claveLocal(), tipo: 'texto', etiqueta: '', requerido: false, opciones: null },
+    { _k: claveLocal(), tipo: 'texto', etiqueta: '', requerido: false, opciones: null, visible_si: null, sensible: false, ayuda: '', grupo: '' },
   ]);
 
   const guardar = async () => {
@@ -133,6 +192,19 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
            una pregunta que no se puede responder. */
         max_caracteres: c.max_caracteres ? Number(c.max_caracteres) : null,
         max_palabras: c.max_palabras ? Number(c.max_palabras) : null,
+        /* Sólo significa algo en un archivo, y el servidor lo limpia en
+           cualquier otro tipo. Se manda igual: filtrarlo aquí dejaría un
+           `sensible` viejo si se marca el campo y luego se le cambia el tipo. */
+        sensible: Boolean(c.sensible),
+        /* Se muestra debajo de la pregunta en el formulario público. El
+           renderizador es el mismo de los tres formularios y ya lo pintaba:
+           lo único que faltaba era dónde escribirlo. */
+        ayuda: c.ayuda?.trim() || null,
+        grupo: c.grupo?.trim() || null,
+        /* Sin esta línea la condición se pierde al guardar: el editor la
+           muestra, se define, y el objeto que viaja al servidor la deja
+           fuera. Ya pasó una vez en el formulario del evento. */
+        visible_si: c.visible_si || null,
       }));
       const d = await f.guardar(payload);
       success(f.textoGuardado(payload.length));
@@ -143,7 +215,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={alPulsarElFondo(cerrar)}>
       <div className="w-full max-w-2xl max-h-[88vh] flex flex-col bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden"
            onClick={e => e.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 px-6 py-4 border-b border-border flex-shrink-0">
@@ -151,7 +223,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
             <h3 className="text-base font-semibold text-text-1">{f.titulo}</h3>
             <p className="text-xs text-text-3 mt-0.5">{f.ayuda}</p>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" className="text-text-3 hover:text-text-1 flex-shrink-0">✕</button>
+          <button onClick={cerrar} aria-label="Cerrar" className="text-text-3 hover:text-text-1 flex-shrink-0">✕</button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
@@ -166,6 +238,8 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
             <Pregunta
               key={c._k}
               campo={c}
+              campos={campos}
+              grupos={grupos}
               tipos={tipos}
               primera={i === 0}
               ultima={i === campos.length - 1}
@@ -191,7 +265,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
             {campos?.length || 0} de {max}
           </p>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="btn-ghost btn-sm">Cancelar</button>
+            <button onClick={cerrar} className="btn-ghost btn-sm">Cancelar</button>
             <button onClick={guardar} disabled={saving || campos === null} className="btn-primary btn-sm">
               {saving ? <><Spinner size="sm" /> Guardando…</> : 'Guardar preguntas'}
             </button>
@@ -203,7 +277,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   );
 }
 
-function Pregunta({ campo, tipos, primera, ultima, onChange, onQuitar, onSubir, onBajar }) {
+function Pregunta({ campo, campos, grupos, tipos, primera, ultima, onChange, onQuitar, onSubir, onBajar }) {
   const conOpciones = CON_OPCIONES.has(campo.tipo);
   const opciones = campo.opciones || [];
 
@@ -290,6 +364,28 @@ function Pregunta({ campo, tipos, primera, ultima, onChange, onQuitar, onSubir, 
             className="text-xs text-accent hover:underline">+ Añadir opción</button>
         </div>
       )}
+
+      {/* Los mismos que el formulario del evento, no copias. */}
+      <div className="pl-7 space-y-2">
+        <div className="grid sm:grid-cols-2 gap-2">
+          <input value={campo.ayuda || ''} onChange={e => onChange({ ayuda: e.target.value })}
+            maxLength={300} className="input !h-9 text-xs"
+            placeholder="Texto de ayuda (opcional). Ej: «Sin puntos ni guiones»" />
+          {/* Se escribe o se elige, como en el formulario del evento: los
+              sugeridos salen de los formatos de caracterización oficiales y
+              no sirven para un torneo. */}
+          <input list={`grupos-${campo._k}`} value={campo.grupo || ''}
+            onChange={e => onChange({ grupo: e.target.value })}
+            maxLength={80} className="input !h-9 text-xs"
+            placeholder="Grupo (opcional). Ej: «Sobre tu propuesta»" />
+          <datalist id={`grupos-${campo._k}`}>
+            {(grupos || []).map(g => <option key={g} value={g} />)}
+          </datalist>
+        </div>
+        <CampoSensible campo={campo} onChange={v => onChange({ sensible: v })} />
+        <CondicionEditor campo={campo} campos={campos}
+          onChange={visible_si => onChange({ visible_si })} />
+      </div>
     </div>
   );
 }

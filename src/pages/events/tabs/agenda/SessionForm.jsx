@@ -342,14 +342,26 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
             </div>
           {tiposBoleta.length > 0 && (
             <div className="field">
-              <label className="label">Hace falta boleta <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
+              {/* Se llamaba «Hace falta boleta» y la ayuda hablaba sólo de
+                  restringir por categoría: «las actividades que sólo entran con
+                  un tipo de boleta (VIP, por ejemplo)».
+                  Medido: 1 de 15 actividades tenía boleta ligada. No porque el
+                  control fallara —guarda bien y el servidor lo valida— sino
+                  porque describía un caso que casi nadie tiene, y no el que sí:
+                  «para esta actividad se creó su propia boleta». En FESTECH hay
+                  tres boletas que son justo eso y ninguna estaba ligada.
+                  Un control redactado para otro caso es un control que no se
+                  usa, y no falla nada. */}
+              <label className="label">Con qué boleta se entra <span className="lowercase tracking-normal font-normal text-text-3">(opcional)</span></label>
               <select value={form.ticket_type_id} onChange={e => setForm(f => ({...f, ticket_type_id: e.target.value}))}
                 className="input bg-surface-2 rounded-2xl py-3 text-base">
-                <option value="">Cualquiera</option>
+                <option value="">Con cualquiera del evento</option>
                 {tiposBoleta.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
               </select>
               <p className="text-[11px] text-text-3 mt-1">
-                Para las actividades que sólo entran con un tipo de boleta (VIP, por ejemplo).
+                Elige una si esta actividad tiene su propia boleta, o si sólo entra un tipo
+                (VIP, por ejemplo). En «Entradas y dinero» esa boleta dejará de parecer una
+                entrada al evento y dirá a qué actividad da acceso.
               </p>
             </div>
           )}

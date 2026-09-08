@@ -90,6 +90,10 @@ test('el origen se limpia igual que en el servidor', () => {
   }
 });
 
+/* Esta prueba estaba en verde mientras el fallo estaba vivo: comprobaba tres
+   campos de dieciséis, y los trece que faltaban incluían el degradado y el
+   borde. Lo que de verdad hace falta «para volver a pegarlo» se comprueba
+   ahora contra la tabla, en `botonDeRegistro.test.mjs`. */
 test('un botón guardado nace con todo lo que hace falta para volver a pegarlo', () => {
   const b = nuevoBoton({ nombre: 'Correo a socios', boleta: 'vip-1', texto: 'Reservar' });
   assert.equal(b.nombre, 'Correo a socios');

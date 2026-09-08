@@ -6,6 +6,7 @@ import GLoader from '../../components/ui/GLoader.jsx';
 import Volver from '../../components/ui/Volver.jsx';
 import { mensajePublico } from '../../lib/mensajeDeError.js';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
+import CamposAgrupados from '../../components/CamposAgrupados.jsx';
 import { camposVisibles } from '../../lib/camposCondicionales.js';
 
 /* El portal del capitán de un equipo.
@@ -210,11 +211,11 @@ export default function EquipoTorneoPage() {
               {' '}Revísalos y guarda cuando estén bien.
             </p>
           )}
-          {visibles.map(c => (
-            <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]}
+          <CamposAgrupados campos={visibles} render={c => (
+            <CampoFormulario campo={c} value={respuestas[c.id]}
               onChange={v => setRespuestas(r => ({ ...r, [c.id]: v }))}
               eventoId={evento?.id} />
-          ))}
+          )} />
 
           {campos.length === 0 && (
             <p className="text-xs text-text-3">

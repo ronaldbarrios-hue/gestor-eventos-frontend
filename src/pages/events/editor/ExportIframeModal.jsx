@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../../context/ToastContext.jsx';
-import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_TEMA_PISTA, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES, recomendacionesPara } from '../../../lib/embed.js';
+import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_TEMA_PISTA, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
+import Recomendaciones from '../../../components/Recomendaciones.jsx';
 
 /* Exportar UNA sección de la landing como iframe: la empresa arma su web
    donde quiera y trae de GESTEK solo lo que le sirve (boletas, cómo llegar,
@@ -319,35 +320,6 @@ function Fondo({ children, onClose }) {
            onClick={e => e.stopPropagation()}>
         {children}
       </div>
-    </div>
-  );
-}
-
-function Recomendaciones({ opciones }) {
-  const [abierto, setAbierto] = useState(false);
-  const lista = recomendacionesPara(opciones);
-  if (!lista.length) return null;
-
-  return (
-    <div className="mx-6 mt-4 rounded-xl border border-primary/30 bg-primary/5 overflow-hidden">
-      <button type="button" onClick={() => setAbierto(v => !v)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-primary/10 transition-colors">
-        <span className="text-xs font-semibold text-text-1">
-          Antes de copiar: {lista.length} cosas que evitan que se vea mal en tu web
-        </span>
-        <span className="text-text-3 text-xs flex-shrink-0">{abierto ? 'Ocultar' : 'Ver'}</span>
-      </button>
-
-      {abierto && (
-        <ul className="px-4 pb-3 space-y-2.5 border-t border-primary/20 pt-3">
-          {lista.map(r => (
-            <li key={r.clave}>
-              <p className="text-xs font-medium text-text-1">{r.titulo}</p>
-              <p className="text-[11px] text-text-3 leading-relaxed mt-0.5">{r.detalle}</p>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

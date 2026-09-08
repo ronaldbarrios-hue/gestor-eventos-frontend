@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAvisoAlSalir } from '../../components/ui/cierreSeguro.js';
 import { ETIQUETAS_QUE_FUNCIONAN, SINONIMOS_ETIQUETA, PAGINAS_LEIDAS } from '../../lib/pdfEvento.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import { useNavigate, Link } from 'react-router-dom';
@@ -37,6 +38,15 @@ export default function EventCreatePage() {
     gallery           : [],
     aforo_total       : '',
   });
+
+  /* Cuatro pasos, y ni borrador ni aviso: recargar sin querer los borraba los
+     cuatro.
+
+     Va DESPUÉS de declarar `form`, no antes. Lo escribí arriba del todo y el
+     build pasó igual —Vite no mira eso—, pero `const` no se iza: leer `form`
+     antes de su línea revienta la página entera al abrirla. Un fallo que no
+     se ve compilando y se ve siempre al usar. */
+  useAvisoAlSalir(Boolean(form.titulo?.trim() || form.descripcion?.trim() || form.fecha_inicio));
 
   const [plantillas, setPlantillas] = useState([]);
   const [usandoPlantilla, setUsandoPlantilla] = useState(null);

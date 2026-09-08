@@ -9,7 +9,7 @@ import TorneoPublicoPage from './TorneoPublicoPage.jsx';
 import AgendaPublicaPage from './AgendaPublicaPage.jsx';
 import { TarjetaTorneo } from './TorneosResumenPage.jsx';
 import { TablaRanking } from './RankingPublicoPage.jsx';
-import { EMBED_ALIAS, EMBED_SIN_CONFIG, avisarAlAnfitrion } from '../../lib/embed.js';
+import { EMBED_ALIAS, EMBED_SIN_CONFIG, avisarAlAnfitrion, estaIncrustado } from '../../lib/embed.js';
 import { ReservaModal, ConfirmacionModal } from './EventoPublicoPage.jsx';
 
 /* Secciones que no son bloques de la landing sino páginas propias del evento
@@ -144,12 +144,41 @@ export default function EmbedPage() {
    * Claro» en el mismo panel donde generó el código. Un ajuste que se elige
    * una vez es mejor que un sorteo por visitante. */
   useEffect(() => {
+    /* Lo que eligió el organizador manda sobre todo lo demás. */
     if (tema === 'oscuro') { setDark(); return; }
     if (tema === 'claro')  { setLight(); return; }
-    if (fondo === 'transparente') {
-      if (esquemaHost === 'claro') setLight(); else setDark();
-      return;
-    }
+
+    /* Si la web anfitriona nos contó su color, ese es el dato bueno — venga el
+       fondo como venga.
+     *
+     * Aquí faltaba media regla, y se notaba justo en el sitio más usado. El
+     * botón de registro abre su formulario con `fondo=solido`, así que caía al
+     * `matchMedia` de abajo: el tema salía del SISTEMA OPERATIVO de quien
+     * entra. El mismo formulario, en la misma web, claro en un portátil y
+     * oscuro en el de al lado.
+     *
+     * Y lo peor no es que cambie: es que el dato correcto YA ESTABA AQUÍ.
+     * `widget.js` mide el fondo real de la página anfitriona —subiendo por los
+     * padres, con la luminancia de la WCAG— y lo manda en el mensaje `estilo`.
+     * Llegaba, se guardaba en `esquemaHost`, y esta condición sólo lo miraba
+     * con el fondo transparente. Se recibía y se tiraba.
+     *
+     * Que el fondo sea sólido no lo hace irrelevante: el recuadro sigue
+     * estando DENTRO de su página, y verse como ella es justo el objetivo. */
+    if (esquemaHost === 'claro') { setLight(); return; }
+    if (esquemaHost === 'oscuro') { setDark(); return; }
+
+    /* Sin nadie que nos lo cuente. Pasa más de lo que parece: el script se
+       COPIA a la página del cliente, así que quien pegó el suyo hace meses
+       tiene el de entonces —y Notion, Wix y demás bloques de «insertar web»
+       no ejecutan script ninguno—.
+
+       Dentro de un iframe, `prefers-color-scheme` no es un valor por omisión:
+       es un sorteo por visitante. Lo que sí se sabe es de qué evento es esto,
+       y la página pública de un evento es oscura siempre. Fuera del iframe
+       —alguien abre la URL del embed a pelo— no hay anfitriona a la que
+       parecerse, y ahí el sistema operativo sí es la mejor pista. */
+    if (estaIncrustado()) { setDark(); return; }
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (mq?.matches) setDark(); else setLight();
   }, [tema, fondo, esquemaHost, setDark, setLight]);

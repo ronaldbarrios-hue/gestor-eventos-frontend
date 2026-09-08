@@ -71,7 +71,12 @@ const TIPOS_CONDICIONABLES = new Set(['seleccion', 'multiple', 'checkbox']);
 
 export function posiblesAntecedentes(campos, claveActual) {
   const lista = Array.isArray(campos) ? campos : [];
-  const i = lista.findIndex(c => (c._key || c.id) === claveActual);
+  /* `_key` en el formulario del evento, `_k` en el de sub-eventos y torneos.
+     Los dos editores nombraron distinto su clave local, y buscar sólo por una
+     devolvía -1 en el otro: sin índice, `antes` era la lista ENTERA y una
+     pregunta nueva podía depender de otra posterior — justo lo que el orden
+     está aquí para impedir. */
+  const i = lista.findIndex(c => (c._key || c._k || c.id) === claveActual);
   const antes = i < 0 ? lista : lista.slice(0, i);
   return antes.filter(c =>
     TIPOS_CONDICIONABLES.has(c.tipo)

@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
+import { agendaApi } from '../../../api/agenda.js';
+import Recomendaciones from '../../../components/Recomendaciones.jsx';
 import { clientesApi } from '../../../api/clientes.js';
 import {
   botonesDelEvento, nuevoBoton, cruzarConUso, codigoDeOrigen,
@@ -273,10 +275,25 @@ function BotonDeRegistro({ evento }) {
      cada reconstrucción salía un poco distinta. */
   const [guardados, setGuardados] = useState(() => botonesDelEvento(evento));
   const [uso, setUso] = useState([]);
+  /* Los sub-eventos con inscripción. Un botón podía llevar a la lista de
+     boletas o a UNA boleta, y a nada más: un taller con su propio formulario,
+     una rueda de negocios o una batalla de pitch no tenían enlace que pegar
+     en otra web. Existen, tienen cupo y preguntas propias, y hasta ahora la
+     única forma de llegar era la agenda entera. */
+  const [sesiones, setSesiones] = useState([]);
   const [guardando, setGuardando] = useState(false);
 
   /* Cuánto trajo cada uno. Es lo que convierte una lista de códigos en algo que
      se mira: sin esto, saber cuál de los cuatro sitios funcionó es imposible. */
+  useEffect(() => {
+    let vivo = true;
+    agendaApi.sessions(evento.id)
+      .then(d => { if (vivo) setSesiones((d.sessions || []).filter(x => x.requiere_inscripcion)); })
+      /* Sin agenda, el selector se queda con las boletas: es lo que había. */
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [evento.id]);
+
   useEffect(() => {
     let vivo = true;
     clientesApi.origenes(evento.id)
@@ -306,7 +323,11 @@ function BotonDeRegistro({ evento }) {
   const guardarActual = async () => {
     const nombre = (window.prompt('¿Cómo llamas a este botón? Ej: «Home de la web», «Correo a socios»') || '').trim();
     if (!nombre) return;
-    const b = nuevoBoton({ ...cfg, nombre, origen: codigoDeOrigen(nombre, guardados) }, guardados);
+    /* `opciones` y no `cfg`: el degradado es un interruptor aqui y "hay segundo
+       color" en el widget. Guardando `cfg` se guardaria un `color2` con la
+       casilla apagada, y el boton volveria de la lista con un degradado que
+       nadie pidio. */
+    const b = nuevoBoton({ ...opciones, nombre, origen: codigoDeOrigen(nombre, guardados) }, guardados);
     try {
       await persistir([...guardados, b]);
       success(`Guardado. Ahora sabrás cuánta gente entró por «${nombre}».`);
@@ -371,6 +392,11 @@ El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0
         </p>
       </div>
 
+      {/* Arriba del generador, no al pie: son decisiones que se toman ANTES de
+          copiar. Después ya está pegado en la web del cliente y nadie vuelve —
+          es literalmente lo que pasó en FESTECH. */}
+      <Recomendaciones ambito="boton" className="mx-4 mt-4" opciones={{}} />
+
       <div className="p-4 grid lg:grid-cols-[1fr_minmax(260px,320px)] gap-5 items-start">
         <div className="space-y-3 min-w-0">
           {/* A qué lleva.
@@ -378,18 +404,33 @@ El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0
               dentro de una ventana pequeña — y no se podía poner «Comprar VIP»
               en una página y «Stand comercial» en otra, que es justo para lo
               que se pega el botón en sitios distintos. */}
-          {tipos.length > 1 && (
+          {(tipos.length > 1 || sesiones.length > 0) && (
             <div>
               <label className="label">¿A qué lleva?</label>
-              <select value={cfg.boleta || ''} onChange={e => set({ boleta: e.target.value })}
+              {/* Un solo desplegable para los dos destinos, y no dos controles:
+                  son excluyentes —o se registra al evento, o se inscribe a una
+                  actividad— y dos selectores dejarían elegir los dos a la vez
+                  para que después uno de ellos se ignore en silencio. */}
+              <select value={cfg.sesion ? `s:${cfg.sesion}` : cfg.boleta || ''}
+                onChange={e => {
+                  const v = e.target.value;
+                  set(v.startsWith('s:')
+                    ? { sesion: v.slice(2), boleta: '' }
+                    : { sesion: '', boleta: v });
+                }}
                 className="input w-full">
                 <option value="">A la lista de boletas (todas)</option>
                 {tipos.map(t => <option key={t.id} value={t.id}>Directo a «{t.nombre}»</option>)}
+                {sesiones.length > 0 && (
+                  <optgroup label="Inscripción a una actividad">
+                    {sesiones.map(x => <option key={x.id} value={`s:${x.id}`}>{x.titulo}</option>)}
+                  </optgroup>
+                )}
               </select>
               <p className="text-[11px] text-text-3 mt-1 leading-relaxed">
-                Si esa boleta se agota o se desactiva, el botón cae a la lista en vez de
-                romperse: un botón viejo en una web ajena no puede convertirse en una
-                puerta cerrada.
+                {cfg.sesion
+                  ? 'Abre la inscripción de esa actividad con sus preguntas propias. Quien llegue sin boleta del evento lo verá dicho, con el camino para sacarla primero.'
+                  : 'Si esa boleta se agota o se desactiva, el botón cae a la lista en vez de romperse: un botón viejo en una web ajena no puede convertirse en una puerta cerrada.'}
               </p>
             </div>
           )}

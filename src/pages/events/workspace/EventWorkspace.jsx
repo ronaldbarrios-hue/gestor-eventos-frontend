@@ -235,7 +235,17 @@ const SECCIONES = [
 function puedeVer(perm, soyOwner, permisos) {
   if (soyOwner) return true;
   if (perm == null) return true;
-  if (perm === '__solo_owner__') return false;
+  /* `*` es el co-dueño: manda igual que quien creó el evento, incluidas las
+     pantallas que aquí se reservaban a la propiedad literal —ajustes,
+     integraciones, anuncios—. Sin esto, el rol más alto del catálogo enumera
+     22 permisos y aun así no llega a cinco pantallas, y la única salida es
+     compartir la cuenta del dueño; que es lo que hacen hoy los eventos con
+     varias organizaciones detrás.
+     El servidor concede lo mismo (`lib/acceso.js`), así que la pestaña se
+     abre y funciona: enseñar una que devuelve 403 sería peor que esconderla. */
+  const mandaTodo = (permisos || []).includes('*');
+  if (perm === '__solo_owner__') return mandaTodo;
+  if (mandaTodo) return true;
   const arr = Array.isArray(perm) ? perm : [perm];
   return arr.some(p => (permisos || []).includes(p));
 }
@@ -256,6 +266,11 @@ export default function EventWorkspace() {
   const [err, setErr]           = useState('');
   const [soyOwner, setSoyOwner] = useState(true);
   const [permisos, setPermisos] = useState(['*']);
+  /* «Manda en este evento»: quien lo creó, o un co-dueño (`*`). Se calcula una
+     vez aquí y baja a todo lo demás, para no repetir la comparación en las
+     veintitrés pantallas que hoy preguntan por `soyOwner` — que es como se
+     separan. */
+  const mandaTodo = soyOwner || permisos.includes('*');
   /* El rol con el que entro a ESTE evento. Lo usa el escáner para saber qué
      puertas son mías cuando se asignaron a un rol entero. */
   const [miRolId, setMiRolId] = useState(null);
@@ -577,12 +592,17 @@ export default function EventWorkspace() {
                 un error acotado y el sidebar sigue usable (no se cae toda la app). */}
             <div key={`${seccion?.id}-${tabActivo?.id}`} className="animate-[fadeUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
               <ErrorBoundary key={`eb-${seccion?.id}-${tabActivo?.id}`} compact>
-                <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={soyOwner} reload={reload}
+                {/* Un co-dueño manda igual: las pantallas de dentro reciben
+                    `soyOwner` en true. Lo que NO recibe es `onEliminar` —ver
+                    abajo—, porque borrar el evento se queda en quien lo creó y
+                    el servidor lo rechazaría igual. Enseñar un botón que
+                    devuelve 403 es peor que no enseñarlo. */}
+                <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={mandaTodo} reload={reload}
                   miRolId={miRolId} miUserId={usuario?.id || null}
                   permisos={permisos}
                   onAnuncio={() => setBroadcastOpen(true)}
                   onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
-                  onEliminar={eliminar}
+                  onEliminar={soyOwner ? eliminar : null}
                   anunciosVersion={anunciosVersion} />
               </ErrorBoundary>
             </div>

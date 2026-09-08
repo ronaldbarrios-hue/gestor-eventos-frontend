@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { eventosApi } from '../../api/eventos.js';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import AceptarTerminos, { useLegalEvento } from '../../components/public/AceptarTerminos.jsx';
+import CamposAgrupados from '../../components/CamposAgrupados.jsx';
+import { useCierreSeguro, alPulsarElFondo } from '../../components/ui/cierreSeguro.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Apuntarse a un sub-evento desde la agenda pública.
@@ -56,6 +58,9 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
   const pide = sesion.formulario_modo === 'propio' ? preguntas : [];
   const modoEvento = sesion.formulario_modo === 'evento';
 
+  /* Lo que habia al abrir, para distinguir «no toque nada» de «rellene el
+     formulario entero». Arranca en vacio y la actualiza el prellenado. */
+  const partida = useRef(JSON.stringify({}));
   const setResp = (id, v) => setRespuestas(r => ({ ...r, [id]: v }));
 
   /* ── Lo que ya contestó al comprar su boleta ──────────────────────────────
@@ -91,6 +96,12 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
             if (vacio) { nuevas[id] = v; n++; }
           }
           setHeredadas(n);
+          /* Lo prellenado NO es trabajo de quien mira: es lo que ya habia
+             puesto al registrarse. Si contara como «cambios sin guardar», el
+             aviso saldria al cerrar sin haber tecleado nada — y un aviso que
+             sale cuando no hay nada que perder se aprende a despachar sin
+             leerlo, y entonces no protege el dia que si hay. */
+          partida.current = JSON.stringify(nuevas);
           return nuevas;
         });
       })
@@ -154,7 +165,9 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
   }
 
   return createPortal(
-    <Fondo onClose={onClose} titulado="inscripcion-sesion">
+    <Fondo onClose={onClose} titulado="inscripcion-sesion"
+      hayCambios={Boolean(form.nombre || form.email || form.telefono
+        || JSON.stringify(respuestas) !== partida.current)}>
       <form onSubmit={submit} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto">
         <div>
           <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1.5">Apuntarse</p>
@@ -276,9 +289,9 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
             {' '}Puedes cambiarlas si algo ya no aplica.
           </p>
         )}
-        {pide.map(c => (
-          <CampoFormulario key={c.id} campo={c} value={respuestas[c.id]} onChange={v => setResp(c.id, v)} />
-        ))}
+        <CamposAgrupados campos={pide} render={c => (
+          <CampoFormulario campo={c} value={respuestas[c.id]} onChange={v => setResp(c.id, v)} />
+        )} />
 
         {/* El modo 'evento' reutiliza el formulario de compra: preguntarlo aquí
             otra vez sería pedirle lo mismo dos veces a la misma persona. */}
@@ -315,16 +328,18 @@ export default function InscripcionSesionModal({ slug, sesion, preguntas = [], b
  * H3 de dentro no es un salto de nivel.
  *
  * Escape cierra, que es lo que intenta todo el mundo antes de buscar la X. */
-function Fondo({ children, onClose, titulado }) {
-  useEffect(() => {
-    const alPulsar = (e) => { if (e.key === 'Escape') onClose?.(); };
-    document.addEventListener('keydown', alPulsar);
-    return () => document.removeEventListener('keydown', alPulsar);
-  }, [onClose]);
+function Fondo({ children, onClose, titulado, hayCambios = false }) {
+  /* Escape y el clic fuera pasan por el mismo sitio, y con lo escrito dentro
+     preguntan antes de tirarlo. Aqui pesa mas que en el panel: quien rellena
+     esto es alguien que va al evento, no del equipo — no va a volver a
+     escribirlo, se va. */
+  const cerrar = useCierreSeguro(hayCambios, onClose, {
+    mensaje: 'Escribiste respuestas que todavia no se han enviado. Si cierras ahora se pierden y no quedas inscrito.',
+  });
 
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-         onClick={onClose}>
+         onClick={alPulsarElFondo(cerrar)}>
       <div role="dialog" aria-modal="true" aria-labelledby={titulado}
            className="w-full max-w-lg bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden"
            onClick={e => e.stopPropagation()}>

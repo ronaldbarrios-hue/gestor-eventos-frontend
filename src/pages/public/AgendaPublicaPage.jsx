@@ -49,6 +49,13 @@ export default function AgendaPublicaPage() {
        · La sesión iniciada, buscando entre las boletas de quien entró. */
   const [params] = useSearchParams();
   const codigoUrl = (params.get('boleta') || '').trim().toUpperCase();
+  /* `?sesion=<id>` acota la agenda a UN sub-evento. Lo pone el botón que se
+     pega en otra web: hasta ahora ese botón sólo sabía abrir el registro del
+     evento, así que un taller con su propio formulario no tenía puerta desde
+     fuera — la agenda entera sí, una actividad concreta no.
+     Es un filtro, no una pantalla nueva: la agenda ya sabe inscribir y ya
+     pinta el formulario propio de cada sesión. */
+  const sesionUrl = (params.get('sesion') || '').trim();
   const [boleta, setBoleta] = useState(null);
 
   useEffect(() => {
@@ -183,11 +190,21 @@ export default function AgendaPublicaPage() {
     );
   }
 
+  /* Si el id no aparece —la sesión se borró, o el botón lleva un id viejo—,
+     `enfocada` es null y se enseña la agenda entera. Un botón viejo pegado en
+     una web ajena no puede convertirse en una pantalla vacía.
+
+     Acota la LISTA y esconde los filtros; no es una pantalla aparte. Escribí
+     una y llevaba su propia copia del modal de inscripción — con `onInscrito`
+     de otra forma y sin `onRegistroGeneral`, o sea sin la salida para quien
+     llega sin boleta. Es exactamente cómo se separan las cosas aquí. */
+  const enfocada = sesionUrl ? sessions.find(s => String(s.id) === sesionUrl) || null : null;
+
   const tracks = [...new Set(sessions.map(s => s.track || 'principal'))];
   const esMultiSala = tracks.length > 1;
 
   const diaMostrado = dias[diaActivo];
-  const sesionesDelDia = (diaMostrado?.sesiones || [])
+  const sesionesDelDia = enfocada ? [enfocada] : (diaMostrado?.sesiones || [])
     .filter(s => !soloFavoritos || favoritos.has(s.id))
     .filter(s => !filtroTipo || (s.tipo || TIPO_DEFECTO) === filtroTipo)
     .filter(s => !filtroExpo || s.expositor?.id === filtroExpo);
@@ -198,11 +215,18 @@ export default function AgendaPublicaPage() {
       <div className="mb-6">
         <p className="text-xs uppercase tracking-widest text-text-3 font-semibold mb-1">Espacio del evento</p>
         <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-text-1">
-          {esMultiSala ? 'Programa completo' : 'Todo lo que pasa dentro'}
+          {enfocada ? enfocada.titulo : esMultiSala ? 'Programa completo' : 'Todo lo que pasa dentro'}
         </h1>
+        {/* La salida al resto. Sin esto, quien llega por el botón de un taller
+            no tiene forma de saber que hay veinte actividades más. */}
+        {enfocada && (
+          <Link to={`/explorar/${slug}/agenda`} className="text-xs text-text-3 hover:text-text-1 underline mt-1 inline-block">
+            Ver todo lo que pasa en el evento
+          </Link>
+        )}
       </div>
 
-      {tiposPresentes.length > 1 && (
+      {!enfocada && tiposPresentes.length > 1 && (
         <div className="flex items-center gap-1.5 flex-wrap mb-5">
           <button onClick={() => setFiltroTipo('')}
             className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
@@ -220,7 +244,7 @@ export default function AgendaPublicaPage() {
         </div>
       )}
 
-      {expositoresPresentes.length > 0 && (
+      {!enfocada && expositoresPresentes.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap mb-5">
           <span className="text-[11px] text-text-3 mr-1">Expositores:</span>
           <button onClick={() => setFiltroExpo('')}
@@ -240,7 +264,7 @@ export default function AgendaPublicaPage() {
       )}
 
       <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
-        {dias.length > 1 && (
+        {!enfocada && dias.length > 1 && (
           <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 flex-wrap">
             {dias.map((d, i) => (
               <button key={d.fecha} onClick={() => setDiaActivo(i)}
@@ -251,7 +275,7 @@ export default function AgendaPublicaPage() {
           </div>
         )}
 
-        {usuario && !bloqueado && (
+        {!enfocada && usuario && !bloqueado && (
           <label className="flex items-center gap-2 text-sm text-text-2 cursor-pointer">
             <input type="checkbox" checked={soloFavoritos} onChange={e => setSoloFavoritos(e.target.checked)}
               className="w-4 h-4 rounded accent-primary" />

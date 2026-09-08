@@ -67,6 +67,11 @@
          ella entra directo a esa, que es lo que permite poner «Comprar VIP»
          en una pagina y «Stand comercial» en otra. */
       boleta    : dato(el, 'boleta', ''),
+      /* A que sub-evento lleva. Vacio = al registro del evento.
+         El boton solo sabia abrir `/registro`, asi que la unica puerta que se
+         podia pegar en otra web era la entrada principal: un taller con su
+         propio formulario no tenia enlace desde fuera. */
+      sesion    : dato(el, 'sesion', ''),
       origen    : dato(el, 'origen', ''),
       texto     : dato(el, 'texto', 'Registrarme'),
       color     : dato(el, 'color', '#E0B12B'),
@@ -224,7 +229,15 @@
     var extra = '';
     if (cfg.boleta) extra += '&boleta=' + encodeURIComponent(cfg.boleta);
     if (cfg.origen) extra += '&origen=' + encodeURIComponent(cfg.origen);
-    marco.src = ORIGEN + '/embed/' + encodeURIComponent(cfg.slug) + '/registro?fid=' + fid + '&fondo=solido' + extra;
+    /* Con `sesion` el destino es la agenda acotada a ESE sub-evento, no el
+       registro del evento. La agenda ya sabe inscribir y ya pinta el
+       formulario propio de la sesion; lo que faltaba era poder apuntar a una
+       sola desde fuera. Si el id no existe o la sesion se cerro, la agenda
+       cae a la lista completa en vez de a una pantalla vacia: un boton viejo
+       en una web ajena no puede convertirse en una puerta cerrada. */
+    var seccion = cfg.sesion ? 'agenda' : 'registro';
+    if (cfg.sesion) extra += '&sesion=' + encodeURIComponent(cfg.sesion);
+    marco.src = ORIGEN + '/embed/' + encodeURIComponent(cfg.slug) + '/' + seccion + '?fid=' + fid + '&fondo=solido' + extra;
     marco.title = cfg.titulo;
     marco.setAttribute('allow', 'clipboard-write');
     var m = {
@@ -241,13 +254,18 @@
        no parezca de otro sitio. Se manda al cargar el iframe y cada vez que
        él la pida (por si cargó antes de que montáramos el listener). */
     function enviarEstilo() {
-      if (cfg.heredarFuente === false) return;
+      /* El color de la pagina se manda SIEMPRE; la tipografia solo si se pidio
+         heredarla.
+         Estaban las dos detras del mismo `return`, y son cosas distintas:
+         `data-heredar-fuente="0"` quiere decir «usa tu propia letra», no «no me
+         preguntes de que color soy». Con el aviso apagado, el formulario vuelve
+         a decidir su tema por el sistema operativo de quien entra — o sea que
+         una casilla de tipografia cambiaba el color del formulario, y solo en
+         algunos ordenadores. */
       try {
-        marco.contentWindow.postMessage({
-          gestek: 'estilo', fid: fid,
-          fuente: getComputedStyle(document.body).fontFamily,
-          esquema: esquemaDeLaPagina(),
-        }, ORIGEN || '*');
+        var msg = { gestek: 'estilo', fid: fid, esquema: esquemaDeLaPagina() };
+        if (cfg.heredarFuente !== false) msg.fuente = getComputedStyle(document.body).fontFamily;
+        marco.contentWindow.postMessage(msg, ORIGEN || '*');
       } catch (e) { /* el iframe aún no ha navegado */ }
     }
     marco.addEventListener('load', enviarEstilo);

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useAvisoAlSalir } from '../../components/ui/cierreSeguro.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { eventosApi } from '../../api/eventos.js';
@@ -784,6 +785,28 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
   const [working, setWorking] = useState(false);
   /* Ver el cerrojo en `submit`: `working` pinta, esto impide. */
   const enviando = useRef(false);
+
+  /* Que el navegador pregunte antes de perder el formulario a medias.
+   *
+   * Es el sitio donde más duele de toda la aplicación: quien escribe aquí no
+   * es del equipo, no va a volver a teclear veintiuna preguntas — se va. Y no
+   * había un solo `beforeunload` en el proyecto, así que rozar «atrás» o
+   * recargar borraba todo sin decir nada.
+   *
+   * Lo prellenado no cuenta, y aquí eso no es un detalle: `datosIniciales`
+   * rellena nombre y correo con los de la cuenta de quien entró, y el padrón
+   * rellena respuestas por cédula. Comparando contra «vacío», el aviso saltaría
+   * al salir sin haber tecleado NADA — y un aviso que sale cuando no hay nada
+   * que perder se aprende a despachar sin leerlo. Se compara contra lo que
+   * había al abrir.
+   *
+   * Mientras se envía tampoco, para que no salte justo al redirigir a la
+   * pasarela de pago — que es una salida de la página, pero la buena. */
+  const partida = useRef(null);
+  if (partida.current === null) partida.current = JSON.stringify([form, respuestas]);
+  const escritoPorLaPersona = !working
+    && JSON.stringify([form, respuestas]) !== partida.current;
+  useAvisoAlSalir(escritoPorLaPersona);
   const [err, setErr] = useState('');
   const [captcha, setCaptcha] = useState(null);
   const [acepta, setAcepta] = useState(false);

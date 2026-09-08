@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useCierreSeguro, alPulsarElFondo } from '../../../components/ui/cierreSeguro.js';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -684,6 +685,9 @@ function ReembolsoModal({ evento, cliente, onClose, onHecho }) {
   const [motivo, setMotivo] = useState('');
   const [working, setWorking] = useState(false);
   const { success, error: toastErr } = useToast();
+  /* El motivo del reembolso se escribe a mano y es lo unico que queda dicho de
+     por que se devolvio el dinero. Rozar el fondo lo borraba. */
+  const cerrar = useCierreSeguro(Boolean(motivo.trim()), onClose);
 
   const nombre = cliente.usuario?.nombre || cliente.guest_nombre || cliente.guest_email || 'esta persona';
   const monto = Number(cliente.precio_pagado) || 0;
@@ -700,7 +704,7 @@ function ReembolsoModal({ evento, cliente, onClose, onHecho }) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={alPulsarElFondo(cerrar)}>
       <div className="w-full max-w-md rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden"
            onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-border">
