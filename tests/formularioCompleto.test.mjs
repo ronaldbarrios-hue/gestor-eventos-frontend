@@ -45,7 +45,17 @@ test('el grupo se PINTA en los tres formularios públicos, no sólo se guarda', 
   }
   /* El título sale cuando el grupo CAMBIA: así respeta el orden que puso el
      organizador en vez de reordenar por su cuenta. */
-  assert.match(leer('src/components/CamposAgrupados.jsx'), /c\.grupo && c\.grupo !== anterior/);
+  const ag = leer('src/components/CamposAgrupados.jsx');
+  assert.match(ag, /c\.grupo && c\.grupo !== anterior/);
+  /* Y sin envoltorio. La primera version metia cada campo en un
+     `<div className="contents">`: los dos contenedores usan `space-y-*`, que
+     es `> :not([hidden]) ~ :not([hidden]) { margin-top }`, y un elemento con
+     `display: contents` no genera caja — asi que ese margen no se aplica a
+     nada. Medido en Chromium: 0px con el envoltorio, 16px sin el. Todas las
+     preguntas pegadas, y ninguna prueba de fuente lo habria visto. */
+  /* Sin comentarios: el de arriba nombra el envoltorio para contar el fallo. */
+  assert.doesNotMatch(ag.replace(/\/\*[\s\S]*?\*\//g, ''), /className="contents"/);
+  assert.match(ag, /<Fragment key=\{c\.id\}>/);
 });
 
 test('los tipos de pregunta los manda el servidor, no una lista de aquí', () => {
@@ -58,12 +68,37 @@ test('los tipos de pregunta los manda el servidor, no una lista de aquí', () =>
   assert.doesNotMatch(EDITOR, /TIPOS_PERMITIDOS\s*\n?\s*\.filter\(id => porId\.has\(id\)\)/);
 });
 
-test('y el respaldo de mientras carga está completo', () => {
+test('y el respaldo de mientras carga está completo de verdad', () => {
   /* Si se queda corto, el desplegable cambia de opciones al llegar la
-     respuesta: alguien elige un tipo y se le mueve debajo. */
-  for (const t of ['archivo', 'foto']) {
-    assert.ok(EDITOR.includes(`${t}:`), `falta «${t}» en el respaldo`);
+     respuesta: alguien elige un tipo y se le mueve debajo.
+
+     Esta prueba se llamaba «está completo» y sólo miraba dos tipos a mano —
+     los dos que yo acababa de añadir—. Con eso pasaba en verde mientras
+     faltaba `documento`, que es exactamente el fallo que decía cubrir. Ahora
+     se compara contra el catálogo del servidor, que es la fuente — y ese vive
+     en el OTRO repositorio. Se lee si está al lado; si no, se comprueban los
+     que se sabe que existen hoy. Una prueba que no puede comprobar lo que dice
+     es preferible que lo diga a que finja. */
+  const respaldo = EDITOR.slice(
+    EDITOR.indexOf('const ETIQUETAS_RESPALDO'), EDITOR.indexOf('const TIPOS_PERMITIDOS'));
+  const exigir = (t) => assert.match(respaldo, new RegExp(`\\b${t}:`), `falta «${t}» en el respaldo`);
+
+  const backend = ['../../../../gestor-eventos-backend/lib/formularioCampos.js',
+                   '../gestor-eventos-backend/lib/formularioCampos.js']
+    .map(r => { try { return leer(r); } catch { return null; } })
+    .find(Boolean);
+
+  if (!backend) {
+    ['texto', 'parrafo', 'numero', 'fecha', 'email', 'telefono',
+     'documento', 'seleccion', 'multiple', 'checkbox', 'foto', 'archivo'].forEach(exigir);
+    return;
   }
+
+  const bloque = backend.slice(
+    backend.indexOf('const TIPOS_CAMPO = ['), backend.indexOf('const IDS_TIPOS_CAMPO'));
+  const delServidor = [...bloque.matchAll(/\{\s*id:\s*'([a-z]+)'/g)].map(m => m[1]);
+  assert.ok(delServidor.length >= 10, `no lei el catalogo del servidor (${delServidor.length})`);
+  delServidor.forEach(exigir);
 });
 
 test('se pueden reordenar antes de guardar, y el orden se manda por posición', () => {

@@ -70,7 +70,7 @@ const ETIQUETAS_RESPALDO = {
   texto: 'Texto corto', parrafo: 'Texto largo', numero: 'Número',
   seleccion: 'Elegir una', multiple: 'Elegir varias', checkbox: 'Sí / no',
   email: 'Correo', telefono: 'Teléfono', fecha: 'Fecha',
-  archivo: 'Archivo adjunto (PDF, Word, presentación)', foto: 'Foto',
+  documento: 'Documento de identidad', archivo: 'Archivo adjunto (PDF, Word, presentación)', foto: 'Foto',
 };
 const TIPOS_PERMITIDOS = Object.keys(ETIQUETAS_RESPALDO);
 const CON_OPCIONES = new Set(['seleccion', 'multiple']);

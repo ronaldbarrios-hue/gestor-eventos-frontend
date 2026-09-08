@@ -76,6 +76,16 @@ test('boleta y sesión no se pueden elegir a la vez', () => {
   assert.match(PANEL, /\{ sesion: '', boleta: v \}/);
 });
 
+test('con los dos destinos puestos, sólo se escribe uno', () => {
+  /* El panel ya no deja elegir los dos, pero eso es una pantalla: un botón
+     guardado antes de que existiera `sesion`, o un código retocado a mano,
+     puede traer los dos — y entonces el widget elige `sesion` en silencio y el
+     botón abre algo distinto de lo que dice el panel. */
+  const cod = widgetSnippet({ origin: 'https://g.co', slug: 's', boleta: 'b1', sesion: 'ses-9' });
+  assert.match(cod, /data-sesion="ses-9"/);
+  assert.doesNotMatch(cod, /data-boleta/);
+});
+
 test('un botón de sub-evento se guarda y vuelve entero', () => {
   assert.ok(WIDGET_OPCIONES.some(o => o.clave === 'sesion'));
   const b = nuevoBoton({ nombre: 'Taller de pitch', sesion: 'ses-9', color: '#111' });

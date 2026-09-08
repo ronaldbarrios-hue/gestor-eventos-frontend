@@ -1,3 +1,5 @@
+import { Fragment } from 'react';
+
 /* Los campos de un formulario, con su título de grupo cuando cambia.
  *
  * ── Por qué existe ───────────────────────────────────────────────────────
@@ -19,19 +21,33 @@
  * dos títulos — que es exactamente lo que se ve en el editor.
  */
 export default function CamposAgrupados({ campos = [], render }) {
+  /* Sin envoltorio, y no por elegancia.
+   *
+   * La primera versión metía cada campo en un `<div className="contents">`.
+   * Parece inocuo —`display: contents` no dibuja caja— y ahí está el problema:
+   * los contenedores de los dos formularios usan `space-y-*`, que en Tailwind
+   * es `> :not([hidden]) ~ :not([hidden]) { margin-top }`. El selector SÍ
+   * casaba con el envoltorio, pero un elemento con `display: contents` no
+   * genera caja, así que ese margen no se aplica a nada.
+   *
+   * Medido en Chromium: 0px con el envoltorio, 16px sin él. O sea, todas las
+   * preguntas pegadas unas a otras. Un fallo puramente visual que ninguna
+   * prueba de las de aquí habría visto.
+   *
+   * `Fragment` no genera nodo DOM, así que el elemento que devuelve `render`
+   * es hijo directo del contenedor y el espaciado vuelve a funcionar. */
   let anterior = null;
-  return campos.map((c) => {
+  return campos.flatMap((c) => {
     const abre = c.grupo && c.grupo !== anterior;
     anterior = c.grupo || null;
-    return (
-      <div key={c.id} className="contents">
-        {abre && (
-          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mt-4 mb-1">
-            {c.grupo}
-          </p>
-        )}
-        {render(c)}
-      </div>
-    );
+    const campo = <Fragment key={c.id}>{render(c)}</Fragment>;
+    if (!abre) return [campo];
+    return [
+      <p key={`grupo-${c.id}`}
+        className="text-[11px] uppercase tracking-widest text-text-3 font-semibold pt-2">
+        {c.grupo}
+      </p>,
+      campo,
+    ];
   });
 }

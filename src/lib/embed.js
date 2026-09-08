@@ -389,6 +389,16 @@ export const WIDGET_DEFECTOS = Object.fromEntries(
  * nueva del panel entra sola. */
 export function atributosDe(opciones = {}) {
   const o = { ...WIDGET_DEFECTOS, ...opciones };
+
+  /* Un destino, no dos. El panel ya no deja elegir los dos —son excluyentes—,
+     pero eso es una pantalla: un botón guardado antes de que existiera
+     `sesion`, o un código retocado a mano, puede traer los dos. Y entonces el
+     widget elige `sesion` en silencio y el botón abre algo distinto de lo que
+     dice el panel.
+     Gana `sesion` porque es lo más concreto: quien lo puso apuntaba a UNA
+     actividad, no a la lista de boletas. */
+  if (o.sesion) o.boleta = '';
+
   return WIDGET_OPCIONES
     .filter(x => x.siempre || (o[x.clave] !== '' && o[x.clave] != null && String(o[x.clave]) !== String(x.def)))
     .map(x => ({ attr: x.attr, valor: String(o[x.clave] ?? x.def) }));
