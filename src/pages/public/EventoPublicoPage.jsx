@@ -30,6 +30,7 @@ import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 import { guardarProgreso, leerProgreso, olvidarProgreso } from '../../lib/registroEnCurso.js';
+import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
 import Volver from '../../components/ui/Volver.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
@@ -620,7 +621,11 @@ function ShareButton() {
 
 /* ─────────── Modal lista de espera ─────────── */
 function WaitlistModal({ tipo, slug, onClose }) {
-  const [form, setForm] = useState({ nombre: '', email: '', telefono: '' });
+  /* Mismo motivo que en la reserva: quien se apunta a la lista de espera ya
+     entró, y sus datos están a mano. Volvió a nacer en blanco en el refactor
+     del 7-sep; se restaura. */
+  const { usuario } = useAuth();
+  const [form, setForm] = useState(() => datosIniciales(usuario));
   const [working, setWorking] = useState(false);
   const [done, setDone] = useState(null);
   const [err, setErr] = useState('');
@@ -777,8 +782,13 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
      terminado. `useState(() => …)` para que `leerProgreso` (localStorage +
      JSON.parse) se ejecute una sola vez, en el primer render, y no en cada
      uno. Ver `lib/registroEnCurso.js`. */
+  const { usuario } = useAuth();
   const [progresoInicial] = useState(() => leerProgreso(slug, tipo.id));
-  const [form, setForm] = useState(() => progresoInicial?.form || { nombre: '', email: '', telefono: '' });
+  /* El borrador guardado manda —es lo que esta persona escribió—; si no hay,
+     se arranca con quien entró. El refactor del 7-sep trajo el borrador (bien)
+     y de paso quitó el prellenado (mal): las dos cosas caben, y sin ellas un
+     usuario con cuenta vuelve a teclear su nombre y su correo. */
+  const [form, setForm] = useState(() => progresoInicial?.form || datosIniciales(usuario));
   const [respuestas, setRespuestas] = useState(() => progresoInicial?.respuestas || {});
   /* Lo que trajo el padrón, para poder decir qué queda por rellenar. */
   const [prellenado, setPrellenado] = useState(null);

@@ -60,11 +60,23 @@ test('se puede saber si se rellenó algo, para poder decirlo', () => {
 });
 
 test('los dos formularios públicos empiezan con quien entró', () => {
+  /* Esta prueba exigía la MISMA línea literal en los dos sitios, y eso dejó de
+     valer: el 7-sep se añadió un borrador en localStorage para la reserva, así
+     que ahí manda lo que la persona ya había escrito y `datosIniciales` es el
+     respaldo. Es mejor que antes. Lo que hay que fijar es la intención —que
+     ninguno de los dos nazca en blanco— y no la forma.
+
+     Ese mismo refactor quitó `datosIniciales` de los dos sitios mientras traía
+     el borrador. Se restauró: las dos cosas caben, y sin el prellenado alguien
+     con cuenta vuelve a teclear su nombre y su correo. */
   const p = sinComentarios(leer('src/pages/public/EventoPublicoPage.jsx'));
-  const veces = [...p.matchAll(/useState\(\(\) => datosIniciales\(usuario\)\)/g)].length;
+  const veces = [...p.matchAll(/datosIniciales\(usuario\)/g)].length;
   assert.equal(veces, 2, 'la reserva y la lista de espera tienen que arrancar igual');
-  /* Y ya no queda ninguno naciendo en blanco a mano. */
+  /* Y ninguno nace en blanco a mano. */
   assert.doesNotMatch(p, /useState\(\{ nombre: '', email: '', telefono: '' \}\)/);
+  /* En la reserva, el borrador gana al prellenado: lo que la persona escribió
+     no se pisa con lo de su cuenta. */
+  assert.match(p, /progresoInicial\?\.form \|\| datosIniciales\(usuario\)/);
 });
 
 /* ── 2 · Las respuestas ya contestadas ────────────────────────────────── */
