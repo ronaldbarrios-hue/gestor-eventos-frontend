@@ -1,0 +1,68 @@
+# Que main no se pueda poner en rojo sin que nadie se entere.
+#
+# ── Por qué existe ────────────────────────────────────────────────────────
+#
+# Este repositorio no tenía integración continua. Las pruebas existían —378 de
+# Node y 9 de navegador— pero no las corría nadie al abrir un PR, y `npm test`
+# ni siquiera estaba definido en package.json: escribirlo no hacía nada.
+#
+# El resultado, medido el 8-sep-2026: `main` llevaba días en rojo por dos
+# commits del día 7. Uno de ellos, «remove unused code», borró la entrada
+# «Formularios» del menú —la pantalla existía y sólo se llegaba escribiendo la
+# dirección—, el interruptor de la rueda de negocios, y `ruedaEncendida`, que es
+# lo que permite que una cámara de comercio monte una rueda de una categoría que
+# no está en el catálogo. Cada una tenía su motivo escrito en el comentario que
+# también se borró. Nadie se enteró hasta que alguien corrió las pruebas a mano.
+#
+# Es la tercera vez que pasa lo mismo.
+#
+# ── Qué corre, y por qué en ese orden ─────────────────────────────────────
+#
+#   lint    primero porque es el más rápido y caza lo tonto: una variable que
+#           no existe, un import que sobra. Ya cazó un `usuario is not defined`
+#           que se coló al restaurar lo de arriba.
+#   test    las pruebas de Node. Comparan cada copia contra su fuente real —hay
+#           una que lee el fuente de public/widget.js desde el otro lado.
+#   build   porque una prueba puede pasar sobre un archivo que Vite no compila.
+#   widget  el botón incrustable en un Chromium de verdad, con dos servidores en
+#           dos puertos: el montaje de producción. Va al final porque es el que
+#           tarda —instala un navegador— y el que menos falla.
+
+name: Pruebas
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # `npm ci` y no `npm install`: instala exactamente lo del lock. Si el lock
+      # y el package.json no cuadran, falla aquí en vez de instalar otra cosa.
+      - name: Instalar
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Construir
+        run: npm run build
+
+      - name: Navegador para las pruebas del widget
+        run: npx playwright install --with-deps chromium
+
+      - name: Pruebas del widget
+        run: npm run test:widget
