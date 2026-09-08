@@ -5,6 +5,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import CondicionEditor from '../../../components/CondicionEditor.jsx';
 import CampoSensible from '../../../components/CampoSensible.jsx';
+import { useCierreSeguro, alPulsarElFondo } from '../../../components/ui/cierreSeguro.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Las preguntas propias de un sub-evento.
@@ -75,6 +76,14 @@ const ETIQUETAS_RESPALDO = {
 const TIPOS_PERMITIDOS = Object.keys(ETIQUETAS_RESPALDO);
 const CON_OPCIONES = new Set(['seleccion', 'multiple']);
 
+/* Lo que cuenta como «lo que hay escrito». Se dejan fuera las claves locales
+   (`_k`), que cambian al anadir una pregunta sin que nadie haya escrito nada. */
+const huella = (cs) => JSON.stringify((cs || []).map(c => [
+  c.tipo, c.etiqueta || '', c.requerido || false, c.opciones || null,
+  c.max_caracteres ?? '', c.max_palabras ?? '', c.visible_si || null,
+  c.sensible || false, c.ayuda || '', c.grupo || '',
+]));
+
 let contador = 0;
 const claveLocal = () => `nueva_${++contador}`;
 
@@ -112,13 +121,20 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
      0055 y estos formularios ya la guardaban; lo que faltaba era ofrecerla. */
   const [grupos, setGrupos] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [original, setOriginal] = useState(null);
 
   useEffect(() => {
     let vivo = true;
     f.cargar()
       .then(d => {
         if (!vivo) return;
-        setCampos((d.campos || []).map(c => ({ ...c, _k: c.id })));
+        const cargados = (d.campos || []).map(c => ({ ...c, _k: c.id }));
+        setCampos(cargados);
+        /* La foto de lo que vino, para poder distinguir «no toqué nada» de
+           «escribí ocho preguntas». Sin esto habria que preguntar siempre, y
+           una pregunta que sale aunque no haya nada que perder se aprende a
+           despachar sin leerla — y entonces no protege el dia que si hay. */
+        setOriginal(huella(cargados));
         if (d.max_campos) setMax(d.max_campos);
         /* El catálogo viaja con la respuesta y se usa ENTERO. Antes se
            cruzaba con la lista de aquí, así que un tipo nuevo del servidor no
@@ -133,6 +149,12 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
        dependencias: la carga se repetiría sin parar. Lo que la identifica son
        el evento y de quién son las preguntas. */
   }, [evento.id, sesion?.id, fuente?.clave, toastErr]);
+
+  /* Cambios sin guardar. Se compara el contenido, no la identidad: mover una
+     pregunta y devolverla a su sitio no es un cambio, y avisar de eso enseña a
+     ignorar el aviso. */
+  const hayCambios = campos !== null && original !== null && huella(campos) !== original;
+  const cerrar = useCierreSeguro(hayCambios, onClose);
 
   const set = (k, patch) => setCampos(cs => cs.map(c => (c._k === k ? { ...c, ...patch } : c)));
   const quitar = (k) => setCampos(cs => cs.filter(c => c._k !== k));
@@ -193,7 +215,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={alPulsarElFondo(cerrar)}>
       <div className="w-full max-w-2xl max-h-[88vh] flex flex-col bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden"
            onClick={e => e.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 px-6 py-4 border-b border-border flex-shrink-0">
@@ -201,7 +223,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
             <h3 className="text-base font-semibold text-text-1">{f.titulo}</h3>
             <p className="text-xs text-text-3 mt-0.5">{f.ayuda}</p>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" className="text-text-3 hover:text-text-1 flex-shrink-0">✕</button>
+          <button onClick={cerrar} aria-label="Cerrar" className="text-text-3 hover:text-text-1 flex-shrink-0">✕</button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
@@ -243,7 +265,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
             {campos?.length || 0} de {max}
           </p>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="btn-ghost btn-sm">Cancelar</button>
+            <button onClick={cerrar} className="btn-ghost btn-sm">Cancelar</button>
             <button onClick={guardar} disabled={saving || campos === null} className="btn-primary btn-sm">
               {saving ? <><Spinner size="sm" /> Guardando…</> : 'Guardar preguntas'}
             </button>

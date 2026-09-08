@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCierreSeguro, alPulsarElFondo } from '../../../components/ui/cierreSeguro.js';
 import { createPortal } from 'react-dom';
 import { torneosApi } from '../../../api/torneos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -24,6 +25,9 @@ export default function CategoriasTorneo({ evento, categorias, onCambio, onClose
   const [nombre, setNombre] = useState('');
   const [editando, setEditando] = useState(null);
   const [working, setWorking] = useState(false);
+  /* Un nombre a medio escribir es poco, pero es exactamente lo que se pierde
+     al rozar el fondo: se ha escrito y no se ha guardado. */
+  const cerrar = useCierreSeguro(Boolean(nombre.trim()), onClose);
 
   const arbol = armarArbol(categorias);
 
@@ -143,7 +147,7 @@ export default function CategoriasTorneo({ evento, categorias, onCambio, onClose
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={alPulsarElFondo(cerrar)}>
       <div className="w-full max-w-lg max-h-[85vh] flex flex-col bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden"
            onClick={e => e.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 px-6 py-4 border-b border-border flex-shrink-0">
