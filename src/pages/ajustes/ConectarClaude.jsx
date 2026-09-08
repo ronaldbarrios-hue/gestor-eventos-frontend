@@ -34,6 +34,12 @@ export default function ConectarClaude() {
   const [conexiones, setConexiones] = useState([]);
   const [verAvanzado, setVerAvanzado] = useState(false);
   const [tokenNuevo, setTokenNuevo] = useState(null);
+  /* Qué podrá hacer ese token. El catálogo lo manda el servidor con la lista de
+     tokens: mantener aquí una copia de los grupos sería la forma habitual de
+     que se separen —el servidor añadiría uno y esta pantalla seguiría
+     enseñando cuatro. */
+  const [alcances, setAlcances] = useState([]);
+  const [marcados, setMarcados] = useState(['leer']);
   const [creando, setCreando] = useState(false);
   const [copiado, setCopiado] = useState('');
 
@@ -85,10 +91,19 @@ export default function ConectarClaude() {
     catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
+  /* El catálogo de permisos, junto al resto del estado de la pantalla. Si no
+     llega, el token se crea con todo: es lo que hacía antes, y no poder elegir
+     no puede impedir conectar. */
+  useEffect(() => {
+    integracionesApi.listTokens()
+      .then(d => setAlcances(d.alcances || []))
+      .catch(() => {});
+  }, []);
+
   const crearToken = async () => {
     setCreando(true);
     try {
-      const r = await integracionesApi.crearToken('Claude (MCP)');
+      const r = await integracionesApi.crearToken('Claude (MCP)', marcados);
       setTokenNuevo(r.token || r.raw || null);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setCreando(false); }
@@ -272,15 +287,45 @@ export default function ConectarClaude() {
                   </code>
                 </div>
               ) : (
-                <button onClick={crearToken} disabled={creando} className="btn-secondary btn-sm">
-                  {creando ? <Spinner size="sm" /> : 'Generar un token'}
-                </button>
+                <div className="space-y-2">
+                  {/* Qué podrá hacer. Antes un token valía para las 73
+                      herramientas —incluidas emitir cortesías, marcar boletas
+                      como pagadas y sacar gente del equipo— y no había forma
+                      de acotarlo. */}
+                  {alcances.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-text-2">Qué podrá hacer con tu cuenta</p>
+                      {alcances.map(a => {
+                        const puesto = a.fijo || marcados.includes(a.id);
+                        return (
+                          <label key={a.id}
+                            className={`flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] leading-relaxed
+                              ${puesto ? 'border-accent/50 bg-accent/5' : 'border-border'}
+                              ${a.fijo ? 'cursor-default opacity-80' : 'cursor-pointer hover:bg-surface-2'}`}>
+                            <input type="checkbox" checked={puesto} disabled={a.fijo}
+                              onChange={() => !a.fijo && setMarcados(m =>
+                                m.includes(a.id) ? m.filter(x => x !== a.id) : [...m, a.id])}
+                              className="mt-0.5 accent-[#8B5CF6]" />
+                            <span>
+                              <span className="text-text-1">{a.label}</span>
+                              <span className="text-text-3"> · {a.herramientas} herramientas{a.fijo ? ' · siempre' : ''}</span>
+                              <span className="block text-text-3">{a.detalle}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button onClick={crearToken} disabled={creando} className="btn-secondary btn-sm">
+                    {creando ? <Spinner size="sm" /> : 'Generar el token'}
+                  </button>
+                </div>
               )}
 
               <p className="text-[11px] text-text-3 leading-relaxed">
-                Un token vale por tu cuenta entera y no caduca: quien lo tenga puede crear y publicar
-                en tu nombre. Trátalo como una contraseña, y si se te escapa revócalo abajo en
-                Integraciones.
+                Un token no caduca: quien lo tenga entra a tu cuenta hasta que lo revoques. Trátalo
+                como una contraseña. Lo que puede hacer con ella lo decides arriba — y si no eliges
+                nada, puede todo.
               </p>
             </div>
           )}
