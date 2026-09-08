@@ -254,13 +254,18 @@
        no parezca de otro sitio. Se manda al cargar el iframe y cada vez que
        él la pida (por si cargó antes de que montáramos el listener). */
     function enviarEstilo() {
-      if (cfg.heredarFuente === false) return;
+      /* El color de la pagina se manda SIEMPRE; la tipografia solo si se pidio
+         heredarla.
+         Estaban las dos detras del mismo `return`, y son cosas distintas:
+         `data-heredar-fuente="0"` quiere decir «usa tu propia letra», no «no me
+         preguntes de que color soy». Con el aviso apagado, el formulario vuelve
+         a decidir su tema por el sistema operativo de quien entra — o sea que
+         una casilla de tipografia cambiaba el color del formulario, y solo en
+         algunos ordenadores. */
       try {
-        marco.contentWindow.postMessage({
-          gestek: 'estilo', fid: fid,
-          fuente: getComputedStyle(document.body).fontFamily,
-          esquema: esquemaDeLaPagina(),
-        }, ORIGEN || '*');
+        var msg = { gestek: 'estilo', fid: fid, esquema: esquemaDeLaPagina() };
+        if (cfg.heredarFuente !== false) msg.fuente = getComputedStyle(document.body).fontFamily;
+        marco.contentWindow.postMessage(msg, ORIGEN || '*');
       } catch (e) { /* el iframe aún no ha navegado */ }
     }
     marco.addEventListener('load', enviarEstilo);

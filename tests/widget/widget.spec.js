@@ -169,4 +169,51 @@ test.describe('botón de registro incrustado', () => {
     expect(src).not.toContain('/registro');
   });
 
+
+  /* El color del formulario lo decide la PAGINA, no el portatil de quien mira.
+   *
+   * Llego como «el formulario cambia de color en algunos computadores», y es
+   * literal: el boton abre su formulario con `fondo=solido`, que caia a
+   * `prefers-color-scheme`. Aqui se comprueba lo que el widget informa, con el
+   * sistema emulado en oscuro y la pagina anfitriona clara. */
+  test.describe('el esquema que se le cuenta al formulario', () => {
+    test.use({ colorScheme: 'dark' });
+
+    test('sale del fondo de la pagina, no del sistema operativo', async ({ page }) => {
+      /* Se intercepta el postMessage hacia el iframe: es el mensaje de verdad
+         que sale del widget, no una reimplementacion de su calculo — copiarlo
+         aqui probaria la copia. */
+      await page.addInitScript(() => {
+        window.__estilos = [];
+        const orig = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow').get;
+        Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+          get() {
+            const w = orig.call(this);
+            return new Proxy(w, {
+              get(t, k) {
+                if (k === 'postMessage') return (m, o) => { window.__estilos.push(m); };
+                const v = t[k];
+                return typeof v === 'function' ? v.bind(t) : v;
+              },
+            });
+          },
+        });
+      });
+      await page.goto(HOST);
+      /* El sistema esta en oscuro de verdad: si no, la prueba no prueba nada. */
+      expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(true);
+
+      await page.locator('body > button').click();
+      await expect.poll(() => page.evaluate(
+        () => (window.__estilos || []).filter(m => m && m.gestek === 'estilo').length,
+      )).toBeGreaterThan(0);
+
+      const estilo = await page.evaluate(
+        () => window.__estilos.find(m => m && m.gestek === 'estilo'),
+      );
+      /* host.html tiene el fondo #f4f4f5. */
+      expect(estilo.esquema).toBe('claro');
+    });
+  });
+
 });

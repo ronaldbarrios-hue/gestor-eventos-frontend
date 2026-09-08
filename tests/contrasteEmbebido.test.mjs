@@ -123,34 +123,67 @@ test('widget.js mira el fondo de la página, no el del sistema', () => {
 
 /* ── Y quien lo recibe ───────────────────────────────────────────────── */
 
-test('con el fondo transparente manda la web anfitriona', () => {
-  /* Sin los comentarios: el de arriba explica el fallo y nombra
-     `prefers-color-scheme` antes de que aparezca en el código, así que
-     buscarlo en el texto entero mide el orden de la explicación y no el de las
-     comprobaciones. */
+test('manda la web anfitriona, venga el fondo como venga', () => {
+  /* Esta prueba decia antes «con el fondo transparente manda la web
+     anfitriona», y fijaba media regla: con `fondo=solido` se caia a
+     `prefers-color-scheme`. El comentario que lo justificaba decia que daba
+     igual «porque pintamos nuestro propio fondo y cualquiera de los dos temas
+     se lee».
+
+     Legible no es lo mismo que consistente. El boton de registro —lo mas usado
+     de todo esto— abre su formulario con `fondo=solido`, asi que el tema salia
+     del sistema operativo de quien entra: el mismo formulario, en la misma
+     web, claro en un portatil y oscuro en el de al lado. Y el dato bueno YA
+     ESTABA: `widget.js` mide el fondo real de la pagina y lo manda; llegaba,
+     se guardaba en `esquemaHost`, y esta condicion solo lo miraba con el fondo
+     transparente. Se recibia y se tiraba.
+
+     Sin los comentarios: el de arriba nombra `prefers-color-scheme` antes de
+     que aparezca en el codigo, asi que buscarlo en el texto entero mediria el
+     orden de la explicacion y no el de las comprobaciones. */
   const p = leer('src/pages/public/EmbedPage.jsx').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(p, /if \(fondo === 'transparente'\) \{/);
-  assert.match(p, /esquemaHost === 'claro'/);
-  /* Y el orden: un tema pedido a mano (`tema=oscuro`) sigue ganando — quien lo
+  assert.match(p, /if \(esquemaHost === 'claro'\) \{ setLight\(\); return; \}/);
+  assert.match(p, /if \(esquemaHost === 'oscuro'\) \{ setDark\(\); return; \}/);
+  /* Y no vuelve a estar condicionado al fondo. */
+  assert.doesNotMatch(p, /fondo === 'transparente'[\s\S]{0,120}esquemaHost/);
+  /* El orden, medido DENTRO del efecto que decide: `esquemaHost` aparece antes
+     en el archivo por su `useState`, y compararlo contra eso no mide nada. */
+  const efecto = p.slice(p.indexOf("if (tema === 'oscuro')"), p.indexOf('prefers-color-scheme'));
+  assert.ok(efecto.includes('esquemaHost'), 'el anfitrión no se consulta antes que el sistema');
+  /* Y un tema pedido a mano (`tema=oscuro`) sigue ganando a los dos: quien lo
      escribió sabe algo que nosotros no. */
-  assert.ok(p.indexOf("if (tema === 'oscuro')") < p.indexOf("if (fondo === 'transparente'"));
+  assert.ok(efecto.indexOf("tema === 'claro'") < efecto.indexOf('esquemaHost'));
 });
 
 test('sin nadie que nos lo diga, no se sortea por el portátil del visitante', () => {
-  /* El script del snippet se COPIA a la web del cliente: quien pegó el suyo
-     hace meses tiene la versión de entonces, y arreglar el snippet no le llega
-     — comprobado en la página de FESTECH, cuya copia además está retocada a
+  /* El script del snippet se COPIA a la web del cliente: quien pego el suyo
+     hace meses tiene la version de entonces, y arreglar el snippet no le llega
+     — comprobado en la pagina de FESTECH, cuya copia ademas esta retocada a
      mano. Y Notion o Wix no ejecutan script ninguno.
 
-     En ese caso `prefers-color-scheme` no es un valor por omisión: es un
-     sorteo. El mismo formulario, en la misma web, se ve distinto según el
-     portátil de quien entra, y la mitad de las veces ilegible. La sección es
-     un trozo de la página del evento, que es oscura siempre. */
+     Dentro de un iframe, `prefers-color-scheme` no es un valor por omision: es
+     un sorteo por visitante. La seccion es un trozo de la pagina del evento,
+     que es oscura siempre. */
   const p = leer('src/pages/public/EmbedPage.jsx').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(p, /if \(esquemaHost === 'claro'\) setLight\(\); else setDark\(\);/);
-  /* Y `prefers-color-scheme` sólo queda para el fondo sólido, donde pintamos
-     nuestro propio fondo y cualquiera de los dos temas se lee. */
-  assert.ok(p.indexOf("if (fondo === 'transparente')") < p.indexOf('prefers-color-scheme'));
+  assert.match(p, /if \(estaIncrustado\(\)\) \{ setDark\(\); return; \}/);
+  /* Fuera del iframe si: alguien abre la URL del embed a pelo y no hay ninguna
+     pagina anfitriona a la que parecerse. */
+  assert.ok(p.indexOf('estaIncrustado()') < p.indexOf('prefers-color-scheme'));
+});
+
+test('apagar la tipografía heredada no apaga el aviso del color', () => {
+  /* Estaban las dos detrás del mismo `return`, y son cosas distintas:
+     `data-heredar-fuente="0"` quiere decir «usa tu propia letra», no «no me
+     preguntes de qué color soy». Con el aviso apagado, el formulario vuelve a
+     decidir su tema por el sistema operativo de quien entra: una casilla de
+     tipografía cambiaba el color del formulario, y sólo en algunos
+     ordenadores. */
+  const w = leer('public/widget.js');
+  const f = w.slice(w.indexOf('function enviarEstilo()'), w.indexOf('marco.addEventListener'));
+  assert.doesNotMatch(f, /if \(cfg\.heredarFuente === false\) return;/);
+  /* El esquema, siempre; la fuente, sólo si se pidió. */
+  assert.match(f, /esquema: esquemaDeLaPagina\(\)/);
+  assert.match(f, /if \(cfg\.heredarFuente !== false\) msg\.fuente =/);
 });
 
 test('la ayuda del panel dice lo que de verdad pasa', () => {
