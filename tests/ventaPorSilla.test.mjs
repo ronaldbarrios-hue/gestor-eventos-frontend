@@ -154,3 +154,64 @@ test('el generador dice cuántos sitios va a crear antes de crearlos', () => {
   assert.match(PANEL, /Se crearán \$\{total\}/);
   assert.match(PANEL, /y el máximo de una vez es/);
 });
+
+/* ── 6 · El plano dibujado ───────────────────────────────────────────── */
+
+const PLANO = leer('src/components/public/PlanoSVG.jsx');
+
+test('el plano usa UN manejador, no uno por silla', () => {
+  /* Dos mil sillas con su propio `onClick` no van en un móvil de gama media:
+     cada cambio vuelve a evaluar el árbol entero. Comprobado en Chromium con
+     240: cero manejadores por silla, y el clic llega igual. */
+  assert.match(PLANO, /onClick=\{alPulsar\}/);
+  /* Sin comentarios antes de cortar: el de cabecera dice «dos mil `<rect>`» y
+     el corte empezaba ahí, arrastrando el `onClick` del `<svg>`. Es la tercera
+     vez esta sesión que una prueba mide un comentario en vez del código. */
+  const limpio = PLANO.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rect = limpio.slice(limpio.indexOf('<rect'), limpio.indexOf('</rect>'));
+  assert.doesNotMatch(rect, /onClick/);
+  assert.match(PLANO, /data-id=\{u\.id\}/);
+});
+
+test('el zoom mueve el viewBox, no cada silla', () => {
+  /* Es una sola propiedad del SVG y el navegador lo resuelve sin repintar dos
+     mil nodos. Un `transform` por silla sería lo contrario. */
+  assert.match(PLANO, /viewBox=\{viewBox\}/);
+  assert.doesNotMatch(PLANO.slice(PLANO.indexOf('<rect')), /transform=/);
+});
+
+test('el encuadre sale del contenido', () => {
+  /* Veinte mesas y dos mil sillas tienen que caber igual. Comprobado en
+     Chromium: con 240 sillas el viewBox las encuadra todas. */
+  assert.match(PLANO, /const caja = useMemo/);
+  assert.match(PLANO, /Math\.min\(\.\.\.xs\)/);
+});
+
+test('sin coordenadas no se dibuja nada, y no pasa nada', () => {
+  /* El plano es una forma de elegir, no la única: quien llama enseña la lista,
+     que funciona igual. */
+  assert.match(PLANO, /if \(!caja\) return null;/);
+  assert.match(sinComentarios(ELEGIR), /hayGeometria && enSeccion\.length > 6/);
+});
+
+test('se puede volver al encuadre', () => {
+  /* Sin esto, tres arrastres y el plano se pierde de vista sin forma de
+     recuperarlo. */
+  assert.match(PLANO, /Centrar/);
+});
+
+test('el plano no habla con el servidor', () => {
+  /* Retener, soltar y el reloj viven en `ElegirSitio`. Así el plano se puede
+     cambiar por una lista, o al revés, sin tocar la lógica de la compra. */
+  assert.doesNotMatch(PLANO, /planoApi|fetch\(|axios/);
+});
+
+/* ── 7 · Los tres caminos de compra ──────────────────────────────────── */
+
+test('la silla viaja también en el camino de pago', () => {
+  /* Sin esto, un concierto emitiría la boleta y dejaría la silla retenida
+     hasta caducar — y se vendería a otra persona con la primera ya pagada. */
+  const s = sinComentarios(PUBLICA);
+  assert.equal((s.match(/espacio_id: sitio\.id, sesion_espacio: sitio\.sesion/g) || []).length, 2,
+    'la silla viaja en uno solo de los dos caminos');
+});

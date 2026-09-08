@@ -1144,7 +1144,12 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
           /* El código, no el precio. Si aquí viajara el importe, cambiarlo en
              las herramientas del navegador sería comprar a lo que uno quisiera:
              a la pasarela le decimos nosotros cuánto cobrar. */
-          ...(promo ? { promocion_codigo: promo.codigo } : {}) };
+          ...(promo ? { promocion_codigo: promo.codigo } : {}),
+          /* La silla también en el camino de pago, no sólo en el gratuito.
+             Sin esto, un concierto emitiría la boleta y dejaría la silla
+             retenida hasta caducar — y se vendería a otra persona con la
+             primera ya pagada. */
+          ...(sitio ? { espacio_id: sitio.id, sesion_espacio: sitio.sesion } : {}) };
         /* `irAPagar` navega igual que siempre en la página pública. Dentro del
            botón incrustado en la web de otro, en cambio, le pide al anfitrión
            que abra la pasarela en una pestaña de verdad: un checkout dentro de

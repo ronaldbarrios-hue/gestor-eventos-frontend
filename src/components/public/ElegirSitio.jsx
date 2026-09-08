@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { planoApi, sesionDelCarrito } from '../../api/espacios.js';
+import PlanoSVG from './PlanoSVG.jsx';
 
 /* Elegir una silla, una mesa o un palco antes de comprar.
  *
@@ -30,6 +31,11 @@ export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onErr
   const seccionRef = useRef('');
   seccionRef.current = seccion;
   const [tomando, setTomando] = useState('');
+  /* Lista o plano. Arranca en lista a propósito: se lee en cualquier móvil, no
+     depende de que nadie haya dibujado nada, y con veinte mesas es mejor que un
+     plano. El plano se ofrece cuando hay coordenadas y hay bastantes sitios
+     como para que buscar uno en una lista canse. */
+  const [comoPlano, setComoPlano] = useState(false);
   const [expira, setExpira] = useState(null);
   const sesion = useRef(sesionDelCarrito()).current;
 
@@ -101,6 +107,7 @@ export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onErr
   const secciones = (mapa.secciones || []).filter(s => mias.some(u => u.parent_id === s.id));
   const enSeccion = mias.filter(u => !seccion || u.parent_id === seccion);
   const libres = enSeccion.filter(u => u.libre);
+  const hayGeometria = enSeccion.some(u => u.geometria?.x != null);
 
   if (!mias.length) {
     return (
@@ -130,10 +137,22 @@ export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onErr
         </div>
       )}
 
+      {/* El plano sólo se ofrece si hay algo que dibujar. Un botón «ver plano»
+          que abre una cuadrícula sin sentido es peor que no tenerlo. */}
+      {hayGeometria && enSeccion.length > 6 && (
+        <button type="button" onClick={() => setComoPlano(v => !v)}
+          className="text-[11px] text-accent hover:underline">
+          {comoPlano ? 'Ver como lista' : 'Ver el plano'}
+        </button>
+      )}
+
       {libres.length === 0 ? (
         <p className="text-xs text-warning">
           No quedan sitios libres {secciones.length > 1 ? 'en esta zona' : ''}. {secciones.length > 1 && 'Prueba en otra.'}
         </p>
+      ) : comoPlano ? (
+        <PlanoSVG unidades={enSeccion} valor={valor} onElegir={tomar}
+          ocupadoTitulo="ya no está disponible" />
       ) : (
         <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto p-0.5">
           {enSeccion.map(u => {
