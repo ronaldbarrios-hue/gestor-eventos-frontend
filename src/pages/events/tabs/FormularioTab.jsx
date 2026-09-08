@@ -9,6 +9,7 @@ import { leerHoja, columnaAOpciones, emparejarColumna, FORMATOS_ACEPTADOS } from
 import { esBuscable } from '../../../components/ui/CampoFormulario.jsx';
 import { descargarPlantilla, leerPlantilla, HOJA_DATOS } from '../../../lib/plantillaFormulario.js';
 import CondicionEditor from '../../../components/CondicionEditor.jsx';
+import CampoSensible from '../../../components/CampoSensible.jsx';
 
 /* Tab Formulario — campos personalizados que se piden al comprar o reservar.
    Se guardan preservando el `id` de cada campo existente (el backend hace un
@@ -796,24 +797,7 @@ export default function FormularioTab({
                   </div>
                 )}
 
-                {/* Sólo en un archivo. En cualquier otro tipo es una promesa
-                    que nadie cumple: quien la marque creerá que ese dato queda
-                    protegido, y no cambia nada. */}
-                {c.tipo === 'archivo' && (
-                  <label className="flex items-start gap-2 cursor-pointer rounded-xl border border-border bg-surface-2/40 px-3 py-2.5">
-                    <input type="checkbox" checked={Boolean(c.sensible)}
-                      onChange={e => actualizar(c._key, { sensible: e.target.checked })}
-                      className="mt-0.5" />
-                    <span className="text-xs text-text-2 leading-relaxed">
-                      <span className="font-medium text-text-1 block">Son datos sensibles</span>
-                      Para cédulas, RUT, certificados. El archivo se guarda aparte, sin enlace público:
-                      sólo se abre desde el panel, con un enlace que caduca, y queda registrado quién lo vio.
-                      <span className="block mt-1 text-text-3">
-                        Sin marcar —un portafolio, una propuesta— el enlace queda en la respuesta y sale en el Excel.
-                      </span>
-                    </span>
-                  </label>
-                )}
+                <CampoSensible campo={c} onChange={v => actualizar(c._key, { sensible: v })} />
 
                 <div className="grid sm:grid-cols-2 gap-2">
                   {catalogo.agrupacion && catalogo.grupos.length > 0 && (

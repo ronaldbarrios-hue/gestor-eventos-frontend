@@ -4,6 +4,7 @@ import { agendaApi } from '../../../api/agenda.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import CondicionEditor from '../../../components/CondicionEditor.jsx';
+import CampoSensible from '../../../components/CampoSensible.jsx';
 
 /* ──────────────────────────────────────────────────────────────────
    Las preguntas propias de un sub-evento.
@@ -121,7 +122,7 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   });
   const agregar = () => setCampos(cs => [
     ...cs,
-    { _k: claveLocal(), tipo: 'texto', etiqueta: '', requerido: false, opciones: null, visible_si: null },
+    { _k: claveLocal(), tipo: 'texto', etiqueta: '', requerido: false, opciones: null, visible_si: null, sensible: false },
   ]);
 
   const guardar = async () => {
@@ -145,6 +146,10 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
            una pregunta que no se puede responder. */
         max_caracteres: c.max_caracteres ? Number(c.max_caracteres) : null,
         max_palabras: c.max_palabras ? Number(c.max_palabras) : null,
+        /* Sólo significa algo en un archivo, y el servidor lo limpia en
+           cualquier otro tipo. Se manda igual: filtrarlo aquí dejaría un
+           `sensible` viejo si se marca el campo y luego se le cambia el tipo. */
+        sensible: Boolean(c.sensible),
         /* Sin esta línea la condición se pierde al guardar: el editor la
            muestra, se define, y el objeto que viaja al servidor la deja
            fuera. Ya pasó una vez en el formulario del evento. */
@@ -308,8 +313,9 @@ function Pregunta({ campo, campos, tipos, primera, ultima, onChange, onQuitar, o
         </div>
       )}
 
-      {/* El mismo editor que el formulario del evento, no una copia. */}
-      <div className="pl-7">
+      {/* Los mismos que el formulario del evento, no copias. */}
+      <div className="pl-7 space-y-2">
+        <CampoSensible campo={campo} onChange={v => onChange({ sensible: v })} />
         <CondicionEditor campo={campo} campos={campos}
           onChange={visible_si => onChange({ visible_si })} />
       </div>

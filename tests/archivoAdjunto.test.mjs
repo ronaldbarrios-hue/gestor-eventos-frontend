@@ -60,12 +60,23 @@ test('un archivo privado no ofrece un enlace que no abre', () => {
 test('la casilla de sensible sólo sale en un archivo', () => {
   /* En cualquier otro tipo es una promesa que nadie cumple: quien la marque
      creerá que ese dato queda protegido, y no cambia nada. */
-  const f = leer('src/pages/events/tabs/FormularioTab.jsx');
-  assert.match(f, /\{c\.tipo === 'archivo' && \(/);
-  assert.match(f, /Son datos sensibles/);
+  const c = leer('src/components/CampoSensible.jsx');
+  assert.match(c, /campo\?\.tipo !== 'archivo'\) return null/);
+  assert.match(c, /Son datos sensibles/);
   /* Y dice qué pasa si NO se marca, que es la mitad que se olvida. */
-  assert.match(f, /sale en el Excel/);
-  assert.match(sinComentarios(f), /sensible: Boolean\(c\.sensible\)/);
+  assert.match(c, /sale en el Excel/);
+});
+
+test('y sale en los tres formularios, no sólo en el del evento', () => {
+  /* El editor de sub-eventos y torneos dejaba pedir un archivo pero no decir
+     que era una cédula: el adjunto se iba siempre al bucket público, con un
+     enlace que no caduca dentro de `respuestas` — o sea, en el CSV. */
+  for (const f of ['src/pages/events/tabs/FormularioTab.jsx', 'src/pages/events/tabs/PreguntasSubEvento.jsx']) {
+    const s = leer(f);
+    assert.match(s, /<CampoSensible campo=/, `${f} no ofrece marcar el archivo como sensible`);
+    assert.match(sinComentarios(s), /sensible: Boolean\(c\.sensible\)/, `${f} no guarda «sensible»`);
+    assert.doesNotMatch(s, /Son datos sensibles/, `${f} tiene su propia copia del texto`);
+  }
 });
 
 /* ── Verlo desde el panel ─────────────────────────────────────────────── */
