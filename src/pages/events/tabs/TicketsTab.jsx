@@ -134,6 +134,19 @@ function TicketCard({ ticket, isEditing, onStartEdit, onCancelEdit, onSave, onDe
   const ventaCerr  = ticket.venta_hasta && new Date(ticket.venta_hasta) < new Date();
   const cupoPct    = ticket.cupo ? Math.min(100, Math.round((ticket.vendidos || 0) / ticket.cupo * 100)) : 0;
 
+  /* Para qué es esta boleta.
+   *
+   * En una lista como la de FESTECH —el registro general, el encuentro de
+   * mujeres, el DemoDay y la batalla de pitch— las cuatro se ven igual, y sólo
+   * quien montó el evento sabe cuál es la puerta de entrada. Eso importa: la
+   * principal es la que se agota contra el aforo del recinto y la que hay que
+   * tener antes de apuntarse a nada.
+   *
+   * Sale del vínculo que ya existe (`agenda_sessions.ticket_type_id`) y no de
+   * un campo aparte: una etiqueta guardada a mano se queda vieja en cuanto
+   * alguien crea o borra la actividad. */
+  const deActividades = ticket.sesiones || [];
+
   return (
     <div className={`rounded-3xl border bg-surface/40 p-5 group transition-all hover:border-border-2
       ${ticket.activo ? 'border-border' : 'border-border/40 opacity-60'}
@@ -146,6 +159,16 @@ function TicketCard({ ticket, isEditing, onStartEdit, onCancelEdit, onSave, onDe
             {!ticket.activo && <span className="text-[10px] uppercase tracking-widest text-text-3 font-semibold">Pausado</span>}
             {ventaCerr && <span className="text-[10px] uppercase tracking-widest text-danger font-semibold">Cerrado</span>}
           </div>
+          {deActividades.length > 0 ? (
+            <p className="text-[11px] text-accent mt-1 truncate"
+              title={deActividades.map(x => x.titulo).join(' · ')}>
+              Da acceso a {deActividades.length === 1
+                ? `«${deActividades[0].titulo}»`
+                : `${deActividades.length} actividades`}
+            </p>
+          ) : (
+            <p className="text-[11px] text-text-3 mt-1">Entrada al evento</p>
+          )}
           {ticket.descripcion && <p className="text-xs text-text-3 mt-1 line-clamp-2">{ticket.descripcion}</p>}
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

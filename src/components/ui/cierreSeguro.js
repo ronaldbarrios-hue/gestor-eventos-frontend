@@ -76,3 +76,25 @@ export function useCierreSeguro(hayCambios, onClose, opciones = {}) {
 export function alPulsarElFondo(cerrar) {
   return (e) => { if (e.target === e.currentTarget) cerrar(); };
 }
+
+/* ── Y cuando lo que se cierra es la pestaña ─────────────────────────────
+ *
+ * Lo de arriba cubre una ventana dentro de la aplicación. No cubre recargar,
+ * pulsar «atrás», o cerrar la pestaña — y ahí la aplicación no puede preguntar
+ * nada por su cuenta: sólo el navegador puede, y sólo si se lo pide.
+ *
+ * Medido: no había un solo `beforeunload` en toda la aplicación. Un asistente
+ * llenando veintiuna preguntas de la batalla de pitch que roza «atrás» pierde
+ * las veintiuna, sin aviso. El navegador enseña su propio texto —no se puede
+ * cambiar, y da igual el que se ponga—; lo que importa es que salga.
+ *
+ * Sólo mientras haya algo que perder: registrado siempre, el navegador
+ * pregunta al salir de cualquier página y se aprende a decir que sí. */
+export function useAvisoAlSalir(hayCambios) {
+  useEffect(() => {
+    if (!hayCambios) return undefined;
+    const alSalir = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', alSalir);
+    return () => window.removeEventListener('beforeunload', alSalir);
+  }, [hayCambios]);
+}

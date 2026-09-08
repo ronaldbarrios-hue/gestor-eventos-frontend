@@ -121,3 +121,45 @@ test('queda escrito cuántas ventanas siguen cerrando a secas', () => {
      Que baje está bien; que suba hay que mirarlo. */
   assert.ok(aSecas.length <= 6, `ventanas que cierran a secas: ${aSecas.length}\n  ${aSecas.join('\n  ')}`);
 });
+
+/* ── Y cuando lo que se cierra es la pestaña ─────────────────────────── */
+
+test('el navegador pregunta antes de perder un formulario a medias', () => {
+  /* Medido: no había un solo `beforeunload` en toda la aplicación. Recargar,
+     pulsar «atrás» o cerrar la pestaña se llevaba lo escrito sin decir nada, y
+     eso la aplicación no lo puede preguntar por su cuenta — sólo el navegador,
+     y sólo si se lo pide. */
+  assert.match(leer('src/components/ui/cierreSeguro.js'), /addEventListener\('beforeunload'/);
+  for (const f of ['src/pages/events/EventCreatePage.jsx',
+                   'src/pages/public/EventoPublicoPage.jsx']) {
+    assert.match(sinComentarios(leer(f)), /useAvisoAlSalir\(/, `${f}: no avisa al salir`);
+  }
+});
+
+test('sólo mientras haya algo que perder', () => {
+  /* Registrado siempre, el navegador pregunta al salir de cualquier página y
+     se aprende a decir que sí — y entonces no protege el día que sí hay. */
+  assert.match(leer('src/components/ui/cierreSeguro.js'),
+    /if \(!hayCambios\) return undefined;/);
+});
+
+test('en el formulario público, lo prellenado no cuenta como escrito', () => {
+  /* `datosIniciales` rellena nombre y correo con los de la cuenta de quien
+     entró, y el padrón rellena respuestas por cédula. Comparando contra vacío,
+     el aviso saltaría al salir sin haber tecleado nada. */
+  const s = sinComentarios(leer('src/pages/public/EventoPublicoPage.jsx'));
+  assert.match(s, /JSON\.stringify\(\[form, respuestas\]\) !== partida\.current/);
+  /* Y no salta al ir a la pasarela de pago, que es una salida de la buena. */
+  /* Con `includes` sobre el texto sin saltos: escribir un salto de linea dentro
+     de una expresion regular es exactamente como se rompio esta prueba. */
+  assert.ok(s.replace(/\s+/g, ' ').includes('!working && JSON.stringify'));
+});
+
+test('el aviso del asistente se lee DESPUÉS de declarar el formulario', () => {
+  /* Lo escribí arriba del todo y el build pasó igual —Vite no mira eso—, pero
+     `const` no se iza: leer `form` antes de su línea revienta la página entera
+     al abrirla. Un fallo que no se ve compilando y se ve siempre al usar. */
+  const s = leer('src/pages/events/EventCreatePage.jsx');
+  assert.ok(s.indexOf('const [form, setForm]') < s.indexOf('useAvisoAlSalir('),
+    'useAvisoAlSalir lee `form` antes de declararlo: la página no abre');
+});
