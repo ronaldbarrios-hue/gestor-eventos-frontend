@@ -53,6 +53,7 @@ import PlaceholderTab    from '../tabs/PlaceholderTab.jsx';
 import BroadcastModal    from '../BroadcastModal.jsx';
 import Volver from '../../../components/ui/Volver.jsx';
 import { guardarEvento, leerEvento } from '../../../lib/eventoEnCache.js';
+import { ruedaEncendida, topeValido, TOPE_MAX } from '../../../lib/ajustesRueda.js';
 
 /* ──────────────────────────────────────────────────────────────────
    Workspace del evento — Rework Fase 3
@@ -61,7 +62,6 @@ import { guardarEvento, leerEvento } from '../../../lib/eventoEnCache.js';
    las 7 secciones del PDF (+ Dinámicas), badge de rol y salida clara.
    ────────────────────────────────────────────────────────────────── */
 
-const CATEGORIAS_NETWORKING = ['negocios', 'marketing', 'tecnologia'];
 
 /* Secciones y sub-tabs. perm: permiso requerido para miembros (owner ve todo).
    null = todo el equipo. 'placeholder' marca módulos aún en construcción. */
@@ -108,6 +108,12 @@ const SECCIONES = [
        sin entrada aquí. El componente (`WhiteLabelSection`) y su ruta
        (`case 'pagina/whitelabel'`, más abajo) nunca se tocaron: sólo faltaba
        el enlace del menú para llegar a ellos. */
+    /* «Formularios» existe (`case 'pagina/formularios'`, más abajo) y volvió a
+       quedarse fuera del menú: la pantalla se pinta perfecta y no hay forma de
+       llegar a ella salvo escribiendo la dirección. Ya costó que un organizador
+       buscara media hora dónde se agrupan los campos y concluyera que no se
+       podía. `menu.test.mjs` comprueba los dos sentidos desde entonces. */
+    { id: 'formularios', label: 'Formularios',        perm: 'editar_evento' },
     { id: 'whitelabel',  label: 'Marca',              perm: 'editar_pagina_publica' },
     { id: 'seo',         label: 'SEO',                perm: 'editar_pagina_publica' },
     /* «Proceso de compra» se fue a «Entradas y dinero». Estaba aquí porque se
@@ -375,7 +381,11 @@ export default function EventWorkspace() {
   /* Secciones visibles según permisos y categoría */
   const secciones = useMemo(() => {
     if (!evento) return [];
-    const permiteNetworking = CATEGORIAS_NETWORKING.includes(evento.categoria?.slug);
+    /* La rueda la decide quien organiza (0113), no la categoría del evento.
+       Esta lista estaba escrita aquí Y en `routes/networking.js`, y una cámara
+       de comercio que monta una rueda de agroindustria —categoría que ni
+       existe en el catálogo— no podía. */
+    const permiteNetworking = ruedaEncendida(evento);
     /* Torneos disponibles para CUALQUIER evento: una convención de videojuegos
        o una feria también organiza torneos (parte del "Espacio del evento"). */
     return SECCIONES
@@ -680,14 +690,14 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'asistentes/previos'       : return <PreviosSection evento={evento} soyOwner={soyOwner} />;
     case 'mensajes/chat'        : return <ChatTab evento={evento} />;
     case 'mensajes/anuncios'    : return <AnunciosSection evento={evento} onAnuncio={onAnuncio} recargar={anunciosVersion} />;
-    case 'configuracion/general'    : return <ConfigGeneral evento={evento} />;
+    case 'configuracion/general'    : return <ConfigGeneral evento={evento} reload={reload} />;
     case 'configuracion/automatizaciones': return <AutomatizacionesSection evento={evento} />;
     case 'configuracion/integraciones': return <IntegracionesSection />;
     default: return <PlaceholderTab title={t(tab.label)} desc={t('Módulo en construcción dentro del rework.')} icon="spark" />;
   }
 }
 
-function ConfigGeneral({ evento }) {
+function ConfigGeneral({ evento, reload }) {
   const { success, error: toastErr } = useToast();
   const [esPlantilla, setEsPlantilla] = useState(Boolean(evento.page_json?.plantilla));
   const [guardando, setGuardando] = useState(false);
@@ -721,6 +731,7 @@ function ConfigGeneral({ evento }) {
         </div>
       </div>
       <p className="text-xs text-text-3">Al marcarlo como plantilla, este evento aparece al crear uno nuevo para reutilizar su configuración (landing, marca, checkout, SEO y boletas) — sin copiar asistentes ni ventas.</p>
+      <RuedaDelEvento evento={evento} reload={reload} />
     </div>
   );
 }
@@ -744,3 +755,102 @@ function TrophyIcon({ className }) { return <svg className={className} fill="non
 function ChatIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>; }
 function CogIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>; }
 function EyeIcon({ className }) { return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>; }
+
+/* El interruptor de la rueda de negocios.
+ *
+ * Vive AQUÍ y no dentro de la pestaña de la rueda por una razón tonta y
+ * decisiva: con la rueda apagada esa pestaña no existe, así que un interruptor
+ * dentro de ella sólo sabría apagarla.
+ *
+ * Hasta la 0113 esto lo decidía la categoría del evento, y la lista estaba
+ * escrita dos veces —servidor y panel—. Una cámara de comercio que organiza una
+ * rueda de agroindustria o de turismo no tenía forma de montarla: esas
+ * categorías ni siquiera existen en el catálogo, y su evento caía en «Otros».
+ */
+function RuedaDelEvento({ evento, reload }) {
+  const { success, error: toastErr } = useToast();
+  const [activa, setActiva] = useState(ruedaEncendida(evento));
+  const [tope, setTope] = useState(
+    evento.networking_tope_por_empresa == null ? '' : String(evento.networking_tope_por_empresa),
+  );
+  const [guardando, setGuardando] = useState(false);
+
+  /* Devuelve si se guardó. No lanza: quien llama necesita saberlo para
+     deshacer lo que ya pintó, y una excepción obligaba a un `catch` vacío en
+     cada sitio —que es justo la forma de tragarse un error sin decir nada. */
+  const guardar = async (cambios, aviso) => {
+    setGuardando(true);
+    try {
+      await eventosApi.update(evento.id, cambios);
+      success(aviso);
+      /* Se recarga el evento: de esto depende que la pestaña aparezca o
+         desaparezca del menú, y sin recargar habría que salir y volver a
+         entrar para verlo — que es justo cuando uno cree que no se guardó. */
+      reload?.();
+      return true;
+    } catch (e) {
+      toastErr(e.response?.data?.error || e.message);
+      return false;
+    } finally { setGuardando(false); }
+  };
+
+  const cambiarInterruptor = async () => {
+    const nuevo = !activa;
+    /* Se pinta ya —es un interruptor, no un formulario— y se devuelve a su
+       sitio si el guardado no cuajó: dejarlo puesto diría que hay rueda donde
+       el servidor dice que no. */
+    setActiva(nuevo);
+    const ok = await guardar({ networking_activo: nuevo },
+      nuevo ? 'Rueda de negocios activada. Ya aparece en Actividades.' : 'Rueda de negocios desactivada.');
+    if (!ok) setActiva(!nuevo);
+  };
+
+  const guardarTope = async () => {
+    const n = topeValido(tope);
+    if (n === undefined) {
+      toastErr(`El tope tiene que ser un número entre 1 y ${TOPE_MAX}. Déjalo vacío para no poner tope.`);
+      return;
+    }
+    await guardar({ networking_tope_por_empresa: n },
+      n ? `Máximo ${n} cita${n === 1 ? '' : 's'} por participante.` : 'Sin tope de citas.');
+  };
+
+  return (
+    <div className="card">
+      <div className="card-header"><h3 className="text-base font-semibold text-text-1">Rueda de negocios</h3></div>
+      <div className="card-body space-y-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={activa} onChange={cambiarInterruptor} disabled={guardando}
+            className="mt-0.5 w-4 h-4 accent-current text-primary" />
+          <span>
+            <span className="text-sm text-text-1 block">Este evento tiene rueda de negocios</span>
+            <span className="text-xs text-text-3 block leading-relaxed">
+              Añade «Rueda» en Actividades: mesas, franjas de reunión y agenda de citas.
+              Sirve para cualquier tipo de evento — agroindustria, turismo, salud— no sólo para los de negocios.
+            </span>
+          </span>
+        </label>
+
+        {activa && (
+          <div className="pt-3 border-t border-border">
+            <label className="text-sm text-text-1 block">Máximo de citas por participante</label>
+            <p className="text-xs text-text-3 leading-relaxed mt-0.5">
+              Sin esto, una empresa puede llevarse quince citas y dejar a otras sin ninguna.
+              Déjalo vacío para no poner tope. Las canceladas no cuentan.
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="number" min="1" max={TOPE_MAX} value={tope} placeholder="Sin tope"
+                onChange={(e) => setTope(e.target.value)}
+                className="input w-32" disabled={guardando}
+              />
+              <button onClick={guardarTope} disabled={guardando} className="btn-secondary btn-sm">
+                {guardando ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
