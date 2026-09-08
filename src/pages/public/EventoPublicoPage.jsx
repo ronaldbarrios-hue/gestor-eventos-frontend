@@ -31,6 +31,7 @@ import { irAPagar } from '../../lib/embed.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 import { guardarProgreso, leerProgreso, olvidarProgreso } from '../../lib/registroEnCurso.js';
 import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
+import ElegirSitio from '../../components/public/ElegirSitio.jsx';
 import Volver from '../../components/ui/Volver.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
@@ -783,6 +784,11 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
      JSON.parse) se ejecute una sola vez, en el primer render, y no en cada
      uno. Ver `lib/registroEnCurso.js`. */
   const { usuario } = useAuth();
+  /* El sitio elegido, si este evento vende por plano. NO va en el borrador de
+     `registroEnCurso`: una retención dura diez minutos, así que restaurar «tu
+     silla es la C-14» media hora después sería mentirle a alguien sobre algo
+     que ya no tiene. Lo escrito se recupera; la silla se vuelve a elegir. */
+  const [sitio, setSitio] = useState(null);
   const [progresoInicial] = useState(() => leerProgreso(slug, tipo.id));
   /* El borrador guardado manda —es lo que esta persona escribió—; si no hay,
      se arranca con quien entró. El refactor del 7-sep trajo el borrador (bien)
@@ -1113,6 +1119,9 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
           ...(cupoToken ? { waitlist_token: cupoToken } : {}),
           ...(origen ? { origen } : {}),
           ...(promo ? { promocion_codigo: promo.codigo } : {}),
+          /* La silla y el carrito que la retiene. El servidor comprueba que la
+             retención sea de este carrito y siga viva ANTES de emitir. */
+          ...(sitio ? { espacio_id: sitio.id, sesion_espacio: sitio.sesion } : {}),
         });
         /* Ya no está "en curso": se emitió la boleta. Si volviera a abrir
            esta misma pantalla más adelante, tiene que empezar de cero y no
@@ -1347,6 +1356,10 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
             viejo de page_json se respeta como casilla extra sólo si el
             organizador lo dejó encendido y no tiene documentos propios. */}
         <div className="ancho">
+          {/* Si el evento no vende por plano, esto no pinta nada. */}
+          <ElegirSitio slug={slug} ticketTypeId={tipo.id} valor={sitio?.id || null}
+            onElegir={setSitio} onError={setErr} />
+
           <AceptarTerminos slug={slug} estado={legal} aceptado={acepta} onChange={setAcepta} />
         </div>
         {!legal.exige && checkout.terminos_activo && (
