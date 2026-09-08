@@ -67,6 +67,11 @@
          ella entra directo a esa, que es lo que permite poner «Comprar VIP»
          en una pagina y «Stand comercial» en otra. */
       boleta    : dato(el, 'boleta', ''),
+      /* A que sub-evento lleva. Vacio = al registro del evento.
+         El boton solo sabia abrir `/registro`, asi que la unica puerta que se
+         podia pegar en otra web era la entrada principal: un taller con su
+         propio formulario no tenia enlace desde fuera. */
+      sesion    : dato(el, 'sesion', ''),
       origen    : dato(el, 'origen', ''),
       texto     : dato(el, 'texto', 'Registrarme'),
       color     : dato(el, 'color', '#E0B12B'),
@@ -224,7 +229,15 @@
     var extra = '';
     if (cfg.boleta) extra += '&boleta=' + encodeURIComponent(cfg.boleta);
     if (cfg.origen) extra += '&origen=' + encodeURIComponent(cfg.origen);
-    marco.src = ORIGEN + '/embed/' + encodeURIComponent(cfg.slug) + '/registro?fid=' + fid + '&fondo=solido' + extra;
+    /* Con `sesion` el destino es la agenda acotada a ESE sub-evento, no el
+       registro del evento. La agenda ya sabe inscribir y ya pinta el
+       formulario propio de la sesion; lo que faltaba era poder apuntar a una
+       sola desde fuera. Si el id no existe o la sesion se cerro, la agenda
+       cae a la lista completa en vez de a una pantalla vacia: un boton viejo
+       en una web ajena no puede convertirse en una puerta cerrada. */
+    var seccion = cfg.sesion ? 'agenda' : 'registro';
+    if (cfg.sesion) extra += '&sesion=' + encodeURIComponent(cfg.sesion);
+    marco.src = ORIGEN + '/embed/' + encodeURIComponent(cfg.slug) + '/' + seccion + '?fid=' + fid + '&fondo=solido' + extra;
     marco.title = cfg.titulo;
     marco.setAttribute('allow', 'clipboard-write');
     var m = {

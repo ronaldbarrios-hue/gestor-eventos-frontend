@@ -153,4 +153,20 @@ test.describe('botón de registro incrustado', () => {
     await page.evaluate(() => window.GestekRegistro.cerrar());
     await expect(marco).toHaveCount(0);
   });
+
+  test('un boton de sub-evento abre la agenda acotada, no el registro', async ({ page }) => {
+    /* Es lo que faltaba: el widget escribia `/registro` a mano, asi que la
+       unica puerta que se podia pegar en otra web era la entrada principal.
+       Un taller con su propio formulario no tenia enlace desde fuera. */
+    await page.goto(HOST);
+    await page.locator('#sub button').click();
+
+    const marco = page.locator('iframe[title="Registro"]');
+    await expect(marco).toBeVisible();
+    const src = await marco.getAttribute('src');
+    expect(src).toContain('/embed/evento-de-prueba/agenda');
+    expect(src).toContain('sesion=ses-9');
+    expect(src).not.toContain('/registro');
+  });
+
 });

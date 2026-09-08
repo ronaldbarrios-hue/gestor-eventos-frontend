@@ -351,6 +351,15 @@ export const WIDGET_OPCIONES = [
      no la persona: así no hay dos botones con el mismo nombre ni espacios
      raros en una URL. */
   { clave: 'origen',     attr: 'origen',      def: '' },
+  /* A qué SUB-EVENTO lleva. Vacío = al registro del evento, que es lo de
+     siempre.
+     Un botón sólo sabía abrir `/embed/:slug/registro`, así que la única puerta
+     que se podía pegar en otra web era la entrada principal. Un taller con su
+     propio formulario, una rueda de negocios, una batalla de pitch: existen,
+     tienen inscripción y preguntas propias, y no había forma de enlazarlos
+     desde fuera — la agenda entera sí, un sub-evento concreto no.
+     Y `boleta` y `sesion` se excluyen: son dos destinos. */
+  { clave: 'sesion',     attr: 'sesion',      def: '' },
   { clave: 'texto',      attr: 'texto',       def: 'Registrarme', siempre: true },
   { clave: 'color',      attr: 'color',       def: '#E0B12B',     siempre: true },
   { clave: 'color2',     attr: 'color-2',     def: '' },
