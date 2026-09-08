@@ -306,7 +306,11 @@ function BotonDeRegistro({ evento }) {
   const guardarActual = async () => {
     const nombre = (window.prompt('¿Cómo llamas a este botón? Ej: «Home de la web», «Correo a socios»') || '').trim();
     if (!nombre) return;
-    const b = nuevoBoton({ ...cfg, nombre, origen: codigoDeOrigen(nombre, guardados) }, guardados);
+    /* `opciones` y no `cfg`: el degradado es un interruptor aqui y "hay segundo
+       color" en el widget. Guardando `cfg` se guardaria un `color2` con la
+       casilla apagada, y el boton volveria de la lista con un degradado que
+       nadie pidio. */
+    const b = nuevoBoton({ ...opciones, nombre, origen: codigoDeOrigen(nombre, guardados) }, guardados);
     try {
       await persistir([...guardados, b]);
       success(`Guardado. Ahora sabrás cuánta gente entró por «${nombre}».`);

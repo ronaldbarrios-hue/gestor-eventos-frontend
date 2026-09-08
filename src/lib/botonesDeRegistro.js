@@ -1,3 +1,5 @@
+import { WIDGET_OPCIONES } from './embed.js';
+
 /* Los botones de registro que el organizador pega en otras webs.
  *
  * ── El problema, dicho por quien lo usa ──────────────────────────────────
@@ -58,17 +60,25 @@ export function botonesDelEvento(evento) {
 
 export function nuevoBoton(preset = {}, existentes = []) {
   const nombre = preset.nombre || 'Botón de registro';
+  /* La apariencia se copia ENTERA desde `WIDGET_OPCIONES`.
+   *
+   * Antes se listaban ocho campos a mano, y el panel dejaba configurar
+   * dieciséis: el degradado, el borde, su color, la sombra, el ancho y el
+   * título del formulario se perdían al pulsar «Guardar este botón». No al
+   * copiar el código —eso era otro fallo, en `embed.js`— sino al guardarlo,
+   * así que el botón volvía de la lista distinto del que se había visto en la
+   * vista previa, y sin nada que lo avisara.
+   *
+   * Copiando desde la tabla, una opción nueva del panel se guarda sola. */
+  const apariencia = Object.fromEntries(
+    WIDGET_OPCIONES.map(o => [o.clave, preset[o.clave] ?? o.def]),
+  );
+
   return {
+    ...apariencia,
     id: `b_${Math.random().toString(36).slice(2, 9)}`,
     nombre,
     origen: preset.origen || codigoDeOrigen(nombre, existentes),
-    /* '' = a la lista de boletas, que es lo de siempre. */
-    boleta: preset.boleta || '',
-    texto: preset.texto || 'Registrarme',
-    color: preset.color || '#E0B12B',
-    colorTexto: preset.colorTexto || '#12100B',
-    radio: preset.radio || '12',
-    tamano: preset.tamano || 'md',
     creado_at: preset.creado_at || new Date().toISOString(),
   };
 }
