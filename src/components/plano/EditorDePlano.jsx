@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import ImagePicker from '../ui/ImagePicker.jsx';
 
 /* Dibujar y colocar el recinto.
  *
@@ -55,7 +56,7 @@ const puntosDe = (g) => (g?.puntos || []).map(([x, y]) => `${x},${y}`).join(' ')
 
 export default function EditorDePlano({
   espacios = [], bloques = [], colorDe, onGuardar, onCrearBloque,
-  fondo, onFondo, guardando, alto = 460,
+  fondo, onFondo, ownerId, guardando, alto = 460,
 }) {
   const [modo, setModo] = useState('mover');       // mover | trazar
   const [pieza, setPieza] = useState('tribuna');
@@ -68,11 +69,30 @@ export default function EditorDePlano({
   const svgRef = useRef(null);
   const gesto = useRef(null);
 
-  const dibujables = useMemo(
-    () => espacios.filter(e => e.geometria?.x != null),
-    [espacios]);
+  /* Sillas y bloques son lo mismo para el editor: cosas con forma que se
+     mueven. Se llevaban por separado, y eso obligaba a escribir dos veces cada
+     gesto --arrastrar, girar, descartar, guardar--, que es exactamente como
+     empiezan a comportarse distinto sin que nadie lo note. */
+  const movibles = useMemo(() => [
+    ...espacios.filter(e => e.geometria?.x != null),
+    ...bloques.filter(b => (b.geometria?.puntos || []).length >= 3),
+  ], [espacios, bloques]);
 
+  const dibujables = useMemo(() => movibles.filter(e => e.geometria?.x != null), [movibles]);
   const posDe = (e) => movidos[e.id] || e.geometria;
+  const esPoligono = (g) => Array.isArray(g?.puntos);
+
+  /* Correr una forma, sea del tipo que sea. Un punto mueve su x/y; un poligono
+     mueve TODOS sus vertices: moviendo solo el primero, el bloque se estiraria
+     en vez de desplazarse. */
+  const correr = (g, dx, dy) => (esPoligono(g)
+    ? { ...g, puntos: g.puntos.map(([x, y]) => [x + dx, y + dy]),
+        centro: g.centro ? [g.centro[0] + dx, g.centro[1] + dy] : undefined }
+    : { ...g, x: g.x + dx, y: g.y + dy });
+
+  const pegarForma = (g) => (esPoligono(g)
+    ? { ...g, puntos: g.puntos.map(([x, y]) => [pegar(x), pegar(y)]) }
+    : { ...g, x: pegar(g.x), y: pegar(g.y) });
 
   const caja = useMemo(() => {
     const xs = [];
@@ -83,7 +103,8 @@ export default function EditorDePlano({
       ys.push(Number(g.y) || 0, (Number(g.y) || 0) + LADO);
     }
     for (const b of bloques) {
-      for (const [px, py] of b.geometria?.puntos || []) {
+      const gb = movidos[b.id] || b.geometria;
+      for (const [px, py] of gb?.puntos || []) {
         if (!Number.isFinite(Number(px)) || !Number.isFinite(Number(py))) continue;
         xs.push(Number(px)); ys.push(Number(py));
       }
@@ -136,8 +157,20 @@ export default function EditorDePlano({
       return;
     }
 
-    const id = ev.target?.dataset?.id;
+    const d = ev.target?.dataset || {};
     const p = enPlano(ev);
+
+    /* Un vertice se arrastra EL solo, no la figura entera. Es lo que convierte
+       "vuelve a dibujar el bloque" en "corrige esa esquina". */
+    if (d.vertice != null) {
+      gesto.current = {
+        tipo: 'vertice', desde: p, id: d.duenio, indice: Number(d.vertice),
+        inicio: { ...posDe(movibles.find(x => x.id === d.duenio)) },
+      };
+      return;
+    }
+
+    const id = d.id;
     if (!id) { gesto.current = { tipo: 'mapa', desde: p }; return; }
 
     /* Con ctrl/cmd se añade a la selección; sin él, tocar algo fuera de la
@@ -150,7 +183,7 @@ export default function EditorDePlano({
     setSel(sig);
     gesto.current = { tipo: 'sitios', desde: p, ids: [...sig], inicio: {} };
     for (const i of gesto.current.ids) {
-      const e = espacios.find(x => x.id === i);
+      const e = movibles.find(x => x.id === i);
       if (e) gesto.current.inicio[i] = { ...posDe(e) };
     }
   };
@@ -164,12 +197,28 @@ export default function EditorDePlano({
 
     if (g.tipo === 'mapa') { setVista({ ...v, x: v.x - dx, y: v.y - dy }); return; }
 
-    /* Se mueve desde la posición de INICIO del gesto, no desde la actual. Con
+    if (g.tipo === 'vertice') {
+      const base = g.inicio;
+      setMovidos(m => ({
+        ...m,
+        [g.id]: {
+          ...base,
+          puntos: base.puntos.map(([x, y], i2) => (i2 === g.indice ? [x + dx, y + dy] : [x, y])),
+          /* El ancla de la etiqueta se borra al tocar un vertice: la calculo
+             quien conocia el arco, y con la figura cambiada a mano ya no
+             corresponde. Sin ancla, se vuelve al centro de la caja. */
+          centro: undefined,
+        },
+      }));
+      return;
+    }
+
+    /* Se mueve desde la posicion de INICIO del gesto, no desde la actual. Con
        incrementos, cada repintado acumula el redondeo y el grupo se deforma. */
     const sig = { ...movidos };
     for (const id of g.ids) {
-      const i = g.inicio[id];
-      if (i) sig[id] = { ...i, x: i.x + dx, y: i.y + dy };
+      const ini = g.inicio[id];
+      if (ini) sig[id] = correr(ini, dx, dy);
     }
     setMovidos(sig);
   };
@@ -177,12 +226,11 @@ export default function EditorDePlano({
   const alSoltar = () => {
     const g = gesto.current;
     gesto.current = null;
-    if (g?.tipo !== 'sitios') return;
+    if (!g || g.tipo === 'mapa') return;
+    const ids = g.tipo === 'vertice' ? [g.id] : g.ids;
     setMovidos(m => {
       const sig = { ...m };
-      for (const id of g.ids) {
-        if (sig[id]) sig[id] = { ...sig[id], x: pegar(sig[id].x), y: pegar(sig[id].y) };
-      }
+      for (const id of ids) if (sig[id]) sig[id] = pegarForma(sig[id]);
       return sig;
     });
   };
@@ -192,10 +240,30 @@ export default function EditorDePlano({
     setMovidos(m => {
       const sig = { ...m };
       for (const id of sel) {
-        const e = espacios.find(x => x.id === id);
+        const e = movibles.find(x => x.id === id);
         if (!e) continue;
         const g = sig[id] || e.geometria;
-        sig[id] = { ...g, rot: Math.round(((Number(g.rot) || 0) + grados) % 360) };
+        /* Un poligono se gira moviendo sus vertices alrededor de su centro; un
+           punto, con su atributo `rot`. Girar un poligono con `rot` lo dejaria
+           bien en pantalla y mal en los datos: el siguiente que lea sus puntos
+           lo veria sin girar. */
+        if (esPoligono(g)) {
+          const xs2 = g.puntos.map(q => q[0]);
+          const ys2 = g.puntos.map(q => q[1]);
+          const cx = (Math.min(...xs2) + Math.max(...xs2)) / 2;
+          const cy = (Math.min(...ys2) + Math.max(...ys2)) / 2;
+          const rad = (grados * Math.PI) / 180;
+          sig[id] = {
+            ...g,
+            puntos: g.puntos.map(([x, y]) => [
+              Math.round((cx + (x - cx) * Math.cos(rad) - (y - cy) * Math.sin(rad)) * 100) / 100,
+              Math.round((cy + (x - cx) * Math.sin(rad) + (y - cy) * Math.cos(rad)) * 100) / 100,
+            ]),
+            centro: undefined,
+          };
+        } else {
+          sig[id] = { ...g, rot: Math.round(((Number(g.rot) || 0) + grados) % 360) };
+        }
       }
       return sig;
     });
@@ -203,11 +271,14 @@ export default function EditorDePlano({
 
   const cambios = Object.entries(movidos)
     .filter(([id, g]) => {
-      const e = espacios.find(x => x.id === id);
+      const e = movibles.find(x => x.id === id);
       if (!e) return false;
-      /* Sólo lo que de verdad cambió. Sin este filtro, un clic sin arrastre
-         contaría como cambio y el botón de guardar pediría guardar nada. */
-      return e.geometria?.x !== g.x || e.geometria?.y !== g.y || (e.geometria?.rot || 0) !== (g.rot || 0);
+      /* Solo lo que de verdad cambio. Sin este filtro, un clic sin arrastre
+         contaria como cambio y el boton pediria guardar nada.
+         Se comparan en JSON porque un poligono no se compara campo a campo sin
+         escribir el recorrido a mano, y ese recorrido escrito aparte es otra
+         lista que se separa. */
+      return JSON.stringify(e.geometria) !== JSON.stringify(g);
     })
     .map(([id, geometria]) => ({ id, geometria }));
 
@@ -244,7 +315,7 @@ export default function EditorDePlano({
         ) : (
           <>
             <p className="text-xs text-text-2 flex-1 min-w-[11rem]">
-              Arrastra los sitios. Ctrl+clic para elegir varios.
+              Arrastra sitios y bloques. Ctrl+clic para elegir varios; con un bloque elegido, sus esquinas se mueven una a una.
             </p>
             <button type="button" onClick={() => girar(-15)} disabled={!sel.size}
               className="btn-ghost btn-sm" title="Girar la selección">↺ 15°</button>
@@ -263,7 +334,7 @@ export default function EditorDePlano({
       </div>
 
       {/* ── El fondo para calcar ──────────────────────────────────────── */}
-      {onFondo && <Fondo fondo={fondo} onFondo={onFondo} />}
+      {onFondo && <Fondo fondo={fondo} onFondo={onFondo} ownerId={ownerId} />}
 
       {/* ── El lienzo ─────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface-2/30 overflow-hidden">
@@ -298,14 +369,38 @@ export default function EditorDePlano({
 
           {/* Los bloques van antes que las sillas: en SVG manda el orden del
               documento, no un z-index. */}
-          {bloques.map(b => (
-            <polygon key={b.id} points={puntosDe(b.geometria)}
-              fill={b.color || 'currentColor'} fillOpacity={0.7}
-              stroke="currentColor" strokeOpacity={0.5} strokeWidth={1}
-              style={{ pointerEvents: 'none' }}>
-              <title>{b.nombre}</title>
-            </polygon>
-          ))}
+          {bloques.map(b => {
+            const g = posDe(b);
+            const elegido = sel.has(b.id);
+            return (
+              <polygon key={b.id}
+                data-id={modo === 'trazar' ? undefined : b.id}
+                points={puntosDe(g)}
+                fill={b.color || 'currentColor'} fillOpacity={elegido ? 0.55 : 0.7}
+                stroke="currentColor" strokeOpacity={elegido ? 1 : 0.5}
+                strokeWidth={elegido ? 3 : 1}
+                className={elegido ? 'text-accent' : ''}
+                style={{ cursor: modo === 'trazar' ? 'crosshair' : 'move',
+                         pointerEvents: modo === 'trazar' ? 'none' : 'auto' }}>
+                <title>{b.nombre}</title>
+              </polygon>
+            );
+          })}
+
+          {/* Los tiradores de los vertices, y SOLO cuando hay un bloque
+              elegido. Con todos a la vez el plano se llena de circulos y deja
+              de verse el recinto, que es lo que se esta mirando. */}
+          {modo === 'mover' && sel.size === 1 && (() => {
+            const b = bloques.find(x => sel.has(x.id));
+            if (!b) return null;
+            const g = posDe(b);
+            return (g.puntos || []).map(([x, y], i2) => (
+              <circle key={i2} cx={x} cy={y} r={7}
+                data-vertice={i2} data-duenio={b.id}
+                className="text-accent" fill="currentColor" stroke="#fff" strokeWidth={2}
+                style={{ cursor: 'grab' }} />
+            ));
+          })()}
 
           {dibujables.map(e => {
             const g = posDe(e);
@@ -358,7 +453,11 @@ export default function EditorDePlano({
               ? (trazo.length
                   ? `${trazo.length} punto${trazo.length > 1 ? 's' : ''} · vuelve al primero para cerrar`
                   : 'Haz clic para poner el primer punto')
-              : (sel.size ? `${sel.size} seleccionado${sel.size > 1 ? 's' : ''}` : `${dibujables.length} sitios`)}
+              : (sel.size
+                  ? `${sel.size} seleccionado${sel.size > 1 ? 's' : ''}${
+                      sel.size === 1 && bloques.some(x => sel.has(x.id))
+                        ? ' · arrastra un punto blanco para corregir la forma' : ''}`
+                  : `${dibujables.length} sitios · ${bloques.length} bloques`)}
           </span>
           <span className="text-[10px] text-text-3">
             {modo === 'trazar'
@@ -377,7 +476,7 @@ export default function EditorDePlano({
  * regula: al 100 % tapa lo dibujado y al 0 % no sirve de nada. Alrededor del
  * 40 % se ve el plano y se distingue encima lo que uno va poniendo.
  */
-function Fondo({ fondo, onFondo }) {
+function Fondo({ fondo, onFondo, ownerId }) {
   const [abierto, setAbierto] = useState(false);
   const url = fondo?.url || '';
 
@@ -392,17 +491,24 @@ function Fondo({ fondo, onFondo }) {
 
   return (
     <div className="rounded-xl border border-border p-3 space-y-2">
+      {/* El mismo selector que el resto de la plataforma: sube al almacén de
+          imágenes del evento o acepta un enlace. Escribir aquí un subidor
+          propio habría dejado dos listas de tipos permitidos que se separan a
+          la primera prisa — el modo de fallo de este proyecto. */}
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="url" value={url} placeholder="Enlace a la imagen del plano"
-          aria-label="Imagen del plano del recinto"
-          onChange={(e) => onFondo({ ...fondo, url: e.target.value.trim() })}
-          className="input input-sm text-xs flex-1 min-w-[14rem]" />
+        <div className="flex-1 min-w-[16rem]">
+          <ImagePicker
+            value={url} ownerId={ownerId}
+            onChange={(nueva) => onFondo({ ...fondo, url: nueva })}
+            placeholder="Sube el plano del recinto, o pega su enlace" />
+        </div>
         {url && (
-          <button type="button" onClick={() => { onFondo({ url: '', opacidad: fondo?.opacidad }); setAbierto(false); }}
+          <button type="button"
+            onClick={() => { onFondo({ url: '', opacidad: fondo?.opacidad }); setAbierto(false); }}
             className="btn-ghost btn-sm">Quitar</button>
         )}
       </div>
+
       {url && (
         <label className="flex items-center gap-2 text-[11px] text-text-3">
           Opacidad
@@ -413,6 +519,7 @@ function Fondo({ fondo, onFondo }) {
           {Math.round((fondo?.opacidad ?? 0.4) * 100)} %
         </label>
       )}
+
       <p className="text-[11px] text-text-3">
         Se dibuja debajo de todo y no se vende: sirve para repasar encima el recinto de verdad.
       </p>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { espaciosApi } from '../../../api/espacios.js';
+import { espaciosApi, recintosApi } from '../../../api/espacios.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -145,6 +145,33 @@ export default function PlanoTab({ evento, recargarEvento }) {
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
+  /* Guardar lo dibujado como recinto reutilizable, y montar un evento desde
+     uno guardado. Es lo que separa una herramienta de dibujo de una plataforma
+     de recintos: el trabajo de calcar un arena se paga UNA vez. */
+  const guardarRecinto = async (datosDelRecinto) => {
+    setTrabajando(true);
+    try {
+      const r = await recintosApi.guardar({
+        ...datosDelRecinto, evento_id: evento.id, fondo,
+      });
+      success(`«${r.recinto.nombre}» guardado con ${r.espacios} espacios. Ya puedes montarlo en otros eventos.`);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setTrabajando(false); }
+  };
+
+  const montarRecinto = async (recintoId) => {
+    setTrabajando(true);
+    try {
+      const r = await recintosApi.montarEn(evento.id, recintoId);
+      /* El fondo viaja con el recinto: es del edificio, no del concierto, y sin
+         él la copia no se puede seguir calcando. */
+      if (r.fondo?.url && !fondo?.url) await guardarFondo(r.fondo);
+      await cargar();
+      success(`Recinto montado: ${r.creados} espacios. Ahora ponle precios.`);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setTrabajando(false); }
+  };
+
   const ponerColor = async (tipoId, color) => {
     try {
       await espaciosApi.colorLocalidad(evento.id, tipoId, color);
@@ -269,8 +296,13 @@ export default function PlanoTab({ evento, recargarEvento }) {
             <button onClick={() => setCreando(true)} className="btn-ghost btn-sm">Crear una zona a mano</button>
           </div>
 
-          {/* El camino corto para un concierto. Va aquí y no escondido en un
-              menú porque es por donde debería empezar casi todo el mundo:
+          {/* Lo primero que se ofrece es lo que menos trabajo cuesta: si el
+              recinto ya está dibujado de otro concierto, montarlo son dos
+              clics. Dibujarlo otra vez son horas. */}
+          <MisRecintos onMontar={montarRecinto} trabajando={trabajando} />
+
+          {/* El camino corto para un concierto nuevo. Va aquí y no escondido en
+              un menú porque es por donde debería empezar casi todo el mundo:
               montar tarima, general y tribunas a mano son treinta formularios. */}
           <RecintoDeConcierto onCrear={plantilla} trabajando={trabajando} />
         </div>
@@ -289,6 +321,11 @@ export default function PlanoTab({ evento, recargarEvento }) {
               className="text-xs text-accent hover:underline">
               {colocando ? 'Volver a la lista' : 'Colocar el recinto'}
             </button>
+            {/* Sólo tiene sentido guardar lo que costó dibujar: con cuatro
+                mesas sueltas, ofrecerlo es ruido. */}
+            {(datos?.espacios || []).length >= 8 && (
+              <GuardarComoRecinto onGuardar={guardarRecinto} trabajando={trabajando} />
+            )}
           </div>
 
           {/* La leyenda con su selector de color. Va en las dos vistas porque en
@@ -313,7 +350,7 @@ export default function PlanoTab({ evento, recargarEvento }) {
               colorDe={colorDe}
               onGuardar={guardarColocacion}
               onCrearBloque={crearBloque}
-              fondo={fondo} onFondo={guardarFondo}
+              fondo={fondo} onFondo={guardarFondo} ownerId={evento.id}
               guardando={trabajando} />
           )}
 
@@ -672,5 +709,119 @@ function Numero({ label, valor, onCambio, min, max }) {
         onChange={(e) => onCambio(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
         className="input input-sm text-xs w-full" />
     </label>
+  );
+}
+
+/* Montar el evento desde un recinto ya dibujado.
+ *
+ * Se carga la lista sólo al abrirla: la inmensa mayoría de los eventos se venden
+ * por aforo y no van a mirar esto nunca, y una consulta en cada apertura de la
+ * pestaña sería trabajo por nada.
+ */
+function MisRecintos({ onMontar, trabajando }) {
+  const [recintos, setRecintos] = useState(null);   // null = sin pedir
+  const [abierto, setAbierto] = useState(false);
+
+  const abrir = async () => {
+    setAbierto(true);
+    if (recintos !== null) return;
+    try { setRecintos((await recintosApi.list()).recintos || []); }
+    catch { setRecintos([]); }
+  };
+
+  if (!abierto) {
+    return (
+      <button onClick={abrir} className="btn-ghost btn-sm mt-3">
+        Montar un recinto que ya tengo
+      </button>
+    );
+  }
+
+  if (recintos === null) return <p className="text-xs text-text-3 mt-3">Buscando tus recintos…</p>;
+
+  if (!recintos.length) {
+    return (
+      <p className="text-xs text-text-3 mt-3 max-w-sm mx-auto">
+        Todavía no tienes recintos guardados. Dibuja éste y, cuando quede bien,
+        guárdalo: el siguiente concierto en el mismo sitio se monta en dos clics.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4 text-left rounded-2xl border border-border p-3 space-y-2">
+      <p className="text-xs text-text-2">Tus recintos</p>
+      <ul className="space-y-1.5">
+        {recintos.map(r => (
+          <li key={r.id} className="flex items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm text-text-1 truncate">{r.nombre}</span>
+              <span className="block text-[11px] text-text-3">
+                {r.ciudad ? `${r.ciudad} · ` : ''}{r.espacios} espacios
+                {/* El aforo legal y lo dibujado son dos números distintos: un
+                    arena de 14.000 monta 6.000 para un acústico. */}
+                {r.aforo_legal ? ` · aforo legal ${r.aforo_legal.toLocaleString('es-CO')}` : ''}
+              </span>
+            </span>
+            <button type="button" disabled={trabajando} onClick={() => onMontar(r.id)}
+              className="btn-primary btn-sm shrink-0">Montar</button>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-text-3">
+        Se monta una <b>copia</b>: lo que cambies aquí no toca el recinto guardado
+        ni los otros eventos.
+      </p>
+    </div>
+  );
+}
+
+/* Guardar lo dibujado para la próxima vez.
+ *
+ * Se pide el nombre y no se propone el del evento: el recinto es el edificio
+ * —«Movistar Arena»— y el evento es el concierto —«Juice WRLD»—. Proponer el
+ * segundo llenaría la lista de recintos llamados como shows.
+ */
+function GuardarComoRecinto({ onGuardar, trabajando }) {
+  const [abierto, setAbierto] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [aforo, setAforo] = useState('');
+
+  if (!abierto) {
+    return (
+      <button onClick={() => setAbierto(true)} className="text-xs text-accent hover:underline">
+        Guardar este recinto para otros eventos
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-full rounded-xl border border-border p-3 space-y-2">
+      <p className="text-xs text-text-2">
+        Guarda el <b>edificio</b>, no el concierto: se copian las formas, los nombres y
+        las capacidades. Los precios y las ventas se quedan en este evento.
+      </p>
+      <div className="grid sm:grid-cols-3 gap-2">
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)}
+          placeholder="Nombre del recinto" aria-label="Nombre del recinto"
+          className="input input-sm text-xs" />
+        <input value={ciudad} onChange={(e) => setCiudad(e.target.value)}
+          placeholder="Ciudad" aria-label="Ciudad" className="input input-sm text-xs" />
+        <input value={aforo} onChange={(e) => setAforo(e.target.value.replace(/\D/g, ''))}
+          placeholder="Aforo legal" aria-label="Aforo legal del edificio"
+          inputMode="numeric" className="input input-sm text-xs" />
+      </div>
+      <div className="flex gap-2">
+        <button type="button" disabled={!nombre.trim() || trabajando}
+          onClick={async () => {
+            await onGuardar({ nombre: nombre.trim(), ciudad: ciudad.trim() || null,
+                              aforo_legal: aforo ? Number(aforo) : null });
+            setAbierto(false); setNombre('');
+          }}
+          className="btn-primary btn-sm">{trabajando ? 'Guardando…' : 'Guardar recinto'}</button>
+        <button type="button" onClick={() => setAbierto(false)} className="btn-ghost btn-sm">Cancelar</button>
+      </div>
+    </div>
   );
 }

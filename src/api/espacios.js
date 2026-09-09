@@ -82,3 +82,26 @@ export function sesionDelCarrito() {
     return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   }
 }
+
+/* ── Los recintos guardados ───────────────────────────────────────────────
+ *
+ * Dibujar el Movistar Arena son horas, y sin esto ese trabajo muere con el
+ * evento: el siguiente concierto en el mismo sitio empieza de cero.
+ *
+ * Cada evento parte de una COPIA y no de una referencia viva. Es deliberado:
+ * con referencia, corregir la plantilla cambiaría el plano de eventos que ya
+ * vendieron boletas —alguien compró «Tribuna 104, fila F» y la 104 se mueve—.
+ * Lo que se pierde, propagar una corrección a todos, es justo lo que no se debe
+ * poder hacer.
+ */
+export const recintosApi = {
+  list  : ()      => client.get('/recintos').then(r => r.data),
+  get   : (id)    => client.get(`/recintos/${id}`).then(r => r.data),
+  /* Se guarda el plano que de verdad hay en el evento: el servidor lo lee de la
+     base, no del navegador. */
+  guardar: (body) => client.post('/recintos', body).then(r => r.data),
+  borrar : (id)   => client.delete(`/recintos/${id}`).then(r => r.data),
+  /* Montar el plano de un evento desde un recinto. */
+  montarEn: (eventoId, recinto_id) =>
+    client.post(`/eventos/${eventoId}/espacios/desde-recinto`, { recinto_id }).then(r => r.data),
+};
