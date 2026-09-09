@@ -246,13 +246,32 @@ function ImportarDefinicion({ catalogo, onAgregar, onCerrar, cupo, nombreEvento 
    preguntas de las demás boletas — el error caro que este filtro podría
    introducir si se hiciera a la ligera. */
 export default function FormularioTab({
-  evento, ticketTypeId = null,
+  evento,
+  /* Qué boleta se está editando.
+   *
+   * `undefined` quiere decir «encárgate tú», y entonces el editor pinta su
+   * propio selector. Es la corrección de un fallo que costó caro: este mismo
+   * editor se monta desde DOS sitios —«Tu página → Formularios» y «Entradas y
+   * dinero → Proceso de compra»— y sólo el segundo pasaba la boleta. El
+   * primero, por tanto, no tenía forma de acotar nada: todo lo que se agregaba
+   * ahí caía en TODAS las boletas, en silencio.
+   *
+   * Un evento real acabó con veinte preguntas de postulación de startup
+   * —«Nombre de la Startup», «¿Cuántos fundadores tiene?»— saliendo en el
+   * registro general y en las demás boletas.
+   *
+   * La regla no puede vivir en quien llama: quien llama se olvida. Vive aquí. */
+  ticketTypeId: ticketTypeControlado,
   requiereNombre, onRequiereNombre,
   requiereEmail, onRequiereEmail,
   requiereTelefono, onRequiereTelefono,
 }) {
   const [campos, setCampos] = useState([]);
   const [tiposBoleta, setTiposBoleta] = useState([]);
+  /* La boleta elegida cuando nadie la controla desde fuera. */
+  const [tipoPropio, setTipoPropio] = useState(null);
+  const loControlaElPadre = ticketTypeControlado !== undefined;
+  const ticketTypeId = loControlaElPadre ? ticketTypeControlado : tipoPropio;
   const [catalogo, setCatalogo] = useState({
     tipos: [], grupos: [], fichas: [], conOpciones: new Set(), max: 60, agrupacion: false, plantilla: null,
   });
@@ -311,8 +330,26 @@ export default function FormularioTab({
     setCampos(list => [...list, nuevoCampo(conBoleta(preset))]);
     setTimeout(() => finLista.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 60);
   };
-  const agregarVarios = (presets) => {
+  const agregarVarios = async (presets) => {
     if (!presets.length) return;
+    /* Meter una ficha entera en TODAS las boletas se pregunta antes.
+     *
+     * Es la mitad del fallo: la otra mitad era no tener selector. Con selector
+     * y sin este aviso, seguiría siendo un clic el que le pone veinte preguntas
+     * de startup a quien sólo viene a la charla — y nada lo diría hasta que
+     * alguien abriera el formulario público.
+     *
+     * Sólo cuando hay más de una boleta: en un evento de una sola, «todas» y
+     * «ésta» son lo mismo y preguntarlo sería ruido. */
+    if (!ticketTypeId && tiposBoleta.length > 1 && presets.length > 2) {
+      const ok = await confirmDialog({
+        message: `Vas a agregar ${presets.length} preguntas a TODAS las boletas `
+          + `(${tiposBoleta.map(t => t.nombre).join(', ')}).\n\n`
+          + 'Si son para una sola, elige primero la boleta arriba y vuelve a agregarlas.',
+        confirmLabel: `Sí, a las ${tiposBoleta.length} boletas`,
+      });
+      if (!ok) return;
+    }
     setCampos(list => [...list, ...presets.map(p => nuevoCampo(conBoleta(p)))]);
     success(`${presets.length} ${presets.length === 1 ? 'pregunta agregada' : 'preguntas agregadas'}. Revisa y guarda.`);
   };
@@ -570,6 +607,32 @@ export default function FormularioTab({
             : ' Se aplica a todas las boletas de este evento.'}
         </p>
       </div>
+
+      {/* El selector de boleta, cuando nadie lo controla desde fuera.
+          «Todas» es lo primero y es el caso normal: la mayoría de eventos
+          pregunta lo mismo a todo el mundo. Pero está a la vista, y eso es lo
+          que faltaba. */}
+      {!loControlaElPadre && tiposBoleta.length > 1 && (
+        <div className="rounded-2xl border border-border bg-surface/40 p-3">
+          <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">
+            ¿A quién le estás editando el registro?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <PastillaBoleta activo={!ticketTypeId} onClick={() => setTipoPropio(null)}
+              etiqueta="Todas las boletas" n={campos.filter(c => !c.ticket_type_id).length} />
+            {tiposBoleta.map(t => (
+              <PastillaBoleta key={t.id} activo={ticketTypeId === t.id} onClick={() => setTipoPropio(t.id)}
+                etiqueta={t.nombre}
+                n={campos.filter(c => !c.ticket_type_id || c.ticket_type_id === t.id).length} />
+            ))}
+          </div>
+          <p className="text-[11px] text-text-3 mt-2 leading-relaxed">
+            {ticketTypeId
+              ? 'Ves lo que se le pide a esta boleta: lo suyo y lo que vale para todas. Lo que agregues aquí será sólo suyo.'
+              : 'Ojo: lo que agregues aquí se le pide a TODAS las boletas. Para preguntar algo sólo a una, elígela primero.'}
+          </p>
+        </div>
+      )}
 
       {/* Fichas prearmadas + carga desde hoja */}
       <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-3">
@@ -1154,5 +1217,24 @@ function PadronPrevio({ evento, campos }) {
         </p>
       )}
     </div>
+  );
+}
+
+/* La pastilla de cada boleta en el selector.
+ *
+ * El número que lleva al lado es cuántas preguntas VE esa boleta —las suyas más
+ * las compartidas—, no cuántas son suyas. Es el número que contesta la pregunta
+ * que uno se hace mirando esto: «¿qué le estoy pidiendo a esta persona?».
+ */
+function PastillaBoleta({ activo, onClick, etiqueta, n }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={activo}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-colors
+        ${activo
+          ? 'border-accent bg-accent/10 text-text-1'
+          : 'border-border-2 text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+      {etiqueta}
+      <span className="text-text-3">· {n}</span>
+    </button>
   );
 }
