@@ -46,6 +46,11 @@ export const eventosApi = {
   destinoDeArchivo: (slug, campoId, extension) =>
     client.post(`/eventos/publicos/slug/${slug}/archivo/destino`, { campo_id: campoId, extension }).then(r => r.data),
   ticketByCode : (codigo)      => client.get(`/eventos/publicos/ticket/${codigo}`).then(r => r.data),
+  /* «¿Esta boleta es real?», para quien la está COMPRANDO a otra persona.
+     Es una ruta distinta de `ticketByCode` a propósito: aquella devuelve la
+     entrada entera con su `qr_token`, así que enseñársela a quien todavía no ha
+     pagado sería regalársela. Ésta dice lo justo para confiar. */
+  verificarBoleta : (codigo) => client.get(`/eventos/publicos/verificar/${codigo}`).then(r => r.data),
   completarFormularioTicket: (codigo, respuestas) =>
     client.post(`/eventos/publicos/ticket/${codigo}/formulario`, { respuestas }).then(r => r.data),
   fichaExpositor      : (codigo)          => client.get(`/eventos/publicos/expositor/${codigo}`).then(r => r.data),

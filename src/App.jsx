@@ -25,6 +25,7 @@ const MapaPublicoPage    = lazy(() => import('./pages/public/MapaPublicoPage.jsx
 const AgendaPublicaPage  = lazy(() => import('./pages/public/AgendaPublicaPage.jsx'));
 const LegalEventoPage    = lazy(() => import('./pages/public/LegalEventoPage.jsx'));
 const MiTicketPage       = lazy(() => import('./pages/public/MiTicketPage.jsx'));
+const VerificarBoletaPage = lazy(() => import('./pages/public/VerificarBoletaPage.jsx'));
 const AutorizarPage = lazy(() => import('./pages/conectar/AutorizarPage.jsx'));
 const EmbedPage          = lazy(() => import('./pages/public/EmbedPage.jsx'));
 const ExpositorPage      = lazy(() => import('./pages/public/ExpositorPage.jsx'));
@@ -118,6 +119,14 @@ export default function App() {
                     pueden leer no es aceptar nada. */}
                 <Route path="/explorar/:slug/legal"  element={<LegalEventoPage />} />
                 <Route path="/mi-ticket/:codigo" element={<MiTicketPage />} />
+                {/* «¿Esta boleta es real?», para quien la está COMPRANDO a otra
+                    persona. Ruta aparte de /mi-ticket a propósito: aquélla
+                    enseña el QR, y enseñárselo a quien no ha pagado sería
+                    regalarle la entrada. Con y sin código: quien llega desde
+                    un chat trae el código; quien llega desde el pie de página,
+                    no. */}
+                <Route path="/verificar" element={<VerificarBoletaPage />} />
+                <Route path="/verificar/:codigo" element={<VerificarBoletaPage />} />
                 {/* Consentimiento del conector OAuth. Publica a proposito: se
                     llega desde Claude sin sesion, y la propia pantalla manda a
                     entrar guardando a donde volver. */}

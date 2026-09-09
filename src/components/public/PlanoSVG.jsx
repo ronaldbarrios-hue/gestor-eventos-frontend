@@ -89,6 +89,13 @@ export default function PlanoSVG({ unidades = [], valor, onElegir, ocupadoTitulo
         ref={svgRef}
         viewBox={viewBox}
         className="w-full touch-none select-none"
+        /* Tope de alto y el ancho al contenedor. Con `preserveAspectRatio` por
+           defecto el dibujo no se deforma: se centra y deja márgenes.
+           Medido en un panel de 900 px con 124 unidades: el SVG sale 898×340 y
+           el plano ocupa ~42 % del ancho. No es un fallo —nada se estira— pero
+           se dibuja más pequeño de lo que cabría. Si algún día molesta, se
+           ajusta el tope según la proporción del viewBox, no quitándolo: sin
+           tope, un plano alto empuja el resto de la pantalla fuera de la vista. */
         style={{ maxHeight: '340px', cursor: arrastre.current ? 'grabbing' : 'grab' }}
         onClick={alPulsar}
         onPointerDown={(e) => { arrastre.current = enPlano(e); }}

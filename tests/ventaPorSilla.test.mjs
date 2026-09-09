@@ -215,3 +215,30 @@ test('la silla viaja también en el camino de pago', () => {
   assert.equal((s.match(/espacio_id: sitio\.id, sesion_espacio: sitio\.sesion/g) || []).length, 2,
     'la silla viaja en uno solo de los dos caminos');
 });
+
+test('el organizador ve el plano sin publicar el evento', () => {
+  /* Salió montando un concierto: se arman 124 sitios y la única forma de ver
+     lo que verá el público era hacer el evento público. Y no hacía falta
+     ningún endpoint nuevo — el panel ya tiene los espacios y las reservas. */
+  const s = sinComentarios(PANEL);
+  assert.match(s, /<PlanoSVG/);
+  assert.match(s, /Ver como lo verá quien compra/);
+});
+
+test('la vista previa usa el MISMO mapa que se sirve al público', () => {
+  /* Una copia «de previsualización» acabaría enseñando algo que no es lo que
+     se vende, y nadie lo notaría hasta que un comprador viera otra cosa. */
+  assert.match(PANEL, /from '\.\.\/\.\.\/\.\.\/components\/public\/PlanoSVG\.jsx'/);
+});
+
+test('en la vista previa no se puede elegir nada', () => {
+  /* El organizador está mirando, no comprando. Un clic que retuviera una silla
+     desde el panel dejaría sitios bloqueados sin que nadie los esté pagando. */
+  assert.match(sinComentarios(PANEL), /valor=\{null\} onElegir=\{\(\) => \{\}\}/);
+});
+
+test('y avisa si hay sitios que no se pueden comprar', () => {
+  /* Se ven igual en el plano. Sin decirlo, la vista previa da una falsa
+     sensación de que todo está listo. */
+  assert.match(PANEL, /Los sitios sin tipo de boleta se ven igual y no se pueden comprar/);
+});
