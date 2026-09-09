@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { planoApi, sesionDelCarrito } from '../../api/espacios.js';
-import PlanoSVG from './PlanoSVG.jsx';
+import PlanoSVG, { LeyendaDePrecios, centroDe } from './PlanoSVG.jsx';
 
 /* Elegir una silla, una mesa o un palco antes de comprar.
  *
@@ -17,13 +17,28 @@ import PlanoSVG from './PlanoSVG.jsx';
  * piensa deja un sitio bloqueado diez minutos: en una preventa, el mapa se ve
  * en rojo sin una sola venta hecha.
  *
- * ── Por qué una lista y no un plano dibujado ─────────────────────────────
+ * ── Los dos niveles del mapa ─────────────────────────────────────────────
  *
- * Porque esto empieza por palcos y mesas —decenas de unidades—, donde una lista
- * se lee mejor que un plano, funciona en cualquier móvil y no depende de que
- * alguien haya dibujado nada. El plano SVG viene después sobre los mismos
- * datos; lo que hay debajo no cambia.
+ * Nadie elige entre dos mil sillas a la vez. Si los bloques del recinto tienen
+ * forma dibujada, primero se ve el recinto entero pintado por precio, se toca
+ * un bloque, y sólo entonces aparecen sus sillas. Es el gesto que ya conoce
+ * cualquiera que haya comprado una entrada.
+ *
+ * Y si nadie ha dibujado el recinto, no pasa nada: quedan las pastillas de
+ * texto y la lista, que se leen en cualquier móvil y con veinte mesas son
+ * mejores que un plano. El plano es una forma de elegir, no la única.
  */
+
+/* El precio en la leyenda, corto. Un mapa con «450.000,00 COP» ocho veces es
+   ilegible; lo que hace falta es distinguir el rojo del azul de un vistazo.
+   Gratis se dice con la palabra: «0» al lado de un color no se lee como
+   gratis. */
+function precioCorto(precio, currency) {
+  const n = Number(precio);
+  if (!Number.isFinite(n)) return '';
+  if (n === 0) return 'Gratis';
+  return `${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(n)} ${currency || 'COP'}`;
+}
 
 export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onError }) {
   const [mapa, setMapa] = useState(null);        // null = cargando
@@ -50,10 +65,18 @@ export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onErr
       const d = await planoApi.mapa(slug);
       setMapa(d);
       if (d.hay_plano && d.secciones?.length && !seccionRef.current) {
-        /* Se abre por la primera que tenga sitios libres, no por la primera a
-           secas: empezar en una sección agotada parece que no queda nada. */
-        const conSitio = d.secciones.find(s => s.libres > 0) || d.secciones[0];
-        setSeccion(conSitio?.id || '');
+        /* Si el recinto está dibujado, se abre POR EL RECINTO: sección vacía es
+           «enséñame el mapa entero». Elegir una sección por él sería saltarse
+           el primer nivel, que es justo donde se decide qué zona quiere.
+
+           Y si no hay recinto dibujado, se abre por la primera sección que
+           tenga sitios libres —no por la primera a secas—: empezar en una
+           agotada parece que no queda nada. */
+        const dibujado = d.secciones.filter(x => (x.geometria?.puntos || []).length >= 3);
+        if (dibujado.length <= 1) {
+          const conSitio = d.secciones.find(x => x.libres > 0) || d.secciones[0];
+          setSeccion(conSitio?.id || '');
+        }
       }
     } catch (e) {
       onError?.(e.response?.data?.error || e.message);
@@ -109,6 +132,35 @@ export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onErr
   const libres = enSeccion.filter(u => u.libre);
   const hayGeometria = enSeccion.some(u => u.geometria?.x != null);
 
+  /* El color de cada silla es el de su localidad, no el suyo: cambiar el precio
+     de «Platea» repinta sus dos mil sillas de una vez. */
+  const colorDeLocalidad = new Map((mapa.localidades || []).map(l => [l.id, l.color]));
+  const colorDe = (u) => colorDeLocalidad.get(u.ticket_type_id) || null;
+
+  /* Los bloques dibujables de ESTA boleta, con su cuenta de libres encima.
+     Un bloque sin forma no entra: pintar un rectángulo inventado donde no se
+     dibujó nada es peor que no dibujarlo. */
+  const bloques = secciones
+    .filter(s => (s.geometria?.puntos || []).length >= 3)
+    .map(s => {
+      const dentro = mias.filter(u => u.parent_id === s.id);
+      /* El color del bloque es el de la localidad de sus sillas. Si tiene
+         varias, se queda sin color y se pinta neutro: inventar cuál de los tres
+         precios representa el bloque haría mentir a la leyenda. */
+      const colores = new Set(dentro.map(colorDe).filter(Boolean));
+      return {
+        ...s,
+        libres: dentro.filter(u => u.libre).length,
+        color: colores.size === 1 ? [...colores][0] : null,
+        centro: centroDe(s.geometria),
+      };
+    });
+
+  /* El primer nivel sólo tiene sentido con más de un bloque dibujado: con uno
+     solo, obligar a tocarlo para ver sus sillas es un clic de peaje. */
+  const hayRecinto = bloques.length > 1;
+  const verRecinto = hayRecinto && !seccion;
+
   if (!mias.length) {
     return (
       <p className="text-xs text-warning py-3">
@@ -124,35 +176,59 @@ export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onErr
         {valor && <Cuenta expira={expira} />}
       </div>
 
-      {secciones.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          {secciones.map(s => (
-            <button key={s.id} type="button" onClick={() => setSeccion(s.id)}
-              className={`px-2.5 py-1 rounded-full text-xs border transition-colors
-                ${seccion === s.id ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
-              {s.nombre}
-              <span className="text-text-3"> · {s.libres}</span>
+      {/* Nivel 1: el recinto. Se toca un bloque y se entra en sus sillas. */}
+      {verRecinto ? (
+        <>
+          <p className="text-xs text-text-2">Toca la zona donde quieres sentarte.</p>
+          <PlanoSVG bloques={bloques} onBloque={(b) => b?.libres > 0 && setSeccion(b.id)} alto={420} />
+          <LeyendaDePrecios localidades={mapa.localidades} formato={precioCorto} />
+        </>
+      ) : (
+        <>
+          {/* La vuelta al recinto. Sin ella, entrar en una zona es un callejón
+              sin salida: hay que recargar la página para ver el mapa otra vez. */}
+          {hayRecinto && (
+            <button type="button" onClick={() => setSeccion('')}
+              className="text-[11px] text-accent hover:underline">
+              ← Ver todo el recinto
             </button>
-          ))}
-        </div>
+          )}
+
+          {secciones.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {secciones.map(s2 => (
+                <button key={s2.id} type="button" onClick={() => setSeccion(s2.id)}
+                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors
+                    ${seccion === s2.id ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+                  {s2.nombre}
+                  <span className="text-text-3"> · {s2.libres}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* El plano sólo se ofrece si hay algo que dibujar. Un botón «ver
+              plano» que abre una cuadrícula sin sentido es peor que no tenerlo. */}
+          {hayGeometria && enSeccion.length > 6 && (
+            <button type="button" onClick={() => setComoPlano(v => !v)}
+              className="text-[11px] text-accent hover:underline ml-3">
+              {comoPlano ? 'Ver como lista' : 'Ver el plano'}
+            </button>
+          )}
+        </>
       )}
 
-      {/* El plano sólo se ofrece si hay algo que dibujar. Un botón «ver plano»
-          que abre una cuadrícula sin sentido es peor que no tenerlo. */}
-      {hayGeometria && enSeccion.length > 6 && (
-        <button type="button" onClick={() => setComoPlano(v => !v)}
-          className="text-[11px] text-accent hover:underline">
-          {comoPlano ? 'Ver como lista' : 'Ver el plano'}
-        </button>
-      )}
-
-      {libres.length === 0 ? (
+      {verRecinto ? null : libres.length === 0 ? (
         <p className="text-xs text-warning">
           No quedan sitios libres {secciones.length > 1 ? 'en esta zona' : ''}. {secciones.length > 1 && 'Prueba en otra.'}
         </p>
       ) : comoPlano ? (
-        <PlanoSVG unidades={enSeccion} valor={valor} onElegir={tomar}
-          ocupadoTitulo="ya no está disponible" />
+        <>
+          <PlanoSVG unidades={enSeccion} valor={valor} onElegir={tomar}
+            colorDe={colorDe} ocupadoTitulo="ya no está disponible" />
+          <LeyendaDePrecios localidades={(mapa.localidades || [])
+            .filter(l => enSeccion.some(u => u.ticket_type_id === l.id))} formato={precioCorto} />
+        </>
       ) : (
         <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto p-0.5">
           {enSeccion.map(u => {
