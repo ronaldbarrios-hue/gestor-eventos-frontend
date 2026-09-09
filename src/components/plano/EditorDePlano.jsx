@@ -56,11 +56,12 @@ const puntosDe = (g) => (g?.puntos || []).map(([x, y]) => `${x},${y}`).join(' ')
 
 export default function EditorDePlano({
   espacios = [], bloques = [], colorDe, onGuardar, onCrearBloque,
-  fondo, onFondo, ownerId, guardando, alto = 460,
+  fondo, onFondo, ownerId, onLlenar, guardando, alto = 460,
 }) {
   const [modo, setModo] = useState('mover');       // mover | trazar
   const [pieza, setPieza] = useState('tribuna');
   const [trazo, setTrazo] = useState([]);          // los vértices del bloque en curso
+  const [llenando, setLlenando] = useState(null);  // el bloque que se está llenando
   /* Los movimientos que aún no se han guardado, por id. Se lleva aparte de
      `espacios` para que «descartar» sea tirar este objeto y no rehacer nada. */
   const [movidos, setMovidos] = useState({});
@@ -317,6 +318,14 @@ export default function EditorDePlano({
             <p className="text-xs text-text-2 flex-1 min-w-[11rem]">
               Arrastra sitios y bloques. Ctrl+clic para elegir varios; con un bloque elegido, sus esquinas se mueven una a una.
             </p>
+            {/* Llenar el bloque elegido. Sale aquí, sobre el plano, y no en un
+                menú aparte: el bloque acaba de dibujarse y lo siguiente que
+                quiere quien lo dibujó es ponerle butacas. */}
+            {onLlenar && sel.size === 1 && bloques.some(x => sel.has(x.id)) && (
+              <button type="button" disabled={guardando}
+                onClick={() => setLlenando(bloques.find(x => sel.has(x.id)))}
+                className="btn-primary btn-sm">Llenar de butacas</button>
+            )}
             <button type="button" onClick={() => girar(-15)} disabled={!sel.size}
               className="btn-ghost btn-sm" title="Girar la selección">↺ 15°</button>
             <button type="button" onClick={() => girar(15)} disabled={!sel.size}
@@ -332,6 +341,14 @@ export default function EditorDePlano({
         )}
         <button type="button" onClick={() => setVista(null)} className="btn-ghost btn-sm">Centrar</button>
       </div>
+
+      {/* Llenar el bloque elegido, aquí y no en un diálogo aparte: el bloque
+          está a la vista y lo que se decide es sobre él. */}
+      {llenando && (
+        <LlenarBloque bloque={llenando} guardando={guardando}
+          onCancelar={() => setLlenando(null)}
+          onLlenar={async (opciones) => { await onLlenar(llenando, opciones); setLlenando(null); }} />
+      )}
 
       {/* ── El fondo para calcar ──────────────────────────────────────── */}
       {onFondo && <Fondo fondo={fondo} onFondo={onFondo} ownerId={ownerId} />}
@@ -522,6 +539,54 @@ function Fondo({ fondo, onFondo, ownerId }) {
 
       <p className="text-[11px] text-text-3">
         Se dibuja debajo de todo y no se vende: sirve para repasar encima el recinto de verdad.
+      </p>
+    </div>
+  );
+}
+
+/* Cuántas butacas van en este bloque.
+ *
+ * Los dos campos se pueden dejar vacíos, y ése es el caso normal: en un bloque
+ * calcado del plano real, «las que quepan» acierta, porque la forma ya es la
+ * del recinto. Se ofrecen igualmente porque quien numera butacas a mano
+ * necesita que la fila C tenga las mismas que la D para poder cotejarlo con lo
+ * que hay pintado en la pared.
+ */
+function LlenarBloque({ bloque, onLlenar, onCancelar, guardando }) {
+  const [filas, setFilas] = useState('');
+  const [porFila, setPorFila] = useState('');
+
+  const soloNumero = (v) => v.replace(/[^0-9]/g, '');
+
+  return (
+    <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 space-y-2">
+      <p className="text-xs text-text-1">
+        Butacas de <b>{bloque.nombre}</b>. Déjalo vacío y saldrán las que quepan.
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block">
+          <span className="block text-[11px] text-text-3 mb-1">Filas</span>
+          <input value={filas} onChange={(e) => setFilas(soloNumero(e.target.value))}
+            inputMode="numeric" placeholder="las que quepan"
+            className="input input-sm text-xs w-32" />
+        </label>
+        <label className="block">
+          <span className="block text-[11px] text-text-3 mb-1">Butacas por fila</span>
+          <input value={porFila} onChange={(e) => setPorFila(soloNumero(e.target.value))}
+            inputMode="numeric" placeholder="las que quepan"
+            className="input input-sm text-xs w-32" />
+        </label>
+        <button type="button" disabled={guardando}
+          onClick={() => onLlenar({
+            filas: filas ? Number(filas) : undefined,
+            porFila: porFila ? Number(porFila) : undefined,
+          })}
+          className="btn-primary btn-sm">{guardando ? 'Creando…' : 'Crear butacas'}</button>
+        <button type="button" onClick={onCancelar} className="btn-ghost btn-sm">Cancelar</button>
+      </div>
+      <p className="text-[11px] text-text-3">
+        Salen dentro del bloque, en filas curvas mirando al escenario. La fila A es
+        la más cerca.
       </p>
     </div>
   );

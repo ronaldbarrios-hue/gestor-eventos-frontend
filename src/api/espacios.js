@@ -27,6 +27,11 @@ export const espaciosApi = {
      una VENTA no, y una anulación o una prueba dejarían la silla ocupada para
      siempre. Queda anotado en la auditoría. */
   liberar     : (eventoId, id)        => client.post(`/eventos/${eventoId}/espacios/${id}/liberar`).then(r => r.data),
+  /* Llenar una tribuna ya trazada con sus butacas. Es el orden natural desde
+     que el bloque se dibuja sobre el plano real: primero la forma, luego las
+     sillas dentro. */
+  llenarBloque: (eventoId, id, body) =>
+    client.post(`/eventos/${eventoId}/espacios/${id}/butacas`, body).then(r => r.data),
   /* Mover muchos de una vez. Arrastrar una sección son doscientas sillas que
      cambian de sitio: con una petición por silla el editor iría a tirones.
      Sólo toca la geometría — no puede cambiar precios, modos ni nombres. */

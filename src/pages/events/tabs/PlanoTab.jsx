@@ -6,6 +6,7 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
+import Icono from '../../../components/ui/Iconos.jsx';
 import PlanoSVG, { LeyendaDePrecios } from '../../../components/public/PlanoSVG.jsx';
 import EditorDePlano from '../../../components/plano/EditorDePlano.jsx';
 
@@ -172,6 +173,20 @@ export default function PlanoTab({ evento, recargarEvento }) {
     finally { setTrabajando(false); }
   };
 
+  /* Llenar una tribuna trazada con sus butacas. Lo que se pide —cuántas filas,
+     cuántas por fila— lo recoge el editor, que es donde está el bloque a la
+     vista: preguntarlo en un diálogo aparte obliga a recordar de memoria lo que
+     se acaba de dibujar. */
+  const llenarBloque = async (bloque, opciones) => {
+    setTrabajando(true);
+    try {
+      const r = await espaciosApi.llenarBloque(evento.id, bloque.id, opciones);
+      await cargar();
+      success(`${r.creadas} butacas en «${bloque.nombre}».`);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setTrabajando(false); }
+  };
+
   const ponerColor = async (tipoId, color) => {
     try {
       await espaciosApi.colorLocalidad(evento.id, tipoId, color);
@@ -275,6 +290,10 @@ export default function PlanoTab({ evento, recargarEvento }) {
         </p>
       </div>
 
+      {/* Los sitios accesibles, y si están donde deben. Va con el plano porque es
+          una revisión DEL plano: en una pantalla aparte, nadie la abre. */}
+      <Accesibilidad datos={datos?.accesibilidad} />
+
       {vendibles.length > 0 && (
         <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface/40 px-4 py-3 text-sm">
           <span className="text-text-2"><b className="text-text-1 tabular-nums">{vendibles.length}</b> sitios en venta</span>
@@ -350,6 +369,7 @@ export default function PlanoTab({ evento, recargarEvento }) {
               colorDe={colorDe}
               onGuardar={guardarColocacion}
               onCrearBloque={crearBloque}
+              onLlenar={llenarBloque}
               fondo={fondo} onFondo={guardarFondo} ownerId={evento.id}
               guardando={trabajando} />
           )}
@@ -822,6 +842,46 @@ function GuardarComoRecinto({ onGuardar, trabajando }) {
           className="btn-primary btn-sm">{trabajando ? 'Guardando…' : 'Guardar recinto'}</button>
         <button type="button" onClick={() => setAbierto(false)} className="btn-ghost btn-sm">Cancelar</button>
       </div>
+    </div>
+  );
+}
+
+/* El aviso de accesibilidad.
+ *
+ * Avisa, no impide: quien organiza sabrá si su recinto tiene una razón; lo que
+ * no puede es no enterarse. Y no se enseña nada cuando la regla no aplica —un
+ * salón de 200 personas— porque un «todo bien» por una norma que ni se le
+ * aplica engaña más que callar.
+ */
+function Accesibilidad({ datos }) {
+  if (!datos?.aplica) return null;
+
+  if (datos.ok) {
+    return (
+      <p className="text-xs text-success flex items-center gap-2">
+        <Icono name="hecho" className="w-4 h-4" />
+        {datos.accesibles} espacios accesibles, repartidos en {datos.zonas} zonas
+        {datos.localidades > 1 ? ` y ${datos.localidades} localidades` : ''}.
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-warning/40 bg-warning/5 p-4 space-y-2">
+      <p className="text-sm font-medium text-text-1 flex items-center gap-2">
+        <Icono name="aviso" className="w-4 h-4 text-warning" />
+        Sitios accesibles
+      </p>
+      <ul className="space-y-1.5">
+        {datos.avisos.map(a => (
+          <li key={a.clave} className="text-xs text-text-2">· {a.texto}</li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-text-3">
+        Marca un sitio como accesible o de acompañante desde su ficha. La referencia
+        son las normas ADA —36 espacios desde 5.000 asientos, más uno por cada 200—
+        y piden repartirlos por niveles y por bandas de precio, no juntarlos.
+      </p>
     </div>
   );
 }
