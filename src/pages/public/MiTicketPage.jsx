@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
 import { pagosApi } from '../../api/pagos.js';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
+import Instrucciones from '../../components/public/Instrucciones.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
 import { googleCalendarUrl } from '../../lib/calendario.js';
@@ -196,6 +197,21 @@ export default function MiTicketPage() {
           <span className="text-accent-light text-sm font-medium whitespace-nowrap">Editar</span>
         </Link>
       )}
+
+      {/* Lo que hay que hacer antes del evento, ENCIMA de la tarjeta.
+       *
+       * Ésta es la pantalla que alguien abre desde el correo tres semanas
+       * después, y es cuando de verdad se lee «dónde tengo que presentarme».
+       * Antes eso sólo salía en el momento de registrarse, así que lo veía una
+       * vez y con prisa.
+       *
+       * Las del tipo de boleta primero: son las específicas. Debajo, el mensaje
+       * general del evento — y sólo si el organizador escribió uno, para no
+       * repetir dos veces lo mismo cuando puso el mismo texto en los dos. */}
+      <Instrucciones texto={ticket.tipo?.instrucciones} className="mt-6" />
+      {ticket.evento?.page_json?.checkout?.confirmacion_texto?.trim()
+        && ticket.evento.page_json.checkout.confirmacion_texto.trim() !== String(ticket.tipo?.instrucciones || '').trim()
+        && <Instrucciones texto={ticket.evento.page_json.checkout.confirmacion_texto} className="mt-3" />}
 
       {/* Tarjeta wallet (diseño del organizador · gamificación) = escarapela digital */}
       <div className="mt-6">

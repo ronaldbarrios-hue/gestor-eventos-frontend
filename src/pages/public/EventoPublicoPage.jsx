@@ -32,6 +32,7 @@ import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 import { guardarProgreso, leerProgreso, olvidarProgreso } from '../../lib/registroEnCurso.js';
 import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
 import ElegirSitio from '../../components/public/ElegirSitio.jsx';
+import Instrucciones from '../../components/public/Instrucciones.jsx';
 import Volver from '../../components/ui/Volver.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
@@ -1652,6 +1653,11 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
         <p className="text-sm text-text-2 mb-5 leading-relaxed max-w-sm mx-auto">
           {checkout.confirmacion_texto?.trim() || 'Muestra este QR en la entrada del evento. También puedes mostrar el código.'}
         </p>
+        {/* Lo que tiene que hacer QUIEN COMPRÓ ESTA boleta, encima de la
+            tarjeta: si va debajo, queda tras el QR y el código, que es donde
+            deja de leerse. */}
+        <Instrucciones texto={ticket.tipo?.instrucciones} className="max-w-sm mx-auto mb-4" />
+
         {/* La tarjeta entera, no un QR suelto. Es la misma que verá en
             /mi-ticket y la misma que se imprime, con el diseño del
             organizador: lo que se guarda en este momento —que es cuando la
