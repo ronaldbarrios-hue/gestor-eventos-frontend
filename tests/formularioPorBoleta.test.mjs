@@ -77,23 +77,43 @@ test('en un evento de una sola boleta no se pregunta nada', () => {
   assert.match(trozo.slice(0, trozo.indexOf('\n  };')), /tiposBoleta\.length > 1/);
 });
 
-/* ── El buscador por cédula sólo cuando sirve ────────────────────────── */
+/* ── Traer mis datos: primero el código, la cédula sólo si hay padrón ── */
 
-test('no se pide el documento si no hay padrón que consultar', () => {
-  /* Sin padrón, la consulta no puede encontrar nada: lo único que hacía el
-     campo era pedirle su documento a alguien que todavía no había escrito ni su
-     nombre — el dato más sensible del formulario, y el primero. */
-  const trozo = PUBLICA.slice(PUBLICA.indexOf('function BuscarPorDocumento'));
+test('el atajo se pide con el CÓDIGO de la boleta, no con la cédula', () => {
+  /* El código lo tiene la persona en su correo y funciona sin que el
+     organizador haya subido nada. La cédula es el dato más sensible del
+     formulario y se pedía antes que el nombre. */
+  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
   const cuerpo = trozo.slice(0, trozo.indexOf('\n}'));
-  assert.match(cuerpo, /if \(!hayPadron\) return null;/);
-  assert.match(sinComentarios(PUBLICA), /hayPadron=\{evento\?\.tiene_padron\}/);
+  assert.match(cuerpo, /prellenarConBoleta/);
+  assert.match(cuerpo, /Código de tu boleta/);
 });
 
-test('un servidor viejo que no manda la bandera no rompe el registro', () => {
-  /* `undefined` se trata como «no hay»: se deja de ofrecer un atajo, no se cae
-     ningún formulario. */
-  const trozo = PUBLICA.slice(PUBLICA.indexOf('function BuscarPorDocumento'));
-  assert.doesNotMatch(trozo.slice(0, trozo.indexOf('\n}')), /hayPadron !== false/);
+test('la cédula sólo se ofrece si hay padrón, y plegada', () => {
+  /* El padrón cubre un caso que el código no puede —invitados que aún no se
+     han registrado— así que no se quita. Pero va debajo y cerrada. */
+  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
+  const cuerpo = trozo.slice(0, trozo.indexOf('\n}'));
+  assert.match(cuerpo, /hayPadron && !porDocumento/);
+  assert.match(sinComentarios(PUBLICA), /hayPadron=\{evento\?\.tiene_padron\}/);
+
+  /* Y el campo del documento aparece DESPUÉS del código en el archivo: en
+     pantalla eso es «debajo», que es todo el punto. */
+  assert.ok(cuerpo.indexOf('Código de tu boleta') < cuerpo.indexOf('Tu número de documento'));
+});
+
+test('las dos búsquedas comparten función', () => {
+  /* Escritas aparte, una acabaría enseñando el resultado y la otra no. */
+  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
+  const cuerpo = trozo.slice(0, trozo.indexOf('\n}'));
+  assert.equal((cuerpo.match(/const buscar = /g) || []).length, 1);
+  assert.match(cuerpo, /const r = conDocumento/);
+});
+
+test('un fallo del atajo no bloquea el registro', () => {
+  /* Incluye el 429 del limitador: esto es una comodidad, no un paso. */
+  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
+  assert.match(trozo.slice(0, trozo.indexOf('\n}')), /catch \{[\s\S]*?encontrado: false/);
 });
 
 /* El filtro de `session_id` vive en el backend y su prueba también: una prueba

@@ -99,7 +99,10 @@ test('una fecha límite que no se ve no es una fecha límite', () => {
   /* `early_bird_hasta` y `venta_hasta` se usaban para tachar el precio y apagar
      el botón, y no se enseñaban: la tarjeta ponía «Early» sin decir hasta
      cuándo, y quien volvía al día siguiente se encontraba otro precio. */
-  const cuerpo = cuerpoDe(sinComentarios(leer()), 'TicketsPreview');
+  /* En `TarjetaBoleta` y no en `TicketsPreview`: la tarjeta salió a su propio
+     componente al agrupar la lista por lo que es cada boleta, porque la pintan
+     dos caminos —agrupada y plana— y dos copias acabarían distintas. */
+  const cuerpo = cuerpoDe(sinComentarios(leer()), 'TarjetaBoleta');
   assert.match(cuerpo, /Este precio hasta el/, 'no se dice hasta cuándo dura el precio de lanzamiento');
   assert.match(cuerpo, /La venta cierra el/, 'no se dice cuándo cierra la venta');
 });

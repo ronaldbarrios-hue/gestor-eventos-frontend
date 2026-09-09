@@ -32,6 +32,7 @@ import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 import { guardarProgreso, leerProgreso, olvidarProgreso } from '../../lib/registroEnCurso.js';
 import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
 import ElegirSitio from '../../components/public/ElegirSitio.jsx';
+import Instrucciones from '../../components/public/Instrucciones.jsx';
 import Volver from '../../components/ui/Volver.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
@@ -1289,12 +1290,17 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
         {/* El paso 0 también entra: si no, volver a él desde el 1 se siente
             como un salto seco justo después de haber visto deslizarse el resto. */}
         {(!paginado || paso === 0) && (<>
-        {/* Sólo si el organizador subió padrón. Sin él, esto le pedía la cédula
-            a todo el mundo para una consulta que no podía encontrar nada — y el
-            dato más sensible del formulario, antes que el nombre. */}
-        <BuscarPorDocumento slug={slug} campos={camposDelTipo} hayPadron={evento?.tiene_padron}
+        <TraerMisDatos slug={slug} campos={camposDelTipo} hayPadron={evento?.tiene_padron}
           onEncontrado={(r) => {
             setRespuestas(prev => ({ ...prev, ...r.respuestas }));
+            /* Nombre y correo también: son lo que más se teclea, y no son
+               preguntas del organizador sino lo que la plataforma necesita
+               para emitir la boleta. No se pisa lo que ya escribió a mano. */
+            setForm(f => ({
+              ...f,
+              nombre: f.nombre || r.nombre || '',
+              email: f.email || r.email || '',
+            }));
             setPrellenado(r);
           }} />
         <div className={`field ancho ${claseEntrada}`}>
@@ -1652,6 +1658,11 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
         <p className="text-sm text-text-2 mb-5 leading-relaxed max-w-sm mx-auto">
           {checkout.confirmacion_texto?.trim() || 'Muestra este QR en la entrada del evento. También puedes mostrar el código.'}
         </p>
+        {/* Lo que tiene que hacer QUIEN COMPRÓ ESTA boleta, encima de la
+            tarjeta: si va debajo, queda tras el QR y el código, que es donde
+            deja de leerse. */}
+        <Instrucciones texto={ticket.tipo?.instrucciones} className="max-w-sm mx-auto mb-4" />
+
         {/* La tarjeta entera, no un QR suelto. Es la misma que verá en
             /mi-ticket y la misma que se imprime, con el diseño del
             organizador: lo que se guarda en este momento —que es cuando la
@@ -1900,45 +1911,62 @@ export function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
   return <Preview data={{}} evento={evento} onReservar={onReservar} onWaitlist={onWaitlist} />;
 }
 
-/* ─────────── Buscar por documento en el padrón de eventos anteriores ───────────
+/* ─────────── Traer mis datos de un registro anterior ───────────
 
-   Quien ya vino a una edición pasada no debería volver a escribirlo todo. Al
-   poner la cédula se consulta el padrón que subió el organizador y se rellena
-   lo que ya se sabía.
+   Quien ya se registró no debería volver a escribirlo todo. Y menos en un
+   evento con varias boletas: quien tiene la entrada general y quiere además
+   una actividad estaba tecleando diez preguntas por segunda vez.
 
-   Es opcional a propósito y no un paso obligatorio: si no hay padrón, o la
-   persona es nueva, el formulario sigue igual. Un buscador que no encuentra
-   nada no puede bloquear un registro.
+   ── Con el código de la boleta, no con la cédula ──────────────────────────
 
-   No se dice «no estás en la base». Cuando no hay coincidencia, el servidor
-   contesta igual que si el padrón estuviera vacío — distinguir las dos cosas
-   es justo lo que haría útil probar cédulas ajenas. */
-function BuscarPorDocumento({ slug, campos, hayPadron, onEncontrado }) {
-  const [doc, setDoc] = useState('');
+   Antes esto pedía el número de documento y buscaba en un padrón que el
+   organizador tenía que haber subido. Dos problemas: sin padrón no encontraba
+   nada —y se pedía igual—, y le pedía a alguien su cédula antes de que hubiera
+   escrito su nombre, que es el dato más sensible del formulario y el primero.
+
+   El código lo tiene la persona en su correo, es suyo, y funciona sin que
+   nadie haya subido nada.
+
+   ── Y por qué el código solo basta ───────────────────────────────────────
+
+   Porque no abre ninguna puerta nueva: `/mi-ticket/:codigo` ya enseña hoy esa
+   boleta entera a quien tenga el código. Pedir además el correo sería más
+   estricto que la puerta de al lado, y dejaría fuera a quien esta vez se
+   registra con otro.
+
+   Es opcional a propósito: si alguien es nuevo, o no encuentra su código, el
+   formulario sigue igual. Un atajo que no encuentra nada no puede bloquear un
+   registro. */
+function TraerMisDatos({ slug, campos, hayPadron, onEncontrado }) {
+  const [codigo, setCodigo] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  /* El camino del documento, plegado. Existe porque el padrón cubre un caso
+     que el código no puede: una lista de invitados que todavía no se han
+     registrado y por tanto no tienen código. Pero va debajo y cerrado, porque
+     pedir la cédula de primeras es pedir el dato más sensible del formulario
+     antes que el nombre. */
+  const [porDocumento, setPorDocumento] = useState(false);
+  const [doc, setDoc] = useState('');
 
   /* Si el formulario no pregunta nada, no hay nada que prellenar. */
   if (!campos?.length) return null;
 
-  /* Y si el organizador no subió padrón, tampoco: la consulta no puede
-     encontrar nada, así que lo único que hace el campo es pedirle su documento
-     a alguien que todavía no ha escrito ni su nombre. Se enseña cuando sirve.
-
-     `hayPadron` puede llegar `undefined` desde un despliegue viejo del
-     servidor; se trata como «no hay», que es el lado seguro: se deja de ofrecer
-     un atajo, no se rompe ningún registro. */
-  if (!hayPadron) return null;
-
-  const buscar = async () => {
-    if (!doc.trim() || buscando) return;
+  /* Las dos búsquedas comparten todo menos a quién le preguntan, así que
+     comparten función: escritas aparte, una acabaría enseñando el resultado y
+     la otra no. */
+  const buscar = async (conDocumento = false) => {
+    const valor = (conDocumento ? doc : codigo).trim();
+    if (!valor || buscando) return;
     setBuscando(true);
     try {
-      const r = await eventosApi.prellenar(slug, doc.trim());
+      const r = conDocumento
+        ? await eventosApi.prellenar(slug, valor)
+        : await eventosApi.prellenarConBoleta(slug, valor);
       setResultado(r);
       if (r.encontrado) onEncontrado?.(r);
     } catch {
-      /* Incluye el 429 del limitador. Se trata como "no encontrado": el
+      /* Incluye el 429 del limitador. Se trata como «no encontrado»: el
          registro tiene que poder seguir aunque esto falle. */
       setResultado({ encontrado: false });
     } finally { setBuscando(false); }
@@ -1946,19 +1974,47 @@ function BuscarPorDocumento({ slug, campos, hayPadron, onEncontrado }) {
 
   return (
     <div className="ancho rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-2">
-      <label className="label text-xs" htmlFor="res-doc">
-        ¿Ya viniste a un evento nuestro? <span className="text-text-3 font-normal">(opcional)</span>
+      <label className="label text-xs" htmlFor="res-cod">
+        ¿Ya te registraste antes? <span className="text-text-3 font-normal">(opcional)</span>
       </label>
       <div className="flex gap-2">
-        <input id="res-doc" value={doc} onChange={e => setDoc(e.target.value)}
+        <input id="res-cod" value={codigo}
+          onChange={e => setCodigo(e.target.value.toUpperCase())}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } }}
-          inputMode="numeric" autoComplete="off"
-          className="input-form flex-1 min-w-0" placeholder="Tu número de documento" />
-        <button type="button" onClick={buscar} disabled={buscando || !doc.trim()}
+          autoComplete="off" spellCheck={false}
+          className="input-form flex-1 min-w-0 font-mono tracking-widest"
+          placeholder="Código de tu boleta" />
+        <button type="button" onClick={() => buscar()} disabled={buscando || !codigo.trim()}
           className="btn-secondary btn-sm flex-shrink-0 disabled:opacity-40">
           {buscando ? 'Buscando…' : 'Traer mis datos'}
         </button>
       </div>
+      <p className="text-[11px] text-text-3">
+        Está en el correo de tu boleta anterior. Sirve el de cualquier evento de este organizador.
+      </p>
+      {/* El padrón, sólo si el organizador subió uno. Sin padrón esto no puede
+          encontrar nada, y ofrecerlo sería pedir una cédula para nada. */}
+      {hayPadron && !porDocumento && (
+        <button type="button" onClick={() => setPorDocumento(true)}
+          className="text-[11px] text-text-3 hover:text-text-1 underline">
+          ¿No tienes el código? Busca con tu documento
+        </button>
+      )}
+
+      {hayPadron && porDocumento && (
+        <div className="flex gap-2 pt-1">
+          <input value={doc} onChange={e => setDoc(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscar(true); } }}
+            inputMode="numeric" autoComplete="off"
+            aria-label="Tu número de documento"
+            className="input-form flex-1 min-w-0" placeholder="Tu número de documento" />
+          <button type="button" onClick={() => buscar(true)} disabled={buscando || !doc.trim()}
+            className="btn-secondary btn-sm flex-shrink-0 disabled:opacity-40">
+            {buscando ? 'Buscando…' : 'Buscar'}
+          </button>
+        </div>
+      )}
+
       {resultado && (
         resultado.encontrado ? (
           <p className="text-[11px] text-success">
@@ -1968,8 +2024,10 @@ function BuscarPorDocumento({ slug, campos, hayPadron, onEncontrado }) {
               : ' No falta nada más.'}
           </p>
         ) : (
+          /* No se distingue «ese código no existe» de «no está en el padrón»:
+             distinguirlas es justo lo que haría útil ir probando. */
           <p className="text-[11px] text-text-3">
-            No encontramos datos previos. Sigue y llena el formulario normalmente.
+            No encontramos nada con eso. Revísalo, o sigue y llena el formulario normalmente.
           </p>
         )
       )}

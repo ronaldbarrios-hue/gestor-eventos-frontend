@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ROLES, ORDEN_ROLES, rolValido } from '../../../lib/rolDeBoleta.js';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { ticketsApi } from '../../../api/tickets.js';
 import { useToast } from '../../../context/ToastContext.jsx';
@@ -255,6 +256,11 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
        que sí crea stands. */
     crea             : initial?.crea || (initial?.es_expositor ? 'stand' : 'nada'),
     crea_torneo_id   : initial?.crea_torneo_id || '',
+    /* 0121 · Qué papel juega en la lista de compra. Si la columna todavía no
+       está en esta base, `initial.rol` llega `undefined` y se cae a «entrada»,
+       que es lo que la lista hacía con todas hasta ahora. */
+    rol              : rolValido(initial?.rol),
+    instrucciones    : initial?.instrucciones || '',
   });
   const [torneos, setTorneos] = useState([]);
   const [falloTorneos, setFalloTorneos] = useState(false);
@@ -356,6 +362,8 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
       early_bird_hasta : form.early_bird_hasta ? new Date(form.early_bird_hasta).toISOString() : null,
       venta_hasta      : form.venta_hasta      ? new Date(form.venta_hasta).toISOString()      : null,
       crea             : form.crea,
+      rol              : form.rol,
+      instrucciones    : form.instrucciones,
       crea_torneo_id   : form.crea === 'equipo' ? (form.crea_torneo_id || null) : null,
       /* Se manda también la vieja: si esta base aún no tiene la 0093, el
          backend guarda al menos lo que ya sabía guardar y un stand sigue
@@ -422,6 +430,54 @@ function TicketForm({ initial, eventoId, currency, onSubmit, onCancel }) {
           placeholder="Vacío = ilimitado"
           className="input-form tabular-nums"
         />
+      </div>
+
+      {/* Qué ES esta boleta en la lista de compra.
+       *
+       * Va ANTES de «qué se crea al pagarse» porque es la pregunta más
+       * general: primero qué es, luego qué desencadena.
+       *
+       * Salió de un evento con cuatro boletas —la entrada general y tres
+       * actividades— que se enseñaban en una lista plana. Quien llegaba veía
+       * cuatro cosas iguales y elegía una: se inscribía al DemoDay sin
+       * entrada, o pedía las cuatro por si acaso. */}
+      <div className="field">
+        <label className="label">Qué es esta boleta</label>
+        <div className="grid sm:grid-cols-3 gap-2">
+          {ORDEN_ROLES.map(v => (
+            <button type="button" key={v} onClick={() => update('rol', v)}
+              className={`text-left rounded-2xl border p-3 transition-colors
+                ${form.rol === v ? 'border-accent/50 bg-accent/5' : 'border-border hover:bg-surface-2'}`}>
+              <span className="text-sm font-medium text-text-1 block">{ROLES[v].corto}</span>
+              <span className="text-text-3 text-[11px] leading-snug block mt-0.5">{ROLES[v].panel}</span>
+            </button>
+          ))}
+        </div>
+        <p className="hint">
+          Sólo cambia cómo se agrupa la lista de compra: no cambia lo que se emite ni el precio.
+          {form.rol !== 'entrada' && ' Quien la elija verá que necesita además la entrada al evento.'}
+        </p>
+      </div>
+
+      {/* Lo que tiene que hacer quien compre ESTA boleta.
+       *
+       * El evento ya tenía un mensaje al confirmar, pero es uno para todo. En
+       * cuanto hay actividades cada una necesita el suyo: la entrada general
+       * dice «trae tu QR» y la postulación de startup dice «te escribiremos
+       * para la sesión de pitch». */}
+      <div className="field">
+        <label className="label" htmlFor="tt-instr">
+          Qué tiene que hacer quien la compre <span className="text-text-3 font-normal lowercase tracking-normal">(opcional)</span>
+        </label>
+        <textarea id="tt-instr" rows={3} maxLength={1000}
+          value={form.instrucciones}
+          onChange={e => update('instrucciones', e.target.value)}
+          placeholder={'Ej: Preséntate en el laboratorio 2 a las 8:00 con tu documento.\nTe escribiremos por correo con la hora de tu pitch.'}
+          className="input" />
+        <p className="hint">
+          Se enseña al terminar el registro <b>y también en su boleta</b>, que es donde
+          se vuelve a mirar antes del evento. Los saltos de línea se respetan.
+        </p>
       </div>
 
       {/* Qué crea al venderse.

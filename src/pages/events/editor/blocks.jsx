@@ -5,6 +5,7 @@
 
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { numeroDeStand } from '../../../lib/expositoresUi.js';
+import { agruparBoletas } from '../../../lib/rolDeBoleta.js';
 import { Seccion, ControlesPresentacion, Grupo, Opciones, Interruptor } from './presentacion.jsx';
 import ImagePicker from '../../../components/ui/ImagePicker.jsx';
 import { COVER_ASPECTOS, coverLayout } from '../../../components/public/EventChrome.jsx';
@@ -615,94 +616,131 @@ function TicketsPreview({ data, evento, onReservar, onWaitlist, isEditor }) {
   const aforoLleno = Boolean(evento?.aforo_total)
     && (evento.aforo_vendido || 0) >= evento.aforo_total;
 
+  /* `null` cuando no hay que agrupar, que es el caso normal. */
+  const grupos = agruparBoletas(tickets);
+
   return (
     <Seccion data={data}>
       <div className="rounded-3xl border border-border-2 bg-surface/60 p-5 space-y-3">
       <p className="text-xs uppercase tracking-widest text-text-3 font-semibold">
         {data?.encabezado || 'Boletas disponibles'}
       </p>
-      <div className={dosColumnas ? 'grid sm:grid-cols-2 gap-3' : 'space-y-3'}>
-      {tickets.map(t => {
-        const hasEarly = t.early_bird_precio != null && t.early_bird_hasta && new Date(t.early_bird_hasta) > new Date();
-        const precio = hasEarly ? Number(t.early_bird_precio) : Number(t.precio);
-        const isFree = precio === 0;
-        const ventaCerr = t.venta_hasta && new Date(t.venta_hasta) < new Date();
-        const agotado  = aforoLleno || (t.cupo != null && t.vendidos >= t.cupo);
-        /* Las tres cosas que ya se sabían y no se decían.
-           `early_bird_hasta`, `venta_hasta` y el cupo se usaban para DECIDIR
-           —tachar el precio, apagar el botón, poner «Agotado»— y no se
-           enseñaban. Así que la tarjeta ponía «Early» con el precio tachado y
-           no decía hasta cuándo, y quien volvía al día siguiente se encontraba
-           otro precio sin que nadie se lo hubiera advertido.
-           Una fecha límite que no se ve no es una fecha límite. */
-        const dia = (f) => fmtFecha(f, { day: 'numeric', month: 'short' }, evento);
-        const quedan = t.cupo != null ? Math.max(0, t.cupo - (t.vendidos || 0)) : null;
-        const avisos = [];
-        if (hasEarly && !ventaCerr) avisos.push(`Este precio hasta el ${dia(t.early_bird_hasta)}`);
-        if (!ventaCerr && t.venta_hasta) avisos.push(`La venta cierra el ${dia(t.venta_hasta)}`);
-        /* El cupo sólo cuando aprieta: «quedan 87» de 100 no cambia lo que hace
-           nadie, y un número por decir algo entrena a no leer los avisos. */
-        if (!agotado && quedan != null && quedan <= 10) avisos.push(`Quedan ${quedan}`);
-        return (
-          <div key={t.id} className="rounded-2xl border border-border bg-surface/50 p-4">
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-semibold text-text-1">{t.nombre}</p>
-                  {hasEarly && !ventaCerr && <span className="text-[9px] uppercase tracking-widest text-warning font-semibold">Early</span>}
-                </div>
-                {t.descripcion && <p className="text-[11px] text-text-3 mt-0.5">{t.descripcion}</p>}
-                {avisos.length > 0 && (
-                  <p className="text-[11px] text-warning mt-1 leading-snug">{avisos.join(' · ')}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-end justify-between gap-3 mt-2">
-              <div>
-                {isFree
-                  ? <p className="text-xl font-bold font-display text-text-1">Gratis</p>
-                  : (
-                    <div>
-                      <p className="text-xl font-bold font-display text-text-1 tabular-nums leading-none">${precio.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
-                      {hasEarly && <p className="text-[10px] text-text-3 line-through mt-0.5">${Number(t.precio).toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>}
-                      <p className="text-[10px] text-text-3 mt-0.5">{t.currency}</p>
-                    </div>
-                  )}
-              </div>
-              {agotado && !ventaCerr && onWaitlist ? (
-                <button
-                  onClick={() => onWaitlist(t)}
-                  className="px-4 py-2 rounded-full text-xs font-semibold border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 transition-all"
-                >
-                  Anotarme en lista
-                </button>
-              ) : (
-                <button
-                  disabled={agotado || ventaCerr}
-                  onClick={onReservar ? () => onReservar(t) : undefined}
-                  className="px-4 py-2 rounded-full text-xs font-semibold bg-text-1 text-bg hover:bg-white transition-all disabled:bg-surface-3 disabled:text-text-3 disabled:cursor-not-allowed"
-                >
-                  {/* Agotado y Cerrado son ESTADO, no etiqueta: el texto
-                      personalizado no debe taparlos.
+      {/* Agrupadas cuando hay de qué: la entrada al evento arriba, las
+          actividades debajo y con su aviso. Si todas son entradas —el caso
+          normal— se pinta la lista de siempre, sin encabezados.
 
-                      «Regístrate» y no «Reservar» cuando es gratis. Reservar es
-                      lo que se hace con una mesa: sugiere que se aparta algo y
-                      que hay que confirmarlo después. Lo que ocurre al pulsar
-                      es un registro —se dan los datos y se acabó—, y llamarlo
-                      por su nombre es lo que hace que alguien lo termine. Se
-                      puede cambiar por bloque en «Texto del botón». */}
-                  {agotado ? 'Agotado'
-                    : ventaCerr ? 'Cerrado'
-                    : (data?.texto_boton || (isFree ? 'Regístrate' : 'Comprar'))}
-                </button>
-              )}
+          La tarjeta es UNA y se usa en los dos caminos. Escribirla dos veces
+          —una para la lista agrupada y otra para la plana— es cómo se acaban
+          comportando distinto sin que nadie lo note. */}
+      {grupos ? (
+        <div className="space-y-5">
+          {grupos.map(g => (
+            <div key={g.rol}>
+              <p className="text-[11px] uppercase tracking-widest text-text-2 font-semibold">{g.titulo}</p>
+              {g.ayuda && <p className="text-[11px] text-warning mt-0.5 mb-2">{g.ayuda}</p>}
+              <div className={dosColumnas ? 'grid sm:grid-cols-2 gap-3 mt-2' : 'space-y-3 mt-2'}>
+                {g.tipos.map(t => (
+                  <TarjetaBoleta key={t.id} t={t} evento={evento} aforoLleno={aforoLleno}
+                    data={data} onReservar={onReservar} onWaitlist={onWaitlist} />
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          ))}
+        </div>
+      ) : (
+        <div className={dosColumnas ? 'grid sm:grid-cols-2 gap-3' : 'space-y-3'}>
+          {tickets.map(t => (
+            <TarjetaBoleta key={t.id} t={t} evento={evento} aforoLleno={aforoLleno}
+              data={data} onReservar={onReservar} onWaitlist={onWaitlist} />
+          ))}
+        </div>
+      )}
       </div>
     </Seccion>
+  );
+}
+
+/* Una boleta en la lista de compra.
+ *
+ * Sale del cuerpo del `map` que había dentro del bloque: en cuanto la lista se
+ * agrupa hay dos sitios que la pintan, y dos copias de una tarjeta es cómo
+ * acaban teniendo distinto el precio tachado o el botón de agotado. */
+function TarjetaBoleta({ t, evento, aforoLleno, data, onReservar, onWaitlist }) {
+  const hasEarly = t.early_bird_precio != null && t.early_bird_hasta && new Date(t.early_bird_hasta) > new Date();
+  const precio = hasEarly ? Number(t.early_bird_precio) : Number(t.precio);
+  const isFree = precio === 0;
+  const ventaCerr = t.venta_hasta && new Date(t.venta_hasta) < new Date();
+  const agotado  = aforoLleno || (t.cupo != null && t.vendidos >= t.cupo);
+  /* Las tres cosas que ya se sabían y no se decían.
+     `early_bird_hasta`, `venta_hasta` y el cupo se usaban para DECIDIR
+     —tachar el precio, apagar el botón, poner «Agotado»— y no se
+     enseñaban. Así que la tarjeta ponía «Early» con el precio tachado y
+     no decía hasta cuándo, y quien volvía al día siguiente se encontraba
+     otro precio sin que nadie se lo hubiera advertido.
+     Una fecha límite que no se ve no es una fecha límite. */
+  const dia = (f) => fmtFecha(f, { day: 'numeric', month: 'short' }, evento);
+  const quedan = t.cupo != null ? Math.max(0, t.cupo - (t.vendidos || 0)) : null;
+  const avisos = [];
+  if (hasEarly && !ventaCerr) avisos.push(`Este precio hasta el ${dia(t.early_bird_hasta)}`);
+  if (!ventaCerr && t.venta_hasta) avisos.push(`La venta cierra el ${dia(t.venta_hasta)}`);
+  /* El cupo sólo cuando aprieta: «quedan 87» de 100 no cambia lo que hace
+     nadie, y un número por decir algo entrena a no leer los avisos. */
+  if (!agotado && quedan != null && quedan <= 10) avisos.push(`Quedan ${quedan}`);
+  return (
+    <div className="rounded-2xl border border-border bg-surface/50 p-4">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-semibold text-text-1">{t.nombre}</p>
+            {hasEarly && !ventaCerr && <span className="text-[9px] uppercase tracking-widest text-warning font-semibold">Early</span>}
+          </div>
+          {t.descripcion && <p className="text-[11px] text-text-3 mt-0.5">{t.descripcion}</p>}
+          {avisos.length > 0 && (
+            <p className="text-[11px] text-warning mt-1 leading-snug">{avisos.join(' · ')}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-end justify-between gap-3 mt-2">
+        <div>
+          {isFree
+            ? <p className="text-xl font-bold font-display text-text-1">Gratis</p>
+            : (
+              <div>
+                <p className="text-xl font-bold font-display text-text-1 tabular-nums leading-none">${precio.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
+                {hasEarly && <p className="text-[10px] text-text-3 line-through mt-0.5">${Number(t.precio).toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>}
+                <p className="text-[10px] text-text-3 mt-0.5">{t.currency}</p>
+              </div>
+            )}
+        </div>
+        {agotado && !ventaCerr && onWaitlist ? (
+          <button
+            onClick={() => onWaitlist(t)}
+            className="px-4 py-2 rounded-full text-xs font-semibold border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 transition-all"
+          >
+            Anotarme en lista
+          </button>
+        ) : (
+          <button
+            disabled={agotado || ventaCerr}
+            onClick={onReservar ? () => onReservar(t) : undefined}
+            className="px-4 py-2 rounded-full text-xs font-semibold bg-text-1 text-bg hover:bg-white transition-all disabled:bg-surface-3 disabled:text-text-3 disabled:cursor-not-allowed"
+          >
+            {/* Agotado y Cerrado son ESTADO, no etiqueta: el texto
+                personalizado no debe taparlos.
+
+                «Regístrate» y no «Reservar» cuando es gratis. Reservar es
+                lo que se hace con una mesa: sugiere que se aparta algo y
+                que hay que confirmarlo después. Lo que ocurre al pulsar
+                es un registro —se dan los datos y se acabó—, y llamarlo
+                por su nombre es lo que hace que alguien lo termine. Se
+                puede cambiar por bloque en «Texto del botón». */}
+            {agotado ? 'Agotado'
+              : ventaCerr ? 'Cerrado'
+              : (data?.texto_boton || (isFree ? 'Regístrate' : 'Comprar'))}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
