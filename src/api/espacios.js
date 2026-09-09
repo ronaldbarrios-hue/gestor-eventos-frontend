@@ -27,6 +27,16 @@ export const espaciosApi = {
      una VENTA no, y una anulación o una prueba dejarían la silla ocupada para
      siempre. Queda anotado en la auditoría. */
   liberar     : (eventoId, id)        => client.post(`/eventos/${eventoId}/espacios/${id}/liberar`).then(r => r.data),
+  /* Mover muchos de una vez. Arrastrar una sección son doscientas sillas que
+     cambian de sitio: con una petición por silla el editor iría a tirones.
+     Sólo toca la geometría — no puede cambiar precios, modos ni nombres. */
+  moverGeometria: (eventoId, cambios) =>
+    client.put(`/eventos/${eventoId}/espacios/geometria`, { cambios }).then(r => r.data),
+  /* El color de una localidad. Es una decisión del plano y no del catálogo:
+     en el mapa de un concierto el color ES el precio. `null` vuelve al color
+     de la paleta, para que elegir uno no sea irreversible. */
+  colorLocalidad: (eventoId, tipoId, color) =>
+    client.put(`/eventos/${eventoId}/localidades/${tipoId}/color`, { color }).then(r => r.data),
 };
 
 /* ── Quien compra ─────────────────────────────────────────────────────── */

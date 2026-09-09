@@ -5,7 +5,8 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
-import PlanoSVG from '../../../components/public/PlanoSVG.jsx';
+import PlanoSVG, { LeyendaDePrecios } from '../../../components/public/PlanoSVG.jsx';
+import EditorDePlano from '../../../components/plano/EditorDePlano.jsx';
 
 /* El plano: montar los sitios que se venden uno a uno.
  *
@@ -45,6 +46,10 @@ export default function PlanoTab({ evento }) {
      endpoint nuevo — el panel ya tiene los espacios y las reservas, y el
      componente del mapa es literalmente el mismo que se sirve fuera. */
   const [previa, setPrevia] = useState(false);
+  /* Colocar el recinto arrastrando. Es una vista aparte de la previa y de la
+     lista porque son tres intenciones distintas: montar, colocar y comprobar.
+     Mezclarlas haría que un clic para mirar moviera algo. */
+  const [colocando, setColocando] = useState(false);
 
   const cargar = async () => {
     try {
@@ -80,6 +85,27 @@ export default function PlanoTab({ evento }) {
     for (const l of datos?.localidades || []) m.set(l.espacio_id, l.ticket);
     return m;
   }, [datos]);
+
+  /* El color de un sitio es el de su localidad, no el suyo: cambiar el color de
+     «Platea» tiene que repintar sus dos mil sillas de una vez. */
+  const colorDe = (e) => precioDe.get(e.id)?.color || null;
+
+  const guardarColocacion = async (cambios) => {
+    setTrabajando(true);
+    try {
+      const r = await espaciosApi.moverGeometria(evento.id, cambios);
+      await cargar();
+      success(r.movidos === 1 ? 'Se movió 1 sitio.' : `Se movieron ${r.movidos} sitios.`);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setTrabajando(false); }
+  };
+
+  const ponerColor = async (tipoId, color) => {
+    try {
+      await espaciosApi.colorLocalidad(evento.id, tipoId, color);
+      await cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
 
   const vendibles = (datos?.espacios || []).filter(e => e.modo === 'vendible');
   const vendidas = vendibles.filter(e => ocupado.get(e.id) === 'vendido').length;
@@ -200,9 +226,35 @@ export default function PlanoTab({ evento }) {
 
       {vendibles.length > 0 && (
         <div className="space-y-2">
-          <button onClick={() => setPrevia(v => !v)} className="text-xs text-accent hover:underline">
-            {previa ? 'Volver a la lista' : 'Ver como lo verá quien compra'}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => { setPrevia(v => !v); setColocando(false); }}
+              className="text-xs text-accent hover:underline">
+              {previa ? 'Volver a la lista' : 'Ver como lo verá quien compra'}
+            </button>
+            {/* Colocar es otra intención distinta de mirar: se separa para que
+                un clic para comprobar no mueva nada. */}
+            <button onClick={() => { setColocando(v => !v); setPrevia(false); }}
+              className="text-xs text-accent hover:underline">
+              {colocando ? 'Volver a la lista' : 'Colocar el recinto'}
+            </button>
+          </div>
+
+          {/* La leyenda con su selector de color. Va en las dos vistas porque en
+              un mapa de concierto el color ES el precio, y decidirlo mirando
+              sólo la lista es decidirlo a ciegas. */}
+          {(previa || colocando) && (
+            <ColoresDeLocalidad
+              localidades={[...new Map((datos?.localidades || [])
+                .filter(l => l.ticket).map(l => [l.ticket.id, l.ticket])).values()]
+                .sort((x, y) => Number(y.precio || 0) - Number(x.precio || 0))}
+              onColor={ponerColor} />
+          )}
+
+          {colocando && (
+            <EditorDePlano espacios={vendibles} colorDe={colorDe}
+              onGuardar={guardarColocacion} guardando={trabajando} />
+          )}
+
           {previa && (
             <>
               {/* El MISMO componente que se sirve al público, con los datos que
@@ -214,6 +266,7 @@ export default function PlanoTab({ evento }) {
                   geometria: e.geometria, libre: !ocupado.get(e.id),
                 }))}
                 valor={null} onElegir={() => {}}
+                colorDe={colorDe}
                 ocupadoTitulo="vendida o retenida" />
               <p className="text-[11px] text-text-3">
                 Así se ve el plano. Aquí sólo se mira: quien compra elige desde la página del evento.
@@ -225,14 +278,14 @@ export default function PlanoTab({ evento }) {
         </div>
       )}
 
-      {!previa && (datos.arbol || []).map(nodo => (
+      {!previa && !colocando && (datos.arbol || []).map(nodo => (
         <Nodo key={nodo.id} nodo={nodo} nivel={0}
           ocupado={ocupado} precioDe={precioDe} tipos={tipos}
           onGenerar={() => setGenerandoEn(nodo)}
           onBorrar={borrar} onLiberar={liberar} onLocalidad={ponerLocalidad} onRenombrar={renombrar} />
       ))}
 
-      {!previa && (datos.arbol || []).length > 0 && !creando && (
+      {!previa && !colocando && (datos.arbol || []).length > 0 && !creando && (
         <button onClick={() => setCreando(true)} className="btn-ghost btn-sm">+ Otra zona</button>
       )}
 
@@ -438,5 +491,38 @@ function FormGenerar({ dentroDe, max, onGenerar, onCancelar, trabajando }) {
         <button type="button" onClick={onCancelar} className="btn-ghost btn-sm">Cancelar</button>
       </div>
     </form>
+  );
+}
+
+/* Elegir el color de cada localidad.
+ *
+ * Se enseña ordenado por precio, de más caro a más barato, porque así es como
+ * se lee un mapa de recinto: el rojo delante, el azul al fondo. Ver la lista en
+ * ese orden hace evidente si dos localidades contiguas tienen colores que no se
+ * distinguen.
+ *
+ * «Automático» devuelve el color de la paleta. Sin esa salida, elegir un color
+ * sería irreversible y la única forma de arrepentirse sería adivinar cuál era.
+ */
+function ColoresDeLocalidad({ localidades = [], onColor }) {
+  if (!localidades.length) return null;
+  return (
+    <div className="rounded-xl border border-border p-3 space-y-2">
+      <p className="text-xs text-text-2">
+        El color de cada localidad. En el plano, el color <b>es</b> el precio.
+      </p>
+      <ul className="flex flex-wrap gap-x-5 gap-y-2">
+        {localidades.map(l => (
+          <li key={l.id} className="flex items-center gap-2">
+            <input type="color" value={l.color || '#888888'} aria-label={`Color de ${l.nombre}`}
+              onChange={(e) => onColor(l.id, e.target.value)}
+              className="w-7 h-7 rounded border border-border bg-transparent cursor-pointer p-0" />
+            <span className="text-xs text-text-1">{l.nombre}</span>
+            <button type="button" onClick={() => onColor(l.id, null)}
+              className="text-[10px] text-text-3 hover:text-text-1 underline">automático</button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
