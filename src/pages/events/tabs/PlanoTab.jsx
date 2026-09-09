@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { espaciosApi } from '../../../api/espacios.js';
 import { ticketsApi } from '../../../api/tickets.js';
+import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
@@ -33,7 +34,7 @@ const MODOS = [
   { id: 'vendible',  label: 'Se vende',       ayuda: 'Una silla, una mesa, un palco. Esto es lo que alguien compra.' },
 ];
 
-export default function PlanoTab({ evento }) {
+export default function PlanoTab({ evento, recargarEvento }) {
   const { success, error: toastErr } = useToast();
   const [datos, setDatos] = useState(null);      // null = cargando
   const [tipos, setTipos] = useState([]);
@@ -98,6 +99,50 @@ export default function PlanoTab({ evento }) {
       success(r.movidos === 1 ? 'Se movió 1 sitio.' : `Se movieron ${r.movidos} sitios.`);
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
     finally { setTrabajando(false); }
+  };
+
+  /* El recinto de partida. Nadie empieza bien delante de un lienzo vacío. */
+  const plantilla = async (opciones) => {
+    setTrabajando(true);
+    try {
+      const r = await espaciosApi.plantillaConcierto(evento.id, opciones);
+      await cargar();
+      success(`Recinto creado: ${r.creados} piezas. Ahora colócalo sobre el plano real.`);
+      setColocando(true);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setTrabajando(false); }
+  };
+
+  /* El plano oficial que se calca. Vive en `page_json` del evento y no en un
+     espacio: es del recinto entero, no de una silla. */
+  const fondo = evento.page_json?.plano_fondo || null;
+  const guardarFondo = async (nuevo) => {
+    try {
+      await eventosApi.update(evento.id, {
+        page_json: { ...(evento.page_json || {}), plano_fondo: nuevo },
+      });
+      recargarEvento?.();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
+  const crearBloque = async ({ tipo, geometria }) => {
+    try {
+      /* El nombre se propone y se cambia después en la lista: parar a teclear
+         un nombre por cada bloque rompe el ritmo de dibujar veinte seguidos. */
+      const cuantos = (datos?.espacios || []).filter(e => e.tipo === tipo).length + 1;
+      const nombre = tipo === 'tarima' ? 'Tarima'
+        : tipo === 'pista' ? `General ${String.fromCharCode(64 + cuantos)}`
+        : tipo === 'palco' ? `Palco ${cuantos}`
+        : String(100 + cuantos);
+      await espaciosApi.crear(evento.id, {
+        nombre, tipo, geometria,
+        /* Una tribuna o una general son contenedores: lo que se vende son sus
+           butacas. Sólo el palco nace vendible. */
+        modo: tipo === 'palco' ? 'vendible' : 'aforo',
+        ...(tipo === 'palco' ? { capacidad: 8 } : {}),
+      });
+      await cargar();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
   const ponerColor = async (tipoId, color) => {
@@ -220,7 +265,14 @@ export default function PlanoTab({ evento }) {
             Empieza por una zona —«Ringside», «Platea», «Palcos»— y dentro genera las
             unidades que se venden. Se pueden crear de una vez: «1 fila de 20 mesas».
           </p>
-          <button onClick={() => setCreando(true)} className="btn-primary btn-sm">Crear la primera zona</button>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <button onClick={() => setCreando(true)} className="btn-ghost btn-sm">Crear una zona a mano</button>
+          </div>
+
+          {/* El camino corto para un concierto. Va aquí y no escondido en un
+              menú porque es por donde debería empezar casi todo el mundo:
+              montar tarima, general y tribunas a mano son treinta formularios. */}
+          <RecintoDeConcierto onCrear={plantilla} trabajando={trabajando} />
         </div>
       )}
 
@@ -251,8 +303,18 @@ export default function PlanoTab({ evento }) {
           )}
 
           {colocando && (
-            <EditorDePlano espacios={vendibles} colorDe={colorDe}
-              onGuardar={guardarColocacion} guardando={trabajando} />
+            <EditorDePlano
+              espacios={vendibles}
+              /* Los contenedores con forma: la tarima, la general, las
+                 tribunas. Se dibujan de fondo para saber dónde se está
+                 colocando cada silla. */
+              bloques={(datos?.espacios || [])
+                .filter(e => e.modo !== 'vendible' && (e.geometria?.puntos || []).length >= 3)}
+              colorDe={colorDe}
+              onGuardar={guardarColocacion}
+              onCrearBloque={crearBloque}
+              fondo={fondo} onFondo={guardarFondo}
+              guardando={trabajando} />
           )}
 
           {previa && (
@@ -524,5 +586,91 @@ function ColoresDeLocalidad({ localidades = [], onColor }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/* El recinto de concierto de partida.
+ *
+ * ── Por qué la abertura es la primera pregunta ──────────────────────────
+ *
+ * Porque es la decisión que hay que tomar ANTES de dibujar nada: determina todo
+ * el resto del mapa, y cambiarla después es rehacerlo. Se pregunta con las tres
+ * formas reales de montar un concierto, no en grados — nadie piensa «240°»,
+ * piensa «el escenario a un extremo».
+ *
+ * Y lo que sale NO es el recinto: es por dónde se empieza. El recinto se
+ * termina poniendo el plano oficial de fondo y calcándolo encima.
+ */
+function RecintoDeConcierto({ onCrear, trabajando }) {
+  const [abierto, setAbierto] = useState(false);
+  const [forma, setForma] = useState(240);
+  const [anillos, setAnillos] = useState(2);
+  const [porAnillo, setPorAnillo] = useState(10);
+  const [palcos, setPalcos] = useState(0);
+  const [conPista, setConPista] = useState(true);
+
+  const FORMAS = [
+    { v: 180, label: 'Escenario contra la pared', ayuda: 'Auditorio, teatro, salón' },
+    { v: 240, label: 'Escenario a un extremo',    ayuda: 'Arena, coliseo' },
+    { v: 360, label: 'En redondo',                ayuda: 'Escenario en el centro' },
+  ];
+
+  if (!abierto) {
+    return (
+      <button onClick={() => setAbierto(true)} className="btn-primary btn-sm mt-3">
+        Empezar con un recinto de concierto
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-5 text-left rounded-2xl border border-border p-4 space-y-3">
+      <p className="text-sm font-medium text-text-1">Cómo está montado el escenario</p>
+      <div className="grid sm:grid-cols-3 gap-2">
+        {FORMAS.map(f => (
+          <button key={f.v} type="button" onClick={() => setForma(f.v)}
+            className={`text-left rounded-xl border p-3 transition-colors
+              ${forma === f.v ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'}`}>
+            <span className="block text-xs font-medium text-text-1">{f.label}</span>
+            <span className="block text-[11px] text-text-3">{f.ayuda}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Numero label="Anillos de tribunas" valor={anillos} onCambio={setAnillos} min={1} max={6} />
+        <Numero label="Tribunas por anillo" valor={porAnillo} onCambio={setPorAnillo} min={1} max={40} />
+        <Numero label="Palcos" valor={palcos} onCambio={setPalcos} min={0} max={60} />
+        <label className="flex items-center gap-2 text-xs text-text-2 self-end pb-1">
+          <input type="checkbox" checked={conPista} onChange={(e) => setConPista(e.target.checked)} />
+          Con general de pie delante
+        </label>
+      </div>
+
+      <p className="text-[11px] text-text-3">
+        Sale un punto de partida con la numeración de un recinto real —101, 102… 201, 202…—.
+        Después se pone el plano oficial de fondo y se calca encima.
+      </p>
+
+      <div className="flex gap-2">
+        <button type="button" disabled={trabajando}
+          onClick={() => onCrear({ abertura: forma, anillos, porAnillo, palcos, conPista })}
+          className="btn-primary btn-sm">
+          {trabajando ? 'Creando…' : 'Crear el recinto'}
+        </button>
+        <button type="button" onClick={() => setAbierto(false)} className="btn-ghost btn-sm">Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+function Numero({ label, valor, onCambio, min, max }) {
+  return (
+    <label className="block">
+      <span className="block text-[11px] text-text-3 mb-1">{label}</span>
+      <input type="number" value={valor} min={min} max={max}
+        onChange={(e) => onCambio(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
+        className="input input-sm text-xs w-full" />
+    </label>
   );
 }

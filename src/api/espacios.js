@@ -35,6 +35,11 @@ export const espaciosApi = {
   /* El color de una localidad. Es una decisión del plano y no del catálogo:
      en el mapa de un concierto el color ES el precio. `null` vuelve al color
      de la paleta, para que elegir uno no sea irreversible. */
+  /* El recinto de concierto de partida: tarima, general, tribunas numeradas y
+     palcos ya colocados. No es el recinto —eso se termina calcando el plano de
+     verdad encima— pero nadie empieza bien delante de un lienzo vacío. */
+  plantillaConcierto: (eventoId, body) =>
+    client.post(`/eventos/${eventoId}/espacios/plantilla`, body).then(r => r.data),
   colorLocalidad: (eventoId, tipoId, color) =>
     client.put(`/eventos/${eventoId}/localidades/${tipoId}/color`, { color }).then(r => r.data),
 };

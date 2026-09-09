@@ -675,7 +675,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'zonas/accesos'          : return <AccesosSection evento={evento} />;
     case 'actividades/ranking'          : return <RankingTab evento={evento} />;
     case 'comercial/boletas'        : return <TicketsTab evento={evento} />;
-    case 'comercial/plano'          : return <PlanoTab evento={evento} />;
+    case 'comercial/plano'          : return <PlanoTab evento={evento} recargarEvento={reload} />;
     case 'comercial/pagos'          : return <PagosSection evento={evento} reload={reload} />;
     case 'comercial/dinero'         : return <DineroSection evento={evento} />;
     case 'resumen/analytics'      : return <AnalyticsTab evento={evento} />;

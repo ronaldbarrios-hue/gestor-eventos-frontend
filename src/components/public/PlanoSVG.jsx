@@ -259,6 +259,16 @@ export function LeyendaDePrecios({ localidades = [], formato }) {
  * el centroide real de un polígono cóncavo puede quedar FUERA de la figura:
  * la etiqueta «122» acabaría flotando en el pasillo de al lado. */
 export function centroDe(geometria) {
+  /* Si el bloque trae su propio ancla, manda. La calcula quien lo generó, que
+     conoce el ángulo y el radio del arco, y por eso acierta donde la caja
+     falla: en un arco ancho el centro de la caja cae en el AGUJERO, y el nombre
+     se dibuja flotando fuera de la figura. */
+  const propio = geometria?.centro;
+  if (Array.isArray(propio) && propio.length === 2
+      && Number.isFinite(Number(propio[0])) && Number.isFinite(Number(propio[1]))) {
+    return [Number(propio[0]), Number(propio[1])];
+  }
+
   const puntos = geometria?.puntos || [];
   if (puntos.length < 3) return null;
   const xs = puntos.map(p => Number(p[0])).filter(Number.isFinite);
