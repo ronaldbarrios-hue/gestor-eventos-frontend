@@ -61,6 +61,17 @@ jobs:
       - name: Construir
         run: npm run build
 
+      # El índice de apt del runner llega a veces corrupto y `--with-deps`
+      # muere con «Hash Sum mismatch» al leer el de dl.google.com. No es un
+      # fallo del código —pasó dos veces seguidas con `main` en verde— y sin
+      # esto la única salida es reintentar hasta que suene la flauta.
+      # Se tira el índice y se vuelve a bajar.
+      - name: Refrescar el índice de paquetes
+        run: |
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo apt-get update
+
       - name: Navegador para las pruebas del widget
         run: npx playwright install --with-deps chromium
 
