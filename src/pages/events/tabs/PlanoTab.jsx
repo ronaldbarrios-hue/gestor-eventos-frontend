@@ -187,6 +187,18 @@ export default function PlanoTab({ evento, recargarEvento }) {
     finally { setTrabajando(false); }
   };
 
+  const borrarRecinto = async (r) => {
+    const ok = await confirmDialog({
+      message: `¿Borrar el recinto «${r.nombre}»?\n\nLos eventos ya montados con él no cambian: cada uno tiene su propia copia.`,
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await recintosApi.borrar(r.id);
+      success(`«${r.nombre}» borrado.`);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+  };
+
   const ponerColor = async (tipoId, color) => {
     try {
       await espaciosApi.colorLocalidad(evento.id, tipoId, color);
@@ -318,7 +330,7 @@ export default function PlanoTab({ evento, recargarEvento }) {
           {/* Lo primero que se ofrece es lo que menos trabajo cuesta: si el
               recinto ya está dibujado de otro concierto, montarlo son dos
               clics. Dibujarlo otra vez son horas. */}
-          <MisRecintos onMontar={montarRecinto} trabajando={trabajando} />
+          <MisRecintos onMontar={montarRecinto} onBorrar={borrarRecinto} trabajando={trabajando} />
 
           {/* El camino corto para un concierto nuevo. Va aquí y no escondido en
               un menú porque es por donde debería empezar casi todo el mundo:
@@ -738,15 +750,18 @@ function Numero({ label, valor, onCambio, min, max }) {
  * por aforo y no van a mirar esto nunca, y una consulta en cada apertura de la
  * pestaña sería trabajo por nada.
  */
-function MisRecintos({ onMontar, trabajando }) {
+function MisRecintos({ onMontar, onBorrar, trabajando }) {
   const [recintos, setRecintos] = useState(null);   // null = sin pedir
   const [abierto, setAbierto] = useState(false);
 
-  const abrir = async () => {
-    setAbierto(true);
-    if (recintos !== null) return;
+  const recargar = async () => {
     try { setRecintos((await recintosApi.list()).recintos || []); }
     catch { setRecintos([]); }
+  };
+
+  const abrir = async () => {
+    setAbierto(true);
+    if (recintos === null) await recargar();
   };
 
   if (!abierto) {
@@ -783,8 +798,16 @@ function MisRecintos({ onMontar, trabajando }) {
                 {r.aforo_legal ? ` · aforo legal ${r.aforo_legal.toLocaleString('es-CO')}` : ''}
               </span>
             </span>
-            <button type="button" disabled={trabajando} onClick={() => onMontar(r.id)}
-              className="btn-primary btn-sm shrink-0">Montar</button>
+            <span className="flex items-center gap-2 shrink-0">
+              <button type="button" disabled={trabajando} onClick={() => onMontar(r.id)}
+                className="btn-primary btn-sm">Montar</button>
+              {/* Borrar un recinto NO toca los eventos montados con él: son
+                  copias, y ésa es justo la razón de que sean copias. Se dice
+                  al confirmar, porque desde fuera parece lo contrario. */}
+              <button type="button" disabled={trabajando}
+                onClick={async () => { await onBorrar(r); await recargar(); }}
+                className="text-[11px] text-text-3 hover:text-danger underline">borrar</button>
+            </span>
           </li>
         ))}
       </ul>

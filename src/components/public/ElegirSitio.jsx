@@ -189,8 +189,18 @@ export default function ElegirSitio({ slug, ticketTypeId, valor, onElegir, onErr
               sin salida: hay que recargar la página para ver el mapa otra vez. */}
           {hayRecinto && (
             <button type="button" onClick={() => setSeccion('')}
-              className="text-[11px] text-accent hover:underline">
-              ← Ver todo el recinto
+              className="text-[11px] text-accent hover:underline inline-flex items-center gap-1">
+              {/* La flecha es un `svg`, no un «←» tecleado dentro del texto: un
+                  carácter hereda el interlineado de la fuente, se descuadra
+                  respecto a la palabra y cambia de grosor según el sistema. Lo
+                  mismo que decidió `components/ui/Volver.jsx`, que aquí no
+                  encaja porque esto no navega: sube un nivel del mapa. */}
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3 h-3"
+                fill="none" stroke="currentColor" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M11 18l-6-6 6-6" />
+              </svg>
+              Ver todo el recinto
             </button>
           )}
 

@@ -101,7 +101,6 @@ export function sesionDelCarrito() {
  */
 export const recintosApi = {
   list  : ()      => client.get('/recintos').then(r => r.data),
-  get   : (id)    => client.get(`/recintos/${id}`).then(r => r.data),
   /* Se guarda el plano que de verdad hay en el evento: el servidor lo lee de la
      base, no del navegador. */
   guardar: (body) => client.post('/recintos', body).then(r => r.data),
