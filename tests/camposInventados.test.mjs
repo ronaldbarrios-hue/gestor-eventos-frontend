@@ -57,6 +57,7 @@ const PROPIOS = {
   texto_mm: 'medida de la etiquetadora, en page_json',
   texto_alto_mm: 'medida de la etiquetadora, en page_json',
   formato_codigo: 'ajuste de la etiquetadora, en page_json',
+  plano_fondo: 'la imagen del plano del recinto que se calca en el editor, en page_json',
   qr_contenido: 'ajuste de la etiquetadora, en page_json',
   qr_objetivo: 'ajuste de la etiquetadora, en page_json',
   puntos_por_modulo: 'ajuste de la etiquetadora, en page_json',

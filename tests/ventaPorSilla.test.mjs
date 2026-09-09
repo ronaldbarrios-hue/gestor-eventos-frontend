@@ -175,9 +175,25 @@ test('el plano usa UN manejador, no uno por silla', () => {
 
 test('el zoom mueve el viewBox, no cada silla', () => {
   /* Es una sola propiedad del SVG y el navegador lo resuelve sin repintar dos
-     mil nodos. Un `transform` por silla sería lo contrario. */
+     mil nodos. Un `transform` recalculado por silla sería lo contrario.
+   *
+   * Lo que se comprueba es eso y no «no hay transform»: la silla SÍ lleva un
+   * `transform` de giro —los planos de teatro tienen las butacas de cara al
+   * escenario— pero es estático, sale de su propia geometría y no se toca al
+   * ampliar. La versión anterior de esta prueba prohibía la palabra entera y
+   * habría bloqueado el giro sin que eso protegiera nada.
+   *
+   * Y se cortan los comentarios antes de medir: el de cabecera dice
+   * «dos mil `<rect>`» y el corte empezaba ahí. Van cuatro veces que una prueba
+   * mide un comentario en vez del código. */
   assert.match(PLANO, /viewBox=\{viewBox\}/);
-  assert.doesNotMatch(PLANO.slice(PLANO.indexOf('<rect')), /transform=/);
+  const limpio = PLANO.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rect = limpio.slice(limpio.indexOf('<rect'), limpio.indexOf('</rect>'));
+  for (const t of rect.match(/transform=\{[^}]*\}/g) || []) {
+    assert.doesNotMatch(t, /v\.|vista|viewBox|caja/,
+      `el transform de la silla depende de la vista: ${t}`);
+    assert.match(t, /rot/, `transform de la silla que no es el giro: ${t}`);
+  }
 });
 
 test('el encuadre sale del contenido', () => {

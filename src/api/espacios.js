@@ -27,6 +27,26 @@ export const espaciosApi = {
      una VENTA no, y una anulación o una prueba dejarían la silla ocupada para
      siempre. Queda anotado en la auditoría. */
   liberar     : (eventoId, id)        => client.post(`/eventos/${eventoId}/espacios/${id}/liberar`).then(r => r.data),
+  /* Llenar una tribuna ya trazada con sus butacas. Es el orden natural desde
+     que el bloque se dibuja sobre el plano real: primero la forma, luego las
+     sillas dentro. */
+  llenarBloque: (eventoId, id, body) =>
+    client.post(`/eventos/${eventoId}/espacios/${id}/butacas`, body).then(r => r.data),
+  /* Mover muchos de una vez. Arrastrar una sección son doscientas sillas que
+     cambian de sitio: con una petición por silla el editor iría a tirones.
+     Sólo toca la geometría — no puede cambiar precios, modos ni nombres. */
+  moverGeometria: (eventoId, cambios) =>
+    client.put(`/eventos/${eventoId}/espacios/geometria`, { cambios }).then(r => r.data),
+  /* El color de una localidad. Es una decisión del plano y no del catálogo:
+     en el mapa de un concierto el color ES el precio. `null` vuelve al color
+     de la paleta, para que elegir uno no sea irreversible. */
+  /* El recinto de concierto de partida: tarima, general, tribunas numeradas y
+     palcos ya colocados. No es el recinto —eso se termina calcando el plano de
+     verdad encima— pero nadie empieza bien delante de un lienzo vacío. */
+  plantillaConcierto: (eventoId, body) =>
+    client.post(`/eventos/${eventoId}/espacios/plantilla`, body).then(r => r.data),
+  colorLocalidad: (eventoId, tipoId, color) =>
+    client.put(`/eventos/${eventoId}/localidades/${tipoId}/color`, { color }).then(r => r.data),
 };
 
 /* ── Quien compra ─────────────────────────────────────────────────────── */
@@ -67,3 +87,25 @@ export function sesionDelCarrito() {
     return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   }
 }
+
+/* ── Los recintos guardados ───────────────────────────────────────────────
+ *
+ * Dibujar el Movistar Arena son horas, y sin esto ese trabajo muere con el
+ * evento: el siguiente concierto en el mismo sitio empieza de cero.
+ *
+ * Cada evento parte de una COPIA y no de una referencia viva. Es deliberado:
+ * con referencia, corregir la plantilla cambiaría el plano de eventos que ya
+ * vendieron boletas —alguien compró «Tribuna 104, fila F» y la 104 se mueve—.
+ * Lo que se pierde, propagar una corrección a todos, es justo lo que no se debe
+ * poder hacer.
+ */
+export const recintosApi = {
+  list  : ()      => client.get('/recintos').then(r => r.data),
+  /* Se guarda el plano que de verdad hay en el evento: el servidor lo lee de la
+     base, no del navegador. */
+  guardar: (body) => client.post('/recintos', body).then(r => r.data),
+  borrar : (id)   => client.delete(`/recintos/${id}`).then(r => r.data),
+  /* Montar el plano de un evento desde un recinto. */
+  montarEn: (eventoId, recinto_id) =>
+    client.post(`/eventos/${eventoId}/espacios/desde-recinto`, { recinto_id }).then(r => r.data),
+};
