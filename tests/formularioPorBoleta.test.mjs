@@ -77,43 +77,50 @@ test('en un evento de una sola boleta no se pregunta nada', () => {
   assert.match(trozo.slice(0, trozo.indexOf('\n  };')), /tiposBoleta\.length > 1/);
 });
 
-/* ── Traer mis datos: primero el código, la cédula sólo si hay padrón ── */
+/* ── Traer mis datos: dos llaves, y una nunca va sola ────────────────── */
 
-test('el atajo se pide con el CÓDIGO de la boleta, no con la cédula', () => {
-  /* El código lo tiene la persona en su correo y funciona sin que el
-     organizador haya subido nada. La cédula es el dato más sensible del
-     formulario y se pedía antes que el nombre. */
-  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
-  const cuerpo = trozo.slice(0, trozo.indexOf('\n}'));
-  assert.match(cuerpo, /prellenarConBoleta/);
-  assert.match(cuerpo, /Código de tu boleta/);
+const CUERPO_ATAJO = (() => {
+  const t = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
+  return t.slice(0, t.indexOf('\n}\n'));
+})();
+
+test('se ofrecen las dos formas, a la vista', () => {
+  /* Escondida detrás de un enlace, la segunda no la encuentra quien perdió el
+     correo — que es justo quien la necesita. */
+  assert.match(CUERPO_ATAJO, /Con el código de mi boleta/);
+  assert.match(CUERPO_ATAJO, /Con mi documento/);
 });
 
-test('la cédula sólo se ofrece si hay padrón, y plegada', () => {
-  /* El padrón cubre un caso que el código no puede —invitados que aún no se
-     han registrado— así que no se quita. Pero va debajo y cerrada. */
-  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
-  const cuerpo = trozo.slice(0, trozo.indexOf('\n}'));
-  assert.match(cuerpo, /hayPadron && !porDocumento/);
-  assert.match(sinComentarios(PUBLICA), /hayPadron=\{evento\?\.tiene_padron\}/);
-
-  /* Y el campo del documento aparece DESPUÉS del código en el archivo: en
-     pantalla eso es «debajo», que es todo el punto. */
-  assert.ok(cuerpo.indexOf('Código de tu boleta') < cuerpo.indexOf('Tu número de documento'));
+test('el documento NUNCA viaja sin el correo', () => {
+  /* Una cédula no es un secreto —está impresa, se fotocopia— y al otro lado
+     están las respuestas del formulario, que en una ficha de caracterización
+     incluyen datos sensibles. Con el documento suelto esto sería un buscador
+     de personas. */
+  assert.match(CUERPO_ATAJO, /documento: doc\.trim\(\), email: correo\.trim\(\)/);
+  /* Y el botón no se enciende hasta que hay los dos. */
+  assert.match(CUERPO_ATAJO, /Boolean\(doc\.trim\(\) && correo\.includes\('@'\)\)/);
 });
 
-test('las dos búsquedas comparten función', () => {
+test('se explica por qué se piden los dos', () => {
+  /* Sin explicación, pedir dos datos donde antes bastaba uno se lee como un
+     trámite de más. */
+  assert.match(CUERPO_ATAJO, /sólo tu número de cédula/);
+});
+
+test('una sola función de búsqueda para las dos llaves', () => {
   /* Escritas aparte, una acabaría enseñando el resultado y la otra no. */
-  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
-  const cuerpo = trozo.slice(0, trozo.indexOf('\n}'));
-  assert.equal((cuerpo.match(/const buscar = /g) || []).length, 1);
-  assert.match(cuerpo, /const r = conDocumento/);
+  assert.equal((CUERPO_ATAJO.match(/const buscar = /g) || []).length, 1);
+});
+
+test('no se dice cuál de las dos cosas falló', () => {
+  /* Distinguir «ese código no existe» de «ese documento no está» es lo que
+     haría útil ir probando. */
+  assert.match(CUERPO_ATAJO, /No encontramos un registro con eso/);
 });
 
 test('un fallo del atajo no bloquea el registro', () => {
   /* Incluye el 429 del limitador: esto es una comodidad, no un paso. */
-  const trozo = PUBLICA.slice(PUBLICA.indexOf('function TraerMisDatos'));
-  assert.match(trozo.slice(0, trozo.indexOf('\n}')), /catch \{[\s\S]*?encontrado: false/);
+  assert.match(CUERPO_ATAJO, /catch \{[\s\S]*?encontrado: false/);
 });
 
 /* El filtro de `session_id` vive en el backend y su prueba también: una prueba

@@ -1290,7 +1290,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
         {/* El paso 0 también entra: si no, volver a él desde el 1 se siente
             como un salto seco justo después de haber visto deslizarse el resto. */}
         {(!paginado || paso === 0) && (<>
-        <TraerMisDatos slug={slug} campos={camposDelTipo} hayPadron={evento?.tiene_padron}
+        <TraerMisDatos slug={slug} campos={camposDelTipo}
           onEncontrado={(r) => {
             setRespuestas(prev => ({ ...prev, ...r.respuestas }));
             /* Nombre y correo también: son lo que más se teclea, y no son
@@ -1917,52 +1917,52 @@ export function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
    evento con varias boletas: quien tiene la entrada general y quiere además
    una actividad estaba tecleando diez preguntas por segunda vez.
 
-   ── Con el código de la boleta, no con la cédula ──────────────────────────
+   ── De dónde salen los datos ─────────────────────────────────────────────
 
-   Antes esto pedía el número de documento y buscaba en un padrón que el
-   organizador tenía que haber subido. Dos problemas: sin padrón no encontraba
-   nada —y se pedía igual—, y le pedía a alguien su cédula antes de que hubiera
-   escrito su nombre, que es el dato más sensible del formulario y el primero.
+   De la base de registrados del evento, no de un Excel. El padrón que sube el
+   organizador está desactualizado desde el momento en que alguien se registra;
+   quien ya se inscribió está en sus boletas, con lo que él mismo escribió.
 
-   El código lo tiene la persona en su correo, es suyo, y funciona sin que
-   nadie haya subido nada.
+   ── Dos llaves, y una de ellas nunca va sola ─────────────────────────────
 
-   ── Y por qué el código solo basta ───────────────────────────────────────
+   EL CÓDIGO basta por sí solo: es largo y aleatorio, le llegó a su correo, y no
+   abre ninguna puerta nueva —`/mi-ticket/:codigo` ya enseña esa boleta a quien
+   lo tenga—.
 
-   Porque no abre ninguna puerta nueva: `/mi-ticket/:codigo` ya enseña hoy esa
-   boleta entera a quien tenga el código. Pedir además el correo sería más
-   estricto que la puerta de al lado, y dejaría fuera a quien esta vez se
-   registra con otro.
+   EL DOCUMENTO no. Una cédula no es un secreto: está impresa, se fotocopia, se
+   deja en porterías. Y lo que hay al otro lado son las respuestas del
+   formulario, que en una ficha de caracterización incluyen fecha de nacimiento,
+   comuna, identidad de género, autorreconocimiento étnico, situación de víctima
+   y discapacidad. Con el documento suelto esto sería un buscador de personas,
+   así que va siempre con el correo.
 
-   Es opcional a propósito: si alguien es nuevo, o no encuentra su código, el
-   formulario sigue igual. Un atajo que no encuentra nada no puede bloquear un
-   registro. */
-function TraerMisDatos({ slug, campos, hayPadron, onEncontrado }) {
+   Es opcional a propósito: si alguien es nuevo, el formulario sigue igual. Un
+   atajo que no encuentra nada no puede bloquear un registro. */
+function TraerMisDatos({ slug, campos, onEncontrado }) {
+  /* Con el código o con documento y correo. Empieza en el código porque es una
+     sola casilla y no pide ningún dato personal. */
+  const [modo, setModo] = useState('codigo');
   const [codigo, setCodigo] = useState('');
+  const [doc, setDoc] = useState('');
+  const [correo, setCorreo] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [resultado, setResultado] = useState(null);
-  /* El camino del documento, plegado. Existe porque el padrón cubre un caso
-     que el código no puede: una lista de invitados que todavía no se han
-     registrado y por tanto no tienen código. Pero va debajo y cerrado, porque
-     pedir la cédula de primeras es pedir el dato más sensible del formulario
-     antes que el nombre. */
-  const [porDocumento, setPorDocumento] = useState(false);
-  const [doc, setDoc] = useState('');
 
   /* Si el formulario no pregunta nada, no hay nada que prellenar. */
   if (!campos?.length) return null;
 
-  /* Las dos búsquedas comparten todo menos a quién le preguntan, así que
-     comparten función: escritas aparte, una acabaría enseñando el resultado y
-     la otra no. */
-  const buscar = async (conDocumento = false) => {
-    const valor = (conDocumento ? doc : codigo).trim();
-    if (!valor || buscando) return;
+  const listo = modo === 'codigo'
+    ? codigo.trim().length >= 4
+    : Boolean(doc.trim() && correo.includes('@'));
+
+  const buscar = async () => {
+    if (!listo || buscando) return;
     setBuscando(true);
     try {
-      const r = conDocumento
-        ? await eventosApi.prellenar(slug, valor)
-        : await eventosApi.prellenarConBoleta(slug, valor);
+      const llave = modo === 'codigo'
+        ? { codigo: codigo.trim() }
+        : { documento: doc.trim(), email: correo.trim() };
+      const r = await eventosApi.prellenarRegistro(slug, llave);
       setResultado(r);
       if (r.encontrado) onEncontrado?.(r);
     } catch {
@@ -1972,46 +1972,60 @@ function TraerMisDatos({ slug, campos, hayPadron, onEncontrado }) {
     } finally { setBuscando(false); }
   };
 
+  const alPulsarEnter = (e) => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } };
+
   return (
     <div className="ancho rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-2">
-      <label className="label text-xs" htmlFor="res-cod">
+      <label className="label text-xs">
         ¿Ya te registraste antes? <span className="text-text-3 font-normal">(opcional)</span>
       </label>
-      <div className="flex gap-2">
-        <input id="res-cod" value={codigo}
-          onChange={e => setCodigo(e.target.value.toUpperCase())}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } }}
-          autoComplete="off" spellCheck={false}
-          className="input-form flex-1 min-w-0 font-mono tracking-widest"
-          placeholder="Código de tu boleta" />
-        <button type="button" onClick={() => buscar()} disabled={buscando || !codigo.trim()}
-          className="btn-secondary btn-sm flex-shrink-0 disabled:opacity-40">
-          {buscando ? 'Buscando…' : 'Traer mis datos'}
-        </button>
-      </div>
-      <p className="text-[11px] text-text-3">
-        Está en el correo de tu boleta anterior. Sirve el de cualquier evento de este organizador.
-      </p>
-      {/* El padrón, sólo si el organizador subió uno. Sin padrón esto no puede
-          encontrar nada, y ofrecerlo sería pedir una cédula para nada. */}
-      {hayPadron && !porDocumento && (
-        <button type="button" onClick={() => setPorDocumento(true)}
-          className="text-[11px] text-text-3 hover:text-text-1 underline">
-          ¿No tienes el código? Busca con tu documento
-        </button>
-      )}
 
-      {hayPadron && porDocumento && (
-        <div className="flex gap-2 pt-1">
-          <input value={doc} onChange={e => setDoc(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscar(true); } }}
-            inputMode="numeric" autoComplete="off"
-            aria-label="Tu número de documento"
-            className="input-form flex-1 min-w-0" placeholder="Tu número de documento" />
-          <button type="button" onClick={() => buscar(true)} disabled={buscando || !doc.trim()}
-            className="btn-secondary btn-sm flex-shrink-0 disabled:opacity-40">
-            {buscando ? 'Buscando…' : 'Buscar'}
+      {/* Las dos formas, a la vista. Escondida detrás de un enlace, la segunda
+          no la encuentra quien perdió el correo — que es justo quien la
+          necesita. */}
+      <div className="flex gap-1.5">
+        {[['codigo', 'Con el código de mi boleta'], ['documento', 'Con mi documento']].map(([id, texto]) => (
+          <button key={id} type="button" onClick={() => { setModo(id); setResultado(null); }}
+            className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors
+              ${modo === id ? 'border-accent bg-accent/10 text-text-1' : 'border-border text-text-3 hover:text-text-1'}`}>
+            {texto}
           </button>
+        ))}
+      </div>
+
+      {modo === 'codigo' ? (
+        <div className="flex gap-2">
+          <input value={codigo} onChange={e => setCodigo(e.target.value.toUpperCase())}
+            onKeyDown={alPulsarEnter} autoComplete="off" spellCheck={false}
+            aria-label="Código de tu boleta anterior"
+            className="input-form flex-1 min-w-0 font-mono tracking-widest"
+            placeholder="Código de tu boleta" />
+          <button type="button" onClick={buscar} disabled={buscando || !listo}
+            className="btn-secondary btn-sm flex-shrink-0 disabled:opacity-40">
+            {buscando ? 'Buscando…' : 'Traer mis datos'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="grid sm:grid-cols-2 gap-2">
+            <input value={doc} onChange={e => setDoc(e.target.value)}
+              onKeyDown={alPulsarEnter} inputMode="numeric" autoComplete="off"
+              aria-label="Tu número de documento"
+              className="input-form min-w-0" placeholder="Tu número de documento" />
+            <input value={correo} onChange={e => setCorreo(e.target.value)}
+              onKeyDown={alPulsarEnter} type="email" autoComplete="email"
+              aria-label="El correo con el que te registraste"
+              className="input-form min-w-0" placeholder="Con qué correo te registraste" />
+          </div>
+          <button type="button" onClick={buscar} disabled={buscando || !listo}
+            className="btn-secondary btn-sm disabled:opacity-40">
+            {buscando ? 'Buscando…' : 'Traer mis datos'}
+          </button>
+          {/* Se dice por qué se piden los dos. Sin explicación, pedir dos datos
+              donde antes bastaba uno se lee como un trámite de más. */}
+          <p className="text-[11px] text-text-3">
+            Pedimos los dos para que nadie más pueda traer tus datos con sólo tu número de cédula.
+          </p>
         </div>
       )}
 
@@ -2024,10 +2038,10 @@ function TraerMisDatos({ slug, campos, hayPadron, onEncontrado }) {
               : ' No falta nada más.'}
           </p>
         ) : (
-          /* No se distingue «ese código no existe» de «no está en el padrón»:
-             distinguirlas es justo lo que haría útil ir probando. */
+          /* No se dice cuál de las dos cosas falló, ni si esa persona existe:
+             distinguirlo es lo que haría útil ir probando. */
           <p className="text-[11px] text-text-3">
-            No encontramos nada con eso. Revísalo, o sigue y llena el formulario normalmente.
+            No encontramos un registro con eso. Sigue y llena el formulario normalmente.
           </p>
         )
       )}

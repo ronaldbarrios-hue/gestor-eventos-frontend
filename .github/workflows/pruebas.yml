@@ -61,6 +61,24 @@ jobs:
       - name: Construir
         run: npm run build
 
+      # El repositorio de Google Chrome del runner sirve a veces un índice
+      # corrupto —«Hash Sum mismatch»— y entonces `--with-deps` muere ahí. No
+      # es un fallo del código: pasó tres veces seguidas con `main` en verde, y
+      # tirar el índice y volver a bajarlo no arregla nada porque el roto es el
+      # de Google.
+      #
+      # Y no hace falta para nada: Playwright baja SU PROPIO Chromium, y de apt
+      # sólo saca librerías de Ubuntu. Quitando esa fuente, un índice ajeno roto
+      # deja de poder parar las pruebas.
+      - name: Quitar el repositorio de Chrome, que aquí no se usa
+        run: |
+          # Por CONTENIDO y no por nombre de archivo: en el runner la fuente no
+          # siempre se llama `google-chrome.list`, y borrar ese nombre concreto
+          # dejaba la fuente puesta con otro. Se buscan las que apunten a
+          # dl.google.com, estén donde estén.
+          grep -rl 'dl\.google\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null             | xargs -r sudo rm -f
+          sudo apt-get update
+
       - name: Navegador para las pruebas del widget
         run: npx playwright install --with-deps chromium
 
