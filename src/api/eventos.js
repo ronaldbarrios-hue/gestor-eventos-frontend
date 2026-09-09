@@ -50,11 +50,14 @@ export const eventosApi = {
      Es una ruta distinta de `ticketByCode` a propósito: aquella devuelve la
      entrada entera con su `qr_token`, así que enseñársela a quien todavía no ha
      pagado sería regalársela. Ésta dice lo justo para confiar. */
-  /* Traer los datos con el CÓDIGO de una boleta anterior, en vez de con la
-     cédula. Lo tiene la persona en su correo, y no hace falta que el
-     organizador haya subido ningún padrón. */
-  prellenarConBoleta: (slug, codigo) =>
-    client.post(`/eventos/publicos/slug/${slug}/prellenar-boleta`, { codigo }).then(r => r.data),
+  /* Traer los datos de un registro anterior, de la BASE DE REGISTRADOS del
+     evento y no del Excel que subió el organizador —que está desactualizado
+     desde que alguien se inscribe—.
+     Dos llaves: el código de la boleta, o documento MÁS correo. El documento
+     nunca solo: una cédula no es un secreto y al otro lado hay datos
+     sensibles. */
+  prellenarRegistro: (slug, llave) =>
+    client.post(`/eventos/publicos/slug/${slug}/prellenar-boleta`, llave).then(r => r.data),
   verificarBoleta : (codigo) => client.get(`/eventos/publicos/verificar/${codigo}`).then(r => r.data),
   completarFormularioTicket: (codigo, respuestas) =>
     client.post(`/eventos/publicos/ticket/${codigo}/formulario`, { respuestas }).then(r => r.data),
