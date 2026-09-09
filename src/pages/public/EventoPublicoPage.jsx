@@ -1289,7 +1289,10 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
         {/* El paso 0 también entra: si no, volver a él desde el 1 se siente
             como un salto seco justo después de haber visto deslizarse el resto. */}
         {(!paginado || paso === 0) && (<>
-        <BuscarPorDocumento slug={slug} campos={camposDelTipo}
+        {/* Sólo si el organizador subió padrón. Sin él, esto le pedía la cédula
+            a todo el mundo para una consulta que no podía encontrar nada — y el
+            dato más sensible del formulario, antes que el nombre. */}
+        <BuscarPorDocumento slug={slug} campos={camposDelTipo} hayPadron={evento?.tiene_padron}
           onEncontrado={(r) => {
             setRespuestas(prev => ({ ...prev, ...r.respuestas }));
             setPrellenado(r);
@@ -1910,13 +1913,22 @@ export function BloqueBoletasCanvas({ evento, onReservar, onWaitlist }) {
    No se dice «no estás en la base». Cuando no hay coincidencia, el servidor
    contesta igual que si el padrón estuviera vacío — distinguir las dos cosas
    es justo lo que haría útil probar cédulas ajenas. */
-function BuscarPorDocumento({ slug, campos, onEncontrado }) {
+function BuscarPorDocumento({ slug, campos, hayPadron, onEncontrado }) {
   const [doc, setDoc] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [resultado, setResultado] = useState(null);
 
   /* Si el formulario no pregunta nada, no hay nada que prellenar. */
   if (!campos?.length) return null;
+
+  /* Y si el organizador no subió padrón, tampoco: la consulta no puede
+     encontrar nada, así que lo único que hace el campo es pedirle su documento
+     a alguien que todavía no ha escrito ni su nombre. Se enseña cuando sirve.
+
+     `hayPadron` puede llegar `undefined` desde un despliegue viejo del
+     servidor; se trata como «no hay», que es el lado seguro: se deja de ofrecer
+     un atajo, no se rompe ningún registro. */
+  if (!hayPadron) return null;
 
   const buscar = async () => {
     if (!doc.trim() || buscando) return;
