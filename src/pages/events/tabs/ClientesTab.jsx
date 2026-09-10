@@ -88,20 +88,36 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
 
      El servidor arma las columnas —una por pregunta, en su orden— porque es
      quien conoce la definición del formulario. */
+  /* Respeta el tipo de boleta que esté filtrado en la pantalla.
+   *
+   * Es lo que espera quien lo pulsa: si estás mirando «PijaoTech», el Excel es
+   * de PijaoTech. Exportar el evento entero desde una lista filtrada es la
+   * clase de sorpresa que se descubre abriendo el archivo — y para entonces ya
+   * se mandó por correo.
+   *
+   * El estado NO se pasa: filtrar por «sin pagar» en pantalla es para
+   * perseguir a alguien, y una hoja que sólo trae a los morosos se confunde
+   * con la lista de inscritos. Si hiciera falta, se añade explícitamente. */
   const exportarTodo = async () => {
     setExportando(true);
     try {
-      const r = await clientesApi.exportar(evento.id);
-      if (!r.total) { toastErr('No hay inscritos todavía.'); return; }
+      const r = await clientesApi.exportar(evento.id, tipoFilter || undefined);
+      if (!r.total) {
+        toastErr(r.tipo ? `No hay inscritos en «${r.tipo}».` : 'No hay inscritos todavía.');
+        return;
+      }
       const { formato } = await exportar([r.columnas, ...r.filas], {
-        titulo: r.evento,
+        titulo: r.tipo ? `${r.evento} · ${r.tipo}` : r.evento,
         base: r.slug || r.evento,
-        sufijo: 'inscritos',
+        /* El nombre del archivo lleva el tipo: dos descargas del mismo evento
+           no pueden llamarse igual en la carpeta de descargas. */
+        sufijo: r.tipo ? `inscritos-${r.tipo}` : 'inscritos',
       });
+      const deQue = r.tipo ? ` de «${r.tipo}»` : '';
       success(
         formato === 'xlsx'
-          ? `${r.total} inscritos exportados${r.preguntas ? `, con las ${r.preguntas} preguntas del formulario` : ''}.`
-          : `${r.total} inscritos en CSV (tu navegador no permite generar Excel).`,
+          ? `${r.total} inscritos${deQue} exportados${r.preguntas ? `, con las ${r.preguntas} preguntas del formulario` : ''}.`
+          : `${r.total} inscritos${deQue} en CSV (tu navegador no permite generar Excel).`,
       );
     } catch (e) {
       toastErr(e.response?.data?.error || e.message);
@@ -173,16 +189,26 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
     finally    { setLoading(false); }
   };
 
-  /* Borrar es irreversible y se lleva las respuestas del formulario, así que se
-     confirma nombrando a la persona y su código: un «¿seguro?» a secas se
-     contesta que sí sin leer. */
+  /* Borrar es irreversible y se lleva las respuestas del formulario, así que
+     se pide teclear el correo de la persona —o el código, si no tiene correo—.
+
+     No es una traba: un «¿seguro?» se contesta que sí sin leer, se aprende a
+     despacharlo, y entonces no protege el día que sí importa. Teclear el correo
+     obliga a mirar a QUIÉN se está borrando, que es la única pregunta que hay
+     que contestar antes de esto. */
   const borrar = async (c) => {
+    const aEscribir = c.guest_email || c.codigo;
     const ok = await confirmDialog({
-      message: `¿Borrar la boleta de ${c.guest_nombre || c.guest_email || 'esta persona'} (${c.codigo})?\n\n`
+      title: 'Borrar la boleta',
+      message: `Vas a borrar la boleta de ${c.guest_nombre || c.guest_email || 'esta persona'} (${c.codigo}).` + '\n\n'
         + 'Se va con sus respuestas del formulario y no se puede deshacer. '
         + 'Si sólo quieres que no sirva para entrar, márcala como inválida.',
       danger: true,
       confirmLabel: 'Borrar la boleta',
+      escribir: aEscribir,
+      escribirEtiqueta: c.guest_email
+        ? 'Escribe el correo de esta persona para confirmar: {que}'
+        : 'Escribe el código de la boleta para confirmar: {que}',
     });
     if (!ok) return;
     try {
@@ -255,7 +281,9 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
             onClick={exportarTodo}
             disabled={exportando}
             className="btn-secondary btn-sm"
-            title="Todos los inscritos del evento, con las respuestas del formulario, en Excel">
+            title={tipoFilter
+              ? 'Los inscritos de la boleta que tienes filtrada, con sus respuestas, en Excel'
+              : 'Todos los inscritos del evento, con las respuestas del formulario, en Excel'}>
             {exportando
               ? <><Spinner size="sm" /> Exportando…</>
               : <><DownloadIcon className="w-3.5 h-3.5" /> Exportar Excel</>}

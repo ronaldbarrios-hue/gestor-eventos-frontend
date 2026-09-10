@@ -157,3 +157,42 @@ test('la agenda no se cae por lo que no se puede leer', () => {
   assert.match(src, /puedeSpeakers \? \[\['speakers', 'Speakers'\]\] : \[\]/,
     'se sigue ofreciendo una sub-vista que abre vacía por falta de permiso');
 });
+
+test('borrar una boleta pide teclear el correo, no un botón', () => {
+  /* La tarjeta del tablero pedía «una verificación… digitando algo específico
+     como el email», y sólo había un `confirmDialog` con botón. Un «¿seguro?» se
+     contesta que sí sin leer: se aprende a despacharlo, y entonces no protege
+     el día que sí importa. Teclear el correo obliga a mirar a QUIÉN se borra. */
+  const confirm = leer('components/ui/Confirm.jsx');
+  assert.match(confirm, /escribir: opts\.escribir \|\| null/, 'confirmDialog no acepta `escribir`');
+  assert.match(confirm, /disabled=\{falta\}/, 'el botón no espera a que se teclee');
+  /* Enter tiene que respetarlo: si no, la verificación se salta con una tecla
+     y no protege de nada. */
+  assert.match(confirm, /e\.key === 'Enter' && !falta/);
+  /* Y se limpia al abrir: sin esto el segundo borrado hereda lo tecleado en el
+     primero y el botón sale habilitado de entrada. */
+  assert.match(confirm, /setTecleado\(''\); setState\(s\)/);
+  /* Sin host montado se dice que no, en vez de caer a un window.confirm: se
+     pidió teclear justamente porque un botón no bastaba. */
+  assert.match(confirm, /if \(opts\.escribir\) \{ resolve\(false\); return; \}/);
+
+  const clientes = leer('pages/events/tabs/ClientesTab.jsx');
+  assert.match(clientes, /escribir: aEscribir/);
+  /* El código como respaldo: hay boletas sin correo, y sin respaldo esas no se
+     podrían borrar nunca. */
+  assert.match(clientes, /const aEscribir = c\.guest_email \|\| c\.codigo;/);
+});
+
+test('el Excel respeta el tipo de boleta que esté filtrado', () => {
+  /* En estos eventos los tipos SON las actividades, así que «quién va al
+     DemoDay» es una hoja distinta de «la lista del evento». Antes había que
+     exportar las 440 filas y filtrar a mano en Excel. */
+  const clientes = leer('pages/events/tabs/ClientesTab.jsx');
+  assert.match(clientes, /clientesApi\.exportar\(evento\.id, tipoFilter \|\| undefined\)/);
+  /* El nombre del archivo lleva el tipo: dos descargas del mismo evento no
+     pueden llamarse igual en la carpeta. */
+  assert.match(clientes, /sufijo: r\.tipo \? `inscritos-\$\{r\.tipo\}`/);
+
+  const api = leer('api/clientes.js');
+  assert.match(api, /ticket_type_id: ticketTypeId/);
+});
