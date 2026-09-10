@@ -92,3 +92,49 @@ test('y las pestañas siguen dejando entrar a los mismos que el servidor', () =>
   assert.match(ws, /id: 'stands'.*perm: \['gestionar_expositores', 'checkin'\]/);
   assert.match(ws, /id: 'aforo'.*perm: 'checkin'/);
 });
+
+test('las pantallas que GUARDAN no se ofrecen a quien sólo puede mirar', () => {
+  /* Dos casos del barrido del 11-sep, y los dos costaban trabajo, no un clic:
+     alguien pasaba un rato ajustando algo que nunca se iba a guardar.
+
+     · «Diseñar escarapela» y «Diseñar carné» se ofrecían con `ver_clientes` y
+       guardan en `page_json` con `eventosApi.update`, que pide `editar_evento`.
+     · Documentos: la pestaña se abre con `ver_documentos` —que la 0122 dio a
+       TODOS los roles— y subir o quitar guarda `page_json` igual. Se elegía el
+       archivo, se esperaba la subida, y 403 al final. */
+  const acred = leer('pages/events/workspace/asistentes/AcreditacionSection.jsx');
+  assert.match(acred, /puede\('editar_evento'\) \? \[\['escarapela'/);
+  assert.match(acred, /puede\('editar_evento'\) \? \[\['carne'/);
+  /* Imprimir sigue siendo de quien está en la puerta: no guarda nada. */
+  assert.match(acred, /puede\('checkin'\)\s*\? \[\['etiquetas'/);
+
+  const docs = leer('pages/events/workspace/DocumentosSection.jsx');
+  assert.match(docs, /puedeEditar = true/);
+  assert.match(docs, /\{puedeEditar && \(<>/, 'la zona de subir sigue saliendo para quien sólo lee');
+  const ws = leer('pages/events/workspace/EventWorkspace.jsx');
+  assert.match(ws, /puedeEditar=\{puedeVer\('editar_evento'/);
+});
+
+test('las seis pantallas que imprimen o facturan traen la lista entera', () => {
+  /* Pedían `limit: 1000` y el servidor sirve 200: se quedaban con las primeras
+     200 sin decirlo. Un juego de escarapelas incompleto, y en facturación unas
+     cuentas hechas sobre 200 boletas de 386. Lo rompí yo al poner el tope. */
+  const PANTALLAS = [
+    'pages/events/workspace/asistentes/AccesosSection.jsx',
+    'pages/events/workspace/asistentes/CredencialesSection.jsx',
+    'pages/events/workspace/asistentes/EtiquetadoraSection.jsx',
+    'pages/events/workspace/asistentes/InvitacionesSection.jsx',
+    'pages/events/workspace/asistentes/TarjetaSection.jsx',
+    'pages/events/workspace/comercial/FacturacionSection.jsx',
+  ];
+  for (const f of PANTALLAS) {
+    const src = leer(f);
+    assert.match(src, /clientesApi\.listarTodos\(evento\.id\)/, `${f} no trae la lista entera`);
+    assert.doesNotMatch(src, /limit: 1000/, `${f} vuelve a pedir un límite que el servidor no da`);
+  }
+  /* Y el recorrido vive en un solo sitio, no seis veces. */
+  const api = leer('api/clientes.js');
+  assert.match(api, /listarTodos\s*:/);
+  assert.match(api, /tanda\.length < \(d\.por_pagina \?\? POR_TANDA\)/,
+    'el bucle se fía de lo que pidió en vez de lo que le dieron');
+});

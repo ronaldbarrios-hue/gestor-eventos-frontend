@@ -69,7 +69,7 @@ export default function CredencialesSection({ evento }) {
   const setMostrar = (k, v) => setCfg(c => ({ ...c, mostrar: { ...c.mostrar, [k]: v } }));
 
   useEffect(() => {
-    clientesApi.list(evento.id, { limit: 1000 })
+    clientesApi.listarTodos(evento.id)
       .then(d => {
         setClientes(d.clientes || d.tickets || []);
         setCampos(d.campos_formulario || []);

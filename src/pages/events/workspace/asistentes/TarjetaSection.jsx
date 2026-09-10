@@ -38,7 +38,7 @@ export default function TarjetaSection({ evento }) {
   useEffect(() => {
     const tt = evento.ticket_types || evento.ticketTypes;
     if (Array.isArray(tt) && tt.length) { setTiposBoleta(tt.map(t => t.nombre).filter(Boolean)); return; }
-    clientesApi.list(evento.id, { limit: 1000 })
+    clientesApi.listarTodos(evento.id)
       .then(d => {
         const nombres = [...new Set((d.clientes || d.tickets || [])
           .map(c => c.tipo?.nombre || c.ticket_nombre).filter(Boolean))];

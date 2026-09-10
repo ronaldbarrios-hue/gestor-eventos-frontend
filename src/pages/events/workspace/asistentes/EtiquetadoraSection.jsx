@@ -59,7 +59,7 @@ export default function EtiquetadoraSection({ evento }) {
   );
 
   useEffect(() => {
-    clientesApi.list(evento.id, { limit: 1000 })
+    clientesApi.listarTodos(evento.id)
       .then(d => setClientes(d.clientes || d.tickets || []))
       .finally(() => setLoading(false));
   }, [evento.id]);

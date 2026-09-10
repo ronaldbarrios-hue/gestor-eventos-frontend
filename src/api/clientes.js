@@ -7,6 +7,40 @@ export const clientesApi = {
   archivoPrivado: (eventoId, ticketId, campoId) =>
     client.get(`/eventos/${eventoId}/clientes/${ticketId}/archivo`, { params: { campo: campoId } }).then(r => r.data),
   list         : (eventoId, params = {})        => client.get(`/eventos/${eventoId}/clientes`, { params }).then(r => r.data),
+  /* TODOS los asistentes, recorriendo las paginas que hagan falta.
+   *
+   * Seis pantallas pedian `limit: 1000` —imprimir escarapelas, carnes,
+   * etiquetas, accesos, invitaciones y facturacion— y el servidor sirve como
+   * mucho 200 por peticion. Se quedaban con las primeras 200 sin decirlo: un
+   * juego de escarapelas incompleto, y en facturacion unas cuentas que salian
+   * de 200 boletas de 386.
+   *
+   * El corte se decide con lo que el servidor DICE que cabe (`por_pagina`), no
+   * con lo que se le pidio: un bucle que pide 500 y compara contra 500 para en
+   * la primera tanda el dia que el tope baja. Eso ya paso una vez.
+   *
+   * El tope de vueltas es un cinturon: 20 tandas son 4.000 boletas, y a partir
+   * de ahi lo que se quiere es la exportacion, que va por otro camino y sabe
+   * que va a tardar. */
+  listarTodos  : async (eventoId, filtros = {}) => {
+    const POR_TANDA = 200;
+    const todos = [];
+    let ultima = null;
+    for (let page = 1; page <= 20; page++) {
+      const d = await client
+        .get(`/eventos/${eventoId}/clientes`, { params: { ...filtros, page, limit: POR_TANDA } })
+        .then(r => r.data);
+      ultima = d;
+      const tanda = d.clientes || [];
+      todos.push(...tanda);
+      if (tanda.length < (d.por_pagina ?? POR_TANDA)) break;
+    }
+    /* Se devuelve con la forma de `list` —la misma respuesta, con la lista
+       entera dentro— para que quien lo use no tenga que cambiar como lo lee.
+       `campos_formulario` y `tipos` vienen en cada pagina; vale el de la
+       ultima. */
+    return { ...(ultima || {}), clientes: todos, total: ultima?.total ?? todos.length };
+  },
   /* Cuanto trajo cada boton de registro. `origen: null` es «directo»: quien
      llego a la pagina del evento sin pasar por ningun boton. */
   origenes     : (eventoId)                     => client.get(`/eventos/${eventoId}/origenes`).then(r => r.data),
