@@ -47,7 +47,13 @@ const LO_QUE_PIDE_EL_SERVIDOR = {
   boletas    : ['gestionar_tickets'],                              // PERMS_TICKETS
   plano      : ['gestionar_tickets'],                              // routes/espacios.js
   promociones: ['gestionar_descuentos'],                           // routes/promociones.js
-  previos    : ['editar_evento'],                                  // PERMS_PADRON
+  /* Dos cosas dentro con dueños distintos: el padrón pide `editar_evento`
+     (PERMS_PADRON) y la lista de espera `gestionar_clientes` desde que dejó de
+     ser del dueño. La pestaña se abre con cualquiera de los dos y
+     `PreviosSection` decide dentro cuál de las dos vistas enseña — pidiendo
+     sólo el primero, quien lleva los clientes no llegaba nunca a la fila
+     aunque el servidor ya se la aceptara. */
+  previos    : ['editar_evento', 'gestionar_clientes'],            // PERMS_PADRON + routes/waitlist.js
   emails     : ['editar_pagina_publica', 'editar_evento'],         // PERMS_EDITAR
   accesos    : ['gestionar_accesos'],
   aforo      : ['checkin'],

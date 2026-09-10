@@ -283,8 +283,13 @@ export default function ResumenSection({ evento, soyOwner, onEditar, onAnuncio, 
             </div>
           </Card>
 
-          {/* Acciones del evento (movidas aquí desde el header) */}
-          {soyOwner && (onEditar || onAnuncio || onEliminar) && (
+          {/* Acciones del evento (movidas aquí desde el header).
+              Sin `soyOwner`: quien llama ya decidió cuáles ofrece, y cada una
+              llega en `null` si no. Comprobarlo otra vez aquí escondía
+              «Redactar anuncio» a quien tiene `publicar_anuncios`, que es una
+              función escondida a quien puede usarla — no da error y no se
+              descubre. */}
+          {(onEditar || onAnuncio || onEliminar) && (
             <Card titulo={t('Acciones del evento')}>
               <div className="space-y-2">
                 {onEditar && (
