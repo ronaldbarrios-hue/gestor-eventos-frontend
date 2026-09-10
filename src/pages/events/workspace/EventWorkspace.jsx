@@ -164,7 +164,9 @@ const SECCIONES = [
        herramienta — tenía el permiso del servidor y el menú se lo escondía.
        `checkin` se queda porque en el evento los stands se operan de pie. */
     { id: 'stands',  label: 'Stands',             perm: ['gestionar_expositores', 'checkin'] },
-    { id: 'accesos', label: 'Accesos e ingresos', perm: '__solo_owner__' },
+    /* Era del dueño y de nadie más, y configurar puertas es trabajo de
+       logística. Con la 0122 se puede conceder. */
+    { id: 'accesos', label: 'Accesos e ingresos', perm: 'gestionar_accesos' },
   ]},
   /* Los permisos de aquí dicen lo que el SERVIDOR comprueba, no lo que suena
      bien. Antes no coincidían y el menú prometía de más:
@@ -224,14 +226,19 @@ const SECCIONES = [
     { id: 'tareas',      label: 'Tareas',      perm: null },
     { id: 'vacantes',    label: 'Vacantes',    perm: 'editar_evento' },
     { id: 'solicitudes', label: 'Sugerencias', perm: null },
-    { id: 'documentos',  label: 'Documentos',  perm: null },
+    /* Contratos y riders. Estaba en `null` —cualquier miembro— y eso no era
+       una decisión. La 0122 se lo concede a todos los roles que ya existían,
+       así que hoy nadie pierde nada; lo que cambia es que se puede quitar. */
+    { id: 'documentos',  label: 'Documentos',  perm: 'ver_documentos' },
   ]},
   /* Las tres formas de decirle algo a alguien. «Emails» estaba en Event
      Experience por ser plantillas y «Anuncios» en Comunicación por ser un
      envío: quien quería avisar algo tenía que saber de antemano cuál era. */
   { id: 'mensajes', label: 'Mensajes', icon: ChatIcon, tabs: [
     { id: 'chat',     label: 'Chats',    perm: null },
-    { id: 'anuncios', label: 'Anuncios', perm: '__solo_owner__' },
+    /* Lo mismo: quien lleva la comunicación no suele ser quien creó el
+       evento en la plataforma. */
+    { id: 'anuncios', label: 'Anuncios', perm: 'publicar_anuncios' },
     { id: 'emails',   label: 'Emails',   perm: 'editar_pagina_publica' },
   ]},
   /* Fuera «API» y «Seguridad»: eran dos placeholders que no hacían nada y

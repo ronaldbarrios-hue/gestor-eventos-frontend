@@ -33,6 +33,7 @@ import { guardarProgreso, leerProgreso, olvidarProgreso } from '../../lib/regist
 import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
 import ElegirSitio from '../../components/public/ElegirSitio.jsx';
 import Instrucciones from '../../components/public/Instrucciones.jsx';
+import { loQueQueda, textoDeLoQueFalta } from '../../lib/loQueFalta.js';
 import Volver from '../../components/ui/Volver.jsx';
 
 /* Tamaño del recuadro de compra/confirmación, configurable por el organizador en
@@ -1261,22 +1262,17 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
                   className={`h-1 flex-1 rounded-full transition-colors ${i <= paso ? 'bg-primary' : 'bg-surface-2'}`} />
               ))}
             </div>
-            {/* Si vino del padrón, qué le queda por rellenar. Se recalcula con
-                las respuestas de AHORA y no con las que trajo el padrón: lo que
-                ya escribió mientras avanzaba deja de contar como pendiente, que
-                es lo que convierte esto en un avance y no en un reproche fijo. */}
+            {/* Qué le queda por rellenar de lo que trajimos.
+                Se recalcula con las respuestas de AHORA: lo que ya escribió
+                mientras avanzaba deja de contar como pendiente, que es lo que
+                convierte esto en un avance y no en un reproche fijo. */}
             {prellenado?.encontrado && (() => {
-              const quedan = (prellenado.faltan || []).filter(f => {
-                const v = respuestas[f.id];
-                return v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
-              });
+              const quedan = loQueQueda(prellenado.faltan, respuestas);
               if (!quedan.length) return (
                 <p className="text-[11px] text-success mt-2">Ya no falta nada de lo que traíamos.</p>
               );
               return (
-                <p className="text-[11px] text-text-3 mt-2">
-                  Te falta{quedan.length === 1 ? '' : 'n'} por llenar: {quedan.map(f => f.etiqueta).join(', ')}.
-                </p>
+                <p className="text-[11px] text-text-3 mt-2">{textoDeLoQueFalta(quedan)}</p>
               );
             })()}
           </div>
@@ -2033,8 +2029,10 @@ function TraerMisDatos({ slug, campos, onEncontrado }) {
         resultado.encontrado ? (
           <p className="text-[11px] text-success">
             Listo, rellenamos lo que ya sabíamos.
+            {/* La misma forma de contarlo que la barra de progreso: dicho de
+                dos maneras, una acaba nombrando cuarenta etiquetas. */}
             {resultado.faltan?.length
-              ? ` Falta${resultado.faltan.length === 1 ? '' : 'n'}: ${resultado.faltan.map(f => f.etiqueta).join(', ')}.`
+              ? ` ${textoDeLoQueFalta(resultado.faltan)}`
               : ' No falta nada más.'}
           </p>
         ) : (

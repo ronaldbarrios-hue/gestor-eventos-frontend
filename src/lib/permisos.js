@@ -53,12 +53,14 @@ export const PERMISOS = [
   { id: 'gestionar_agenda',      grupo: 'Espacio',   label: 'Gestionar el espacio',    desc: 'Crear y editar sub-eventos: charlas, talleres, shows, competencias.', aplicado: true },
   { id: 'gestionar_torneo',      grupo: 'Espacio',   label: 'Gestionar torneos',       desc: 'Equipos, llaves, resultados y categorías.', aplicado: true },
   { id: 'gestionar_expositores', grupo: 'Espacio',   label: 'Gestionar expositores',   desc: 'Stands, fichas y puntos de los expositores.', aplicado: true },
+  { id: 'gestionar_accesos',     grupo: 'Espacio',   label: 'Accesos e ingresos',      desc: 'Definir las puertas del evento y qué boletas admite cada una.', aplicado: true },
 
   /* Equipo */
   { id: 'invitar_staff',         grupo: 'Equipo',    label: 'Invitar al equipo',       desc: 'Agregar nuevas personas como staff.', aplicado: true },
   { id: 'gestionar_roles',       grupo: 'Equipo',    label: 'Gestionar roles',         desc: 'Crear, editar y borrar roles del evento.', aplicado: true },
   { id: 'remover_miembros',      grupo: 'Equipo',    label: 'Quitar miembros',         desc: 'Sacar gente del equipo del evento.', aplicado: true },
   { id: 'gestionar_solicitudes', grupo: 'Equipo',    label: 'Atender solicitudes',     desc: 'Responder sugerencias e incidencias del equipo, y aprobar las correcciones de ficha.', aplicado: true },
+  { id: 'ver_documentos',        grupo: 'Equipo',    label: 'Ver documentos',          desc: 'Contratos, riders y listas del evento. Sin esto la sección no aparece y los archivos ni siquiera viajan.', aplicado: true },
 
   /* Tickets */
   { id: 'gestionar_tickets',     grupo: 'Tickets',   label: 'Gestionar tipos de boleta', desc: 'Crear, editar y borrar tipos de ticket.', aplicado: true },
@@ -73,6 +75,7 @@ export const PERMISOS = [
   /* Chat */
   { id: 'crear_canales',         grupo: 'Chat',      label: 'Crear canales',           desc: 'Crear chats principales y subgrupos.', aplicado: true },
   { id: 'borrar_mensajes',       grupo: 'Chat',      label: 'Moderar mensajes',        desc: 'Borrar mensajes de otros miembros.', aplicado: true },
+  { id: 'publicar_anuncios',     grupo: 'Chat',      label: 'Publicar anuncios',       desc: 'Escribirle a todo el evento. Antes era sólo del dueño.', aplicado: true },
 
   /* Pagos */
   { id: 'ver_pagos',             grupo: 'Pagos',     label: 'Ver pagos e ingresos',    desc: 'La pestaña Dinero: cuánto entró, de qué, qué falta por cobrar y qué se devolvió.', aplicado: true },
