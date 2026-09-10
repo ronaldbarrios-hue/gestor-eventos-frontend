@@ -5,6 +5,10 @@ import { eventosApi } from '../../../../api/eventos.js';
 import { useToast } from '../../../../context/ToastContext.jsx';
 import Spinner from '../../../../components/ui/Spinner.jsx';
 
+/* Lo que se pide por tanda. Es el tope del servidor: pedir más no trae más, y
+   pedir menos son más viajes para lo mismo. */
+const POR_TANDA = 200;
+
 /* Reparto sin correo — la red de seguridad.
 
    El correo de este evento depende de credenciales que todavía no están, y del
@@ -44,14 +48,23 @@ export default function RepartoSinCorreo({ evento, onClose }) {
         const form = await eventosApi.getFormulario(evento.id).catch(() => ({ campos: [] }));
         if (vivo) setCampos(form.campos || []);
 
-        /* Se paginan de 500 en 500: el endpoint trae 100 por defecto y con
-           7.000 asistentes pedirlos de uno en uno no termina nunca. */
+        /* Se piden por tandas: aquí hace falta la lista ENTERA —se reparte a
+           todo el mundo— y con 7.000 asistentes de uno en uno no termina nunca.
+         *
+         * El corte se decide con lo que el servidor DICE que cabe en una
+         * página, no con lo que se le pidió. Este bucle pedía 500 y comparaba
+         * contra 500; el día que el servidor puso su tope en 200, cada tanda
+         * volvía con 200, `200 < 500` daba verdadero y el bucle **paraba en la
+         * primera**: repartir 200 de 386 sin que nada lo dijera.
+         *
+         * Comparando contra `por_pagina` eso no puede volver a pasar: si el
+         * tope cambia otra vez, el bucle se entera solo. */
         const todos = [];
         for (let page = 1; page <= 40; page++) {
-          const r = await clientesApi.list(evento.id, { limit: 500, page });
+          const r = await clientesApi.list(evento.id, { limit: POR_TANDA, page });
           const lote = r.clientes || r.tickets || r.data || [];
           todos.push(...lote);
-          if (lote.length < 500) break;
+          if (lote.length < (r.por_pagina ?? POR_TANDA)) break;
         }
         if (vivo) setTickets(todos);
       } catch (e) {
