@@ -26,6 +26,12 @@ export default function EstadoCola({ evento }) {
   const { success, error } = useToast();
   const [estado, setEstado] = useState(null);
   const [envios, setEnvios] = useState([]);
+  /* Cuántos hay en total y qué se está mirando. Antes ponía «últimos N», que
+     era honesto y no servía: N era lo cargado, y la pregunta que trae a la
+     gente aquí es por una persona concreta que puede estar más atrás. */
+  const [totalEnvios, setTotalEnvios] = useState(0);
+  const [buscaEnvio, setBuscaEnvio] = useState('');
+  const [soloFallidos, setSoloFallidos] = useState(false);
   const [trabajando, setTrabajando] = useState(false);
 
   const cargar = useCallback(() => {
@@ -35,16 +41,32 @@ export default function EstadoCola({ evento }) {
          merezca un aviso rojo en la pantalla del organizador. */
       .catch(() => setEstado(null));
 
-    /* El registro de envios va aparte de la cola a propósito: hay correos que
-       salen directos, sin pasar por ella, y esos también hay que poder
-       buscarlos. Si la tabla no está, la lista queda vacía y la sección no
-       aparece. */
-    emailsApi.envios(evento.id, 50)
-      .then(d => setEnvios(d.envios || []))
-      .catch(() => setEnvios([]));
   }, [evento.id]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  /* El registro de envíos va aparte de la cola a propósito: hay correos que
+     salen directos, sin pasar por ella, y esos también hay que poder buscarlos.
+     Si la tabla no está, la lista queda vacía y la sección no aparece.
+     Y va en su propio efecto porque depende del buscador: metido en `cargar`,
+     cada tecla volvería a pedir también el estado de la cola. */
+  useEffect(() => {
+    let vivo = true;
+    const t = setTimeout(() => {
+      emailsApi.envios(evento.id, {
+        limit: 50,
+        ...(buscaEnvio.trim() ? { q: buscaEnvio.trim() } : {}),
+        ...(soloFallidos ? { solo: 'fallidos' } : {}),
+      })
+        .then(d => {
+          if (!vivo) return;
+          setEnvios(d.envios || []);
+          setTotalEnvios(d.total ?? (d.envios || []).length);
+        })
+        .catch(() => { if (vivo) setEnvios([]); });
+    }, buscaEnvio ? 300 : 0);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [evento.id, buscaEnvio, soloFallidos]);
 
   const reintentar = async () => {
     setTrabajando(true);
@@ -68,7 +90,10 @@ export default function EstadoCola({ evento }) {
 
   /* Sin nada en la cola y sin fallidos no hay nada que contar: la tarjeta
      desaparece en vez de ocupar sitio para decir «cero». */
-  if (!pendientes && !fallidos && !enCurso && !enviados && envios.length === 0) return null;
+  /* La tarjeta no desaparece porque una búsqueda no encuentre nada: se mira el
+     total del registro, no lo que hay en pantalla. Si no, escribir un correo
+     que no está haría desaparecer el buscador con el que se escribió. */
+  if (!pendientes && !fallidos && !enCurso && !enviados && totalEnvios === 0 && !buscaEnvio && !soloFallidos) return null;
 
   return (
     <div className={`rounded-2xl border overflow-hidden ${fallidos ? 'border-danger/40 bg-danger/5' : 'border-border bg-surface/40'}`}>
@@ -102,12 +127,31 @@ export default function EstadoCola({ evento }) {
           se puede contestar eso. El registro estaba en el servidor desde el
           principio y no lo pintaba nadie. Va plegado: se abre cuando hay que
           buscar a alguien. */}
-      {envios.length > 0 && (
+      {(totalEnvios > 0 || buscaEnvio || soloFallidos) && (
         <details className="border-t border-border group">
           <summary className="px-4 py-3 text-sm text-text-2 hover:text-text-1 cursor-pointer list-none flex items-center justify-between">
-            ¿A quién le llegó? · últimos {envios.length}
+            ¿A quién le llegó? · {envios.length} de {totalEnvios}
             <span className="text-text-3 group-open:rotate-180 transition-transform">⌄</span>
           </summary>
+          {/* Buscar por destinatario y ver sólo lo que NO salió: son las dos
+              cosas que se hacen aquí. Sin ellas, «los últimos 50» contestaba
+              por casualidad. */}
+          <div className="px-4 pb-3 flex items-center gap-2 flex-wrap">
+            <input
+              value={buscaEnvio}
+              onChange={e => setBuscaEnvio(e.target.value)}
+              placeholder="Buscar por correo…"
+              className="input rounded-xl py-1.5 text-xs flex-1 min-w-[160px]" />
+            <button
+              type="button"
+              onClick={() => setSoloFallidos(v => !v)}
+              aria-pressed={soloFallidos}
+              className={`px-3 py-1.5 rounded-full border text-xs transition-colors ${soloFallidos
+                ? 'border-danger/40 bg-danger/10 text-danger-light'
+                : 'border-border-2 text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+              Sólo los que fallaron
+            </button>
+          </div>
           <ul className="max-h-64 overflow-y-auto divide-y divide-border">
             {envios.map(e => (
               <li key={e.id} className="px-4 py-2 flex items-center gap-3">

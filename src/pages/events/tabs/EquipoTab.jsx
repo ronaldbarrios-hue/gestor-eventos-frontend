@@ -100,30 +100,68 @@ const ACCION_LABEL = {
   'aforo.limpiar' : 'Puso a cero el contador de una zona',
 };
 
+/* Cuántos apuntes por página. El mismo número que las demás listas del panel. */
+const AUDITORIA_POR_PAGINA = 50;
+
 function AuditoriaSection({ eventoId }) {
   const [log, setLog]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [pro, setPro]       = useState(true);
+  /* Se servían los últimos 100 y no se decía. En un evento con equipo, cien
+     apuntes son un día: «quién tocó qué» contestaba sobre hoy y parecía
+     contestar sobre el evento entero — y esa es justo la pregunta que se hace
+     cuando algo salió mal la semana pasada. */
+  const [pagina, setPagina] = useState(1);
+  const [tramo, setTramo]   = useState({ total: 0, paginas: 1 });
+  /* Qué acciones EXISTEN en este evento. Las manda el servidor: una lista de
+     acciones posibles escrita a mano acaba ofreciendo una que ya nadie escribe
+     y faltándole la nueva. */
+  const [acciones, setAcciones] = useState([]);
+  const [accion, setAccion] = useState('');
 
   useEffect(() => {
     let activo = true;
     import('../../../api/auditoria.js')
-      .then(m => m.auditoriaApi.list(eventoId))
-      .then(d => { if (activo) setLog(d.auditoria || []); })
+      .then(m => m.auditoriaApi.list(eventoId, {
+        page: pagina, limit: AUDITORIA_POR_PAGINA, ...(accion ? { accion } : {}),
+      }))
+      .then(d => {
+        if (!activo) return;
+        setLog(d.auditoria || []);
+        setTramo({ total: d.total ?? (d.auditoria || []).length, paginas: d.paginas ?? 1 });
+        if (Array.isArray(d.acciones)) setAcciones(d.acciones);
+      })
       .catch(e => {
         if (e.response?.status === 402) { if (activo) setPro(false); }
       })
       .finally(() => { if (activo) setLoading(false); });
     return () => { activo = false; };
-  }, [eventoId]);
+  }, [eventoId, pagina, accion]);
 
   const fmt = (iso) => new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   return (
     <section>
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <h3 className="text-lg font-bold font-display text-text-1 tracking-tight">Auditoría</h3>
         <span className="badge badge-purple text-[10px]">Pro</span>
+        {tramo.total > 0 && (
+          <span className="text-xs text-text-3 tabular-nums">{tramo.total} apuntes</span>
+        )}
+        {/* Buscar a mano entre cien es viable; entre mil, no. Y este registro
+            crece durante toda la vida del evento.
+            Las opciones son las acciones que EXISTEN aquí, no un catálogo
+            escrito a mano — y por eso una acción sin etiqueta sale con su id
+            crudo en vez de desaparecer del filtro. */}
+        {acciones.length > 1 && (
+          <select
+            value={accion}
+            onChange={e => { setAccion(e.target.value); setPagina(1); }}
+            className="input bg-surface-2 rounded-xl py-1.5 text-xs w-auto ml-auto">
+            <option value="">Todo lo que pasó</option>
+            {acciones.map(a2 => <option key={a2} value={a2}>{ACCION_LABEL[a2] || a2}</option>)}
+          </select>
+        )}
       </div>
 
       {loading ? (
@@ -163,6 +201,23 @@ function AuditoriaSection({ eventoId }) {
               <span className="text-[11px] text-text-3 tabular-nums whitespace-nowrap">{fmt(a.created_at)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* El paginador. Sin el, el registro contestaba sobre el ultimo dia y
+          parecia contestar sobre el evento entero. */}
+      {!loading && pro && tramo.paginas > 1 && (
+        <div className="flex items-center justify-between gap-3 mt-3 px-1">
+          <p className="text-xs text-text-3 tabular-nums">
+            {(pagina - 1) * AUDITORIA_POR_PAGINA + 1}–{(pagina - 1) * AUDITORIA_POR_PAGINA + log.length} de {tramo.total}
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina <= 1}
+              className="btn-secondary btn-sm">Anterior</button>
+            <span className="text-xs text-text-3 tabular-nums px-1">{pagina} / {tramo.paginas}</span>
+            <button onClick={() => setPagina(p => Math.min(tramo.paginas, p + 1))} disabled={pagina >= tramo.paginas}
+              className="btn-secondary btn-sm">Siguiente</button>
+          </div>
         </div>
       )}
     </section>

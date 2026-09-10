@@ -54,8 +54,13 @@ export const emailsApi = {
      dominio, y reenviar lo interrumpido duplicaría la boleta. */
   /* Quién recibió qué. La cola dice CUÁNTOS no salieron; esto dice A QUIÉN, que
      es la pregunta de verdad cuando alguien avisa de que no le llegó. */
-  envios: (eventoId, limit = 50) =>
-    client.get(`/eventos/${eventoId}/emails/envios`, { params: { limit } }).then(r => r.data),
+  /* `params` lleva page, limit, q (por destinatario) y solo=fallidos. Se
+     servían los últimos 100 y no se decía cuántos había: a este registro se
+     viene con una pregunta concreta —«¿le llegó a ésta?»— y si la respuesta
+     depende de si su correo cayó dentro de los últimos cien, la pantalla
+     contesta que no cuando era que sí. */
+  envios: (eventoId, params = { limit: 50 }) =>
+    client.get(`/eventos/${eventoId}/emails/envios`, { params }).then(r => r.data),
 
   cola: (eventoId) =>
     client.get(`/eventos/${eventoId}/emails/cola`).then(r => r.data),

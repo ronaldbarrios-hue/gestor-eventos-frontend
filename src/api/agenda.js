@@ -17,7 +17,10 @@ export const agendaApi = {
   guardarFormularioSesion: (eventoId, sesionId, campos) => client.put(`/eventos/${eventoId}/sesiones/${sesionId}/formulario`, { campos }).then(r => r.data),
   /* Quién se apuntó a qué. */
   participacion     : (eventoId)                      => client.get(`/eventos/${eventoId}/sesiones/participacion`).then(r => r.data),
-  inscripciones     : (eventoId, sesionId)            => client.get(`/eventos/${eventoId}/sesiones/${sesionId}/inscripciones`).then(r => r.data),
+  /* `params` lleva page, limit y q: esta lista se servia con un tope de 500 y
+     sin decirlo, y la busqueda se hacia en memoria sobre lo que hubiera
+     cargado. */
+  inscripciones     : (eventoId, sesionId, params = {}) => client.get(`/eventos/${eventoId}/sesiones/${sesionId}/inscripciones`, { params }).then(r => r.data),
   /* Cambiar a mano el estado de UNA inscripción: apuntado, asistió, cancelado.
      Es la salida de emergencia del escáner — alguien que se quedó sin batería,
      una plaza que se libera— y sin ella la lista sólo se puede mirar. */

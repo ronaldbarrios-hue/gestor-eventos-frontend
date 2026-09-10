@@ -35,6 +35,11 @@ const PRESETS = [
   { nombre: 'Daño a la propiedad',  tipo: 'negativo', puntos: 100 },
 ];
 
+/* Cuántos registros del historial por página. El mismo número que las demás
+   listas del panel: dos listas del mismo sitio con tamaños distintos sólo
+   confunden. */
+const POR_PAGINA_HISTORIAL = 50;
+
 /* Dos poderes distintos y no uno.
  *
  * Los tres bloques de esta pantalla decian «Solo el organizador puede…», y el
@@ -71,12 +76,23 @@ export default function StandsTab({ evento, soyOwner, puedeStands, puedeConfigur
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  /* El historial se servía cortado a 100 y sin decirlo: un stand con cola
+     escanea eso en una tarde, así que contestaba sobre el último rato y parecía
+     contestar sobre el evento — y aquí se viene a comprobar si un canje
+     concreto quedó registrado. */
+  const [pagHistorial, setPagHistorial] = useState(1);
+  const [tramoHistorial, setTramoHistorial] = useState({ total: 0, paginas: 1 });
+
   const cargarHistorial = useCallback(async () => {
     try {
-      const d = await interaccionesApi.historial(evento.id, { limit: 100 });
+      const d = await interaccionesApi.historial(evento.id, { page: pagHistorial, limit: POR_PAGINA_HISTORIAL });
       setHistorial(d.interacciones || []);
+      setTramoHistorial({
+        total: d.total ?? (d.interacciones || []).length,
+        paginas: d.paginas ?? 1,
+      });
     } catch (e) { toastErr(e.response?.data?.error || e.message); }
-  }, [evento.id, toastErr]);
+  }, [evento.id, pagHistorial, toastErr]);
 
   useEffect(() => { if (vista === 'historial') cargarHistorial(); }, [vista, cargarHistorial]);
 
@@ -125,7 +141,8 @@ export default function StandsTab({ evento, soyOwner, puedeStands, puedeConfigur
       )}
 
       {vista === 'historial' && (
-        <Historial evento={evento} items={historial} puedeDeshacer={configura} onCambio={cargarHistorial} />
+        <Historial evento={evento} items={historial} puedeDeshacer={configura} onCambio={cargarHistorial}
+          pagina={pagHistorial} tramo={tramoHistorial} onPagina={setPagHistorial} />
       )}
     </div>
   );
@@ -529,7 +546,7 @@ function MotivosEditor({ evento, motivos, configura, onGuardado }) {
 
 /* ─────────── Historial ─────────── */
 
-function Historial({ evento, items, puedeDeshacer, onCambio }) {
+function Historial({ evento, items, puedeDeshacer, onCambio, pagina = 1, tramo = { total: 0, paginas: 1 }, onPagina }) {
   const { success, error: toastErr } = useToast();
 
   const borrar = async (it) => {
@@ -583,6 +600,24 @@ function Historial({ evento, items, puedeDeshacer, onCambio }) {
           );
         })}
       </ul>
+
+      {/* El paginador. Antes se servian los ultimos 100 y no se decia: el
+          historial contestaba sobre el ultimo rato y parecia contestar sobre
+          el evento entero. */}
+      {tramo.paginas > 1 && (
+        <div className="flex items-center justify-between gap-3 mt-3 px-1">
+          <p className="text-xs text-text-3 tabular-nums">
+            {(pagina - 1) * 50 + 1}–{(pagina - 1) * 50 + items.length} de {tramo.total}
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => onPagina?.(p => Math.max(1, p - 1))} disabled={pagina <= 1}
+              className="btn-secondary btn-sm">Anterior</button>
+            <span className="text-xs text-text-3 tabular-nums px-1">{pagina} / {tramo.paginas}</span>
+            <button onClick={() => onPagina?.(p => Math.min(tramo.paginas, p + 1))} disabled={pagina >= tramo.paginas}
+              className="btn-secondary btn-sm">Siguiente</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
