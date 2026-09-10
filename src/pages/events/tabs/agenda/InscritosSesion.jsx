@@ -24,6 +24,10 @@ import { useToast } from '../../../../context/ToastContext.jsx';
  * mirando una lista que no puede tocar. Es la excepción, no el método — por eso
  * es un selector pequeño al lado de cada fila y no un botón grande.
  */
+/* Cuántos inscritos por página. El mismo número que la lista de asistentes:
+   dos listas del mismo panel con tamaños distintos sólo confunden. */
+const POR_PAGINA = 50;
+
 export default function InscritosSesion({ evento, sesion, onClose, onCambio }) {
   const { success, error: toastErr } = useToast();
   const [lista, setLista] = useState(null);
@@ -33,18 +37,38 @@ export default function InscritosSesion({ evento, sesion, onClose, onCambio }) {
   /* Lo dice el servidor cuando la tabla todavía no está: sin esto, «no hay
      inscritos» y «esto aún no existe en la base» se ven exactamente igual. */
   const [sinTabla, setSinTabla] = useState(false);
+  /* Esta lista se servía con un tope de 500 y sin decirlo: el mismo corte en
+     silencio que tenía la de asistentes, sólo con el techo más arriba,
+     esperando el primer taller grande. */
+  const [pagina, setPagina] = useState(1);
+  const [tramo, setTramo] = useState({ total: 0, paginas: 1, por_pagina: POR_PAGINA });
 
   useEffect(() => {
     let vivo = true;
-    agendaApi.inscripciones(evento.id, sesion.id)
-      .then(r => {
-        if (!vivo) return;
-        setLista(r.inscripciones || []);
-        setSinTabla(r.almacenamiento_listo === false);
-      })
-      .catch(e => { if (vivo) setErr(e.response?.data?.error || e.message); });
-    return () => { vivo = false; };
-  }, [evento.id, sesion.id]);
+    /* La búsqueda la hace el SERVIDOR. Antes se filtraba en memoria sobre lo
+       que hubiera cargado, y con la lista partida en páginas eso buscaría sólo
+       dentro de la página que se está viendo — que es peor que no buscar,
+       porque contesta «nadie con ese nombre» cuando sí está. */
+    const t = setTimeout(() => {
+      agendaApi.inscripciones(evento.id, sesion.id, { page: pagina, limit: POR_PAGINA, ...(busca.trim() ? { q: busca.trim() } : {}) })
+        .then(r => {
+          if (!vivo) return;
+          setLista(r.inscripciones || []);
+          setSinTabla(r.almacenamiento_listo === false);
+          setTramo({
+            total: r.total ?? (r.inscripciones || []).length,
+            paginas: r.paginas ?? 1,
+            por_pagina: r.por_pagina ?? POR_PAGINA,
+            /* `null` si el servidor no los pudo contar, o `undefined` si es
+               viejo y no los manda: las dos cosas caen al recuento local. */
+            apuntados: r.apuntados ?? undefined,
+            asistieron: r.asistieron ?? undefined,
+          });
+        })
+        .catch(e => { if (vivo) setErr(e.response?.data?.error || e.message); });
+    }, busca ? 300 : 0);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [evento.id, sesion.id, pagina, busca]);
 
   const cambiar = async (i, estado) => {
     setGuardando(i.id);
@@ -58,15 +82,17 @@ export default function InscritosSesion({ evento, sesion, onClose, onCambio }) {
     } finally { setGuardando(null); }
   };
 
-  const filtrada = (lista || []).filter(i => {
-    const q = busca.trim().toLowerCase();
-    if (!q) return true;
-    return [i.nombre_mostrar, i.email_mostrar, i.codigo_boleta]
-      .some(v => String(v || '').toLowerCase().includes(q));
-  });
+  /* Lo que llegó ES lo que se pinta: filtrar aquí otra vez sería filtrar dos
+     veces la misma cosa, y con la lista paginada, mal. */
+  const filtrada = lista || [];
 
-  const asistieron = (lista || []).filter(i => i.estado === 'asistio').length;
-  const activos = (lista || []).filter(i => i.estado !== 'cancelado').length;
+  /* Los dos numeros de la cabecera son del SUB-EVENTO, no de la pagina.
+     Se calculaban sobre las filas cargadas, y con la lista paginada eso diria
+     «50 apuntados» en un taller de ochenta — un numero equivocado ahi es peor
+     que no ponerlo, porque se usa para decidir si queda cupo. Los cuenta el
+     servidor; si no pudo, se cae a lo cargado, que es como estaba. */
+  const asistieron = tramo.asistieron ?? (lista || []).filter(i => i.estado === 'asistio').length;
+  const activos = tramo.apuntados ?? (lista || []).filter(i => i.estado !== 'cancelado').length;
 
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -87,10 +113,15 @@ export default function InscritosSesion({ evento, sesion, onClose, onCambio }) {
           </p>
         </div>
 
-        {(lista?.length || 0) > 8 && (
+        {/* El umbral se mira sobre el TOTAL y no sobre lo cargado: con la
+            lista paginada, «lista.length > 8» es «esta página tiene más de
+            ocho», que no es la pregunta. Y una vez escrito algo, la caja se
+            queda — si desapareciera al filtrar hasta dos resultados, no habría
+            forma de borrar la búsqueda. */}
+        {(tramo.total > 8 || busca) && (
           <div className="px-5 pt-4">
-            <input value={busca} onChange={e => setBusca(e.target.value)}
-              placeholder="Buscar por nombre, correo o código"
+            <input value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }}
+              placeholder="Buscar por nombre o correo"
               className="input w-full text-sm" />
           </div>
         )}
@@ -151,6 +182,22 @@ export default function InscritosSesion({ evento, sesion, onClose, onCambio }) {
               )}
             </div>
           ))}
+          {/* El paginador. Dentro del área que hace scroll y al final de las
+              filas: es donde está la mano cuando se acaba la página. */}
+          {tramo.paginas > 1 && (
+            <div className="flex items-center justify-between gap-3 pt-3">
+              <p className="text-[11px] text-text-3 tabular-nums">
+                {(pagina - 1) * tramo.por_pagina + 1}–{(pagina - 1) * tramo.por_pagina + filtrada.length} de {tramo.total}
+              </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina <= 1}
+                  className="btn-secondary btn-sm">Anterior</button>
+                <span className="text-[11px] text-text-3 tabular-nums">{pagina} / {tramo.paginas}</span>
+                <button onClick={() => setPagina(p => Math.min(tramo.paginas, p + 1))} disabled={pagina >= tramo.paginas}
+                  className="btn-secondary btn-sm">Siguiente</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="px-5 py-4 border-t border-border flex justify-end">

@@ -83,3 +83,42 @@ test('el PDF sigue siendo de TODA la lista, no de la página que se ve', () => {
   assert.match(todos, /tanda\.length < POR_TANDA/);
   assert.match(todos, /p >= 20/, 'sin cinturón, una lista enorme deja el navegador pidiendo páginas');
 });
+
+/* ── Y las otras dos listas que se cortaban igual ────────────────────── */
+
+const leer = (...t) => fs.readFileSync(path.join(process.cwd(), 'src', ...t), 'utf8');
+
+test('los inscritos de un sub-evento se piden por tramos, y la búsqueda la hace el servidor', () => {
+  /* Tope de 500 sin decirlo, y la búsqueda filtrando en memoria sobre lo
+     cargado. Lo segundo es lo peor de los dos: con la lista partida, buscaría
+     sólo dentro de la página que se ve, y contestaría «nadie con ese nombre»
+     cuando la persona sí está. */
+  const src = leer('pages', 'events', 'tabs', 'agenda', 'InscritosSesion.jsx');
+  assert.match(src, /const POR_PAGINA = 50;/);
+  assert.match(src, /page: pagina, limit: POR_PAGINA/);
+  assert.match(src, /q: busca\.trim\(\)/, 'la búsqueda no viaja al servidor');
+  assert.match(src, /const filtrada = lista \|\| \[\];/,
+    'sigue filtrando en memoria: eso busca sólo dentro de la página');
+  assert.match(src, /tramo\.paginas > 1/, 'no hay paginador');
+
+  /* Y los dos números de la cabecera son del sub-evento, no de la página:
+     «50 apuntados» en un taller de ochenta se usa para decidir si queda cupo. */
+  assert.match(src, /tramo\.apuntados \?\?/);
+  assert.match(src, /tramo\.asistieron \?\?/);
+});
+
+test('la auditoría se pide por tramos y se puede filtrar por acción', () => {
+  /* Se servían los últimos 100: en un evento con equipo eso es un día, así que
+     «quién tocó qué» contestaba sobre hoy y parecía contestar sobre el evento
+     entero — que es justo lo que se pregunta cuando algo salió mal la semana
+     pasada. */
+  const src = leer('pages', 'events', 'tabs', 'EquipoTab.jsx');
+  assert.match(src, /const AUDITORIA_POR_PAGINA = 50;/);
+  assert.match(src, /page: pagina, limit: AUDITORIA_POR_PAGINA/);
+  assert.match(src, /d\.acciones/, 'las acciones no salen del servidor');
+  assert.match(src, /ACCION_LABEL\[a2\] \|\| a2/,
+    'una acción sin etiqueta desaparece del filtro en vez de salir con su id');
+
+  const api = leer('api', 'auditoria.js');
+  assert.match(api, /list: \(eventoId, params = \{\}\)/, 'la llamada no acepta página ni filtro');
+});
