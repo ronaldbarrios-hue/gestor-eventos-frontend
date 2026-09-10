@@ -43,7 +43,11 @@ import SpeakersList, { SpeakerForm } from './agenda/AgendaSpeakers.jsx';
 export default function AgendaTab({ evento, vistaFija = null, recargarEvento = null }) {
   const { usuario } = useAuth();
   const [sessions, setSessions] = useState([]);
-  const [speakers, setSpeakers] = useState([]);
+  /* `null` = no se pudieron leer (o todavia no llegaron). Se distingue de `[]`
+     —«no hay ninguno»— porque la sub-vista de Speakers sólo tiene sentido en el
+     segundo caso: leerlos pide más permiso que leer la agenda. */
+  const [speakers, setSpeakers] = useState(null);
+  const puedeSpeakers = speakers !== null;
   const [torneos,  setTorneos]  = useState([]);
   /* Para poder decir QUIÉN da cada actividad y CON QUÉ boleta se entra.
      Las dos relaciones ya estaban en la tabla y ninguna pantalla las
@@ -73,15 +77,30 @@ export default function AgendaTab({ evento, vistaFija = null, recargarEvento = n
   const reload = async () => {
     setLoading(true);
     try {
+      /* `speakers` con su red, como sus tres vecinas.
+       *
+       * Era la unica del `Promise.all` sin `.catch`, y leerla pide
+       * `PERMS_AGENDA` mientras leer las sesiones acepta tambien `checkin`
+       * —para eso existe `PERMS_AGENDA_LEER`—. O sea que quien esta en la
+       * puerta abria la pestana, el 403 de speakers tumbaba el `Promise.all`
+       * entero, y se quedaba sin ver la agenda que SI podia leer. Un toast
+       * rojo y la pantalla vacia.
+       *
+       * Las sesiones ya traen su speaker dentro (`speaker:speakers!speaker_id`),
+       * asi que esta lista es solo para la sub-vista de gestionarlos: sin ella
+       * la agenda se ve entera. */
       const [s, sp, tr, ex, tt] = await Promise.all([
         agendaApi.sessions(evento.id),
-        agendaApi.speakers(evento.id),
+        agendaApi.speakers(evento.id).catch(() => ({ speakers: null })),
         torneosApi.list(evento.id).catch(() => ({ torneos: [] })),
         networkingApi.expositoresAdmin(evento.id).catch(() => ({ expositores: [] })),
         ticketsApi.list(evento.id).catch(() => ({ tickets: [] })),
       ]);
       setSessions(s.sessions || []);
-      setSpeakers(sp.speakers || []);
+      /* `null` es «no se pudieron leer» y `[]` es «no hay»: son cosas
+         distintas y la sub-vista de Speakers sólo tiene sentido en la
+         segunda. */
+      setSpeakers(sp.speakers);
       setTorneos((tr.torneos || []).filter(Boolean));
       setExpositores(ex.expositores || []);
       setTiposBoleta(tt.tickets || tt.ticket_types || []);
@@ -188,17 +207,25 @@ export default function AgendaTab({ evento, vistaFija = null, recargarEvento = n
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className={`items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 ${vistaFija ? 'hidden' : 'flex'}`}>
-            {[['sessions', 'Sesiones'], ['speakers', 'Speakers']].map(([k, l]) => (
+            {/* «Speakers» sólo si se pudieron leer: gestionarlos pide
+                `gestionar_agenda` o `editar_evento`, y quien entra con
+                `checkin` viene a mirar la agenda. Un botón que abre una lista
+                vacía por falta de permiso es peor que no tenerlo. */}
+            {[['sessions', 'Sesiones'], ...(puedeSpeakers ? [['speakers', 'Speakers']] : [])].map(([k, l]) => (
               <button key={k} onClick={() => setView(k)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${view === k ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
                 {l}
               </button>
             ))}
           </div>
-          <button onClick={() => openCreate()} className="btn-gradient btn-sm">
-            <PlusIcon className="w-3.5 h-3.5" />
-            {view === 'sessions' ? 'Nuevo sub-evento' : 'Nuevo speaker'}
-          </button>
+          {/* Crear pide `PERMS_AGENDA`, igual que leer los speakers: si eso
+              falló, este botón tampoco va a funcionar. */}
+          {puedeSpeakers && (
+            <button onClick={() => openCreate()} className="btn-gradient btn-sm">
+              <PlusIcon className="w-3.5 h-3.5" />
+              {view === 'sessions' ? 'Nuevo sub-evento' : 'Nuevo speaker'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -303,7 +330,7 @@ export default function AgendaTab({ evento, vistaFija = null, recargarEvento = n
       {/* Form de creación */}
       {creating && view === 'sessions' && (
         <SessionForm
-          speakers={speakers}
+          speakers={speakers || []}
           torneos={torneos}
           evento={evento}
           sessions={sessions}
@@ -390,7 +417,7 @@ export default function AgendaTab({ evento, vistaFija = null, recargarEvento = n
           : <SessionsList
               sessions={sessionsVista}
               editing={editing}
-              speakers={speakers}
+              speakers={speakers || []}
               torneos={torneos}
               evento={evento}
               expositores={expositores}

@@ -138,3 +138,22 @@ test('las seis pantallas que imprimen o facturan traen la lista entera', () => {
   assert.match(api, /tanda\.length < \(d\.por_pagina \?\? POR_TANDA\)/,
     'el bucle se fía de lo que pidió en vez de lo que le dieron');
 });
+
+test('la agenda no se cae por lo que no se puede leer', () => {
+  /* Leer las sesiones acepta `checkin` —para eso existe `PERMS_AGENDA_LEER`—
+     pero leer los speakers no. `speakers` era la única del `Promise.all` sin
+     `.catch`, así que el 403 tumbaba la petición entera: quien está en la
+     puerta abría la pestaña, veía un toast rojo y la pantalla vacía, sin la
+     agenda que sí podía leer.
+
+     Las sesiones ya traen su speaker dentro, así que esa lista es sólo para
+     gestionarlos. */
+  const src = leer('pages/events/tabs/AgendaTab.jsx');
+  assert.match(src, /agendaApi\.speakers\(evento\.id\)\.catch/,
+    'el 403 de speakers vuelve a tumbar la pestaña entera');
+  /* `null` = no se pudieron leer; `[]` = no hay. Son cosas distintas y la
+     sub-vista sólo tiene sentido en la segunda. */
+  assert.match(src, /const puedeSpeakers = speakers !== null;/);
+  assert.match(src, /puedeSpeakers \? \[\['speakers', 'Speakers'\]\] : \[\]/,
+    'se sigue ofreciendo una sub-vista que abre vacía por falta de permiso');
+});
