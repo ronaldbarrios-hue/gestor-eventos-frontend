@@ -219,7 +219,11 @@ const SECCIONES = [
        hacer, y es la palabra que ya se usa en un evento; las tres piezas se
        nombran en la línea de debajo, que es donde se buscan. */
     { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'ver_clientes'] },
-    { id: 'previos',      label: 'Invitaciones',        perm: 'ver_clientes' },
+    /* Todas las rutas del padron —incluida la de leer su estado— piden
+       `editar_evento` (`PERMS_PADRON`). Con `ver_clientes` la pestana se
+       abria y TODO lo de dentro devolvia 403: Puerta, Atencion y Finanzas la
+       veian para no poder usarla. */
+    { id: 'previos',      label: 'Invitaciones',        perm: 'editar_evento' },
   ]},
   { id: 'equipo', label: 'Equipo y tareas', icon: UsersIcon, tabs: [
     { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
@@ -239,7 +243,11 @@ const SECCIONES = [
     /* Lo mismo: quien lleva la comunicación no suele ser quien creó el
        evento en la plataforma. */
     { id: 'anuncios', label: 'Anuncios', perm: 'publicar_anuncios' },
-    { id: 'emails',   label: 'Emails',   perm: 'editar_pagina_publica' },
+    /* El servidor acepta las plantillas con cualquiera de los dos
+       (`PERMS_EDITAR` en routes/emails.js). Pidiendo solo el primero, quien
+       tenia `editar_evento` PODIA editarlas y no veia la pestana: una funcion
+       escondida a quien puede usarla, que no da error y no se descubre. */
+    { id: 'emails',   label: 'Emails',   perm: ['editar_pagina_publica', 'editar_evento'] },
   ]},
   /* Fuera «API» y «Seguridad»: eran dos placeholders que no hacían nada y
      ocupaban sitio en el menú. Vuelven cuando existan. */
