@@ -1135,6 +1135,12 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
            habría que ir a buscarlas al servidor para nada. */
         onSuccess({
           ...res.ticket, requierePago: !isFree, tipo, pagoSimple: tienePagoSimple && !isFree,
+          /* El servidor reconocio a esta persona: ya estaba registrada en esta
+             misma boleta y devolvio la que ya tenia en vez de emitir otra. Sin
+             decirlo, la pantalla diria «reserva confirmada» y quien acaba de
+             registrarse por segunda vez seguiria sin entender por que no le
+             llego un correo nuevo. */
+          yaEstaba: Boolean(res.ya_estaba), mensajeServidor: res.mensaje || '',
           asistente: { nombre: form.nombre, email: form.email, telefono: form.telefono },
           respuestas,
         });
@@ -1649,10 +1655,22 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           </svg>
         </div>
         <h2 className="text-2xl font-bold font-display text-text-1 tracking-tight mb-2">
-          {checkout.confirmacion_titulo?.trim() || (ticket.requierePago ? '¡Boleta apartada!' : '¡Reserva confirmada!')}
+          {ticket.yaEstaba
+            ? 'Ya estabas registrado'
+            : (checkout.confirmacion_titulo?.trim() || (ticket.requierePago ? '¡Boleta apartada!' : '¡Reserva confirmada!'))}
         </h2>
         <p className="text-sm text-text-2 mb-5 leading-relaxed max-w-sm mx-auto">
-          {checkout.confirmacion_texto?.trim() || 'Muestra este QR en la entrada del evento. También puedes mostrar el código.'}
+          {/* Se dice, y no se calla.
+              El servidor reconoce a quien ya tenia esta misma boleta gratuita y
+              le devuelve la suya en vez de emitir otra. Si la pantalla dijera
+              «reserva confirmada» a secas, esa persona se quedaria esperando un
+              correo que no va a llegar —porque el correo se envio la primera
+              vez— y volveria a intentarlo, que es como se llega a tres boletas.
+              Su codigo es el mismo de siempre, y eso tranquiliza mas que
+              cualquier otra cosa que se pueda escribir aqui. */}
+          {ticket.yaEstaba
+            ? (ticket.mensajeServidor || 'Ésta es la boleta que ya tenías: no hemos creado otra. El correo con ella salió cuando te registraste la primera vez.')
+            : (checkout.confirmacion_texto?.trim() || 'Muestra este QR en la entrada del evento. También puedes mostrar el código.')}
         </p>
         {/* Lo que tiene que hacer QUIEN COMPRÓ ESTA boleta, encima de la
             tarjeta: si va debajo, queda tras el QR y el código, que es donde
