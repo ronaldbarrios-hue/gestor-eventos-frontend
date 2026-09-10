@@ -18,6 +18,14 @@ import Icono from '../../../components/ui/Iconos.jsx';
 import EnviarEntrada from '../../../components/public/EnviarEntrada.jsx';
 import EscarapelaImprimible, { ESTILOS_DE_IMPRESION } from '../../../components/public/EscarapelaImprimible.jsx';
 
+/* Cuántas filas por página.
+ *
+ * Cincuenta porque es lo que se pidió y porque cabe en una pantalla de
+ * portátil sin que la barra de desplazamiento se vuelva un hilo. El servidor
+ * acepta hasta 200 por petición; por encima de eso lo que se quiere es la
+ * exportación, que va por otro camino. */
+const POR_PAGINA = 50;
+
 const ESTADO_LABEL = {
   emitido    : 'Emitido',
   pagado     : 'Pagado',
@@ -50,6 +58,17 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
   const [loading, setLoading] = useState(true);
   const [q, setQ]             = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
+  /* Filtrar por tipo de boleta. Los tipos los manda el servidor con la lista:
+     el desplegable tiene que ofrecer exactamente los que esa consulta
+     reconoce, y pedirlos aparte es la forma de que un día ofrezca uno borrado
+     o se deje fuera el que sí está. */
+  const [tipoFilter, setTipoFilter] = useState('');
+  /* Qué página se está mirando.
+     Antes no había ninguna: el servidor servía las primeras cien y el panel
+     las pintaba sin decir que había más. En un evento de 386 boletas la lista
+     se acababa en la 100 y no lo decía — quien buscaba a alguien de la mitad
+     concluía que no estaba inscrito. */
+  const [pagina, setPagina] = useState(1);
   const [importOpen, setImportOpen] = useState(false);
 
   const [repartoOpen, setRepartoOpen] = useState(false);
@@ -89,13 +108,61 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
     } finally { setExportando(false); }
   };
 
+  /* La lista COMPLETA, para lo que no puede salir a medias.
+   *
+   * El PDF de asistentes se armaba con lo que la pantalla tenía cargado. Con
+   * paginación eso sería un PDF de 50 filas titulado «Lista de asistentes» —
+   * exactamente el tipo de error que no se nota hasta que alguien pasa lista
+   * en la puerta con él. Así que se piden todas las páginas antes de
+   * generarlo, respetando los filtros que estén puestos: si estás mirando
+   * «Sin pagar», el PDF es de los sin pagar.
+   *
+   * El tope de 200 por petición es del servidor; el `while` recorre las que
+   * hagan falta y para en cuanto una vuelve corta. */
+  const traerTodos = async () => {
+    const POR_TANDA = 200;
+    const filtros = {
+      ...(q ? { q } : {}),
+      ...(estadoFilter ? { estado: estadoFilter } : {}),
+      ...(tipoFilter ? { ticket_type_id: tipoFilter } : {}),
+    };
+    const todos = [];
+    for (let p = 1; ; p++) {
+      const d = await clientesApi.list(evento.id, { ...filtros, page: p, limit: POR_TANDA });
+      const tanda = d.clientes || [];
+      todos.push(...tanda);
+      /* Se para por lo que llegó, no por el total: si el total cambiara entre
+         peticiones —alguien registrándose mientras exportas— un bucle que
+         confía en él no termina. */
+      if (tanda.length < POR_TANDA) break;
+      /* Cinturón: 20 tandas son 4.000 boletas. Más que eso es un caso que
+         merece la exportación de verdad, no un PDF. */
+      if (p >= 20) break;
+    }
+    return todos;
+  };
+
+  const [armandoPdf, setArmandoPdf] = useState(false);
+  const pdfDeTodos = async () => {
+    setArmandoPdf(true);
+    try {
+      const todos = await traerTodos();
+      if (!todos.length) { toastErr('No hay nadie que listar con estos filtros.'); return; }
+      exportarPDF(todos, evento);
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
+    finally { setArmandoPdf(false); }
+  };
+
   const reload = async () => {
     setLoading(true);
 
     try {
       const d = await clientesApi.list(evento.id, {
+        page: pagina,
+        limit: POR_PAGINA,
         ...(q ? { q } : {}),
         ...(estadoFilter ? { estado: estadoFilter } : {}),
+        ...(tipoFilter ? { ticket_type_id: tipoFilter } : {}),
       });
       setData(d);
     } catch (e) { toastErr(e.message); }
@@ -126,7 +193,16 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
     const t = setTimeout(reload, q ? 300 : 0);
     return () => clearTimeout(t);
     /* eslint-disable-next-line */
-  }, [evento.id, q, estadoFilter]);
+  }, [evento.id, q, estadoFilter, tipoFilter, pagina]);
+
+  /* Cambiar un filtro vuelve a la página 1, y en el MISMO manejador.
+   *
+   * Si no, la trampa clásica: estás en la página 5, filtras por «Sin pagar»
+   * —que tiene doce— y te queda una página vacía con un «no hay resultados»
+   * que es mentira. Y hacerlo en un `useEffect` aparte pediría la lista dos
+   * veces, una con la página vieja. Aquí los dos cambios entran en el mismo
+   * render. */
+  const filtrar = (fn) => { fn(); setPagina(1); };
 
   const cambiarEstado = async (ticketId, estado) => {
     try {
@@ -138,6 +214,18 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
 
   const clientes = data?.clientes || [];
   const stats    = data?.stats    || { total: 0, ingresos: 0 };
+  /* Los tipos de boleta llegan con la lista. Si el servidor es viejo y no los
+     manda, el filtro no sale — y la lista funciona igual. */
+  const tipos    = data?.tipos    || [];
+  /* Cuántas hay con los filtros puestos, y en qué tramo vamos.
+     `total` es el de la CONSULTA, no el del evento: filtrando por «Sin pagar»
+     dice cuántos sin pagar hay, que es lo que se está mirando. `stats.total`
+     sigue siendo el del evento entero, y por eso son dos números distintos. */
+  const total    = data?.total ?? clientes.length;
+  const paginas  = data?.paginas ?? 1;
+  const primeraDeLaPagina = total === 0 ? 0 : (pagina - 1) * POR_PAGINA + 1;
+  const ultimaDeLaPagina  = (pagina - 1) * POR_PAGINA + clientes.length;
+  const hayFiltro = Boolean(q || estadoFilter || tipoFilter);
   /* Mapa id de campo → etiqueta, para traducir las claves de `respuestas`
      (que se guardan por UUID del campo) a su texto real ("Cédula", "Edad"). */
   const camposFormulario = data?.campos_formulario || [];
@@ -151,11 +239,13 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => exportarPDF(clientes, evento)}
-            disabled={clientes.length === 0}
+            onClick={pdfDeTodos}
+            disabled={clientes.length === 0 || armandoPdf}
             className="btn-secondary btn-sm"
-            title="Descarga un PDF con la lista de asistentes, listo para imprimir">
-            <PdfIcon className="w-3.5 h-3.5" /> Exportar PDF
+            title="Descarga un PDF con TODA la lista que coincide con los filtros, no sólo esta página">
+            {armandoPdf
+              ? <><Spinner size="sm" /> Armando…</>
+              : <><PdfIcon className="w-3.5 h-3.5" /> Exportar PDF</>}
           </button>
           <button
             onClick={exportarTodo}
@@ -192,13 +282,30 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
         <div className="relative flex-1 min-w-[200px]">
           <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-3 pointer-events-none" />
           <input
-            value={q} onChange={e => setQ(e.target.value)}
-            placeholder="Buscar por nombre, email o código..."
+            value={q} onChange={e => filtrar(() => setQ(e.target.value))}
+            placeholder="Nombre, correo o código de boleta…"
             className="input rounded-2xl py-2.5 pl-10 text-sm"
           />
         </div>
+        {/* Por tipo de boleta.
+            Los tipos SON las actividades en la mayoría de los eventos —
+            «Registro», «PijaoTech», «DemoDay»— así que sin este filtro, para
+            saber quién va a una hay que leer 386 filas mirando la columna de
+            la derecha. El servidor ya lo aceptaba (`ticket_type_id`); lo que
+            no había era dónde elegirlo.
+            Sólo si hay más de uno: con uno solo, filtrar por él es no
+            filtrar. */}
+        {tipos.length > 1 && (
+          <select
+            value={tipoFilter} onChange={e => filtrar(() => setTipoFilter(e.target.value))}
+            className="input bg-surface-2 rounded-2xl py-2.5 text-sm w-auto"
+          >
+            <option value="">Todas las boletas</option>
+            {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        )}
         <select
-          value={estadoFilter} onChange={e => setEstadoFilter(e.target.value)}
+          value={estadoFilter} onChange={e => filtrar(() => setEstadoFilter(e.target.value))}
           className="input bg-surface-2 rounded-2xl py-2.5 text-sm w-auto"
         >
           <option value="">Todos los estados</option>
@@ -214,7 +321,7 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
       {loading ? (
         <GLoader message="Cargando clientes..." />
       ) : clientes.length === 0 ? (
-        <EmptyState hasFilter={Boolean(q || estadoFilter)} filtroSinPagar={estadoFilter === 'sin_pagar' && !q} />
+        <EmptyState hasFilter={hayFiltro} filtroSinPagar={estadoFilter === 'sin_pagar' && !q && !tipoFilter} />
       ) : (
         <div className="rounded-3xl border border-border bg-surface/40 overflow-hidden">
           {clientes.map((c, i) => (
@@ -229,6 +336,38 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
               style={{ animationDelay: `${i * 25}ms` }}
             />
           ))}
+        </div>
+      )}
+
+      {/* El paginador.
+          Va después de la lista y no antes: al llegar al final es cuando hace
+          falta. Y dice el tramo —«51-100 de 386»— porque el número que
+          importa no es en qué página estás, es cuánta lista queda: antes se
+          servían las primeras cien y la lista simplemente se acababa, sin
+          decir que faltaban 286. */}
+      {!loading && paginas > 1 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap px-1">
+          <p className="text-xs text-text-3 tabular-nums">
+            {primeraDeLaPagina}–{ultimaDeLaPagina} de {total}
+            {hayFiltro && <span className="text-text-2"> · filtrado</span>}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPagina(p => Math.max(1, p - 1))}
+              disabled={pagina <= 1}
+              className="btn-secondary btn-sm">
+              Anterior
+            </button>
+            <span className="text-xs text-text-3 tabular-nums px-1">
+              {pagina} / {paginas}
+            </span>
+            <button
+              onClick={() => setPagina(p => Math.min(paginas, p + 1))}
+              disabled={pagina >= paginas}
+              className="btn-secondary btn-sm">
+              Siguiente
+            </button>
+          </div>
         </div>
       )}
 
