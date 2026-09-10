@@ -122,3 +122,22 @@ test('la auditoría se pide por tramos y se puede filtrar por acción', () => {
   const api = leer('api', 'auditoria.js');
   assert.match(api, /list: \(eventoId, params = \{\}\)/, 'la llamada no acepta página ni filtro');
 });
+
+test('el historial de stands y el registro de correos tampoco se cortan ya', () => {
+  /* Un stand con cola escanea cien en una tarde; un evento manda un correo por
+     boleta. Las dos listas contestaban sobre lo reciente y parecian contestar
+     sobre el evento. */
+  const stands = leer('pages', 'events', 'tabs', 'StandsTab.jsx');
+  assert.match(stands, /const POR_PAGINA_HISTORIAL = 50;/);
+  assert.match(stands, /page: pagHistorial/);
+  assert.match(stands, /tramo\.paginas > 1/, 'el historial no tiene paginador');
+
+  const cola = leer('pages', 'events', 'workspace', 'comercial', 'EstadoCola.jsx');
+  /* Decia «ultimos N», que era honesto y no servia: N era lo cargado y la
+     pregunta que trae a la gente aqui es por una persona concreta. */
+  assert.match(cola, /\{envios\.length\} de \{totalEnvios\}/);
+  assert.match(cola, /solo: 'fallidos'/, 'no se puede mirar solo lo que no salio');
+  /* Y los filtros van en las dependencias del efecto: si no, se escriben y no
+     pasa nada — el fallo mas silencioso de todos. */
+  assert.match(cola, /\[evento\.id, buscaEnvio, soloFallidos\]/);
+});
