@@ -80,13 +80,24 @@ test('el PDF sigue siendo de TODA la lista, no de la página que se ve', () => {
   assert.match(todos, /ticket_type_id: tipoFilter/);
   /* Se para por lo que llegó, no por el total: si alguien se registra mientras
      exportas, un bucle que confía en el total no termina. */
-  assert.match(todos, /tanda\.length < POR_TANDA/);
+  /* Se compara contra lo que el servidor DICE que cabe en una pagina, no
+     contra lo que se pidio: un bucle que pide 500 y compara contra 500 para en
+     la primera tanda el dia que el tope baja a 200. Eso paso de verdad en
+     «Reparto sin correo». */
+  assert.match(todos, /tanda\.length < \(d\.por_pagina \?\? POR_TANDA\)/);
   assert.match(todos, /p >= 20/, 'sin cinturón, una lista enorme deja el navegador pidiendo páginas');
 });
 
 /* ── Y las otras dos listas que se cortaban igual ────────────────────── */
 
 const leer = (...t) => fs.readFileSync(path.join(process.cwd(), 'src', ...t), 'utf8');
+
+/* Sin comentarios: la redaccion vieja se cita EN el comentario que explica por
+   que se fue, asi que una prueba que la busca en el archivo entero mide su
+   propia explicacion. Van tres veces hoy. */
+const sinComentarios = (...t) => leer(...t)
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .split(String.fromCharCode(10)).filter(l => !l.trim().startsWith('//')).join(String.fromCharCode(10));
 
 test('los inscritos de un sub-evento se piden por tramos, y la búsqueda la hace el servidor', () => {
   /* Tope de 500 sin decirlo, y la búsqueda filtrando en memoria sobre lo
@@ -140,4 +151,29 @@ test('el historial de stands y el registro de correos tampoco se cortan ya', () 
   /* Y los filtros van en las dependencias del efecto: si no, se escriben y no
      pasa nada — el fallo mas silencioso de todos. */
   assert.match(cola, /\[evento\.id, buscaEnvio, soloFallidos\]/);
+});
+
+test('los dos bucles que recorren la lista entera se guian por el servidor', () => {
+  /* El bucle de «Reparto sin correo» pedia 500 y comparaba contra 500. El dia
+     que el servidor puso su tope en 200, cada tanda volvia con 200,
+     `200 < 500` daba verdadero y el bucle PARABA EN LA PRIMERA: repartir 200
+     de 386 sin que nada lo dijera. Lo introduje yo al poner el tope. */
+  const reparto = leer('pages', 'events', 'workspace', 'asistentes', 'RepartoSinCorreo.jsx');
+  assert.match(reparto, /const POR_TANDA = 200;/);
+  assert.match(reparto, /lote\.length < \(r\.por_pagina \?\? POR_TANDA\)/,
+    'el bucle vuelve a fiarse de lo que pidio en vez de lo que le dieron');
+  assert.doesNotMatch(reparto, /limit: 500/);
+});
+
+test('la lista de eventos no llama «total» a lo que cargo', () => {
+  /* Decia «conteos sobre TODO el universo» y eran los primeros doscientos. Con
+     menos de doscientos da lo mismo —por eso nadie lo noto—; con mas, la
+     cabecera contaba mal y la busqueda de esa pantalla, que es sobre lo
+     cargado, no encontraba lo que quedo fuera. */
+  const src = leer('pages', 'events', 'EventsListPage.jsx');
+  assert.match(src, /total\s*:\s*totalEventos \|\| eventos\.length/);
+  assert.match(src, /data\.total \?\?/, 'no lee el total que manda el servidor');
+  assert.match(src, /eventos\.length < conteos\.total &&/,
+    'no avisa cuando hay mas de los que se cargaron');
+  assert.doesNotMatch(sinComentarios('pages', 'events', 'EventsListPage.jsx'), /sobre TODO el universo/);
 });

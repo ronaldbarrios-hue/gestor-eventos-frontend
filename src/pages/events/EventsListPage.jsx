@@ -64,6 +64,10 @@ function pasaFiltroFecha(e, filtro) {
   }
 }
 
+/* Lo que se pide de una vez. Es el tope del servidor: pedir más no trae más.
+   Con más eventos que esto, la pantalla lo dice en vez de callarse. */
+const POR_TANDA = 200;
+
 export default function EventsListPage() {
   const { t } = useI18n();
   const { success, error: err } = useToast();
@@ -73,6 +77,7 @@ export default function EventsListPage() {
   const { vista, favoritos, recientes, setVista, toggleFavorito, registrarReciente } = useEventosPrefs();
 
   const [eventos, setEventos] = useState([]);
+  const [totalEventos, setTotalEventos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [categorias, setCategorias] = useState([]);
   const [q, setQ] = useState(searchParams.get('q') || '');
@@ -86,8 +91,13 @@ export default function EventsListPage() {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await eventosApi.list({ limit: 200 });
+      const data = await eventosApi.list({ limit: POR_TANDA });
       setEventos(data.eventos || []);
+      /* Cuántos hay de verdad. Lo que se carga es la primera tanda, y los
+         conteos de la cabecera y la búsqueda de esta pantalla trabajan sobre
+         eso: si hay más, hay que decirlo en vez de dejar que se lea como el
+         universo entero. */
+      setTotalEventos(data.total ?? (data.eventos || []).length);
     } catch (e) { err(e.message); }
     finally { setLoading(false); }
   }, [err]);
@@ -102,9 +112,19 @@ export default function EventsListPage() {
     return () => window.removeEventListener('gestek:refrescar-eventos', h);
   }, [cargar]);
 
-  /* Conteos del header (sobre TODO el universo, sin filtros) */
+  /* Conteos de la cabecera, sobre lo cargado.
+   *
+   * Decían «sobre TODO el universo» y no era cierto: se cargan los primeros
+   * doscientos. Con menos de doscientos eventos —que es casi siempre— da lo
+   * mismo, y por eso nadie lo notó; con más, la cabecera contaba mal y la
+   * búsqueda de abajo, que también es sobre lo cargado, no encontraba lo que
+   * quedó fuera.
+   *
+   * `total` sí es el de verdad: lo manda el servidor. Los otros tres sólo se
+   * pueden contar sobre lo que hay aquí, así que cuando falta algo se dice
+   * —abajo, con `hayMas`— en vez de fingir que están completos. */
   const conteos = useMemo(() => ({
-    total      : eventos.length,
+    total      : totalEventos || eventos.length,
     publicados : eventos.filter(e => e.estado === 'publicado').length,
     borradores : eventos.filter(e => ['borrador', 'configuracion'].includes(e.estado)).length,
     finalizados: eventos.filter(e => e.estado === 'finalizado').length,
@@ -225,6 +245,17 @@ export default function EventsListPage() {
             <Dot /> {t('{n} publicados',  { n: conteos.publicados })}
             <Dot /> {t('{n} borradores',  { n: conteos.borradores })}
             <Dot /> {t('{n} finalizados', { n: conteos.finalizados })}
+            {/* Si hay mas de los que se cargaron, se dice: los tres conteos de
+                al lado y la busqueda de abajo son sobre lo cargado, y leerlos
+                como el total seria creerse un numero que no lo es. */}
+            {eventos.length < conteos.total && (
+              <>
+                <Dot />
+                <span className="text-text-3">
+                  se muestran los primeros {eventos.length}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <Link to="/eventos/nuevo" className="btn-gradient">

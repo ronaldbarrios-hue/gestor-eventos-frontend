@@ -133,8 +133,12 @@ export default function ClientesTab({ evento, puedeBorrar = false }) {
       todos.push(...tanda);
       /* Se para por lo que llegó, no por el total: si el total cambiara entre
          peticiones —alguien registrándose mientras exportas— un bucle que
-         confía en él no termina. */
-      if (tanda.length < POR_TANDA) break;
+         confía en él no termina.
+         Y se compara contra lo que el servidor DICE que cabe en una página, no
+         contra lo que se pidió: un bucle que pide 500 y compara contra 500 para
+         en la primera tanda el día que el tope baja a 200. Eso pasó en
+         «Reparto sin correo». */
+      if (tanda.length < (d.por_pagina ?? POR_TANDA)) break;
       /* Cinturón: 20 tandas son 4.000 boletas. Más que eso es un caso que
          merece la exportación de verdad, no un PDF. */
       if (p >= 20) break;
