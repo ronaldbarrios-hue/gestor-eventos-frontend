@@ -7,6 +7,12 @@
     --radius: 0.75rem;
     --sidebar-w: 264px;
 
+    /* La curva con la que se mueve todo lo que responde a un dedo.
+       Sale rapido y frena al final: es como se siente que la pantalla te hizo
+       caso, en vez de que algo tarda. El `ease` del navegador arranca lento,
+       que es justo lo contrario. */
+    --curva-tacto: cubic-bezier(0.2, 0.8, 0.3, 1);
+
     /* ── Paleta modo CLARO (por defecto) ───────────────────────────
        Cada color base como "canal R G B" (sin paréntesis), para que
        Tailwind pueda combinarlo con modificadores de opacidad como
@@ -190,29 +196,73 @@
 @layer components {
 
   /* ── Buttons ─────────────────────────────────── */
+  /* ── Como responde un boton ───────────────────
+   *
+   * Los botones ya tenian `active:scale-95`, y casi no se veia. El motivo es
+   * que estaba debajo de `transition-all duration-200`: un toque dura unos 120
+   * ms, o sea que el dedo se levantaba antes de que la escala llegara a
+   * ninguna parte. La animacion existia y no la veia nadie.
+   *
+   * Asi que el hundido tiene su propio tiempo —90 ms para bajar, 220 para
+   * volver—: baja mientras el dedo esta puesto y se recupera con calma. Es la
+   * asimetria la que se siente como un boton fisico; con el mismo numero en los
+   * dos sentidos parece un rebote de goma.
+   *
+   * Y `transition-all` se cambia por una lista. `all` incluye el ancho y el
+   * alto, asi que un boton que pasa de «Guardar» a «Guardando…» se estiraba
+   * animandose, con el texto bailando dentro. Eso no era una animacion que
+   * alguien decidiera: era el efecto colateral de una palabra comoda.
+   *
+   * Nada de esto necesita guardia de `prefers-reduced-motion`: el bloque de
+   * arriba ya aplasta cualquier transicion a 0.001 ms para quien lo pide. */
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-[15px]
-           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
            focus-visible:ring-offset-bg disabled:opacity-40 disabled:pointer-events-none select-none;
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform, filter;
+    transition-duration: 220ms;
+    transition-timing-function: var(--curva-tacto);
   }
+  .btn:active:not(:disabled) { transition-duration: 90ms; }
+
+  /* Mientras se guarda.
+   *
+   * Un boton que esta trabajando se quedaba en `disabled:opacity-40`: el mismo
+   * gris apagado que uno que no se puede pulsar todavia. Con el spinner dentro
+   * al 40 % de opacidad, la pantalla decia «esto no esta disponible» cuando lo
+   * que pasaba era «esto se esta haciendo». Son dos cosas distintas y tenian el
+   * mismo aspecto.
+   *
+   * Se distinguen por lo que YA hace la app —meter un <Spinner> dentro—, sin
+   * pedirle a nadie que ademas se acuerde de poner un atributo nuevo: un
+   * atributo que hay que recordar es un atributo que la mitad de las pantallas
+   * no va a llevar. `aria-busy` tambien vale, para quien prefiera decirlo. */
+  .btn:disabled:has(svg.animate-spin),
+  .btn[aria-busy='true'] {
+    @apply opacity-100;
+    cursor: progress;
+  }
+  /* Los que levantan del papel tambien se hunden AL papel: bajan un pelo y
+     pierden la sombra, que es lo que hace que parezca que se aprieta algo y no
+     que se encoge un dibujo. */
   .btn-primary {
     @apply btn bg-primary text-white hover:bg-primary-dark shadow-glow-sm hover:shadow-glow
-           focus-visible:ring-primary active:scale-95;
+           focus-visible:ring-primary active:scale-[0.97] active:shadow-glow-sm active:translate-y-px;
   }
   .btn-secondary {
     @apply btn bg-surface-2 text-text-1 border border-border hover:bg-surface-3 hover:border-border-2
-           focus-visible:ring-primary active:scale-95;
+           focus-visible:ring-primary active:scale-[0.97] active:translate-y-px;
   }
   .btn-ghost {
-    @apply btn text-text-2 hover:text-text-1 hover:bg-surface-2 focus-visible:ring-primary active:scale-95;
+    @apply btn text-text-2 hover:text-text-1 hover:bg-surface-2 focus-visible:ring-primary active:scale-[0.97] active:translate-y-px;
   }
   .btn-danger {
     @apply btn bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20
-           focus-visible:ring-danger active:scale-95;
+           focus-visible:ring-danger active:scale-[0.97] active:translate-y-px;
   }
   .btn-gradient {
     @apply btn bg-gradient-primary text-white shadow-glow hover:shadow-glow
-           focus-visible:ring-primary active:scale-95;
+           focus-visible:ring-primary active:scale-[0.97] active:translate-y-px;
   }
   .btn-sm  { @apply text-sm px-3.5 py-2 rounded-lg; }
   .btn-lg  { @apply text-base px-6 py-3 rounded-2xl; }
