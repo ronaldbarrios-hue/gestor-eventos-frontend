@@ -121,7 +121,7 @@ export default function InscritosSesion({ evento, sesion, onClose, onCambio }) {
         {(tramo.total > 8 || busca) && (
           <div className="px-5 pt-4">
             <input value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }}
-              placeholder="Buscar por nombre o correo"
+              placeholder="Buscar por nombre, correo o código"
               className="input w-full text-sm" />
           </div>
         )}
