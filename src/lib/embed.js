@@ -355,6 +355,43 @@ export const WIDGET_TAMANOS = {
   lg: { padding: '16px 30px', fuente: '17px' },
 };
 
+/* ── Cómo responde el botón al pasar por encima ──────────────────────────
+ *
+ * El botón hacía una sola cosa: aclararse. Se eligió así a propósito —moverse
+ * dentro de la web de otro choca con las animaciones que esa web ya tenga— y
+ * como decisión por defecto sigue siendo la buena. Como única opción, no: un
+ * botón pegado en una página llena de cosas necesita a veces llamar la
+ * atención, y quien lo pega es quien sabe si su web lo aguanta.
+ *
+ * Así que se elige, y `no` sigue estando: hay webs donde lo correcto es que el
+ * botón no haga nada.
+ *
+ * Cinco y no quince. Un menú de animaciones largo se recorre entero, se elige
+ * la más llamativa, y el botón acaba dando saltos en la web de un cliente.
+ *
+ * `hover` son estilos en línea, no clases: este archivo lo comparte el panel
+ * con `public/widget.js`, que se sirve tal cual a webs ajenas y no puede
+ * inyectar CSS en la página de nadie. `pulso` es el único que se mueve solo,
+ * y va con la API de animaciones del navegador por lo mismo.
+ *
+ * La lista está copiada en `public/widget.js` porque allí no se puede
+ * importar. `tests/animacionDelBoton.test.mjs` compara las dos. */
+export const WIDGET_ANIMACIONES = [
+  { clave: 'brillo', label: 'Se aclara',  desc: 'Lo de siempre. No mueve nada de la página.',
+    hover: { filter: 'brightness(1.08)' } },
+  { clave: 'elevar', label: 'Se levanta', desc: 'Sube un poco y la sombra crece.',
+    hover: { transform: 'translateY(-2px)', filter: 'brightness(1.04)' } },
+  { clave: 'crecer', label: 'Crece',      desc: 'Se agranda un 4 %.',
+    hover: { transform: 'scale(1.04)' } },
+  { clave: 'latir',  label: 'Late',       desc: 'Pulsa solo, sin que nadie pase por encima. Llama la atención — y cansa si hay más cosas moviéndose.',
+    hover: { filter: 'brightness(1.08)' }, pulso: true },
+  { clave: 'no',     label: 'Nada',       desc: 'Ni se aclara. Para webs con su propio estilo de botones.',
+    hover: {} },
+];
+
+export const animacionDe = (clave) =>
+  WIDGET_ANIMACIONES.find(a => a.clave === clave) || WIDGET_ANIMACIONES[0];
+
 /* ── Qué se puede cambiar de un botón, en un solo sitio ──────────────────
  *
  * Esta tabla existe porque la lista de opciones estaba escrita CUATRO veces —
@@ -408,6 +445,9 @@ export const WIDGET_OPCIONES = [
   { clave: 'sombra',     attr: 'sombra',      def: 'md' },
   { clave: 'tamano',     attr: 'tamano',      def: 'md',          siempre: true },
   { clave: 'ancho',      attr: 'ancho',       def: 'auto' },
+  /* Cómo responde al pasar por encima. `brillo` es lo que hacía antes, así que
+     un botón ya pegado en una web no cambia de comportamiento. */
+  { clave: 'animacion',  attr: 'animacion',   def: 'brillo' },
   { clave: 'titulo',     attr: 'titulo',      def: 'Registro' },
 ];
 
