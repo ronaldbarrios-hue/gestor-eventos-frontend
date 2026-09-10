@@ -253,6 +253,86 @@ export default function ExpositorPage() {
 }
 
 /* ─────────── Dar puntos (escáner del expositor) ─────────── */
+/* ─────────── Mis contactos ───────────
+
+   La pestaña existía —el botón y la línea que la pinta— y el componente NO.
+   Pulsar «Mis contactos» dejaba el portal del expositor en blanco con un
+   `ReferenceError` en la consola: ni el build ni el linter lo veían, porque
+   `no-undef` no mira dentro del JSX. Lo encontró la regla que se añadió hoy
+   justo para eso.
+
+   Y es la mitad que importa del stand: quien monta uno viene a llevarse
+   contactos. La ruta ya existía y ya devolvía el nombre — sólo faltaba
+   enseñarlo. */
+function ContactosTab({ codigo }) {
+  const [gente, setGente] = useState(null);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    expositorApi.historial(codigo)
+      .then(d => setGente(d.interacciones || []))
+      .catch(e => { setMsg(e.response?.data?.error || e.message); setGente([]); });
+  }, [codigo]);
+
+  if (gente === null) return <p className="text-sm text-text-3 py-6 text-center">Cargando tus contactos…</p>;
+
+  if (!gente.length) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface/40 px-5 py-8 text-center">
+        <p className="text-sm text-text-1 font-medium mb-1">Todavía no has registrado a nadie.</p>
+        <p className="text-xs text-text-3 max-w-xs mx-auto">
+          Cada vez que escanees la escarapela de alguien en «Dar puntos», esa persona aparece aquí.
+        </p>
+        {msg && <p className="text-xs text-warning mt-3">{msg}</p>}
+      </div>
+    );
+  }
+
+  /* Una persona que pasó tres veces por el stand es UN contacto, no tres: lo
+     que se lleva el expositor es una lista de gente, no un registro de
+     escaneos. Se guarda la primera vez que pasó y cuántas veces. */
+  const porPersona = new Map();
+  for (const i of gente) {
+    const clave = i.ticket?.codigo || i.ticket_id || i.id;
+    const ya = porPersona.get(clave);
+    if (ya) { ya.veces += 1; ya.ultima = ya.ultima || i.created_at; continue; }
+    porPersona.set(clave, {
+      nombre: i.ticket?.guest_nombre || 'Sin nombre',
+      codigo: i.ticket?.codigo || null,
+      veces: 1,
+      ultima: i.created_at,
+    });
+  }
+  const contactos = [...porPersona.values()];
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-text-3">
+        {contactos.length} {contactos.length === 1 ? 'persona' : 'personas'} pasaron por tu stand.
+      </p>
+      <ul className="rounded-2xl border border-border bg-surface/40 divide-y divide-border overflow-hidden">
+        {contactos.map((c, i) => (
+          <li key={c.codigo || i} className="px-4 py-3 flex items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm text-text-1 truncate">{c.nombre}</span>
+              {c.codigo && <span className="block text-[11px] font-mono text-text-3">{c.codigo}</span>}
+            </span>
+            {c.veces > 1 && (
+              <span className="text-[11px] text-text-3 shrink-0">{c.veces} visitas</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {/* Se dice lo que NO hay, porque es lo primero que se busca: el correo.
+          Prometerlo entre líneas y no darlo es peor que decirlo. */}
+      <p className="text-[11px] text-text-3">
+        Aquí van quienes escaneaste. Los datos de contacto los reparte quien organiza el evento,
+        según lo que cada persona haya autorizado.
+      </p>
+    </div>
+  );
+}
+
 function PuntosTab({ codigo, nombre }) {
   const [cuota, setCuota] = useState(null);
   const [motivos, setMotivos] = useState(null);

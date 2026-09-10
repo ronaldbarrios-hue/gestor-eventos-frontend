@@ -11,6 +11,10 @@ export const clientesApi = {
      llego a la pagina del evento sin pasar por ningun boton. */
   origenes     : (eventoId)                     => client.get(`/eventos/${eventoId}/origenes`).then(r => r.data),
   cambiarEstado: (eventoId, ticketId, estado)   => client.patch(`/eventos/${eventoId}/clientes/${ticketId}`, { estado }).then(r => r.data),
+  /* Borrar no es anular: anular deja la fila marcada como inválida —y eso está
+     bien casi siempre—, esto se la lleva. Es para lo que no debió existir: los
+     duplicados de un fallo, las boletas de prueba del montaje. */
+  borrar       : (eventoId, ticketId)           => client.delete(`/eventos/${eventoId}/clientes/${ticketId}`).then(r => r.data),
   /* Volver a mandarle la entrada a quien ya la tiene. Va al correo REGISTRADO
      en la boleta —el servidor no acepta destinatario—, y es el mismo correo que
      sale al pagar, con la plantilla del evento. */

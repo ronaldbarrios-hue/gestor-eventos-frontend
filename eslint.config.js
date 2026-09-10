@@ -1,4 +1,4 @@
-/* GESTEK — Linter mínimo, con una sola regla que importa: `no-undef`.
+/* GESTEK — Linter mínimo, con las reglas que evitan pantallas rotas.
 
    No está aquí para opinar de estilo. Está por una clase de fallo que ya ha
    mordido tres veces, y siempre igual: una función que se llama y que nadie
@@ -17,6 +17,8 @@
 
    Deliberadamente NO se añaden reglas de estilo ni de React: un linter que
    grita por comillas se acaba desactivando, y con él se va el que sí servía. */
+
+import react from 'eslint-plugin-react';
 
 /* A mano en vez del paquete `globals`, para no añadir una dependencia por una
    lista. Si falta alguno, el síntoma es un falso positivo evidente. */
@@ -48,7 +50,21 @@ export default [
       globals: comoGlobales(NAVEGADOR),
     },
     linterOptions: { reportUnusedDisableDirectives: false },
-    rules: { 'no-undef': 'error' },
+    plugins: { react },
+    rules: {
+      'no-undef': 'error',
+      /* `no-undef` NO mira dentro del JSX: `<Icono />` con el import olvidado
+         pasaba el linter y el build, y reventaba al abrir la pantalla —una
+         pantalla en blanco y un `ReferenceError` en la consola.
+         Se comprobó con un archivo de una línea: cero avisos.
+         Es la misma clase de fallo que hoy tumbó el registro en el servidor, y
+         aquí el precio es una sección entera que no abre. */
+      'react/jsx-no-undef': 'error',
+      /* Y su pareja: sin esto, un componente que SÓLO se usa en JSX se ve como
+         un import sin usar, y el día que se active `no-unused-vars` alguien lo
+         borraría «limpiando». */
+      'react/jsx-uses-vars': 'error',
+    },
   },
   {
     files: ['src/sw.js', 'src/**/*.worker.js'],

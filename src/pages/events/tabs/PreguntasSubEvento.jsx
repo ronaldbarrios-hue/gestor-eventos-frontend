@@ -5,6 +5,8 @@ import { useToast } from '../../../context/ToastContext.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import CondicionEditor from '../../../components/CondicionEditor.jsx';
 import CampoSensible from '../../../components/CampoSensible.jsx';
+import ImportarDefinicion from '../../../components/formulario/ImportarDefinicion.jsx';
+import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { useCierreSeguro, alPulsarElFondo } from '../../../components/ui/cierreSeguro.js';
 
 /* ──────────────────────────────────────────────────────────────────
@@ -16,8 +18,15 @@ import { useCierreSeguro, alPulsarElFondo } from '../../../components/ui/cierreS
    prometerlo. Esta es la pantalla que faltaba.
 
    Lo unico que NO tiene y el del evento si: «solo para el tipo VIP», que no
-   significa nada aqui —a un sub-evento no se entra con una boleta u otra— y
-   las fichas prearmadas, que son para el registro del evento.
+   significa nada aqui —a un sub-evento no se entra con una boleta u otra—.
+
+   Las fichas prearmadas y la importacion desde una hoja tampoco estaban, y esa
+   si era una omision. La justificacion era que «son para el registro del
+   evento», y no se sostiene: el formulario del evento pide cuatro preguntas y
+   una postulacion de startup pide veintiuna. La pantalla que las importaba
+   estaba a un clic, en la pestana de al lado, y desde aqui no habia forma de
+   llegar. Ahora el servidor manda el mismo catalogo a los tres formularios y
+   este editor lo usa entero.
 
    Todo lo demas si. Durante un tiempo no, y el comentario que estaba aqui lo
    justificaba: «sin grupos, sin ayuda por campo... esas cosas son del
@@ -120,6 +129,13 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
   /* Sugerencias de grupo. `grupo` es columna de `event_form_fields` desde la
      0055 y estos formularios ya la guardaban; lo que faltaba era ofrecerla. */
   const [grupos, setGrupos] = useState([]);
+  /* Fichas prearmadas y hoja de importacion. Existian solo en el formulario
+     del evento, que es el que menos las necesita: comprar una entrada pide
+     cuatro preguntas y postular una startup pide veintiuna. Ahora el servidor
+     manda el mismo catalogo a los tres. */
+  const [fichas, setFichas] = useState([]);
+  const [plantilla, setPlantilla] = useState(null);
+  const [importando, setImportando] = useState(false);
   const [saving, setSaving] = useState(false);
   const [original, setOriginal] = useState(null);
 
@@ -142,6 +158,8 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
            en dos sitios, y no se hizo. */
         if (Array.isArray(d.tipos) && d.tipos.length) setTipos(d.tipos);
         if (Array.isArray(d.grupos)) setGrupos(d.grupos);
+        if (Array.isArray(d.fichas)) setFichas(d.fichas);
+        if (d.plantilla) setPlantilla(d.plantilla);
       })
       .catch(e => { if (vivo) { toastErr(e.response?.data?.error || e.message); setCampos([]); } });
     return () => { vivo = false; };
@@ -166,6 +184,66 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
     [copia[i], copia[j]] = [copia[j], copia[i]];
     return copia;
   });
+  /* Para no repetir una pregunta que ya esta. Se compara el enunciado sin
+     acentos ni mayusculas: «Numero de documento» y «numero de documento» son
+     la misma pregunta hecha dos veces, y el formulario publico las pediria las
+     dos. */
+  const clave = (t) => String(t || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  const nuevoDe = (preset) => ({
+    _k: claveLocal(),
+    tipo: 'texto', etiqueta: '', requerido: false, opciones: null,
+    visible_si: null, sensible: false, ayuda: '', grupo: '',
+    ...preset,
+    /* «Solo para el tipo VIP» es del formulario de compra: aqui el filtro ya
+       es el sub-evento o el torneo. El servidor tambien lo limpia. */
+    ticket_type_id: null,
+  });
+
+  const agregarVarios = (presets) => {
+    const yaEstan = new Set(campos.map(c => clave(c.etiqueta)));
+    const nuevos = presets.filter(c => !yaEstan.has(clave(c.etiqueta)));
+    if (!nuevos.length) { toastErr('Esas preguntas ya estan en el formulario.'); return; }
+    /* No caben todas: se agregan las que caben en vez de rechazar el lote
+       entero. Rechazarlo obliga a recortar el archivo y volver a subirlo. */
+    const caben = nuevos.slice(0, Math.max(0, max - campos.length));
+    if (!caben.length) { toastErr(`El formulario ya tiene el maximo de ${max} preguntas.`); return; }
+    setCampos(cs => [...cs, ...caben.map(nuevoDe)]);
+    setImportando(false);
+    success(caben.length < nuevos.length
+      ? `${caben.length} agregadas; ${nuevos.length - caben.length} no caben.`
+      : `${caben.length} ${caben.length === 1 ? 'pregunta agregada' : 'preguntas agregadas'}. Revisa y guarda.`);
+  };
+
+  /* Esta la ficha entera? Es lo que decide si el boton agrega o quita. */
+  const fichaPuesta = (ficha) => {
+    if (!ficha.campos?.length) return false;
+    const estan = new Set(campos.map(c => clave(c.etiqueta)));
+    return ficha.campos.every(c => estan.has(clave(c.etiqueta)));
+  };
+
+  /* Quitarla entera. Pulsar por error la de caracterizacion y tener que borrar
+     veintidos preguntas a mano no lo hace nadie: se abandona la pantalla.
+
+     Si alguna ya esta guardada se avisa, porque el servidor hace el diff por id
+     y borrarla se lleva las respuestas que ya haya dado la gente. */
+  const quitarFicha = async (ficha) => {
+    const suyas = new Set(ficha.campos.map(c => clave(c.etiqueta)));
+    const guardadas = campos.filter(c => suyas.has(clave(c.etiqueta)) && c.id).length;
+    if (guardadas > 0) {
+      const ok = await confirmDialog({
+        title: `Quitar «${ficha.nombre}»`,
+        message: `${guardadas} de estas preguntas ya estan guardadas. Si quitas la ficha y guardas, se borran junto con las respuestas que ya haya dado la gente.`,
+        confirmLabel: 'Quitar de todos modos',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setCampos(cs => cs.filter(c => !suyas.has(clave(c.etiqueta))));
+    success(`«${ficha.nombre}» quitada.`);
+  };
+
   const agregar = () => setCampos(cs => [
     ...cs,
     { _k: claveLocal(), tipo: 'texto', etiqueta: '', requerido: false, opciones: null, visible_si: null, sensible: false, ayuda: '', grupo: '' },
@@ -227,6 +305,47 @@ export default function PreguntasSubEvento({ evento, sesion, fuente, onClose, on
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          {/* Empezar con algo hecho. Va arriba y no al final: quien abre esto
+              con veinte preguntas que copiar de un documento tiene que ver la
+              importacion ANTES de empezar a escribirlas a mano. */}
+          {campos !== null && (fichas.length > 0 || plantilla) && (
+            <div className="flex flex-wrap gap-2 pb-1">
+              {fichas.map(fi => {
+                const puesta = fichaPuesta(fi);
+                return (
+                  <button key={fi.id} onClick={() => (puesta ? quitarFicha(fi) : agregarVarios(fi.campos))}
+                    title={puesta ? `Quitar las ${fi.campos.length} preguntas de «${fi.nombre}»` : fi.descripcion}
+                    aria-pressed={puesta}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-colors
+                                ${puesta
+                                  ? 'border-success/40 bg-success/10 text-text-1 hover:border-danger/40 hover:bg-danger/10'
+                                  : 'border-border-2 text-text-2 hover:text-text-1 hover:bg-surface-2'}`}>
+                    <span className={puesta ? 'text-success' : 'text-primary-light'}>{puesta ? '✓' : '+'}</span>
+                    {fi.nombre}
+                    <span className="text-text-3">· {fi.campos.length}</span>
+                  </button>
+                );
+              })}
+              {plantilla && (
+                <button onClick={() => setImportando(v => !v)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border-2
+                             text-xs text-text-2 hover:text-text-1 hover:bg-surface-2 transition-colors">
+                  <span className="text-primary-light">↑</span> Desde Excel o CSV
+                </button>
+              )}
+            </div>
+          )}
+
+          {importando && (
+            <ImportarDefinicion
+              catalogo={{ plantilla, tipos }}
+              cupo={Math.max(0, max - (campos?.length || 0))}
+              nombreEvento={evento?.titulo}
+              onAgregar={agregarVarios}
+              onCerrar={() => setImportando(false)}
+            />
+          )}
+
           {campos === null ? (
             <p className="text-sm text-text-3 text-center py-8">Cargando…</p>
           ) : campos.length === 0 ? (
