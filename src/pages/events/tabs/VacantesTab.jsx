@@ -19,7 +19,9 @@ const MODALIDADES = [['presencial', 'Presencial'], ['remoto', 'Remoto'], ['hibri
 const PERIODOS = [['evento', 'por el evento'], ['dia', 'por día'], ['hora', 'por hora']];
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-export default function VacantesTab({ evento, soyOwner }) {
+export default function VacantesTab({ evento, soyOwner, puedeGestionar: puedeProp }) {
+  /* Sin la bandera se cae a `soyOwner`: como estaba. */
+  const puedeGestionar = puedeProp === undefined ? soyOwner : puedeProp;
   /* Dos formas de conseguir gente, y hasta hoy sólo estaba una.
      «Publicar» es esperar a que vengan; «Buscar» es ir. La bolsa de talento
      existía entera en el servidor —y la gente marca su perfil como público
@@ -49,9 +51,13 @@ export default function VacantesTab({ evento, soyOwner }) {
     catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
-  if (!soyOwner) return (
+  /* El mismo muro de siempre, y aqui era el mas gratuito: la pestaña deja
+     entrar con `editar_evento` y el servidor pide exactamente eso
+     (`PERMS_VACANTES`). O sea que Editor y Coordinador la abrian para leer que
+     no podian. */
+  if (!puedeGestionar) return (
     <div className="rounded-3xl border border-border bg-surface/40 px-6 py-14 text-center">
-      <p className="text-sm text-text-3">Solo el organizador puede gestionar las vacantes.</p>
+      <p className="text-sm text-text-3">Para publicar vacantes y mover postulaciones hace falta el permiso «Editar evento».</p>
     </div>
   );
   if (loading) return <GLoader message="Cargando vacantes…" />;

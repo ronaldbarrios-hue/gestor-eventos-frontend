@@ -23,8 +23,18 @@ test('la parrilla tiene quien la enseñe', () => {
      mover citas y ninguna pantalla desde donde hacerlo. */
   const tab = sinComentarios(leer(TAB));
   assert.match(tab, /<ParrillaRueda/, 'la parrilla no está montada en ninguna pestaña');
-  assert.match(tab, /useState\(soyOwner \? 'parrilla'/,
-    'quien organiza no entra por la parrilla: el día del evento es lo primero que se mira');
+  /* Quien OPERA la rueda entra por la parrilla: el día del evento lo que se
+     mira es el tablero —quién está sentado, qué hueco quedó libre—; crear
+     mesas y generar franjas es trabajo de antes.
+     Antes esto decía `soyOwner`, y era demasiado estrecho: las rutas de la
+     rueda aceptan `gestionar_expositores`, que es el permiso del rol
+     «Coordinación de expositores» — el que existe en la semilla justo para
+     esto. Ese rol entraba y sólo veía «Explorar» y «Mis citas»: podía mirar la
+     rueda como un asistente y no operarla. */
+  assert.match(tab, /\? 'parrilla' : 'explorar'/,
+    'quien opera la rueda no entra por la parrilla');
+  assert.match(tab, /puedeGestionar === undefined \? soyOwner : puedeGestionar/,
+    'la pestaña vuelve a decidirlo por la propiedad del evento en vez del permiso');
 });
 
 test('el estado sale de las citas, no sólo del esqueleto', () => {

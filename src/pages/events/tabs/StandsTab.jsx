@@ -35,7 +35,25 @@ const PRESETS = [
   { nombre: 'Daño a la propiedad',  tipo: 'negativo', puntos: 100 },
 ];
 
-export default function StandsTab({ evento, soyOwner }) {
+/* Dos poderes distintos y no uno.
+ *
+ * Los tres bloques de esta pantalla decian «Solo el organizador puede…», y el
+ * servidor nunca pidio eso: los stands los acepta con `gestionar_expositores`
+ * —que es el permiso del rol «Coordinacion de expositores», el que existe en la
+ * semilla precisamente para esto— y la configuracion del pasaporte y los
+ * motivos con `editar_evento`.
+ *
+ * O sea que ese rol se podia conceder, abria la pestaña, y encontraba un muro.
+ * El unico camino era compartir la cuenta de quien creo el evento.
+ *
+ * Se separan porque no son lo mismo: llevar el directorio de stands es trabajo
+ * de cada dia, y cambiar cuantos puntos vale un sello es una decision del
+ * evento. Quien hace lo primero no tiene por que poder lo segundo. */
+export default function StandsTab({ evento, soyOwner, puedeStands, puedeConfigurar }) {
+  /* Sin las banderas se cae a `soyOwner`, que es como estaba: lo que no puede
+     es abrirse solo si una pantalla vieja no las pasa. */
+  const gestiona = puedeStands === undefined ? soyOwner : puedeStands;
+  const configura = puedeConfigurar === undefined ? soyOwner : puedeConfigurar;
   const { success, error: toastErr } = useToast();
   const [motivos, setMotivos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,20 +112,20 @@ export default function StandsTab({ evento, soyOwner }) {
         </div>
       </div>
 
-      {vista === 'stands' && <StandsEditor evento={evento} soyOwner={soyOwner} />}
+      {vista === 'stands' && <StandsEditor evento={evento} gestiona={gestiona} />}
       {/* Fijar el tope y repartirlo. La tarjeta de cada stand ya enseñaba el
           «% de la bolsa repartida»; lo que faltaba era dónde poner ese número. */}
       {vista === 'bolsa' && <BolsaPuntos evento={evento} />}
-      {vista === 'pasaporte' && <PasaporteConfig evento={evento} soyOwner={soyOwner} />}
+      {vista === 'pasaporte' && <PasaporteConfig evento={evento} configura={configura} />}
 
 
       {vista === 'motivos' && (
-        <MotivosEditor evento={evento} motivos={motivos} soyOwner={soyOwner}
+        <MotivosEditor evento={evento} motivos={motivos} configura={configura}
           onGuardado={(lista) => { setMotivos(lista); success('Motivos guardados.'); setVista('stands'); }} />
       )}
 
       {vista === 'historial' && (
-        <Historial evento={evento} items={historial} soyOwner={soyOwner} onCambio={cargarHistorial} />
+        <Historial evento={evento} items={historial} puedeDeshacer={configura} onCambio={cargarHistorial} />
       )}
     </div>
   );
@@ -115,7 +133,7 @@ export default function StandsTab({ evento, soyOwner }) {
 
 /* ─────────── Stands del evento (lista + alta manual) ─────────── */
 
-function StandsEditor({ evento, soyOwner }) {
+function StandsEditor({ evento, gestiona }) {
   const { success, error: toastErr } = useToast();
   const [stands, setStands] = useState([]);
   const [sinConsumo, setSinConsumo] = useState(false);
@@ -168,9 +186,9 @@ function StandsEditor({ evento, soyOwner }) {
     catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
-  if (!soyOwner) return (
+  if (!gestiona) return (
     <div className="rounded-3xl border border-border bg-surface/40 px-6 py-14 text-center">
-      <p className="text-sm text-text-3">Solo el organizador puede gestionar los stands.</p>
+      <p className="text-sm text-text-3">Para llevar el directorio de stands hace falta el permiso «Gestionar expositores».</p>
     </div>
   );
 
@@ -302,7 +320,7 @@ function StandsEditor({ evento, soyOwner }) {
 
 /* ─────────── Pasaporte gamificado (config) ─────────── */
 
-function PasaporteConfig({ evento, soyOwner }) {
+function PasaporteConfig({ evento, configura }) {
   const { success, error: toastErr } = useToast();
   const inicial = evento.page_json?.pasaporte || {};
   const [form, setForm] = useState({
@@ -326,9 +344,9 @@ function PasaporteConfig({ evento, soyOwner }) {
     finally { setSaving(false); }
   };
 
-  if (!soyOwner) return (
+  if (!configura) return (
     <div className="rounded-3xl border border-border bg-surface/40 px-6 py-14 text-center">
-      <p className="text-sm text-text-3">Solo el organizador puede configurar el pasaporte.</p>
+      <p className="text-sm text-text-3">Configurar el pasaporte cambia las reglas del evento: hace falta el permiso «Editar evento».</p>
     </div>
   );
 
@@ -397,7 +415,7 @@ function CodigoManual({ onSubmit, disabled }) {
 
 /* ─────────── Catálogo de motivos ─────────── */
 
-function MotivosEditor({ evento, motivos, soyOwner, onGuardado }) {
+function MotivosEditor({ evento, motivos, configura, onGuardado }) {
   const { error: toastErr } = useToast();
   const [lista, setLista] = useState(() => motivos.map(m => ({ ...m, _key: m.id })));
   const [saving, setSaving] = useState(false);
@@ -424,9 +442,9 @@ function MotivosEditor({ evento, motivos, soyOwner, onGuardado }) {
     finally { setSaving(false); }
   };
 
-  if (!soyOwner) return (
+  if (!configura) return (
     <div className="rounded-3xl border border-border bg-surface/40 px-6 py-14 text-center">
-      <p className="text-sm text-text-3">Solo el organizador puede definir los motivos.</p>
+      <p className="text-sm text-text-3">Definir los motivos cambia lo que puntúa en todo el evento: hace falta el permiso «Editar evento».</p>
     </div>
   );
 
@@ -511,7 +529,7 @@ function MotivosEditor({ evento, motivos, soyOwner, onGuardado }) {
 
 /* ─────────── Historial ─────────── */
 
-function Historial({ evento, items, soyOwner, onCambio }) {
+function Historial({ evento, items, puedeDeshacer, onCambio }) {
   const { success, error: toastErr } = useToast();
 
   const borrar = async (it) => {
@@ -550,7 +568,10 @@ function Historial({ evento, items, soyOwner, onCambio }) {
               <span className={`text-sm font-bold tabular-nums flex-shrink-0 ${neg ? 'text-danger' : 'text-success'}`}>
                 {it.puntos > 0 ? `+${it.puntos}` : it.puntos}
               </span>
-              {soyOwner && (
+              {/* Deshacer un registro pide `editar_evento` en el servidor
+                  (PERMS_GESTION), no ser el dueño: quien opera el escaneo
+                  puede registrar y no borrar, que es lo correcto. */}
+              {puedeDeshacer && (
                 <button onClick={() => borrar(it)} title="Deshacer"
                   className="w-8 h-8 rounded-lg text-text-3 hover:text-danger hover:bg-danger/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
