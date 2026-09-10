@@ -25,14 +25,15 @@ import path from 'node:path';
 
 const leer = (f) => fs.readFileSync(path.join(process.cwd(), 'src', f), 'utf8').replace(/\r/g, '');
 
-/* Los 27 de `core/permisos/catalogo.js` al 2026-09-10. */
+/* Los 31 de `core/permisos/catalogo.js` al 2026-09-11. */
 const DEL_SERVIDOR = [
   'editar_evento', 'publicar_evento', 'editar_pagina_publica', 'gestionar_imagenes',
   'gestionar_agenda', 'gestionar_torneo', 'gestionar_expositores', 'gestionar_accesos',
   'invitar_staff', 'gestionar_roles', 'remover_miembros', 'gestionar_solicitudes',
-  'gestionar_tareas', 'ver_documentos',
+  'gestionar_tareas', 'ver_documentos', 'gestionar_documentos', 'gestionar_vacantes',
   'gestionar_tickets', 'gestionar_descuentos',
   'ver_clientes', 'gestionar_clientes', 'checkin', 'vip_zone', 'borrar_boletas',
+  'gestionar_acreditacion', 'gestionar_padron',
   'crear_canales', 'borrar_mensajes', 'publicar_anuncios',
   'ver_pagos', 'reembolsar', 'ver_analytics',
 ];

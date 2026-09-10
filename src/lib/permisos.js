@@ -71,6 +71,10 @@ export const PERMISOS = [
      lleva la logistica abria el tablero de tareas y no podia poner nada en el
      —ni ver mas que las suyas, que para quien asigna es no ver nada—. */
   { id: 'gestionar_tareas',      grupo: 'Equipo',    label: 'Asignar tareas',          desc: 'Crear tareas, repartirlas, cambiarles la fecha y ver el tablero completo del evento.', aplicado: true },
+  /* Subir un contrato guarda en `page_json`, y eso pedia `editar_evento`: para
+     dejar que alguien colgara un PDF habia que darle el evento entero. */
+  { id: 'gestionar_documentos',  grupo: 'Equipo',    label: 'Subir y quitar documentos', desc: 'Colgar contratos, riders y planos, y quitarlos. Ver los documentos es otro permiso.', aplicado: true },
+  { id: 'gestionar_vacantes',    grupo: 'Equipo',    label: 'Publicar vacantes',         desc: 'Crear vacantes del evento y mover a quien se postula por las etapas.', aplicado: true },
   { id: 'ver_documentos',        grupo: 'Equipo',    label: 'Ver documentos',          desc: 'Contratos, riders y listas del evento. Sin esto la sección no aparece y los archivos ni siquiera viajan.', aplicado: true },
 
   /* Tickets */
@@ -87,6 +91,10 @@ export const PERMISOS = [
      tres; lo que faltaba era la forma de unirlos. Sin ningun error — la
      casilla simplemente no aparecia. */
   { id: 'borrar_boletas',        grupo: 'Clientes',  label: 'Borrar boletas',          desc: 'Quitar una boleta y sus respuestas para siempre. Es para los duplicados que deja un fallo; para lo demas, invalidar.', aplicado: true },
+  /* Los dos que obligaban a dar `editar_evento` para tareas del dia del
+     evento: el diseno de la escarapela y la lista previa de invitados. */
+  { id: 'gestionar_acreditacion', grupo: 'Clientes', label: 'Diseñar escarapelas y carnés', desc: 'El diseño con el que se imprime la escarapela y el carné digital. No incluye editar el resto del evento.', aplicado: true },
+  { id: 'gestionar_padron',      grupo: 'Clientes',  label: 'Cargar el padrón de invitados', desc: 'La lista previa con la que se prellena el registro de quien ya estaba invitado.', aplicado: true },
   { id: 'vip_zone',              grupo: 'Clientes',  label: 'Atender cualquier puerta', desc: 'Llave maestra: marca entradas por puertas restringidas sin estar en la lista de staff de cada una. Sin esto, sólo atiende las puertas donde esté apuntado.', aplicado: true },
 
   /* Chat */

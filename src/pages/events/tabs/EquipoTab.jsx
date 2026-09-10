@@ -5,7 +5,7 @@ import { rolesApi }  from '../../../api/roles.js';
 import { useToast }  from '../../../context/ToastContext.jsx';
 import Spinner       from '../../../components/ui/Spinner.jsx';
 import GLoader       from '../../../components/ui/GLoader.jsx';
-import { permisosPorGrupo } from '../../../lib/permisos.js';
+import PermisosSelector from '../../../components/permisos/PermisosSelector.jsx';
 import { useAuth } from '../../../context/AuthContext.jsx';
 
 /* Tab Equipo y roles — flujo en dos pasos:
@@ -470,58 +470,6 @@ function RolCard({ rol, eventoId, catalogo, isEditing, onStartEdit, onCancelEdit
 
 /* ─────────── PermisosSelector ─────────── */
 
-function PermisosSelector({ value = [], catalogo, onChange }) {
-  const grupos = permisosPorGrupo(catalogo);
-  const toggle = (id) => {
-    onChange(value.includes(id) ? value.filter(p => p !== id) : [...value, id]);
-  };
-
-  return (
-    <div>
-      <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2">Permisos</p>
-      <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-4 max-h-80 overflow-y-auto">
-        {grupos.map(([grupo, perms]) => (
-          <div key={grupo}>
-            <p className="text-[10px] uppercase tracking-widest text-text-3 font-semibold mb-2">{grupo}</p>
-            <div className="space-y-1.5">
-              {perms.map(p => {
-                const checked = value.includes(p.id);
-                return (
-                  <label key={p.id}
-                    className={`flex items-start gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors
-                      ${checked ? 'bg-primary/10 border border-primary/20' : 'border border-transparent hover:bg-surface-2/60'}`}>
-                    <input
-                      type="checkbox" checked={checked} onChange={() => toggle(p.id)}
-                      className="mt-0.5 w-4 h-4 rounded border-border bg-surface-2 accent-primary flex-shrink-0"
-                    />
-                    <span className="flex-1 min-w-0">
-                      <span className="text-sm text-text-1 font-medium block">
-                        {p.label}
-                        {/* Concederlo no cambia nada todavía. Decirlo aquí
-                            evita que alguien dé un permiso, se quede
-                            tranquilo, y descubra dentro de un mes que no
-                            hacía nada. */}
-                        {p.aplicado === false && (
-                          <span className="ml-1.5 text-[10px] uppercase tracking-wide text-warning border border-warning/30 bg-warning/10 px-1.5 py-0.5 rounded">
-                            sin efecto aún
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-xs text-text-3 block mt-0.5">{p.desc}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="text-[11px] text-text-3 mt-2">
-        {value.length === 0 ? 'Sin permisos seleccionados' : `${value.length} permiso(s) seleccionado(s)`}
-      </p>
-    </div>
-  );
-}
 
 /* ─────────── MIEMBROS ─────────── */
 
