@@ -6,6 +6,7 @@ import { useToast }  from '../../../context/ToastContext.jsx';
 import Spinner       from '../../../components/ui/Spinner.jsx';
 import GLoader       from '../../../components/ui/GLoader.jsx';
 import { permisosPorGrupo } from '../../../lib/permisos.js';
+import { useAuth } from '../../../context/AuthContext.jsx';
 
 /* Tab Equipo y roles — flujo en dos pasos:
    1. Definir los roles del evento (vienen 6 defaults, puedes editar/crear/borrar)
@@ -19,15 +20,26 @@ export default function EquipoTab({ evento }) {
      igual y se puede conceder. */
   const [catalogo, setCatalogo] = useState(null);
   const [loading, setLoading] = useState(true);
+  /* Si se pudieron LEER los roles. Leerlos pide `gestionar_roles`, y a esta
+     pestaña se entra tambien con `invitar_staff` o `remover_miembros`: quien
+     tenia uno de esos dos veia la pestaña entera en blanco con un error, porque
+     las dos peticiones iban en el mismo `Promise.all` y un 403 en los roles se
+     llevaba por delante la lista del equipo. Sin poder hacer lo unico que si
+     podia hacer. */
+  const [hayRoles, setHayRoles] = useState(true);
   const { error: toastErr } = useToast();
 
   const reload = async () => {
     setLoading(true);
     try {
-      const [eq, rs] = await Promise.all([equipoApi.list(evento.id), rolesApi.list(evento.id)]);
+      /* Por separado y a proposito: cada peticion pide su permiso, asi que
+         cada una tiene que poder fallar sola. */
+      const eq = await equipoApi.list(evento.id);
       setEquipo(eq);
-      setRoles(rs.roles || []);
-      setCatalogo(rs.catalogo || null);
+      const rs = await rolesApi.list(evento.id).catch(() => null);
+      setHayRoles(Boolean(rs));
+      setRoles(rs?.roles || []);
+      setCatalogo(rs?.catalogo || null);
     } catch (e) {
       toastErr(e.message);
     } finally { setLoading(false); }
@@ -41,12 +53,17 @@ export default function EquipoTab({ evento }) {
 
   return (
     <div className="space-y-7">
-      <RolesSection
-        eventoId={evento.id}
-        roles={roles}
-        catalogo={catalogo}
-        onChange={reload}
-      />
+      {/* Sin `gestionar_roles` no se leen ni se guardan: la seccion entera
+          sobra, y enseñarla vacia invita a crear un rol que el servidor va a
+          rechazar. */}
+      {hayRoles && (
+        <RolesSection
+          eventoId={evento.id}
+          roles={roles}
+          catalogo={catalogo}
+          onChange={reload}
+        />
+      )}
 
       <MiembrosSection
         eventoId={evento.id}
@@ -454,6 +471,8 @@ function PermisosSelector({ value = [], catalogo, onChange }) {
 /* ─────────── MIEMBROS ─────────── */
 
 function MiembrosSection({ eventoId, equipo, roles, onChange }) {
+  /* Quien esta mirando, para no ofrecerle cambiarse el rol a si mismo. */
+  const { usuario } = useAuth();
   const [showInvite, setShowInvite] = useState(false);
   const [invite, setInvite] = useState({ email: '', nombre_invitado: '', rol_id: '' });
   const [working, setWorking] = useState(false);
@@ -584,6 +603,12 @@ function MiembrosSection({ eventoId, equipo, roles, onChange }) {
             status={m.status}
             invitedAt={m.invited_at}
             roles={roles}
+            /* En tu propia fila no sale el selector: el servidor rechaza que
+               alguien se cambie el rol a si mismo —un clic de «Logistica» a
+               «Administrador» no lo aprueba nadie— y ofrecer el control para
+               luego negarlo es peor que no ofrecerlo. Quien creo el evento si
+               puede: no tiene a quien pedirselo. */
+            soyYo={Boolean(usuario?.id) && String(m.user_id || m.profile?.id) === String(usuario.id)}
             onChangeRol={r => onCambiarRol(m.id, r)}
             onRemove={() => onRemover(m.id, m.profile?.nombre || m.email)}
           />
@@ -593,7 +618,7 @@ function MiembrosSection({ eventoId, equipo, roles, onChange }) {
   );
 }
 
-function MiembroRow({ avatarUrl, nombre, email, rolId, rolLabel, status, invitedAt, isOwner, roles = [], onChangeRol, onRemove }) {
+function MiembroRow({ avatarUrl, nombre, email, rolId, rolLabel, status, invitedAt, isOwner, soyYo = false, roles = [], onChangeRol, onRemove }) {
   const initials = (nombre || email || 'U').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
   return (
     <div className="flex items-center gap-4 px-6 py-4 border-b border-border last:border-0 hover:bg-surface-2/30 transition-colors group">
@@ -615,9 +640,11 @@ function MiembroRow({ avatarUrl, nombre, email, rolId, rolLabel, status, invited
         </p>
       </div>
 
-      {isOwner ? (
+      {isOwner || soyYo ? (
+        /* Tu propia fila enseña tu rol y no lo deja cambiar: eso lo hace otra
+           persona, que es lo que significa que alguien te lo haya dado. */
         <span className="text-xs uppercase tracking-widest text-text-3 font-semibold px-3 py-1 rounded-full border border-border">
-          {rolLabel}
+          {rolLabel}{soyYo ? ' · tú' : ''}
         </span>
       ) : (
         <div className="flex items-center gap-2">

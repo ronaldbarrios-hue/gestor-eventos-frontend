@@ -64,7 +64,7 @@ test('cuando el servidor manda su catálogo, manda él', () => {
   assert.match(PERMISOS_JS, /Array\.isArray\(catalogo\)/);
 
   const equipo = leer('pages/events/tabs/EquipoTab.jsx');
-  assert.match(equipo, /rs\.catalogo/, 'la pantalla no lee el catálogo de la respuesta');
+  assert.match(equipo, /rs\?\.catalogo/, 'la pantalla no lee el catálogo de la respuesta');
   /* Los dos sitios donde se arma un rol: crear y editar. Si sólo uno lo
      recibe, se puede conceder un permiso al crear el rol y no al corregirlo. */
   assert.equal((equipo.match(/catalogo=\{catalogo\}/g) || []).length, 4,
@@ -111,4 +111,29 @@ test('el botón de crear tareas depende del permiso', () => {
      tareas antes de que esto fuera un permiso. Si se cayera, Administrador y
      Coordinador perderían algo que ya hacían. */
   assert.match(ws, /puedeVer\('editar_evento', soyOwner, permisos\)/);
+});
+
+test('la pestaña de equipo no se cae porque no se puedan leer los roles', () => {
+  /* Se entra con `gestionar_roles`, `invitar_staff` o `remover_miembros`, y
+     LEER los roles pide el primero. Las dos peticiones iban en el mismo
+     `Promise.all`, así que a quien tenía uno de los otros dos se le quedaba la
+     pestaña entera en blanco con un error: sin poder hacer lo único que sí
+     podía hacer. */
+  const eq = leer('pages/events/tabs/EquipoTab.jsx');
+  assert.doesNotMatch(eq, /Promise\.all\(\[equipoApi\.list/,
+    'las dos peticiones vuelven a ir juntas: un 403 en los roles tumba el equipo');
+  assert.match(eq, /rolesApi\.list\(evento\.id\)\.catch\(\(\) => null\)/);
+  assert.match(eq, /\{hayRoles && \(/, 'la sección de roles se enseña aunque no se pueda usar');
+});
+
+test('en tu propia fila no se ofrece cambiarte el rol', () => {
+  /* El servidor lo rechaza —un clic de «Logística» a «Administrador» no lo
+     aprueba nadie— y ofrecer el control para luego negarlo es peor. */
+  const eq = leer('pages/events/tabs/EquipoTab.jsx');
+  assert.match(eq, /soyYo=\{Boolean\(usuario\?\.id\)/);
+  assert.match(eq, /\{isOwner \|\| soyYo \?/, 'la fila propia sigue con el selector');
+  /* `m.user_id` con respaldo en `m.profile?.id`: quien está invitado y no ha
+     aceptado no tiene perfil, y sin el respaldo la comparación sería contra
+     `undefined` — una guardia que no salta nunca y nadie nota. */
+  assert.match(eq, /m\.user_id \|\| m\.profile\?\.id/);
 });
