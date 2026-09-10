@@ -1268,21 +1268,23 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
                   className={`h-1 flex-1 rounded-full transition-colors ${i <= paso ? 'paso-marca' : 'bg-surface-2'}`} />
               ))}
             </div>
-            {/* Qué le queda por rellenar de lo que trajimos.
-                Se recalcula con las respuestas de AHORA: lo que ya escribió
-                mientras avanzaba deja de contar como pendiente, que es lo que
-                convierte esto en un avance y no en un reproche fijo. */}
-            {prellenado?.encontrado && (() => {
-              const quedan = loQueQueda(prellenado.faltan, respuestas);
-              if (!quedan.length) return (
-                <p className="text-[11px] text-success mt-2">Ya no falta nada de lo que traíamos.</p>
-              );
-              return (
-                <p className="text-[11px] text-text-3 mt-2">{textoDeLoQueFalta(quedan)}</p>
-              );
-            })()}
           </div>
         )}
+
+        {/* Qué le queda por rellenar de lo que trajimos.
+         *
+         * Se recalcula con las respuestas de AHORA: lo que ya escribió mientras
+         * avanzaba deja de contar como pendiente, que es lo que convierte esto
+         * en un avance y no en un reproche fijo. Es el único sitio que lo dice
+         * —el aviso verde de «Traer mis datos» ya no lo repite— y por eso vive
+         * fuera de la barra de pasos: un formulario corto no la pinta, y ahí se
+         * habría quedado sin decirlo nadie. */}
+        {prellenado?.encontrado && (() => {
+          const quedan = loQueQueda(prellenado.faltan, respuestas);
+          return quedan.length
+            ? <p className="ancho text-[11px] text-text-3">{textoDeLoQueFalta(quedan)}</p>
+            : <p className="ancho text-[11px] text-success">Ya no falta nada de lo que traíamos.</p>;
+        })()}
 
         {err && <div className="ancho px-4 py-3 rounded-2xl bg-danger/10 border border-danger/20 text-danger-light text-sm">{err}</div>}
 
@@ -1988,6 +1990,19 @@ function TraerMisDatos({ slug, campos, onEncontrado }) {
 
   const alPulsarEnter = (e) => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } };
 
+  /* Cuántos campos se rellenaron de verdad.
+   *
+   * Se cuenta lo que trae valor, no las claves: una respuesta guardada vacía
+   * —o una casilla múltiple sin nada marcado— viaja igual y contarla haría
+   * prometer un relleno que no se ve por ningún lado. Nombre y correo cuentan
+   * como uno cada uno: son dos campos menos que teclear. */
+  const conValor = (v) => !(v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length));
+  const rellenados = resultado?.encontrado
+    ? Object.values(resultado.respuestas || {}).filter(conValor).length
+      + (conValor(resultado.nombre) ? 1 : 0)
+      + (conValor(resultado.email) ? 1 : 0)
+    : 0;
+
   return (
     <div className="ancho rounded-2xl border border-border bg-surface-2/40 px-4 py-3 space-y-2">
       <label className="label text-xs">
@@ -2045,13 +2060,25 @@ function TraerMisDatos({ slug, campos, onEncontrado }) {
 
       {resultado && (
         resultado.encontrado ? (
+          /* Dice lo que HIZO, y nada más.
+           *
+           * Llevaba pegada detrás la lista de lo que faltaba, que es lo mismo
+           * que dice la barra de progreso tres centímetros más arriba. Dos
+           * sitios contando lo mismo es cómo se llegó al muro de cuarenta
+           * etiquetas: se acorta uno y el otro sigue creciendo.
+           *
+           * Y de los dos, éste era el peor: se calcula en el momento de buscar
+           * y ahí se queda. Quien rellenaba tres campos seguía leyendo que le
+           * faltaban treinta y ocho. La barra sí se recalcula con lo escrito.
+           *
+           * Queda el número de lo rellenado porque algo tiene que confirmar
+           * que el botón funcionó — sin ninguna respuesta, quien lo pulsó no
+           * sabe si pasó algo. Cuántos campos se llenaron es la respuesta
+           * corta a esa pregunta, y no la repite nadie más. */
           <p className="text-[11px] text-success">
-            Listo, rellenamos lo que ya sabíamos.
-            {/* La misma forma de contarlo que la barra de progreso: dicho de
-                dos maneras, una acaba nombrando cuarenta etiquetas. */}
-            {resultado.faltan?.length
-              ? ` ${textoDeLoQueFalta(resultado.faltan)}`
-              : ' No falta nada más.'}
+            {rellenados === 0
+              ? 'Te encontramos, pero no había respuestas guardadas que traer.'
+              : `Listo, rellenamos ${rellenados} ${rellenados === 1 ? 'dato' : 'datos'} que ya sabíamos.`}
           </p>
         ) : (
           /* No se dice cuál de las dos cosas falló, ni si esa persona existe:
