@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { eventosApi } from '../../api/eventos.js';
 import { pagosApi } from '../../api/pagos.js';
 import WalletCard, { walletConfig } from '../../components/public/WalletCard.jsx';
+import EscarapelaImprimible, { ESTILOS_DE_IMPRESION } from '../../components/public/EscarapelaImprimible.jsx';
 import Instrucciones from '../../components/public/Instrucciones.jsx';
 import GLoader from '../../components/ui/GLoader.jsx';
 import CampoFormulario, { primerFallo } from '../../components/ui/CampoFormulario.jsx';
@@ -375,14 +376,7 @@ export default function MiTicketPage() {
          Así el asistente imprime su propia credencial aunque el evento no las
          imprima centralizadamente. */}
       <EscarapelaImprimible ticket={ticket} qrValue={qrValue} />
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          .escarapela-yo, .escarapela-yo * { visibility: visible; }
-          .escarapela-yo { position: absolute; inset: 0; margin: 0 auto; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
+      <style>{ESTILOS_DE_IMPRESION}</style>
     </section>
   );
 }
@@ -507,30 +501,6 @@ function PasaporteCard({ p }) {
   );
 }
 
-function EscarapelaImprimible({ ticket, qrValue }) {
-  const marca = ticket.evento?.page_json?.branding?.plataforma || ticket.evento?.titulo || 'Evento';
-  const logo = ticket.evento?.page_json?.branding?.logo_url || ticket.evento?.page_json?.credenciales?.logo_url;
-  return (
-    <div className="escarapela-yo hidden print:block" style={{ width: '90mm' }}>
-      <div style={{ border: '1px solid #ddd', borderRadius: 12, overflow: 'hidden', background: '#fff', color: '#0f172a' }}>
-        <div style={{ background: '#0A0F1A', color: '#fff', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {logo && <img src={logo} alt="" style={{ height: 20, objectFit: 'contain' }} />}
-          <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.85 }}>{marca}</span>
-        </div>
-        <div style={{ padding: 14, textAlign: 'center' }}>
-          <div style={{ background: '#fff', display: 'inline-block', padding: 6 }}>
-            <QRCodeSVG value={qrValue} size={120} level="M" includeMargin={false} />
-          </div>
-          <p style={{ fontSize: 16, fontWeight: 700, marginTop: 10 }}>{ticket.guest_nombre || 'Asistente'}</p>
-          <span style={{ display: 'inline-block', marginTop: 6, fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1.5, background: '#0A0F1A', color: '#fff', padding: '3px 10px', borderRadius: 999 }}>
-            {ticket.tipo?.nombre || 'General'}
-          </span>
-          <p style={{ fontSize: 9, fontFamily: 'monospace', color: '#64748b', marginTop: 8 }}>{ticket.codigo}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ─────────── Formulario pendiente (boleta transferida sin datos aún) ─────────── */
 function FormularioPendiente({ ticket, campos, onListo }) {

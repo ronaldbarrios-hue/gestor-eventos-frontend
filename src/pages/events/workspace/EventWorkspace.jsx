@@ -688,7 +688,11 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'resumen/analytics'      : return <AnalyticsTab evento={evento} />;
     case 'comercial/promociones'    : return <PromocionesSection evento={evento} />;
     case 'comercial/facturacion'    : return <FacturacionSection evento={evento} />;
-    case 'asistentes/clientes'      : return <ClientesTab evento={evento} />;
+    /* Borrar boletas va aparte de atender: la pantalla lo recibe para no
+       ofrecer un botón que el servidor va a rechazar, que es peor que no
+       ofrecerlo. Quien manda sigue siendo la ruta. */
+    case 'asistentes/clientes'      : return <ClientesTab evento={evento}
+                                        puedeBorrar={puedeVer('borrar_boletas', soyOwner, permisos)} />;
     case 'asistentes/checkin'       : return <CheckinTab evento={evento} miRolId={miRolId} miUserId={miUserId} />;
     /* Esta pantalla toca tres cosas con tres permisos distintos (la zona, la
        agenda y los stands), así que recibe la lista y decide ella: la regla de

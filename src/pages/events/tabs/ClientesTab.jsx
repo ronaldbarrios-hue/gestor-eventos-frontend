@@ -1,3 +1,4 @@
+import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 import { useEffect, useState, useRef } from 'react';
 import { useCierreSeguro, alPulsarElFondo } from '../../../components/ui/cierreSeguro.js';
 import { createPortal } from 'react-dom';
@@ -13,7 +14,9 @@ import GLoader from '../../../components/ui/GLoader.jsx';
 import { exportar } from '../../../lib/hojaEscribir.js';
 import { ymdLocal } from '../../../lib/fechaLocal.js';
 import DescargarEntrada from '../../../components/public/DescargarEntrada.jsx';
+import Icono from '../../../components/ui/Iconos.jsx';
 import EnviarEntrada from '../../../components/public/EnviarEntrada.jsx';
+import EscarapelaImprimible, { ESTILOS_DE_IMPRESION } from '../../../components/public/EscarapelaImprimible.jsx';
 
 const ESTADO_LABEL = {
   emitido    : 'Emitido',
@@ -42,12 +45,13 @@ const ESTADO_CLS = {
   invalido   : 'bg-danger/10 text-danger border-danger/20',
 };
 
-export default function ClientesTab({ evento }) {
+export default function ClientesTab({ evento, puedeBorrar = false }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ]             = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
   const [importOpen, setImportOpen] = useState(false);
+
   const [repartoOpen, setRepartoOpen] = useState(false);
   const [detalleCliente, setDetalleCliente] = useState(null);
   const [reembolsando, setReembolsando] = useState(null);
@@ -87,6 +91,7 @@ export default function ClientesTab({ evento }) {
 
   const reload = async () => {
     setLoading(true);
+
     try {
       const d = await clientesApi.list(evento.id, {
         ...(q ? { q } : {}),
@@ -95,6 +100,26 @@ export default function ClientesTab({ evento }) {
       setData(d);
     } catch (e) { toastErr(e.message); }
     finally    { setLoading(false); }
+  };
+
+  /* Borrar es irreversible y se lleva las respuestas del formulario, así que se
+     confirma nombrando a la persona y su código: un «¿seguro?» a secas se
+     contesta que sí sin leer. */
+  const borrar = async (c) => {
+    const ok = await confirmDialog({
+      message: `¿Borrar la boleta de ${c.guest_nombre || c.guest_email || 'esta persona'} (${c.codigo})?\n\n`
+        + 'Se va con sus respuestas del formulario y no se puede deshacer. '
+        + 'Si sólo quieres que no sirva para entrar, márcala como inválida.',
+      danger: true,
+      confirmLabel: 'Borrar la boleta',
+    });
+    if (!ok) return;
+    try {
+      await clientesApi.borrar(evento.id, c.id);
+      success(`Boleta ${c.codigo} borrada.`);
+      setDetalleCliente(null);
+      reload();
+    } catch (e) { toastErr(e.response?.data?.error || e.message); }
   };
 
   useEffect(() => {
@@ -200,6 +225,7 @@ export default function ClientesTab({ evento }) {
               onCambiarEstado={(e) => cambiarEstado(c.id, e)}
               onReembolsar={() => setReembolsando(c)}
               onVerDetalle={() => setDetalleCliente(c)}
+              onBorrar={puedeBorrar ? () => borrar(c) : null}
               style={{ animationDelay: `${i * 25}ms` }}
             />
           ))}
@@ -250,7 +276,7 @@ function StatBox({ label, value, hint }) {
   );
 }
 
-function ClienteRow({ cliente, currency, onCambiarEstado, onReembolsar, onVerDetalle, style }) {
+function ClienteRow({ cliente, currency, onCambiarEstado, onReembolsar, onVerDetalle, onBorrar, style }) {
   const [openMenu, setOpenMenu] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef(null);
@@ -365,6 +391,18 @@ function ClienteRow({ cliente, currency, onCambiarEstado, onReembolsar, onVerDet
                   Reembolsar…
                 </button>
               )}
+
+              {/* Borrar va la última y con línea propia: es lo único de este
+                  menú que no se puede deshacer, y ponerla entre los «marcar
+                  como…» la haría un clic vecino de cambiar una etiqueta. */}
+              {onBorrar && (
+                <button
+                  onClick={() => { setOpenMenu(false); onBorrar(); }}
+                  className="w-full px-3 py-2 text-left text-sm text-danger-light hover:bg-danger/10 transition-colors border-t border-border mt-1 pt-2"
+                >
+                  Borrar boleta…
+                </button>
+              )}
             </div>
           </>,
           document.body
@@ -458,7 +496,22 @@ function DetalleModal({ cliente, evento = {}, currency, camposFormulario, onClos
                 etiqueta="Descargar"
               />
               <EnviarEntrada evento={evento} ticket={cliente} qrValue={qrValue} />
+              {/* Imprimir, que faltaba. El día del evento, con alguien delante
+                  que llegó sin teléfono, lo que hace falta es papel — y aquí
+                  sólo se podía descargar o mandar un correo que esa persona no
+                  va a abrir en la fila.
+
+                  Es la MISMA escarapela que se imprime desde `/mi-ticket`: una
+                  segunda se separaría, y la que se separa es la que acaba en la
+                  mano de alguien en la puerta. */}
+              <button type="button" onClick={() => window.print()}
+                className="btn-ghost btn-sm inline-flex items-center gap-1.5"
+                title="Imprime la escarapela con su QR">
+                <Icono nombre="imprimir" className="w-4 h-4" />Imprimir
+              </button>
             </div>
+            <EscarapelaImprimible ticket={{ ...cliente, evento }} qrValue={qrValue} />
+            <style>{ESTILOS_DE_IMPRESION}</style>
           </div>
 
           <div className="rounded-2xl border border-border bg-surface/40 p-4 space-y-2.5">
