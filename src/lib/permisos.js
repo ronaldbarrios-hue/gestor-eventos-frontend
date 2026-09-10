@@ -1,30 +1,37 @@
-/* Catálogo central de permisos por rol dentro de un evento.
-   Cada permiso tiene id, label, descripción y grupo.
-
-   `aplicado` dice si el servidor lo VERIFICA de verdad hoy. Los que están en
-   `false` **no cambian nada al concederlos**, y ninguna pantalla se guarda ya
-   con ellos: eso se corrigió en el menú el 2-sep, porque «Pagos» pedía
-   `ver_pagos` —que nadie comprueba— y «Promociones» pedía `gestionar_tickets`
-   cuando esa ruta es sólo del dueño. Una pestaña que se abre y devuelve 403 es
-   peor que una pestaña que no se ve.
-
-   **Corregido el 2-sep:** `crear_canales` y `borrar_mensajes` estaban marcados
-   como no aplicados y `routes/chat.js` los comprueba en cinco sitios. La marca
-   miente en la dirección peor: le dice a quien arma un rol que conceder eso no
-   cambia nada, cuando sí cambia. Se midió buscando cada id en las rutas antes
-   de tocarlo. Al 2026-09-03 queda **uno solo** sin comprobar: `vip_zone`, que
-   no es que falte enchufarlo —es que no existe la función que promete—.
-   `gestionar_descuentos`, `ver_pagos` y `reembolsar` ya hacen algo. Los que están en
-   `false` se pueden conceder y no cambian nada todavía: se dejan porque los
-   roles semilla ya los reparten y esconderlos haría que un rol tuviera
-   permisos invisibles en su propia pantalla de edición. Con la marca, quien
-   arma un rol sabe cuál va a surtir efecto.
-
-   Faltaban tres que el backend SÍ comprueba —`gestionar_agenda`,
-   `gestionar_expositores` y `gestionar_torneo`— y que la semilla de la 0054
-   reparte entre Editor, Coordinador, Expositor, Speaker y Moderación. Al no
-   estar aquí, no se podían conceder a mano y un rol podía tener poderes que
-   su propio editor no enseñaba. */
+/* La redacción de los permisos: etiqueta, descripción y grupo.
+ *
+ * ── Quién manda ─────────────────────────────────────────────────────────
+ *
+ * El servidor. `GET /eventos/:id/roles` devuelve su catálogo y ES la lista;
+ * esto sólo pone las palabras —el `desc` largo, que no vale la pena mandar por
+ * la red en cada carga— y sirve de respaldo mientras la respuesta no llega o si
+ * el servidor es viejo.
+ *
+ * Antes esta lista se mantenía «a mano y a propósito idéntica» a la del
+ * backend, y duró lo que duran esas cosas: se añadió `borrar_boletas` allí, se
+ * protegió la ruta con él, se puso el botón, y aquí no apareció la casilla. El
+ * permiso existía y no había forma de concederlo. `tests/elPanelPuedeConcederTodo`
+ * cruza las dos listas para que eso falle en vez de descubrirse.
+ *
+ * ── `aplicado` ──────────────────────────────────────────────────────────
+ *
+ * Marca un permiso que se puede conceder y todavía no cambia nada, para que
+ * quien arma un rol lo sepa. **Hoy no hay ninguno**: los 28 están comprobados
+ * por alguna ruta.
+ *
+ * Se conserva porque la situación se ha dado tres veces y volverá a darse —un
+ * permiso se reparte en la semilla antes de que exista la pantalla que lo usa—
+ * y porque esconderlos entonces sería peor: un rol tendría poderes invisibles
+ * en su propia pantalla de edición. La marca miente en la dirección peor
+ * cuando se queda vieja, así que se comprueba buscando el id en las rutas antes
+ * de tocarla, nunca de memoria.
+ *
+ * `vip_zone` fue el último en dejar de estar en `false`: pasó de «no existe la
+ * función que promete» a decidir quién puede atender una puerta restringida.
+ * Este comentario decía que seguía sin comprobarse mucho después de que se
+ * comprobara — que es exactamente el fallo del que avisa el párrafo de arriba,
+ * cometido en el texto que lo explica.
+ */
 
 export const PERMISOS = [
   /* Co-dueño.

@@ -137,3 +137,20 @@ test('en tu propia fila no se ofrece cambiarte el rol', () => {
      `undefined` — una guardia que no salta nunca y nadie nota. */
   assert.match(eq, /m\.user_id \|\| m\.profile\?\.id/);
 });
+
+test('la cabecera no afirma cosas que la lista contradice', () => {
+  /* Decía que `vip_zone` era «el único sin comprobar» mucho después de que se
+     comprobara — un comentario que contradice al dato de veinte líneas abajo.
+     Es el fallo del que el propio comentario avisa, cometido en el texto que
+     lo explica. */
+  const cabecera = PERMISOS_JS.slice(0, PERMISOS_JS.indexOf('export const PERMISOS'));
+  const sinAplicar = (PERMISOS_JS.match(/aplicado: false/g) || []).length;
+  if (sinAplicar === 0) {
+    assert.doesNotMatch(cabecera, /queda \*\*uno solo\*\* sin comprobar/,
+      'la cabecera dice que queda uno sin comprobar y no queda ninguno');
+    assert.match(cabecera, /Hoy no hay ninguno/);
+  }
+  /* Y no vuelve a decir que esta lista se mantiene «a mano e idéntica» a la
+     del backend, que es lo que dejó de ser cierto al servirla el servidor. */
+  assert.doesNotMatch(cabecera, /a mano y a propósito idéntica»?\s*$/m);
+});
