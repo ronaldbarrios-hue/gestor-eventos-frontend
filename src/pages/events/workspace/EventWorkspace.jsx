@@ -663,7 +663,12 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'pagina/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
     case 'equipo/equipo'      : return <EquipoTab evento={evento} />;
     case 'equipo/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
-    case 'equipo/tareas'      : return <TareasTab evento={evento} />;
+    /* Repartir el trabajo se concede: 'gestionar_tareas' desde la 0123, y
+       'editar_evento' porque los roles que ya existen lo tienen y hacian esto
+       antes de que fuera un permiso. */
+    case 'equipo/tareas'      : return <TareasTab evento={evento}
+                                  puedeAsignar={puedeVer('gestionar_tareas', soyOwner, permisos)
+                                             || puedeVer('editar_evento', soyOwner, permisos)} />;
     /* Todo el equipo entra —cualquiera puede mandar una sugerencia— pero
        gestionarlas pide permiso: aquí se edita la ficha de otra persona. La
        pantalla se lo pasa para no ofrecer botones que el servidor va a

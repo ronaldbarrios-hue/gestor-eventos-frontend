@@ -25,11 +25,12 @@ import path from 'node:path';
 
 const leer = (f) => fs.readFileSync(path.join(process.cwd(), 'src', f), 'utf8').replace(/\r/g, '');
 
-/* Los 26 de `core/permisos/catalogo.js` al 2026-09-10. */
+/* Los 27 de `core/permisos/catalogo.js` al 2026-09-10. */
 const DEL_SERVIDOR = [
   'editar_evento', 'publicar_evento', 'editar_pagina_publica', 'gestionar_imagenes',
   'gestionar_agenda', 'gestionar_torneo', 'gestionar_expositores', 'gestionar_accesos',
-  'invitar_staff', 'gestionar_roles', 'remover_miembros', 'gestionar_solicitudes', 'ver_documentos',
+  'invitar_staff', 'gestionar_roles', 'remover_miembros', 'gestionar_solicitudes',
+  'gestionar_tareas', 'ver_documentos',
   'gestionar_tickets', 'gestionar_descuentos',
   'ver_clientes', 'gestionar_clientes', 'checkin', 'vip_zone', 'borrar_boletas',
   'crear_canales', 'borrar_mensajes', 'publicar_anuncios',
@@ -94,4 +95,20 @@ test('limpiar un aforo depende del permiso, no de haber creado el evento', () =>
   const ws = leer('pages/events/workspace/EventWorkspace.jsx');
   assert.match(ws, /puedeLimpiar=\{puedeVer\('gestionar_accesos'/,
     'el workspace no calcula el permiso de limpiar');
+});
+
+test('el botón de crear tareas depende del permiso', () => {
+  /* La pestaña se abre para todo el equipo: cada persona viene a ver lo suyo.
+     Lo que dependía del permiso era crear y repartir, y el botón salía igual —
+     así que quien no podía se enteraba al darle, con un error rojo. */
+  const tareas = leer('pages/events/tabs/TareasTab.jsx');
+  assert.match(tareas, /puedeAsignar/, 'la pestaña no sabe quién puede repartir');
+  assert.match(tareas, /\{puedeAsignar && \(/, 'el botón sigue saliendo para todo el mundo');
+
+  const ws = leer('pages/events/workspace/EventWorkspace.jsx');
+  assert.match(ws, /puedeAsignar=\{puedeVer\('gestionar_tareas'/);
+  /* `editar_evento` también: los roles que ya existen lo tienen y repartían
+     tareas antes de que esto fuera un permiso. Si se cayera, Administrador y
+     Coordinador perderían algo que ya hacían. */
+  assert.match(ws, /puedeVer\('editar_evento', soyOwner, permisos\)/);
 });

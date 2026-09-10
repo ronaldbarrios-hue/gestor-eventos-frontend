@@ -60,6 +60,10 @@ export const PERMISOS = [
   { id: 'gestionar_roles',       grupo: 'Equipo',    label: 'Gestionar roles',         desc: 'Crear, editar y borrar roles del evento.', aplicado: true },
   { id: 'remover_miembros',      grupo: 'Equipo',    label: 'Quitar miembros',         desc: 'Sacar gente del equipo del evento.', aplicado: true },
   { id: 'gestionar_solicitudes', grupo: 'Equipo',    label: 'Atender solicitudes',     desc: 'Responder sugerencias e incidencias del equipo, y aprobar las correcciones de ficha.', aplicado: true },
+  /* Repartir el trabajo del evento. No era un permiso: era `owner_id`, y quien
+     lleva la logistica abria el tablero de tareas y no podia poner nada en el
+     —ni ver mas que las suyas, que para quien asigna es no ver nada—. */
+  { id: 'gestionar_tareas',      grupo: 'Equipo',    label: 'Asignar tareas',          desc: 'Crear tareas, repartirlas, cambiarles la fecha y ver el tablero completo del evento.', aplicado: true },
   { id: 'ver_documentos',        grupo: 'Equipo',    label: 'Ver documentos',          desc: 'Contratos, riders y listas del evento. Sin esto la sección no aparece y los archivos ni siquiera viajan.', aplicado: true },
 
   /* Tickets */
