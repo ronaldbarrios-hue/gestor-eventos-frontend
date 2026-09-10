@@ -662,8 +662,16 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'mensajes/emails'        : return <EmailsSection evento={evento} reload={reload} />;
     case 'pagina/whitelabel'    : return <WhiteLabelSection evento={evento} reload={reload} />;
     case 'equipo/equipo'      : return <EquipoTab evento={evento} />;
-    case 'equipo/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner} />;
-    case 'equipo/tareas'      : return <TareasTab evento={evento} />;
+    /* La pestaña ya dejaba entrar con `editar_evento` y el servidor pide
+       exactamente eso: el muro de dentro no lo pedia nadie. */
+    case 'equipo/vacantes'    : return <VacantesTab evento={evento} soyOwner={soyOwner}
+                                  puedeGestionar={puedeVer('editar_evento', soyOwner, permisos)} />;
+    /* Repartir el trabajo se concede: 'gestionar_tareas' desde la 0123, y
+       'editar_evento' porque los roles que ya existen lo tienen y hacian esto
+       antes de que fuera un permiso. */
+    case 'equipo/tareas'      : return <TareasTab evento={evento}
+                                  puedeAsignar={puedeVer('gestionar_tareas', soyOwner, permisos)
+                                             || puedeVer('editar_evento', soyOwner, permisos)} />;
     /* Todo el equipo entra —cualquiera puede mandar una sugerencia— pero
        gestionarlas pide permiso: aquí se edita la ficha de otra persona. La
        pantalla se lo pasa para no ofrecer botones que el servidor va a
@@ -677,7 +685,11 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
     case 'actividades/calendario'   : return <AgendaTab evento={evento} recargarEvento={reload} />;
     case 'actividades/speakers'     : return <AgendaTab evento={evento} vistaFija="speakers" recargarEvento={reload} />;
     case 'actividades/torneos'          : return <TorneoTab evento={evento} soyOwner={soyOwner} />;
-    case 'actividades/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner} />;
+    /* La rueda la operan los mismos permisos que la aceptan en el servidor
+       (`PERMS_EXPOSITORES`), no la propiedad del evento. */
+    case 'actividades/networking'       : return <NetworkingTab evento={evento} soyOwner={soyOwner}
+                                            puedeGestionar={puedeVer('gestionar_expositores', soyOwner, permisos)
+                                                         || puedeVer('editar_evento', soyOwner, permisos)} />;
     case 'zonas/mapa'             : return <MapaSection evento={evento} />;
     case 'zonas/accesos'          : return <AccesosSection evento={evento} />;
     case 'actividades/ranking'          : return <RankingTab evento={evento} />;
@@ -698,8 +710,21 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
        agenda y los stands), así que recibe la lista y decide ella: la regla de
        cada acción vive junto a la acción. */
     case 'zonas/zonas'            : return <ZonasSection evento={evento} soyOwner={soyOwner} permisos={permisos} reload={reload} />;
-    case 'zonas/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
-    case 'zonas/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
+    /* Limpiar un aforo iba contra `soyOwner`, o sea que quien lleva la
+       logistica veia el numero y no podia ponerlo a cero al terminar una
+       charla: tenia que llamar a quien creo el evento. Ahora va por permiso
+       —el de las puertas y las zonas, o el de atender—, igual que el servidor.
+       Se pasan las dos cosas: la pantalla se ve, y el boton depende. */
+    case 'zonas/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner}
+                                      puedeLimpiar={puedeVer('gestionar_accesos', soyOwner, permisos)
+                                                 || puedeVer('gestionar_clientes', soyOwner, permisos)} />;
+    /* Dos poderes: llevar el directorio de stands es trabajo de cada dia
+       (`gestionar_expositores`); cambiar cuanto vale un sello o que puntua es
+       una decision del evento (`editar_evento`). El servidor los separa asi. */
+    case 'zonas/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner}
+                                     puedeStands={puedeVer('gestionar_expositores', soyOwner, permisos)
+                                               || puedeVer('editar_evento', soyOwner, permisos)}
+                                     puedeConfigurar={puedeVer('editar_evento', soyOwner, permisos)} />;
     /* Las dos fusiones. Cada una comprueba dentro el permiso de cada vista:
        juntarlas sin eso habría dado a quien escanea el diseñador del carné,
        y a quien lleva clientes la lista de espera del dueño. */

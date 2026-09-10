@@ -31,11 +31,21 @@ import ParrillaRueda from './ParrillaRueda.jsx';
    ExplorarView y MisCitasView se exportan también para poder reutilizarse
    desde la página pública (src/pages/public/NetworkingPublicPage.jsx). */
 
-export default function NetworkingTab({ evento, soyOwner }) {
+/* La rueda la lleva quien lleva los expositores.
+ *
+ * Las cuatro vistas de gestion —parrilla, informe, gestionar, por empresa—
+ * salian solo para `soyOwner`, y el servidor nunca pidio eso: las rutas de la
+ * rueda aceptan `gestionar_expositores` o `editar_evento`. Asi que el rol
+ * «Coordinacion de expositores», que existe en la semilla con ese permiso
+ * exacto, entraba a la pestaña y solo veia «Explorar» y «Mis citas»: podia
+ * mirar la rueda como un asistente y no operarla. */
+export default function NetworkingTab({ evento, soyOwner, puedeGestionar }) {
+  /* Sin la bandera se cae a `soyOwner`: como estaba. */
+  const gestiona = puedeGestionar === undefined ? soyOwner : puedeGestionar;
   /* Quien organiza entra por la parrilla, no por «Gestionar». El día del
      evento lo que se mira es el tablero —quién está sentado, qué hueco quedó
      libre—; crear mesas y generar franjas es trabajo de antes. */
-  const [sub, setSub] = useState(soyOwner ? 'parrilla' : 'explorar');
+  const [sub, setSub] = useState((puedeGestionar === undefined ? soyOwner : puedeGestionar) ? 'parrilla' : 'explorar');
   // parrilla | admin | explorar | mis-citas
 
   return (
@@ -57,19 +67,19 @@ export default function NetworkingTab({ evento, soyOwner }) {
           </p>
         </div>
         <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1">
-          {soyOwner && (
+          {gestiona && (
             <button onClick={() => setSub('parrilla')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'parrilla' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               Parrilla
             </button>
           )}
-          {soyOwner && (
+          {gestiona && (
             <button onClick={() => setSub('informe')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'informe' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               Informe
             </button>
           )}
-          {soyOwner && (
+          {gestiona && (
             <button onClick={() => setSub('admin')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'admin' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               Gestionar
@@ -79,7 +89,7 @@ export default function NetworkingTab({ evento, soyOwner }) {
               el salón, y lo peor para contestar «¿qué tiene mañana Café del
               Tolima?». Eso se preguntaba de una mesa concreta y no había dónde
               mirarlo. */}
-          {soyOwner && (
+          {gestiona && (
             <button onClick={() => setSub('mesas')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sub === 'mesas' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
               Por empresa
@@ -96,10 +106,10 @@ export default function NetworkingTab({ evento, soyOwner }) {
         </div>
       </div>
 
-      {sub === 'parrilla' && soyOwner && <ParrillaRueda evento={evento} soyOwner={soyOwner} />}
-      {sub === 'informe'  && soyOwner && <InformeRueda evento={evento} />}
-      {sub === 'admin'    && soyOwner && <AdminView evento={evento} />}
-      {sub === 'mesas'    && soyOwner && <AgendaPorEmpresa evento={evento} />}
+      {sub === 'parrilla' && gestiona && <ParrillaRueda evento={evento} soyOwner={gestiona} />}
+      {sub === 'informe'  && gestiona && <InformeRueda evento={evento} />}
+      {sub === 'admin'    && gestiona && <AdminView evento={evento} />}
+      {sub === 'mesas'    && gestiona && <AgendaPorEmpresa evento={evento} />}
       {sub === 'explorar' && <ExplorarView evento={evento} />}
       {sub === 'mis-citas' && <MisCitasView evento={evento} />}
     </div>

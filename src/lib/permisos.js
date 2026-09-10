@@ -60,6 +60,10 @@ export const PERMISOS = [
   { id: 'gestionar_roles',       grupo: 'Equipo',    label: 'Gestionar roles',         desc: 'Crear, editar y borrar roles del evento.', aplicado: true },
   { id: 'remover_miembros',      grupo: 'Equipo',    label: 'Quitar miembros',         desc: 'Sacar gente del equipo del evento.', aplicado: true },
   { id: 'gestionar_solicitudes', grupo: 'Equipo',    label: 'Atender solicitudes',     desc: 'Responder sugerencias e incidencias del equipo, y aprobar las correcciones de ficha.', aplicado: true },
+  /* Repartir el trabajo del evento. No era un permiso: era `owner_id`, y quien
+     lleva la logistica abria el tablero de tareas y no podia poner nada en el
+     —ni ver mas que las suyas, que para quien asigna es no ver nada—. */
+  { id: 'gestionar_tareas',      grupo: 'Equipo',    label: 'Asignar tareas',          desc: 'Crear tareas, repartirlas, cambiarles la fecha y ver el tablero completo del evento.', aplicado: true },
   { id: 'ver_documentos',        grupo: 'Equipo',    label: 'Ver documentos',          desc: 'Contratos, riders y listas del evento. Sin esto la sección no aparece y los archivos ni siquiera viajan.', aplicado: true },
 
   /* Tickets */
@@ -70,6 +74,12 @@ export const PERMISOS = [
   { id: 'ver_clientes',          grupo: 'Clientes',  label: 'Ver lista de clientes',   desc: 'Acceso a la lista de inscritos.', aplicado: true },
   { id: 'gestionar_clientes',    grupo: 'Clientes',  label: 'Editar clientes',         desc: 'Cambiar el estado de una boleta, invalidarla, importar y exportar.', aplicado: true },
   { id: 'checkin',               grupo: 'Clientes',  label: 'Hacer check-in',          desc: 'Escanear QR y marcar asistencia.', aplicado: true },
+  /* Faltaba, y no en el sentido inofensivo: el servidor lo comprueba desde la
+     0122 y aqui no estaba, asi que la casilla no existia y quien organiza NO
+     podia concederselo a nadie. El permiso, el boton y la ruta estaban los
+     tres; lo que faltaba era la forma de unirlos. Sin ningun error — la
+     casilla simplemente no aparecia. */
+  { id: 'borrar_boletas',        grupo: 'Clientes',  label: 'Borrar boletas',          desc: 'Quitar una boleta y sus respuestas para siempre. Es para los duplicados que deja un fallo; para lo demas, invalidar.', aplicado: true },
   { id: 'vip_zone',              grupo: 'Clientes',  label: 'Atender cualquier puerta', desc: 'Llave maestra: marca entradas por puertas restringidas sin estar en la lista de staff de cada una. Sin esto, sólo atiende las puertas donde esté apuntado.', aplicado: true },
 
   /* Chat */
@@ -85,10 +95,48 @@ export const PERMISOS = [
   { id: 'ver_analytics',         grupo: 'Analytics', label: 'Ver analytics',           desc: 'Métricas, conversión y reportes.', aplicado: true },
 ];
 
-/* Agrupado para UI */
-export function permisosPorGrupo() {
+/* Agrupado para UI.
+ *
+ * ── Manda el servidor, si lo dice ───────────────────────────────────────
+ *
+ * `GET /eventos/:id/roles` devuelve su propio catalogo. Cuando llega, ES la
+ * lista: la de arriba solo aporta la redaccion —el `desc` largo que explica que
+ * hace cada permiso, que no vale la pena mandar por la red en cada carga— y
+ * sirve de respaldo mientras la respuesta no llega o si el servidor es viejo.
+ *
+ * Por que asi y no como estaba: la lista de aqui se mantenia «a mano y a
+ * proposito identica» a la del backend, y duro lo que duran esas cosas. Se
+ * anadio `borrar_boletas` al servidor, se protegio la ruta con el, y la casilla
+ * no aparecio nunca en el panel. El permiso existia y no habia forma de
+ * concederlo.
+ *
+ * Ahora, si el servidor conoce un permiso que aqui no esta, sale igual con la
+ * etiqueta que el mande. Se vera sin explicacion larga —y eso se arregla
+ * escribiendola aqui— pero se PUEDE conceder, que es lo que importa. */
+export function permisosPorGrupo(catalogo) {
+  const local = new Map(PERMISOS.map(p => [p.id, p]));
+  const lista = Array.isArray(catalogo) && catalogo.length
+    ? catalogo.map(c => {
+        const mio = local.get(c.id);
+        return {
+          ...c,
+          label: mio?.label || c.label || c.id,
+          grupo: mio?.grupo || c.grupo || 'Otros',
+          desc : mio?.desc  || '',
+          /* Sin marca local, se asume que si aplica: viene del servidor, que es
+             quien lo comprueba. Decir «no cambia nada» de un permiso que si
+             cambia algo es el error caro de los dos. */
+          aplicado: mio ? mio.aplicado : true,
+        };
+      })
+    : PERMISOS;
+
+  /* El co-dueño no es un permiso del catalogo del servidor —es la cadena `*`
+     que `assertPermiso` trata aparte—, asi que se conserva siempre. */
+  const conCodueno = lista.some(p => p.id === '*') ? lista : [local.get('*'), ...lista].filter(Boolean);
+
   const map = new Map();
-  for (const p of PERMISOS) {
+  for (const p of conCodueno) {
     if (!map.has(p.grupo)) map.set(p.grupo, []);
     map.get(p.grupo).push(p);
   }

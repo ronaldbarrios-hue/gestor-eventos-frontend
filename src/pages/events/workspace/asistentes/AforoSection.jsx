@@ -34,7 +34,13 @@ const REFRESCO_MS = 5000;
 const hora = (iso) => iso ? new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '—';
 const fechaHora = (iso) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 
-export default function AforoSection({ evento, soyOwner = true }) {
+export default function AforoSection({ evento, soyOwner = true, puedeLimpiar }) {
+  /* Poner a cero iba contra `soyOwner`: quien lleva la logistica veia el aforo
+     y para limpiarlo tenia que llamar a quien creo el evento, en mitad del dia.
+     Ahora lo decide el permiso, que es lo que el servidor comprueba. Si no
+     llega —una pantalla vieja que no lo pasa— se cae a `soyOwner`, que es como
+     estaba: lo que no puede es abrirse solo. */
+  const dejaLimpiar = puedeLimpiar === undefined ? soyOwner : puedeLimpiar;
   const { success, error } = useToast();
   const [vista, setVista] = useState('vivo'); // vivo | reporte
   const [zonas, setZonas] = useState(null);
@@ -159,7 +165,7 @@ export default function AforoSection({ evento, soyOwner = true }) {
             <span className={`w-2 h-2 rounded-full ${enVivo ? 'bg-success animate-pulse' : 'bg-text-3'}`} />
             {enVivo ? 'En vivo' : 'Pausado'}
           </button>
-          {soyOwner && <button onClick={() => limpiar(null)} className="btn-ghost btn-sm text-danger">Limpiar todo</button>}
+          {dejaLimpiar && <button onClick={() => limpiar(null)} className="btn-ghost btn-sm text-danger">Limpiar todo</button>}
         </div>
       </div>
 
@@ -188,7 +194,7 @@ export default function AforoSection({ evento, soyOwner = true }) {
                     <div className="col-span-2 pt-2 border-t border-border">
                       <Controles z={zonaSel} ocupado={ocupado}
                         onMover={(tipo, n) => mover(zonaSel, tipo, n)}
-                        onLimpiar={soyOwner ? () => limpiar(zonaSel) : null}
+                        onLimpiar={dejaLimpiar ? () => limpiar(zonaSel) : null}
                         onReportar={() => setReportando(zonaSel)} />
                     </div>
                   )}
@@ -210,7 +216,7 @@ export default function AforoSection({ evento, soyOwner = true }) {
               <TarjetaZona key={z.id} z={z} activa={zonaSel?.id === z.id} ocupado={ocupado}
                 onSelect={() => setSel(sel === `zona:${z.id}` ? null : `zona:${z.id}`)}
                 onMover={(tipo, n) => mover(z, tipo, n)}
-                onLimpiar={soyOwner ? () => limpiar(z) : null}
+                onLimpiar={dejaLimpiar ? () => limpiar(z) : null}
                 onReportar={() => setReportando(z)} />
             ))}
           </div>

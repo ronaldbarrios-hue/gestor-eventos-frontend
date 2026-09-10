@@ -27,7 +27,11 @@ const PRIORIDAD_INFO = {
   urgente : { label: 'Urgente',  cls: 'text-danger  bg-danger/10' },
 };
 
-export default function TareasTab({ evento }) {
+export default function TareasTab({ evento, puedeAsignar = true }) {
+  /* La pestana se abre para todo el equipo: cada persona viene a ver lo suyo.
+     Lo que dependia del permiso era crear y repartir, y el boton salia igual —
+     asi que quien no podia se enteraba al darle, con un error rojo. Un boton
+     que devuelve 403 es peor que un boton que no esta. */
   const { usuario } = useAuth();
   const [view, setView]         = useState('kanban'); // kanban | lista
   const [tareas, setTareas]     = useState([]);
@@ -112,9 +116,11 @@ export default function TareasTab({ evento }) {
               </button>
             ))}
           </div>
-          <button onClick={() => setCreating(true)} className="btn-gradient btn-sm">
-            <PlusIcon className="w-3.5 h-3.5" /> Nueva tarea
-          </button>
+          {puedeAsignar && (
+            <button onClick={() => setCreating(true)} className="btn-gradient btn-sm">
+              <PlusIcon className="w-3.5 h-3.5" /> Nueva tarea
+            </button>
+          )}
         </div>
       </header>
 
