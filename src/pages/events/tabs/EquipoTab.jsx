@@ -14,6 +14,10 @@ import { permisosPorGrupo } from '../../../lib/permisos.js';
 export default function EquipoTab({ evento }) {
   const [equipo,  setEquipo]  = useState(null);
   const [roles,   setRoles]   = useState([]);
+  /* El catalogo de permisos, tal como lo conoce el SERVIDOR. La lista local
+     solo pone la redaccion; si el servidor conoce uno que aqui no esta, sale
+     igual y se puede conceder. */
+  const [catalogo, setCatalogo] = useState(null);
   const [loading, setLoading] = useState(true);
   const { error: toastErr } = useToast();
 
@@ -23,6 +27,7 @@ export default function EquipoTab({ evento }) {
       const [eq, rs] = await Promise.all([equipoApi.list(evento.id), rolesApi.list(evento.id)]);
       setEquipo(eq);
       setRoles(rs.roles || []);
+      setCatalogo(rs.catalogo || null);
     } catch (e) {
       toastErr(e.message);
     } finally { setLoading(false); }
@@ -39,6 +44,7 @@ export default function EquipoTab({ evento }) {
       <RolesSection
         eventoId={evento.id}
         roles={roles}
+        catalogo={catalogo}
         onChange={reload}
       />
 
@@ -200,7 +206,7 @@ function RankingEquipoSection({ eventoId }) {
 
 /* ─────────── ROLES ─────────── */
 
-function RolesSection({ eventoId, roles, onChange }) {
+function RolesSection({ eventoId, roles, catalogo, onChange }) {
   const [creating, setCreating] = useState(false);
   const [working, setWorking]   = useState(false);
   const [draft, setDraft]       = useState({ nombre: '', descripcion: '', permissions: [] });
@@ -273,6 +279,7 @@ function RolesSection({ eventoId, roles, onChange }) {
           </div>
 
           <PermisosSelector
+            catalogo={catalogo}
             value={draft.permissions}
             onChange={v => setDraft(p => ({ ...p, permissions: v }))}
           />
@@ -292,6 +299,7 @@ function RolesSection({ eventoId, roles, onChange }) {
             key={r.id}
             rol={r}
             eventoId={eventoId}
+            catalogo={catalogo}
             isEditing={editing === r.id}
             onStartEdit={() => setEditing(r.id)}
             onCancelEdit={() => setEditing(null)}
@@ -304,7 +312,7 @@ function RolesSection({ eventoId, roles, onChange }) {
   );
 }
 
-function RolCard({ rol, eventoId, isEditing, onStartEdit, onCancelEdit, onSaved, onDelete }) {
+function RolCard({ rol, eventoId, catalogo, isEditing, onStartEdit, onCancelEdit, onSaved, onDelete }) {
   const [draft, setDraft] = useState({
     nombre: rol.nombre,
     descripcion: rol.descripcion || '',
@@ -342,6 +350,7 @@ function RolCard({ rol, eventoId, isEditing, onStartEdit, onCancelEdit, onSaved,
           />
         </div>
         <PermisosSelector
+          catalogo={catalogo}
           value={draft.permissions}
           onChange={v => setDraft(p => ({ ...p, permissions: v }))}
         />
@@ -389,8 +398,8 @@ function RolCard({ rol, eventoId, isEditing, onStartEdit, onCancelEdit, onSaved,
 
 /* ─────────── PermisosSelector ─────────── */
 
-function PermisosSelector({ value = [], onChange }) {
-  const grupos = permisosPorGrupo();
+function PermisosSelector({ value = [], catalogo, onChange }) {
+  const grupos = permisosPorGrupo(catalogo);
   const toggle = (id) => {
     onChange(value.includes(id) ? value.filter(p => p !== id) : [...value, id]);
   };

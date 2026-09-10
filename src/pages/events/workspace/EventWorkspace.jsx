@@ -698,7 +698,14 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
        agenda y los stands), así que recibe la lista y decide ella: la regla de
        cada acción vive junto a la acción. */
     case 'zonas/zonas'            : return <ZonasSection evento={evento} soyOwner={soyOwner} permisos={permisos} reload={reload} />;
-    case 'zonas/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner} />;
+    /* Limpiar un aforo iba contra `soyOwner`, o sea que quien lleva la
+       logistica veia el numero y no podia ponerlo a cero al terminar una
+       charla: tenia que llamar a quien creo el evento. Ahora va por permiso
+       —el de las puertas y las zonas, o el de atender—, igual que el servidor.
+       Se pasan las dos cosas: la pantalla se ve, y el boton depende. */
+    case 'zonas/aforo'            : return <AforoSection evento={evento} soyOwner={soyOwner}
+                                      puedeLimpiar={puedeVer('gestionar_accesos', soyOwner, permisos)
+                                                 || puedeVer('gestionar_clientes', soyOwner, permisos)} />;
     case 'zonas/stands'           : return <StandsTab evento={evento} soyOwner={soyOwner} />;
     /* Las dos fusiones. Cada una comprueba dentro el permiso de cada vista:
        juntarlas sin eso habría dado a quien escanea el diseñador del carné,
