@@ -264,6 +264,50 @@
     @apply btn bg-gradient-primary text-white shadow-glow hover:shadow-glow
            focus-visible:ring-primary active:scale-[0.97] active:translate-y-px;
   }
+  /* ── El botón que lleva la marca del evento ────────────────────────
+   *
+   * Los botones del formulario que se comparte —«Continuar», «Reservar»— eran
+   * `bg-text-1 text-bg`: un blanco fijo. Así que un evento con su marca puesta
+   * abría un formulario con botones blancos, y lo que se comparte en la web de
+   * alguien más es justo donde la marca importa.
+   *
+   * El respaldo es EXACTAMENTE lo de antes: sin `--brand-primary` definida
+   * —fuera del `brand-scope`, o un evento sin marca— sale `text-1` sobre `bg`,
+   * que es lo que había. Un cambio de aspecto para quien no ha elegido nada
+   * sería un cambio que nadie pidió.
+   *
+   * El color del texto no se adivina: lo calcula `BrandingProvider` con la
+   * luminancia del color, porque un dorado con texto blanco no se lee. */
+  .btn-marca {
+    background: var(--brand-boton, rgb(var(--color-text-1)));
+    color: var(--brand-boton-texto, rgb(var(--color-bg)));
+  }
+  .btn-marca:hover:not(:disabled) { filter: brightness(1.08); }
+
+  /* ── Lo demás del formulario compartido que lleva la marca ──────────
+   *
+   * El botón no era lo único con un color fijo: el campo enfocado se ponía
+   * azul plataforma y la barra de pasos también. En una página con la marca
+   * de otro puestas, esos dos azules son lo que delata que el formulario es
+   * de un tercero.
+   *
+   * Van colgados de `.brand-scope`, que es el único sitio donde existe
+   * `--brand-primary`: el mismo `.input-form` dentro del panel no se toca. Y
+   * con respaldo al azul de antes, para el evento que no eligió marca. */
+  .brand-scope .input-form:focus {
+    border-color: var(--brand-primary, rgb(var(--color-primary)));
+    box-shadow: 0 0 0 2px var(--brand-glow, rgba(59, 130, 246, .25));
+  }
+  /* El campo mal rellenado sigue mandando: rojo es rojo aunque la marca sea
+     verde, porque no está diciendo «tu color» sino «esto está mal». */
+  .brand-scope .input-form.field-error:focus {
+    border-color: rgb(var(--color-danger));
+    box-shadow: 0 0 0 2px rgb(var(--color-danger) / .35);
+  }
+
+  /* Los tramos ya recorridos de la barra de pasos. */
+  .paso-marca { background: var(--brand-primary, rgb(var(--color-primary))); }
+
   .btn-sm  { @apply text-sm px-3.5 py-2 rounded-lg; }
   .btn-lg  { @apply text-base px-6 py-3 rounded-2xl; }
   .btn-icon { @apply btn p-2 rounded-xl; }

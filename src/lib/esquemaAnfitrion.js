@@ -93,3 +93,59 @@ export function fondoDetrasDe(el, leerFondo) {
   }
   return null;
 }
+
+/* Qué se lee encima del color de la marca, y qué fondo lo permite.
+ *
+ * Hace falta porque los botones del formulario pasan a llevar el color del
+ * evento, y un dorado como el de FESTECH (#E0B12B) con texto blanco encima no
+ * se lee. La cuenta ya existía para decidir el tema de un formulario embebido
+ * —`lib/esquemaAnfitrion.js`, luminancia WCAG— y es la misma pregunta.
+ *
+ * Son dos pasos porque uno no basta:
+ *
+ * 1. Se elige el texto que MÁS contraste da, no el que caiga de un lado de un
+ *    umbral fijo. Con umbral hay marcas que se quedan en el filo.
+ * 2. Si ni el claro ni el oscuro llegan al 4.5 que pide la WCAG para AA, se
+ *    mueve el FONDO hasta que llegue. Medido: el morado por defecto (#8B5CF6)
+ *    da 4.49 con texto oscuro y 4.32 con claro — elegir el mejor de los dos
+ *    deja el botón por debajo de AA igual. Un color de marca en esa franja
+ *    media no tiene ningún texto que se lea encima; lo único que queda es
+ *    oscurecerlo (o aclararlo) un poco, conservando el tono.
+ *
+ * El tono no cambia: se multiplica el canal, así que sigue siendo el morado
+ * del evento, un paso más oscuro. Nadie mira un botón y dice «ése no es mi
+ * color»; sí dice «no se lee». */
+const CLARO = '#FFFFFF';
+const OSCURO = '#12100B';
+const AA = 4.5;
+
+function contraste(rgbA, rgbB) {
+  const l = [luminancia(rgbA), luminancia(rgbB)].sort((x, y) => y - x);
+  return (l[0] + 0.05) / (l[1] + 0.05);
+}
+
+const aHex = ([r, g, b]) =>
+  '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+
+/* Devuelve {fondo, texto} legibles, partiendo del color de la marca.
+ *
+ * Si el color no se puede interpretar se devuelve el de siempre: un color que
+ * no entendemos no es motivo para cambiarle el botón a nadie. */
+export function botonDeMarca(color) {
+  const rgb = aRGB(color);
+  if (!rgb) return { fondo: null, texto: OSCURO };
+
+  const texto = contraste(rgb, aRGB(CLARO)) >= contraste(rgb, aRGB(OSCURO)) ? CLARO : OSCURO;
+  const rgbTexto = aRGB(texto);
+
+  /* Con texto claro el fondo tiene que oscurecerse; con texto oscuro,
+     aclararse. Pasos del 6%, hasta 12: es de sobra para cruzar la franja
+     media, y el tope evita quedarse dando vueltas si algo no cuadra. */
+  let f = rgb;
+  for (let i = 0; i < 12 && contraste(f, rgbTexto) < AA; i++) {
+    f = texto === CLARO
+      ? f.map(v => v * 0.94)
+      : f.map(v => v + (255 - v) * 0.06);
+  }
+  return { fondo: aHex(f), texto };
+}

@@ -285,7 +285,7 @@ export default function EventoPublicoPage() {
               key={p.id}
               onClick={() => setParams(prev => { const x = new URLSearchParams(prev); x.set('p', String(i + 1)); return x; })}
               className={`flex-shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-all
-                ${pageIdx === i + 1 ? 'bg-text-1 text-bg' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
+                ${pageIdx === i + 1 ? 'btn-marca' : 'text-text-2 hover:text-text-1 hover:bg-surface-2'}`}
               aria-current={pageIdx === i + 1 ? 'page' : undefined}
             >
               {p.nombre}
@@ -669,7 +669,7 @@ function WaitlistModal({ tipo, slug, onClose }) {
           <p className="text-sm text-text-2 mb-5 leading-relaxed max-w-sm mx-auto">
             Sos el <strong className="text-text-1">#{done.posicion}</strong> en la lista de espera de <strong className="text-text-1">{tipo.nombre}</strong>. Si se libera un cupo, el organizador te contactará por email.
           </p>
-          <button onClick={onClose} className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+          <button onClick={onClose} className="btn-marca px-5 py-2.5 rounded-full text-sm font-semibold transition-all">
             Entendido
           </button>
         </div>
@@ -1265,7 +1265,7 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
             <div className="flex gap-1" role="presentation">
               {pasos.map((t, i) => (
                 <span key={t + i} title={t}
-                  className={`h-1 flex-1 rounded-full transition-colors ${i <= paso ? 'bg-primary' : 'bg-surface-2'}`} />
+                  className={`h-1 flex-1 rounded-full transition-colors ${i <= paso ? 'paso-marca' : 'bg-surface-2'}`} />
               ))}
             </div>
             {/* Qué le queda por rellenar de lo que trajimos.
@@ -1432,24 +1432,24 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
             : <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-full text-sm text-text-2 hover:text-text-1">Cancelar</button>}
           {!enUltimo ? (
             <button type="button" onClick={avanzar}
-              className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+              className="btn-marca px-5 py-2.5 rounded-full text-sm font-semibold transition-all">
               Continuar
             </button>
           ) : (isFree || tienePagoSimple) ? (
             <button type="submit" disabled={working}
-              className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold disabled:opacity-60 transition-all">
+              className="btn-marca px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 transition-all">
               {working ? 'Reservando...' : (isFree ? 'Confirmar reserva' : 'Apartar boleta')}
             </button>
           ) : (<>
             {pagoWompi && (
               <button type="submit" disabled={working} onClick={() => { gatewayRef.current = 'wompi'; }}
-                className="px-5 py-2.5 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold disabled:opacity-60 transition-all">
+                className="btn-marca px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 transition-all">
                 {working ? 'Redirigiendo…' : 'Pagar con Wompi'}
               </button>
             )}
             {pagoMp && (
               <button type="submit" disabled={working} onClick={() => { gatewayRef.current = 'mp'; }}
-                className={`px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 transition-all ${pagoWompi ? 'border border-border-2 text-text-1 hover:bg-surface-2' : 'bg-text-1 text-bg hover:bg-white'}`}>
+                className={`px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 transition-all ${pagoWompi ? 'border border-border-2 text-text-1 hover:bg-surface-2' : 'btn-marca'}`}>
                 {working ? 'Redirigiendo…' : 'Pagar con Mercado Pago'}
               </button>
             )}
@@ -1583,7 +1583,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
               className="text-primary-light hover:underline break-all">{textoBoleta}</a>.
           </p>
           <button onClick={onClose}
-            className="px-8 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+            className="btn-marca px-8 py-3 rounded-full text-sm font-semibold transition-all">
             Cerrar
           </button>
         </div>
@@ -1633,7 +1633,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
                     </button>
                   ) : (
                     <button type="button" onClick={() => apuntarDirecto(s)} disabled={cargando}
-                      className="text-xs font-semibold px-4 py-2 rounded-full bg-text-1 text-bg hover:bg-white transition-colors flex-shrink-0 disabled:opacity-60">
+                      className="btn-marca text-xs font-semibold px-4 py-2 rounded-full transition-colors flex-shrink-0 disabled:opacity-60">
                       {cargando ? '…' : 'Apuntarme'}
                     </button>
                   )}
@@ -1642,7 +1642,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
             })}
           </ul>
           <div className="flex items-center justify-end gap-2 mt-6">
-            <button onClick={() => setVista('cierre')} className="px-6 py-3 rounded-full bg-text-1 text-bg hover:bg-white text-sm font-semibold transition-all">
+            <button onClick={() => setVista('cierre')} className="btn-marca px-6 py-3 rounded-full text-sm font-semibold transition-all">
               Listo
             </button>
           </div>
@@ -1732,7 +1732,7 @@ export function ConfirmacionModal({ ticket, evento = {}, slug, checkout = {}, on
           <button onClick={() => setVista('cierre')}
             className={`px-6 py-3 rounded-full text-sm font-semibold transition-all ${pendientes.length > 0
               ? 'border border-border-2 text-text-1 hover:bg-surface-2'
-              : 'bg-text-1 text-bg hover:bg-white'}`}>
+              : 'btn-marca'}`}>
             Listo
           </button>
           {redirectUrl && (
