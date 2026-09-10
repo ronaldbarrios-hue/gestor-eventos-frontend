@@ -9,7 +9,7 @@ export default function FacturacionSection({ evento }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.allSettled([clientesApi.list(evento.id, { limit: 1000 }), ticketsApi.list(evento.id)])
+    Promise.allSettled([clientesApi.listarTodos(evento.id), ticketsApi.list(evento.id)])
       .then(([c, t]) => {
         if (c.status === 'fulfilled') setClientes(c.value.clientes || c.value.tickets || []);
         if (t.status === 'fulfilled') setTipos(t.value.tickets || t.value.tipos || []);

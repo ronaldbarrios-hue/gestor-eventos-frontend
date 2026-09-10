@@ -36,7 +36,7 @@ import {
    comportamiento y es el que se quería: quien tenga un .doc lo guarda como
    .docx, que es lo que la propia lista larga ya recomendaba. */
 
-export default function DocumentosSection({ evento }) {
+export default function DocumentosSection({ evento, puedeEditar = true }) {
   const { success, error } = useToast();
   const [docs, setDocs] = useState(() => Array.isArray(evento.page_json?.documentos) ? evento.page_json.documentos : []);
   const [subiendo, setSubiendo] = useState(false);
@@ -81,6 +81,13 @@ export default function DocumentosSection({ evento }) {
 
   return (
     <div className="space-y-5 max-w-4xl">
+      {/* Subir y quitar guardan `page_json`, y eso pide `editar_evento`. La
+          pestana se abre con `ver_documentos` —que la 0122 dio a TODOS los
+          roles, porque antes no pedia nada—, asi que sin esto cualquiera del
+          equipo elegia un archivo, esperaba la subida y recibia un 403 al
+          final. La nota de seguridad va dentro: a quien solo puede leer no le
+          dice nada que pueda usar. */}
+      {puedeEditar && (<>
       {/* Zona de subida */}
       <div
         onClick={() => inputRef.current?.click()}
@@ -109,10 +116,15 @@ export default function DocumentosSection({ evento }) {
       <div className="rounded-2xl border border-warning/25 bg-warning/5 px-4 py-3 text-xs text-text-2 leading-relaxed">
         <strong className="text-warning-light">Seguridad:</strong> se bloquean ejecutables y scripts (.exe, .js, .html, .svg…) y se limita el tamaño. El escaneo antivirus del contenido se hará del lado servidor (pendiente de backend); evita subir archivos de origen desconocido.
       </div>
+      </>)}
 
       {/* Lista */}
       {docs.length === 0 ? (
-        <div className="card p-10 text-center"><p className="text-sm text-text-2">Aún no hay documentos. Sube contratos, riders, planos, listas… todo lo del evento en un solo lugar.</p></div>
+          <div className="card p-10 text-center"><p className="text-sm text-text-2">
+            {puedeEditar
+              ? 'Aún no hay documentos. Sube contratos, riders, planos, listas… todo lo del evento en un solo lugar.'
+              : 'Aún no hay documentos. Quien edita el evento puede subir aquí contratos, riders y planos.'}
+          </p></div>
       ) : (
         <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
           {docs.map((d, i) => (
@@ -123,7 +135,9 @@ export default function DocumentosSection({ evento }) {
                 <p className="text-[11px] text-text-3">{(d.size / 1024 / 1024).toFixed(2)} MB · {d.subido_at ? new Date(d.subido_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</p>
               </div>
               <a href={d.url} target="_blank" rel="noreferrer noopener" className="btn-ghost btn-sm flex-shrink-0">Ver</a>
-              <button onClick={() => eliminar(d)} className="btn-ghost btn-sm text-danger/80 hover:text-danger flex-shrink-0">Eliminar</button>
+              {puedeEditar && (
+                <button onClick={() => eliminar(d)} className="btn-ghost btn-sm text-danger/80 hover:text-danger flex-shrink-0">Eliminar</button>
+              )}
             </div>
           ))}
         </div>

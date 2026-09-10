@@ -57,7 +57,7 @@ export default function AccesosSection({ evento }) {
     Promise.all([
       ticketsApi.list(evento.id).catch(() => ({ tickets: [] })),
       equipoApi.list(evento.id).catch(() => ({ miembros: [], owner: null })),
-      clientesApi.list(evento.id, { limit: 1000 }).catch(() => ({ clientes: [] })),
+      clientesApi.listarTodos(evento.id).catch(() => ({ clientes: [] })),
       /* El catálogo de roles, para poder decir «todo el rol». Si falla, el
          selector sigue sirviendo para elegir personas. */
       rolesApi.list(evento.id).catch(() => ({ roles: [] })),

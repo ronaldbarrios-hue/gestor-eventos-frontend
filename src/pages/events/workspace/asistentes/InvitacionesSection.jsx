@@ -35,7 +35,7 @@ export default function InvitacionesSection({ evento }) {
   const cargar = async () => {
     const [t, c] = await Promise.allSettled([
       ticketsApi.list(evento.id),
-      clientesApi.list(evento.id, { limit: 1000 }),
+      clientesApi.listarTodos(evento.id),
     ]);
     if (t.status === 'fulfilled') setTipos(t.value.tickets || t.value.tipos || []);
     if (c.status === 'fulfilled') setClientes(c.value.clientes || c.value.tickets || []);

@@ -218,7 +218,10 @@ const SECCIONES = [
        dónde imprimir no miraba aquí. «Acreditación» es lo que se viene a
        hacer, y es la palabra que ya se usa en un evento; las tres piezas se
        nombran en la línea de debajo, que es donde se buscan. */
-    { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'ver_clientes'] },
+    /* Los dos permisos que dan ALGO dentro: `checkin` abre la etiquetadora y
+       `editar_evento` los dos disenadores. Con `ver_clientes` a secas la
+       pestana se abria y no habia ninguna vista que ensenar — en blanco. */
+    { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'editar_evento'] },
     /* Todas las rutas del padron —incluida la de leer su estado— piden
        `editar_evento` (`PERMS_PADRON`). Con `ver_clientes` la pestana se
        abria y TODO lo de dentro devolvia 403: Puerta, Atencion y Finanzas la
@@ -686,7 +689,13 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
        rechazar, que es peor que no ofrecerlos. */
     case 'equipo/solicitudes' : return <SolicitudesTab evento={evento}
                                          puedeAtender={puedeVer('gestionar_solicitudes', soyOwner, permisos)} />;
-    case 'equipo/documentos'  : return <DocumentosSection evento={evento} />;
+    /* La pestana se abre con `ver_documentos` —que la 0122 dio a TODOS los
+       roles, porque antes no pedia nada— pero subir o quitar un documento
+       guarda `page_json`, y eso pide `editar_evento`. Sin separarlo, cualquiera
+       del equipo veia el boton de subir y el servidor le devolvia 403 despues
+       de elegir el archivo. */
+    case 'equipo/documentos'  : return <DocumentosSection evento={evento}
+                                  puedeEditar={puedeVer('editar_evento', soyOwner, permisos)} />;
     case 'resumen/reporte'     : return <ReporteTab evento={evento} />;
 
     /* Espacio del evento: las cuatro vistas de lo mismo. */

@@ -53,6 +53,10 @@ const LO_QUE_PIDE_EL_SERVIDOR = {
   aforo      : ['checkin'],
   clientes   : ['ver_clientes'],
   vacantes   : ['editar_evento'],                                  // PERMS_VACANTES
+  /* Los dos permisos que dan algo dentro: `checkin` abre la etiquetadora (que
+     no guarda nada) y `editar_evento` los dos disenadores, que guardan en
+     `page_json`. Con `ver_clientes` la pestana se abria en blanco. */
+  acreditacion: ['checkin', 'editar_evento'],
 };
 
 /* Saca el `perm` de una pestaña tal como está escrito en el menú. */

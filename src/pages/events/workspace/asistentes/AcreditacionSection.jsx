@@ -29,10 +29,19 @@ import EtiquetadoraSection from './EtiquetadoraSection.jsx';
  * está en la puerta. */
 export default function AcreditacionSection({ evento, soyOwner, permisos = [] }) {
   const puede = (p) => soyOwner || permisos.includes('*') || permisos.includes(p);
+  /* «Diseñar» no es mirar: las dos pantallas de diseño guardan en `page_json`
+     con `eventosApi.update`, y eso pide `editar_evento`. Se ofrecían con
+     `ver_clientes` —que tienen Puerta, Atención, VIP host y Finanzas—, así que
+     esa gente entraba, elegía colores, pulsaba «Guardar diseño» y recibía un
+     403 con el trabajo hecho. Lo que se pierde ahí no es un clic: es el rato
+     que alguien pasó ajustando algo que nunca se iba a guardar.
+
+     Imprimir sí es de quien está en la puerta, y por eso sigue con `checkin`:
+     eso no guarda nada. */
   const vistas = [
-    ...(puede('ver_clientes') ? [['escarapela', 'Diseñar escarapela']]      : []),
-    ...(puede('ver_clientes') ? [['carne',       'Diseñar carné digital']]   : []),
-    ...(puede('checkin')      ? [['etiquetas',   'Imprimir en etiquetadora']] : []),
+    ...(puede('editar_evento') ? [['escarapela', 'Diseñar escarapela']]      : []),
+    ...(puede('editar_evento') ? [['carne',       'Diseñar carné digital']]   : []),
+    ...(puede('checkin')       ? [['etiquetas',   'Imprimir en etiquetadora']] : []),
   ];
   const [vista, setVista] = useState(() => vistas[0]?.[0] || 'escarapela');
 
