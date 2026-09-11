@@ -177,3 +177,44 @@ test('la lista de eventos no llama «total» a lo que cargo', () => {
     'no avisa cuando hay mas de los que se cargaron');
   assert.doesNotMatch(sinComentarios('pages', 'events', 'EventsListPage.jsx'), /sobre TODO el universo/);
 });
+
+/* ── Los dos cortes del resumen, encontrados el 11-sep ──────────────────────
+ *
+ * Los de arriba eran listas que pedían al servidor menos de lo que había.
+ * Estos dos son distintos: los datos ya estaban cargados en la pantalla y se
+ * recortaban al pintar, con un `.slice(0, N)` sin nada que dijera que había
+ * más. Mismo final — se cree lo que se ve — por otro camino.
+ *
+ * No todo `.slice` es un defecto: un resumen puede enseñar cuatro cosas si
+ * dice cuántas hay o tiene una salida al lado. Estos dos no tenían ninguna de
+ * las dos. */
+
+test('«Colaborando en» dice cuántos eventos hay cuando no caben', () => {
+  const src = sinComentarios('components', 'inicio', 'VistaColaborador.jsx');
+
+  /* El número en un solo sitio: escrito dos veces, se cambia uno y el aviso
+     dice «ver los 9» sobre una lista de seis — o no aparece porque el `if`
+     compara con el tope viejo. */
+  assert.match(src, /const TOPE_EVENTOS = \d+;/, 'el tope volvió a estar suelto dentro del JSX');
+  assert.ok(!/colaborando\.slice\(0, *\d/.test(src),
+    'la lista de eventos se recorta con un número a pelo, no con el tope');
+  assert.match(src, /colaborando\.slice\(0, TOPE_EVENTOS\)/);
+
+  /* Y el aviso existe y usa el mismo tope. */
+  assert.match(src, /colaborando\.length > TOPE_EVENTOS/,
+    'la lista se corta sin decir que hay más');
+  assert.match(src, /Ver los \{colaborando\.length\}/,
+    'el aviso no dice cuántos hay en total, que es el dato que falta');
+});
+
+test('el directorio del equipo no se corta', () => {
+  /* Se cortaba en ocho. Es el DIRECTORIO: se viene a buscar a alguien, y a
+     quien no sale se le da por no estar en el evento. */
+  const src = sinComentarios('components', 'widgets', 'espacio', 'MiEventoWidget.jsx');
+  assert.ok(!/equipo\.slice\(0, *\d/.test(src), 'el equipo vuelve a recortarse al pintar');
+  assert.match(src, /\{equipo\.map\(/, 'no se encontró la lista del equipo');
+
+  /* Y su lista hermana tampoco, que es la que demuestra que el tope sobraba:
+     las dos viven en la misma caja con scroll. */
+  assert.match(src, /\{tareasEvento\.map\(/, 'la lista de tareas del widget empezó a recortarse');
+});

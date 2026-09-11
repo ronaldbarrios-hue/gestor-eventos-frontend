@@ -10,6 +10,14 @@ import Kpi from '../ui/Kpi.jsx';
    El detalle fino y personalizable vive en Mi Espacio.
    ────────────────────────────────────────────────────────────────── */
 
+/* Cuántos eventos caben en el resumen antes de que deje de ser un resumen.
+ *
+ * El número vive aquí y no dentro del JSX porque lo usan dos sitios: el corte
+ * de la lista y el aviso de cuántos hay. Escrito dos veces, se cambia uno y el
+ * otro miente — y el que miente es el que dice «ver los 9» sobre una lista de
+ * seis, o peor, el que no aparece porque el `if` compara con el número viejo. */
+const TOPE_EVENTOS = 6;
+
 export default function VistaColaborador() {
   const { eventos, tareas, solicitudes, loading } = useEspacioData();
   const { usuario } = useAuth();
@@ -112,14 +120,24 @@ export default function VistaColaborador() {
 
         {/* Dónde colaboro y con qué papel */}
         <section className="rounded-3xl border border-border bg-surface/60 overflow-hidden">
-          <header className="px-5 py-3.5 border-b border-border">
+          <header className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border">
             <h2 className="text-sm font-semibold text-text-1">Colaborando en</h2>
+            {/* Cuántos hay en total, cuando no caben todos.
+                La lista se cortaba en seis sin decirlo y sin salida: quien
+                colabora en nueve eventos veía seis y concluía que los otros
+                tres no estaban. Un corte que no avisa no da error y se cree,
+                que es lo que lo hace peor que una lista vacía. */}
+            {colaborando.length > TOPE_EVENTOS && (
+              <Link to="/eventos" className="text-xs text-accent hover:underline whitespace-nowrap">
+                Ver los {colaborando.length} →
+              </Link>
+            )}
           </header>
           {colaborando.length === 0 ? (
             <p className="text-sm text-text-2 text-center py-8 px-5">Aún no te han invitado a colaborar en eventos de otros.</p>
           ) : (
             <ul className="divide-y divide-border">
-              {colaborando.slice(0, 6).map(e => {
+              {colaborando.slice(0, TOPE_EVENTOS).map(e => {
                 /* Cuántas de las tareas pendientes son de ESTE evento. Un
                    listado de eventos sin esto obliga a entrar en cada uno
                    para saber en cuál hay algo esperándote. */
