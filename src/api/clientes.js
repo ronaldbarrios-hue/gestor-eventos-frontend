@@ -75,5 +75,11 @@ export const clientesApi = {
   reportarAlerta: (eventoId, body)               => client.post(`/eventos/${eventoId}/alertas`, body).then(r => r.data),
   resolverAlerta: (eventoId, id)                 => client.patch(`/eventos/${eventoId}/alertas/${id}/resolver`).then(r => r.data),
   importar     : (eventoId, body)               => client.post(`/eventos/${eventoId}/clientes/importar`, body).then(r => r.data),
-  exportar     : (eventoId)                     => client.get(`/eventos/${eventoId}/clientes/exportar`).then(r => r.data),
+  /* `ticketTypeId` exporta UN tipo de boleta. En estos eventos los tipos son
+     las actividades, asi que «quien va al DemoDay» es una hoja distinta de «la
+     lista del evento»; sin esto habia que exportar las 440 filas y filtrar a
+     mano en Excel. Sin el parametro, sale todo como siempre. */
+  exportar     : (eventoId, ticketTypeId)       => client.get(`/eventos/${eventoId}/clientes/exportar`, {
+    params: ticketTypeId ? { ticket_type_id: ticketTypeId } : {},
+  }).then(r => r.data),
 };

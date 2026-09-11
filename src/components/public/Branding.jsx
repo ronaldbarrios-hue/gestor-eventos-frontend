@@ -3,6 +3,7 @@
    header con tagline + redes, y footer. */
 
 import { t } from '../../lib/i18n.js';
+import { botonDeMarca } from '../../lib/esquemaAnfitrion.js';
 
 const FONTS = {
   sans   : "'Inter', system-ui, sans-serif",
@@ -37,6 +38,7 @@ export function BrandingProvider({ organizador, children }) {
   const bg      = b.bg || '#070C18';
   const font    = FONTS[b.font] || null;
   const radius  = RADIUS[b.radius];
+  const boton   = botonDeMarca(primary);
 
   return (
     <div
@@ -45,6 +47,11 @@ export function BrandingProvider({ organizador, children }) {
         '--brand-primary': primary,
         '--brand-accent' : accent,
         '--brand-glow'   : `${primary}30`,
+        /* El botón que lleva la marca: su fondo y el texto que se lee encima.
+           Sin esto, un botón dorado con el texto claro de siempre queda
+           ilegible; y un morado medio no se lee con ninguno de los dos. */
+        '--brand-boton': boton.fondo || primary,
+        '--brand-boton-texto': boton.texto,
         ...(radius ? { '--brand-radius': radius } : {}),
         background: bg,
         ...(font ? { fontFamily: font } : {}),

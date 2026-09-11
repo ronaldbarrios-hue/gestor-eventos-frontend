@@ -53,6 +53,34 @@
     lg: '0 14px 34px rgba(0,0,0,.28)',
   };
 
+  /* Cómo responde el botón al pasar por encima.
+   *
+   * Copiada de `src/lib/embed.js`, que es donde la ve el panel: este archivo
+   * lo carga la web de otro y no puede importar nada. `tests/animacionDelBoton`
+   * compara las dos listas — separadas, el panel enseñaría una animación y la
+   * web del organizador haría otra, sin que fallara nada.
+   *
+   * Estilos en línea y no una hoja de estilos: la regla 2 de este archivo es
+   * no ensuciar la página anfitriona. */
+  var ANIMACIONES = {
+    brillo: { filter: 'brightness(1.08)' },
+    elevar: { transform: 'translateY(-2px)', filter: 'brightness(1.04)' },
+    crecer: { transform: 'scale(1.04)' },
+    latir : { filter: 'brightness(1.08)', pulso: true },
+    no    : {},
+  };
+
+  /* Quien pidió que las cosas no se muevan, manda.
+   *
+   * Es una preferencia del sistema de quien mira, y para algunas personas no
+   * es una preferencia estética: el movimiento les marea. Se respeta aquí y no
+   * en el panel porque el panel no sabe quién va a visitar la web. Se queda el
+   * cambio de brillo, que informa igual y no desplaza nada. */
+  function quietoTodo() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return false; }
+  }
+
   function dato(el, nombre, porDefecto) {
     var v = el.getAttribute('data-' + nombre);
     return (v === null || v === '') ? porDefecto : v;
@@ -84,6 +112,9 @@
       sombra    : dato(el, 'sombra', 'md'),
       tamano    : dato(el, 'tamano', 'md'),
       ancho     : dato(el, 'ancho', 'auto'),
+      /* Como responde al pasar por encima. `brillo` es lo que hacia antes: un
+         boton ya pegado en una web sigue comportandose igual. */
+      animacion : dato(el, 'animacion', 'brillo'),
       fuente    : dato(el, 'fuente', 'inherit'),
       titulo    : dato(el, 'titulo', 'Registro'),
       /* Que el formulario de dentro use la tipografía de esta web. Así no se
@@ -169,19 +200,53 @@
       borderRadius : (parseInt(cfg.radio, 10) || 0) + 'px',
       boxShadow    : sombraDe(cfg),
       cursor       : 'pointer',
-      /* Sin transición de `transform`: en un botón dentro de la web de otro,
-         moverse al pasar por encima choca con animaciones que ya tenga la
-         página. Lo que sí se hace es aclarar, que se lee igual y no desplaza
-         nada. */
-      transition   : 'filter .15s ease, box-shadow .15s ease',
+      /* `transform` entra en la transición sólo si el organizador eligió una
+         animación que lo use. Moverse dentro de la web de otro choca con las
+         animaciones que esa web ya tenga, así que por defecto —`brillo`— sigue
+         sin haber transformación ninguna. */
+      transition   : 'filter .15s ease, box-shadow .15s ease, transform .15s ease',
       textDecoration: 'none',
       appearance   : 'none',
       margin       : '0',
     };
     for (var k in estilo) b.style[k] = estilo[k];
 
-    b.addEventListener('mouseenter', function () { b.style.filter = 'brightness(1.08)'; });
-    b.addEventListener('mouseleave', function () { b.style.filter = ''; });
+    /* La animación elegida. Si el nombre no existe —un `data-animacion` escrito
+       a mano con una errata— se cae en `brillo`, que es lo de siempre: un botón
+       que deja de responder al ratón parece roto. */
+    var anim = Object.prototype.hasOwnProperty.call(ANIMACIONES, cfg.animacion)
+      ? ANIMACIONES[cfg.animacion]
+      : ANIMACIONES.brillo;
+    var quieto = quietoTodo();
+
+    b.addEventListener('mouseenter', function () {
+      if (anim.filter) b.style.filter = anim.filter;
+      /* El desplazamiento se salta con «reducir movimiento»; el brillo no. */
+      if (anim.transform && !quieto) b.style.transform = anim.transform;
+      /* Levantarse sin que la sombra crezca no se lee como levantarse: se
+         queda en un salto seco. Sólo si ya tenía sombra — sobre un botón plano
+         aparecería una de la nada. */
+      if (anim.transform && !quieto && cfg.sombra !== 'no') b.style.boxShadow = SOMBRAS.lg;
+    });
+    b.addEventListener('mouseleave', function () {
+      b.style.filter = '';
+      b.style.transform = '';
+      b.style.boxShadow = sombraDe(cfg);
+    });
+
+    /* El pulso, con la API de animaciones del navegador: una hoja de estilos
+       con `@keyframes` habría que meterla en la página del organizador, y este
+       archivo no toca su CSS.
+       Un botón que late solo es lo que se pidió para llamar la atención; que
+       lo haga contra la voluntad de quien pidió que nada se mueva, no. */
+    if (anim.pulso && !quieto && typeof b.animate === 'function') {
+      try {
+        b.animate(
+          [{ transform: 'scale(1)' }, { transform: 'scale(1.045)' }, { transform: 'scale(1)' }],
+          { duration: 1600, iterations: Infinity, easing: 'ease-in-out' },
+        );
+      } catch (e) { /* Sin Web Animations, el botón se queda quieto y funciona igual. */ }
+    }
     b.addEventListener('focus', function () { b.style.outline = '2px solid ' + cfg.color; b.style.outlineOffset = '2px'; });
     b.addEventListener('blur',  function () { b.style.outline = ''; });
 

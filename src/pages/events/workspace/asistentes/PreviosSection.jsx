@@ -8,14 +8,37 @@ import WaitlistTab from '../../tabs/WaitlistTab.jsx';
  * momento: alguien que quiere entrar y aún no tiene boleta. Se operan juntas
  * —se libera un cupo, se invita a quien esperaba— y estaban separadas.
  *
- * Los permisos no coinciden y no se pueden igualar: la lista de espera es del
- * dueño (mueve cupos y manda correos con enlace de reserva) y las invitaciones
- * las manda quien lleva los clientes. La pestaña se ve con `ver_clientes` y la
- * lista de espera sólo aparece dentro si eres el dueño — fusionarlas a secas
- * habría repartido poder sin que nadie lo pidiera. */
-export default function PreviosSection({ evento, soyOwner }) {
-  const [vista, setVista] = useState('invitaciones');
-  if (!soyOwner) return <InvitacionesSection evento={evento} />;
+ * ── Dos cosas con dueños distintos ───────────────────────────────────────
+ *
+ * Los permisos no coinciden, y por eso lo que se enseña se decide aquí dentro
+ * y no en el menú:
+ *   · Invitaciones (el padrón) va con `editar_evento`: todas sus rutas lo
+ *     piden, incluida la de leer su estado.
+ *   · La lista de espera va con `gestionar_clientes`. Era del dueño y de nadie
+ *     más — mirar quién espera un cupo y ofrecérselo cuando alguien cancela es
+ *     trabajo de logística, y dejarlo en el dueño obligaba a dar permisos muy
+ *     altos a quien sólo tenía que atender la fila.
+ *
+ * Quien tiene una sola de las dos ve esa, sin el conmutador: dos botones donde
+ * uno lleva a un 403 es peor que un botón.
+ */
+export default function PreviosSection({ evento, soyOwner, permisos = [] }) {
+  const puede = (p) => soyOwner || permisos.includes('*') || permisos.includes(p);
+  const puedeInvitar = puede('editar_evento');
+  const puedeEspera  = puede('gestionar_clientes');
+
+  /* Se arranca en lo que se pueda ver. Empezar en «invitaciones» por costumbre
+     dejaría a quien sólo atiende la fila mirando una pantalla vacía. */
+  const [vista, setVista] = useState(puedeInvitar ? 'invitaciones' : 'espera');
+
+  /* El menú abre esta pestaña con cualquiera de los dos permisos, así que aquí
+     no debería llegar nadie sin ninguno. Si llega —un rol que cambió con la
+     pantalla abierta— se dice, en vez de pintar un recuadro vacío. */
+  if (!puedeInvitar && !puedeEspera) {
+    return <p className="text-sm text-text-3">Tu rol no incluye invitaciones ni lista de espera.</p>;
+  }
+  if (!puedeEspera)  return <InvitacionesSection evento={evento} />;
+  if (!puedeInvitar) return <WaitlistTab evento={evento} />;
 
   return (
     <div className="space-y-4">

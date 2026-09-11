@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { eventosApi } from '../../../api/eventos.js';
 import { agendaApi } from '../../../api/agenda.js';
 import Recomendaciones from '../../../components/Recomendaciones.jsx';
@@ -7,10 +7,11 @@ import {
   botonesDelEvento, nuevoBoton, cruzarConUso, codigoDeOrigen,
 } from '../../../lib/botonesDeRegistro.js';
 import { useToast } from '../../../context/ToastContext.jsx';
+import { confirmDialog, pedirTexto } from '../../../components/ui/Confirm.jsx';
 import {
   MODOS_PUBLICACION, EMBED_ESPECIALES, EMBED_TEMAS,
   embedSnippet, embedUrl, embedFrameId,
-  WIDGET_DEFECTOS, WIDGET_TAMANOS, WIDGET_SOMBRAS,
+  WIDGET_DEFECTOS, WIDGET_TAMANOS, WIDGET_SOMBRAS, WIDGET_ANIMACIONES, animacionDe,
   estiloBotonWidget, widgetSnippet, widgetSnippetEnSitio,
 } from '../../../lib/embed.js';
 
@@ -321,7 +322,12 @@ function BotonDeRegistro({ evento }) {
   };
 
   const guardarActual = async () => {
-    const nombre = (window.prompt('¿Cómo llamas a este botón? Ej: «Home de la web», «Correo a socios»') || '').trim();
+    const nombre = await pedirTexto({
+      title: 'Guardar este botón',
+      message: '¿Cómo lo llamas? Es el nombre con el que sabrás cuánta gente entró por él.',
+      pedirEtiqueta: 'Ej: «Home de la web», «Correo a socios»',
+      confirmLabel: 'Guardar botón',
+    });
     if (!nombre) return;
     /* `opciones` y no `cfg`: el degradado es un interruptor aqui y "hay segundo
        color" en el widget. Guardando `cfg` se guardaria un `color2` con la
@@ -339,9 +345,14 @@ function BotonDeRegistro({ evento }) {
     if (!b) return;
     /* Se avisa de lo que NO pasa: las inscripciones que trajo se quedan. Sin
        decirlo, borrar un botón parece que borra su historia. */
-    if (!window.confirm(`¿Quitar «${b.nombre}» de la lista?
-
-El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0} inscripciones que trajo se quedan en el evento.`)) return;
+    if (!(await confirmDialog({
+      title: `¿Quitar «${b.nombre}» de la lista?`,
+      /* Se dice lo que NO pasa. Sin esto, quitar un botón parece que borra su
+         historia — y quien lo cree deja de limpiar la lista. */
+      message: `El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0} inscripciones que trajo se quedan en el evento.`,
+      confirmLabel: 'Quitar de la lista',
+      danger: true,
+    }))) return;
     try { await persistir(guardados.filter(x => x.id !== id)); } catch { /* ya se avisó */ }
   };
 
@@ -503,6 +514,20 @@ El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0
               </select>
             </div>
           </div>
+
+          {/* Qué hace al pasar por encima.
+              Se describe cada una debajo, y no sólo su nombre: «Late» no dice
+              si eso es un parpadeo o un temblor, y probarlas una por una para
+              averiguarlo es cómo se acaba dejando puesta la más llamativa. */}
+          <div>
+            <label className="label">Al pasar por encima</label>
+            <select value={cfg.animacion} onChange={e => set({ animacion: e.target.value })}
+              className="input w-full">
+              {WIDGET_ANIMACIONES.map(a =>
+                <option key={a.clave} value={a.clave}>{a.label}</option>)}
+            </select>
+            <p className="text-[11px] text-text-3 mt-1.5">{animacionDe(cfg.animacion).desc}</p>
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -512,8 +537,18 @@ El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0
                 claro parecería tener menos contraste del que tendrá en la web
                 del organizador. */}
             <div className="rounded-2xl border border-border bg-[#f4f4f5] p-6 flex items-center justify-center">
-              <button type="button" style={estiloBotonWidget(opciones)}>{cfg.texto || 'Registrarme'}</button>
+              <BotonDePrueba opciones={opciones} texto={cfg.texto || 'Registrarme'} />
             </div>
+            {/* Se dice que hay que pasar por encima. Una vista previa quieta
+                con una animación elegida se lee como que la animación no
+                funciona, y de ahí se vuelve a «Nada». */}
+            <p className="text-[11px] text-text-3 mt-1.5">
+              {cfg.animacion === 'no'
+                ? 'Este botón no responde al ratón, que es lo que elegiste.'
+                : cfg.animacion === 'latir'
+                  ? 'Late solo. Pasa por encima para ver el resto.'
+                  : 'Pasa el ratón por encima para verlo.'}
+            </p>
           </div>
 
           <label className="flex items-center gap-2 text-xs text-text-2 cursor-pointer">
@@ -544,6 +579,50 @@ El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0
         botones={conUso} directo={directo} huerfanos={huerfanos}
         tipos={tipos} onCopiar={copiarDe} onBorrar={borrarGuardado} />
     </div>
+  );
+}
+
+/* El botón de la vista previa, que hace lo mismo que hará en la web.
+ *
+ * Con estilos en línea y manejadores, y no con `:hover` en el CSS: el estilo
+ * sale de `estiloBotonWidget`, que es la misma función que dibuja el botón de
+ * verdad, y una regla CSS aparte sería el quinto sitio donde apuntar lo mismo.
+ *
+ * Aquí NO se mira «reducir movimiento» a propósito, y el widget sí: quien
+ * configura el botón tiene que ver lo que va a ver su visitante, aunque su
+ * propio portátil pida que nada se mueva. Al visitante se le respeta; al
+ * organizador se le enseña. */
+function BotonDePrueba({ opciones, texto }) {
+  const [encima, setEncima] = useState(false);
+  const anim = animacionDe(opciones.animacion);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !anim.pulso || typeof el.animate !== 'function') return undefined;
+    const a = el.animate(
+      [{ transform: 'scale(1)' }, { transform: 'scale(1.045)' }, { transform: 'scale(1)' }],
+      { duration: 1600, iterations: Infinity, easing: 'ease-in-out' },
+    );
+    return () => a.cancel();
+  }, [anim]);
+
+  const base = estiloBotonWidget(opciones);
+  return (
+    <button ref={ref} type="button"
+      onMouseEnter={() => setEncima(true)} onMouseLeave={() => setEncima(false)}
+      style={{
+        ...base,
+        transition: 'filter .15s ease, box-shadow .15s ease, transform .15s ease',
+        ...(encima ? anim.hover : {}),
+        /* Levantarse sin que la sombra crezca es un salto seco. Igual que en
+           el widget, y sólo si el botón ya tenía sombra. */
+        ...(encima && anim.hover.transform && opciones.sombra !== 'no'
+          ? { boxShadow: WIDGET_SOMBRAS.lg }
+          : {}),
+      }}>
+      {texto}
+    </button>
   );
 }
 

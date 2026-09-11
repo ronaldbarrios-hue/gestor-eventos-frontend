@@ -222,11 +222,18 @@ const SECCIONES = [
        `editar_evento` los dos disenadores. Con `ver_clientes` a secas la
        pestana se abria y no habia ninguna vista que ensenar — en blanco. */
     { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'editar_evento'] },
-    /* Todas las rutas del padron —incluida la de leer su estado— piden
-       `editar_evento` (`PERMS_PADRON`). Con `ver_clientes` la pestana se
-       abria y TODO lo de dentro devolvia 403: Puerta, Atencion y Finanzas la
-       veian para no poder usarla. */
-    { id: 'previos',      label: 'Invitaciones',        perm: 'editar_evento' },
+    /* Dos cosas dentro, con dueños distintos, y la pestaña se abre para
+       cualquiera de las dos:
+         · Invitaciones (el padrón) pide `editar_evento` — todas sus rutas,
+           incluida la de leer su estado (`PERMS_PADRON`). Con `ver_clientes` a
+           secas la pestaña se abría y TODO lo de dentro devolvía 403: Puerta,
+           Atención y Finanzas la veían para no poder usarla.
+         · La lista de espera pide `gestionar_clientes` desde que dejó de ser
+           del dueño. Atender la fila es trabajo de logística.
+       Pidiendo sólo el primero, quien lleva los clientes no llegaba nunca a la
+       lista de espera aunque el servidor ya se la aceptara. `PreviosSection`
+       decide dentro cuál de las dos vistas enseña. */
+    { id: 'previos',      label: 'Invitaciones',        perm: ['editar_evento', 'gestionar_clientes'] },
   ]},
   { id: 'equipo', label: 'Equipo y tareas', icon: UsersIcon, tabs: [
     { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
@@ -633,8 +640,13 @@ export default function EventWorkspace() {
                 <Contenido seccion={seccion} tab={tabActivo} evento={evento} soyOwner={mandaTodo} reload={reload}
                   miRolId={miRolId} miUserId={usuario?.id || null}
                   permisos={permisos}
-                  onAnuncio={() => setBroadcastOpen(true)}
-                  onEditar={() => navigate(`/eventos/${evento.id}/editar`)}
+                  /* Ya vienen decididos: un atajo que abre un 403 es peor que
+                     no ofrecerlo. `onEliminar` lo hacía así desde siempre;
+                     estos dos iban sueltos y los tapaba un `soyOwner` dentro
+                     del Resumen, que escondía «Redactar anuncio» a quien tiene
+                     `publicar_anuncios`. */
+                  onAnuncio={puedeVer('publicar_anuncios', mandaTodo, permisos) ? () => setBroadcastOpen(true) : null}
+                  onEditar={puedeVer('editar_evento', mandaTodo, permisos) ? () => navigate(`/eventos/${evento.id}/editar`) : null}
                   onEliminar={soyOwner ? eliminar : null}
                   anunciosVersion={anunciosVersion} />
               </ErrorBoundary>
@@ -746,7 +758,7 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
        juntarlas sin eso habría dado a quien escanea el diseñador del carné,
        y a quien lleva clientes la lista de espera del dueño. */
     case 'asistentes/acreditacion'  : return <AcreditacionSection evento={evento} soyOwner={soyOwner} permisos={permisos} />;
-    case 'asistentes/previos'       : return <PreviosSection evento={evento} soyOwner={soyOwner} />;
+    case 'asistentes/previos'       : return <PreviosSection evento={evento} soyOwner={soyOwner} permisos={permisos} />;
     case 'mensajes/chat'        : return <ChatTab evento={evento} />;
     case 'mensajes/anuncios'    : return <AnunciosSection evento={evento} onAnuncio={onAnuncio} recargar={anunciosVersion} />;
     case 'configuracion/general'    : return <ConfigGeneral evento={evento} reload={reload} />;

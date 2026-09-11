@@ -16,8 +16,15 @@
  * ── `aplicado` ──────────────────────────────────────────────────────────
  *
  * Marca un permiso que se puede conceder y todavía no cambia nada, para que
- * quien arma un rol lo sepa. **Hoy no hay ninguno**: los 28 están comprobados
- * por alguna ruta.
+ * quien arma un rol lo sepa. **Hoy no hay ninguno**: los 31 están comprobados
+ * por alguna ruta, y el servidor tiene un test que lo sujeta —
+ * `test/permisosQueNoConcedianNada.test.js`— en vez de dejarlo a la memoria.
+ *
+ * Ese test nació porque el párrafo de abajo se quedó corto: `publicar_anuncios`
+ * llevaba desde la migración 0122 en el panel, con su etiqueta, sin que ninguna
+ * ruta lo comprobara. 34 roles en producción lo tenían concedido y los 34
+ * recibían un 403. Un permiso que FALTA se nota al chocar contra el 403; uno
+ * que SOBRA no, porque quien armó el rol marcó la casilla y se quedó tranquilo.
  *
  * Se conserva porque la situación se ha dado tres veces y volverá a darse —un
  * permiso se reparte en la semilla antes de que exista la pantalla que lo usa—

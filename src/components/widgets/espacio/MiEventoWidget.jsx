@@ -108,7 +108,14 @@ export default function MiEventoWidget() {
             <p className="text-sm text-text-2 text-center py-6 px-4">Sin miembros visibles en este evento.</p>
           ) : (
             <ul className="divide-y divide-border">
-              {equipo.slice(0, 8).map((m, i) => (
+              {/* El equipo entero, sin recortar.
+                  Se cortaba en ocho sin decirlo: un equipo de veinte se veía
+                  como un equipo de ocho, y esto es el DIRECTORIO —se viene
+                  aquí a buscar a alguien, y a quien no sale se le da por no
+                  estar. No hacía falta un «y 12 más»: la caja de arriba ya
+                  tiene scroll, y la lista de tareas de al lado —en este mismo
+                  widget— nunca se recortó. El tope era la excepción. */}
+              {equipo.map((m, i) => (
                 <li key={m.id || i} className="px-4 py-2.5 flex items-center gap-2.5">
                   <span className="w-7 h-7 rounded-full bg-gradient-primary text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
                     {(m.nombre || m.email || '?').slice(0, 1).toUpperCase()}
