@@ -616,7 +616,13 @@ export default function EventWorkspace() {
                 <a href={`/explorar/${evento.slug}`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm">
                   <EyeIcon className="w-4 h-4" /> Ver sitio público
                 </a>
-                {soyOwner && ['borrador', 'configuracion'].includes(evento.estado) && (
+                {/* Publicar va con `publicar_evento`, no con ser el dueño.
+                    El servidor ya lo comprueba así —`POST /:id/estado` exige ese
+                    permiso y nada más—, y aquí se pedía la propiedad: medido,
+                    34 roles lo tenían concedido y ninguno veía el botón. Es la
+                    casilla que se marca, se ve marcada, y no aparece por
+                    ninguna parte lo que abre. */}
+                {puedeVer('publicar_evento', mandaTodo, permisos) && ['borrador', 'configuracion'].includes(evento.estado) && (
                   <button onClick={publicar} disabled={working} className="btn-gradient btn-sm">Publicar evento</button>
                 )}
               </div>

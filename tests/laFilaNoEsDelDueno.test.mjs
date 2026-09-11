@@ -131,3 +131,34 @@ test('los cuatro permisos finos de la 0124 abren la pantalla que prometen', () =
      las cuatro se lean juntas: son el mismo arreglo. */
   assert.match(ws, /id: 'acreditacion'[^}]*'gestionar_acreditacion'/);
 });
+
+test('publicar el evento va con su permiso, no con ser el dueño', () => {
+  /* `POST /:id/estado` exige `publicar_evento` y nada más — el servidor ya se
+     arregló. El botón del panel seguía pidiendo la propiedad, así que medido:
+     34 roles tenían el permiso concedido y ninguno veía el botón. */
+  const ws = sinComentarios(leer('src', 'pages', 'events', 'workspace', 'EventWorkspace.jsx'));
+  assert.match(ws, /puedeVer\('publicar_evento', mandaTodo, permisos\) && \['borrador', 'configuracion'\]/,
+    'el botón de publicar vuelve a pedir ser el dueño');
+  assert.ok(!/soyOwner && \['borrador', 'configuracion'\]/.test(ws));
+});
+
+test('no se ofrece la portada a quien el servidor no deja cambiarla', () => {
+  /* `cover_url` y `gallery` sólo los abre `gestionar_imagenes`, y el guardado
+     del evento no rechaza lo que no puedes tocar: lo DESCARTA y responde 200.
+     Quien cambiaba portada y título a la vez veía «Guardado», el título
+     cambiaba y la portada no. Medido: 34 de los 102 roles que pueden editar el
+     evento no tienen `gestionar_imagenes`.
+
+     Es el peor de la familia: los otros esconden una función a quien puede
+     usarla — molesto pero visible en cuanto alguien pregunta. Éste dice que
+     guardó algo que no guardó. */
+  const edit = sinComentarios(leer('src', 'pages', 'events', 'EventEditPage.jsx'));
+  assert.match(edit, /const puedeImagenes = permisos\.includes\('\*'\) \|\| permisos\.includes\('gestionar_imagenes'\)/,
+    'la página de editar no mira `gestionar_imagenes`');
+  assert.match(edit, /\{puedeImagenes && \(/, 'la sección de imágenes se ofrece igualmente');
+
+  /* Y por defecto no esconde nada: hasta que el servidor responde, `['*']`.
+     Al revés, la pantalla parpadearía escondiendo la portada a su dueño. */
+  assert.match(edit, /useState\(\['\*'\]\)/,
+    'el estado inicial de permisos esconde cosas antes de saber quién eres');
+});
