@@ -103,8 +103,19 @@ test('las pantallas que GUARDAN no se ofrecen a quien sólo puede mirar', () => 
        TODOS los roles— y subir o quitar guarda `page_json` igual. Se elegía el
        archivo, se esperaba la subida, y 403 al final. */
   const acred = leer('pages/events/workspace/asistentes/AcreditacionSection.jsx');
-  assert.match(acred, /puede\('editar_evento'\) \? \[\['escarapela'/);
-  assert.match(acred, /puede\('editar_evento'\) \? \[\['carne'/);
+  /* Se comprueba QUÉ decide enseñar los diseñadores, no la línea literal: al
+     añadir `gestionar_acreditacion` —el permiso que la 0124 creó justo para
+     esto— la condición dejó de ser un `puede('editar_evento')` suelto, y la
+     versión anterior de este test fallaba aunque la garantía siguiera en pie.
+     Lo que importa es que los dos diseñadores vayan con un permiso que PUEDA
+     GUARDAR, y que `ver_clientes` no esté entre ellos. */
+  const cond = acred.match(/const disena = ([^;]+);/);
+  assert.ok(cond, 'ya no hay una condición única que decida si se puede diseñar');
+  assert.match(cond[1], /editar_evento/);
+  assert.ok(!/ver_clientes/.test(cond[1]),
+    'diseñar vuelve a ofrecerse a quien sólo puede mirar la lista');
+  assert.match(acred, /disena\s+\? \[\['escarapela'/);
+  assert.match(acred, /disena\s+\? \[\['carne'/);
   /* Imprimir sigue siendo de quien está en la puerta: no guarda nada. */
   assert.match(acred, /puede\('checkin'\)\s*\? \[\['etiquetas'/);
 

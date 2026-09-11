@@ -69,3 +69,30 @@ test('«Redactar anuncio» se ofrece a quien tiene el permiso, no al dueño', ()
   assert.match(workspace, /onEditar=\{puedeVer\('editar_evento'/,
     'el atajo de editar no mira `editar_evento`');
 });
+
+test('quien puede diseñar la escarapela ve dónde se diseña', () => {
+  /* La migración 0124 partió `editar_evento` para que diseñar una escarapela
+     no obligara a entregar el evento entero, y creó `gestionar_acreditacion`.
+     El servidor lo acepta —`LLAVES_ESTRECHAS` le abre `wallet`, `puntos` y
+     `credenciales`— pero el panel seguía pidiendo `editar_evento` en los dos
+     sitios: la pestaña no salía en el menú, y dentro tampoco salían las dos
+     pantallas de diseño.
+
+     O sea: el permiso se concedía, se veía marcado, su etiqueta en el catálogo
+     decía «Diseñar escarapelas y carnés», y no abría ninguna de las dos. Sin
+     ningún error de por medio — se descubre preguntando «¿y dónde se diseña?».
+
+     Se encontró componiendo un rol de logística para TechNova y comprobando
+     permiso por permiso qué abría cada uno, en vez de dar por bueno que la
+     casilla existiera. */
+  const workspace = sinComentarios(leer('src', 'pages', 'events', 'workspace', 'EventWorkspace.jsx'));
+  assert.match(workspace, /id: 'acreditacion'[^}]*'gestionar_acreditacion'/,
+    'la pestaña de Acreditación no se abre con el permiso que la 0124 creó para eso');
+
+  const seccion = sinComentarios(leer('src', 'pages', 'events', 'workspace', 'asistentes', 'AcreditacionSection.jsx'));
+  assert.match(seccion, /const disena = puede\('editar_evento'\) \|\| puede\('gestionar_acreditacion'\);/,
+    'los dos diseñadores vuelven a pedir sólo `editar_evento`');
+  /* Imprimir sigue siendo de la puerta: no guarda nada. */
+  assert.match(seccion, /puede\('checkin'\) \? \[\['etiquetas'/,
+    'imprimir en la etiquetadora dejó de ir con `checkin`');
+});

@@ -59,10 +59,14 @@ const LO_QUE_PIDE_EL_SERVIDOR = {
   aforo      : ['checkin'],
   clientes   : ['ver_clientes'],
   vacantes   : ['editar_evento'],                                  // PERMS_VACANTES
-  /* Los dos permisos que dan algo dentro: `checkin` abre la etiquetadora (que
-     no guarda nada) y `editar_evento` los dos disenadores, que guardan en
-     `page_json`. Con `ver_clientes` la pestana se abria en blanco. */
-  acreditacion: ['checkin', 'editar_evento'],
+  /* Los TRES permisos que dan algo dentro: `checkin` abre la etiquetadora (que
+     no guarda nada), y `editar_evento` o `gestionar_acreditacion` los dos
+     disenadores, que guardan en `page_json`. Con `ver_clientes` la pestana se
+     abria en blanco.
+     `gestionar_acreditacion` faltaba: el servidor lo acepta desde la 0124
+     —`LLAVES_ESTRECHAS` le abre wallet, puntos y credenciales— y el menu pedia
+     solo los otros dos, asi que el permiso se concedia y no abria su pantalla. */
+  acreditacion: ['checkin', 'editar_evento', 'gestionar_acreditacion'],
 };
 
 /* Saca el `perm` de una pestaña tal como está escrito en el menú. */

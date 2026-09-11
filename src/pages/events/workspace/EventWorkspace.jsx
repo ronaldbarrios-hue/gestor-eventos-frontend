@@ -221,7 +221,12 @@ const SECCIONES = [
     /* Los dos permisos que dan ALGO dentro: `checkin` abre la etiquetadora y
        `editar_evento` los dos disenadores. Con `ver_clientes` a secas la
        pestana se abria y no habia ninguna vista que ensenar — en blanco. */
-    { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'editar_evento'] },
+    /* Los tres permisos que dan ALGO dentro: `checkin` abre la etiquetadora,
+       y `editar_evento` o `gestionar_acreditacion` los dos diseñadores.
+       Faltaba el tercero, que es justo el que la 0124 creó para no tener que
+       entregar el evento entero por diseñar una escarapela: se podía conceder,
+       se veía marcado, y la pestaña no aparecía. */
+    { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'editar_evento', 'gestionar_acreditacion'] },
     /* Dos cosas dentro, con dueños distintos, y la pestaña se abre para
        cualquiera de las dos:
          · Invitaciones (el padrón) pide `editar_evento` — todas sus rutas,
