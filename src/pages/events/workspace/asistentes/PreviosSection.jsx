@@ -12,8 +12,8 @@ import WaitlistTab from '../../tabs/WaitlistTab.jsx';
  *
  * Los permisos no coinciden, y por eso lo que se enseña se decide aquí dentro
  * y no en el menú:
- *   · Invitaciones (el padrón) va con `editar_evento`: todas sus rutas lo
- *     piden, incluida la de leer su estado.
+ *   · Invitaciones (el padrón) va con `gestionar_padron` o `editar_evento`:
+ *     es lo que piden todas sus rutas, incluida la de leer su estado.
  *   · La lista de espera va con `gestionar_clientes`. Era del dueño y de nadie
  *     más — mirar quién espera un cupo y ofrecérselo cuando alguien cancela es
  *     trabajo de logística, y dejarlo en el dueño obligaba a dar permisos muy
@@ -24,7 +24,9 @@ import WaitlistTab from '../../tabs/WaitlistTab.jsx';
  */
 export default function PreviosSection({ evento, soyOwner, permisos = [] }) {
   const puede = (p) => soyOwner || permisos.includes('*') || permisos.includes(p);
-  const puedeInvitar = puede('editar_evento');
+  /* `PERMS_PADRON` es ['gestionar_padron','editar_evento']: los dos, o el fino
+     de la 0124 no abriría el padrón que se creó para él. */
+  const puedeInvitar = puede('editar_evento') || puede('gestionar_padron');
   const puedeEspera  = puede('gestionar_clientes');
 
   /* Se arranca en lo que se pueda ver. Empezar en «invitaciones» por costumbre

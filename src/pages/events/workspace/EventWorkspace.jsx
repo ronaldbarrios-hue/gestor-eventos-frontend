@@ -229,8 +229,10 @@ const SECCIONES = [
     { id: 'acreditacion', label: 'Acreditación', perm: ['checkin', 'editar_evento', 'gestionar_acreditacion'] },
     /* Dos cosas dentro, con dueños distintos, y la pestaña se abre para
        cualquiera de las dos:
-         · Invitaciones (el padrón) pide `editar_evento` — todas sus rutas,
-           incluida la de leer su estado (`PERMS_PADRON`). Con `ver_clientes` a
+         · Invitaciones (el padrón) pide `gestionar_padron` o `editar_evento`
+           — `PERMS_PADRON`, en todas sus rutas, incluida la de leer su estado.
+           El primero faltaba aquí: es el permiso fino de la 0124 y no abría
+           nada. Con `ver_clientes` a
            secas la pestaña se abría y TODO lo de dentro devolvía 403: Puerta,
            Atención y Finanzas la veían para no poder usarla.
          · La lista de espera pide `gestionar_clientes` desde que dejó de ser
@@ -238,12 +240,16 @@ const SECCIONES = [
        Pidiendo sólo el primero, quien lleva los clientes no llegaba nunca a la
        lista de espera aunque el servidor ya se la aceptara. `PreviosSection`
        decide dentro cuál de las dos vistas enseña. */
-    { id: 'previos',      label: 'Invitaciones',        perm: ['editar_evento', 'gestionar_clientes'] },
+    { id: 'previos',      label: 'Invitaciones',        perm: ['editar_evento', 'gestionar_clientes', 'gestionar_padron'] },
   ]},
   { id: 'equipo', label: 'Equipo y tareas', icon: UsersIcon, tabs: [
     { id: 'equipo',      label: 'Equipo y roles', perm: ['gestionar_roles', 'invitar_staff', 'remover_miembros'] },
     { id: 'tareas',      label: 'Tareas',      perm: null },
-    { id: 'vacantes',    label: 'Vacantes',    perm: 'editar_evento' },
+    /* `PERMS_VACANTES` en el servidor es ['gestionar_vacantes','editar_evento']
+       y aquí se pedía sólo el segundo: el permiso fino que creó la 0124 —para
+       no tener que entregar el evento entero por publicar una vacante— se
+       podía conceder y no abría su pestaña. */
+    { id: 'vacantes',    label: 'Vacantes',    perm: ['editar_evento', 'gestionar_vacantes'] },
     { id: 'solicitudes', label: 'Sugerencias', perm: null },
     /* Contratos y riders. Estaba en `null` —cualquier miembro— y eso no era
        una decisión. La 0122 se lo concede a todos los roles que ya existían,
@@ -712,7 +718,13 @@ function Contenido({ seccion, tab, evento, soyOwner, reload, permisos, onAnuncio
        del equipo veia el boton de subir y el servidor le devolvia 403 despues
        de elegir el archivo. */
     case 'equipo/documentos'  : return <DocumentosSection evento={evento}
-                                  puedeEditar={puedeVer('editar_evento', soyOwner, permisos)} />;
+                                  /* `gestionar_documentos` también: el servidor
+                                     se lo acepta —`LLAVES_ESTRECHAS` le abre la
+                                     clave `documentos`— y pidiendo sólo
+                                     `editar_evento` el permiso fino de la 0124
+                                     dejaba la zona de subir escondida. */
+                                  puedeEditar={puedeVer('editar_evento', soyOwner, permisos)
+                                    || puedeVer('gestionar_documentos', soyOwner, permisos)} />;
     case 'resumen/reporte'     : return <ReporteTab evento={evento} />;
 
     /* Espacio del evento: las cuatro vistas de lo mismo. */

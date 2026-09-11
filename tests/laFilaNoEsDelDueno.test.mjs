@@ -96,3 +96,38 @@ test('quien puede diseñar la escarapela ve dónde se diseña', () => {
   assert.match(seccion, /puede\('checkin'\) \? \[\['etiquetas'/,
     'imprimir en la etiquetadora dejó de ir con `checkin`');
 });
+
+test('los cuatro permisos finos de la 0124 abren la pantalla que prometen', () => {
+  /* La migración 0124 partió `editar_evento`, que era una llave maestra, en
+     cuatro permisos finos: documentos, acreditación, padrón y vacantes. La
+     razón era una sola — que para dejar subir un contrato o diseñar una
+     escarapela no hubiera que entregar el evento entero.
+     
+     El servidor los acepta los cuatro. El panel no sabía de NINGUNO: se podían
+     conceder, salían marcados en la lista de roles con su etiqueta, y no abrían
+     nada. Cuatro casillas decorativas, sin un solo error de por medio.
+     
+     Salió componiendo un rol de logística para TechNova y comprobando permiso
+     por permiso qué abría cada uno. */
+  const ws = sinComentarios(leer('src', 'pages', 'events', 'workspace', 'EventWorkspace.jsx'));
+
+  /* Vacantes: PERMS_VACANTES = ['gestionar_vacantes','editar_evento'] */
+  assert.match(ws, /id: 'vacantes'[^}]*'gestionar_vacantes'/,
+    'la pestaña de Vacantes no se abre con `gestionar_vacantes`');
+
+  /* Invitaciones: PERMS_PADRON = ['gestionar_padron','editar_evento'] */
+  assert.match(ws, /id: 'previos'[^}]*'gestionar_padron'/,
+    'la pestaña de Invitaciones no se abre con `gestionar_padron`');
+  const previos = sinComentarios(leer('src', 'pages', 'events', 'workspace', 'asistentes', 'PreviosSection.jsx'));
+  assert.match(previos, /puede\('editar_evento'\) \|\| puede\('gestionar_padron'\)/,
+    'dentro de Invitaciones, el padrón sigue pidiendo sólo `editar_evento`');
+
+  /* Documentos: subir guarda la clave `documentos` de `page_json`, que
+     `LLAVES_ESTRECHAS` abre con `gestionar_documentos`. */
+  assert.match(ws, /puedeVer\('gestionar_documentos'/,
+    'la zona de subir documentos sigue escondida a quien tiene `gestionar_documentos`');
+
+  /* Acreditación ya estaba, y se queda fijada aquí con las otras tres para que
+     las cuatro se lean juntas: son el mismo arreglo. */
+  assert.match(ws, /id: 'acreditacion'[^}]*'gestionar_acreditacion'/);
+});
