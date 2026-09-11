@@ -7,6 +7,7 @@ import {
   botonesDelEvento, nuevoBoton, cruzarConUso, codigoDeOrigen,
 } from '../../../lib/botonesDeRegistro.js';
 import { useToast } from '../../../context/ToastContext.jsx';
+import { confirmDialog, pedirTexto } from '../../../components/ui/Confirm.jsx';
 import {
   MODOS_PUBLICACION, EMBED_ESPECIALES, EMBED_TEMAS,
   embedSnippet, embedUrl, embedFrameId,
@@ -321,7 +322,12 @@ function BotonDeRegistro({ evento }) {
   };
 
   const guardarActual = async () => {
-    const nombre = (window.prompt('¿Cómo llamas a este botón? Ej: «Home de la web», «Correo a socios»') || '').trim();
+    const nombre = await pedirTexto({
+      title: 'Guardar este botón',
+      message: '¿Cómo lo llamas? Es el nombre con el que sabrás cuánta gente entró por él.',
+      pedirEtiqueta: 'Ej: «Home de la web», «Correo a socios»',
+      confirmLabel: 'Guardar botón',
+    });
     if (!nombre) return;
     /* `opciones` y no `cfg`: el degradado es un interruptor aqui y "hay segundo
        color" en el widget. Guardando `cfg` se guardaria un `color2` con la
@@ -339,9 +345,14 @@ function BotonDeRegistro({ evento }) {
     if (!b) return;
     /* Se avisa de lo que NO pasa: las inscripciones que trajo se quedan. Sin
        decirlo, borrar un botón parece que borra su historia. */
-    if (!window.confirm(`¿Quitar «${b.nombre}» de la lista?
-
-El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0} inscripciones que trajo se quedan en el evento.`)) return;
+    if (!(await confirmDialog({
+      title: `¿Quitar «${b.nombre}» de la lista?`,
+      /* Se dice lo que NO pasa. Sin esto, quitar un botón parece que borra su
+         historia — y quien lo cree deja de limpiar la lista. */
+      message: `El código que ya pegaste en tu web sigue funcionando, y las ${b.uso?.total || 0} inscripciones que trajo se quedan en el evento.`,
+      confirmLabel: 'Quitar de la lista',
+      danger: true,
+    }))) return;
     try { await persistir(guardados.filter(x => x.id !== id)); } catch { /* ya se avisó */ }
   };
 

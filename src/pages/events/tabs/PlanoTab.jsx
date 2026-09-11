@@ -3,7 +3,7 @@ import { espaciosApi, recintosApi } from '../../../api/espacios.js';
 import { ticketsApi } from '../../../api/tickets.js';
 import { eventosApi } from '../../../api/eventos.js';
 import { useToast } from '../../../context/ToastContext.jsx';
-import { confirmDialog } from '../../../components/ui/Confirm.jsx';
+import { confirmDialog, pedirTexto } from '../../../components/ui/Confirm.jsx';
 import GLoader from '../../../components/ui/GLoader.jsx';
 import Spinner from '../../../components/ui/Spinner.jsx';
 import Icono from '../../../components/ui/Iconos.jsx';
@@ -256,7 +256,11 @@ export default function PlanoTab({ evento, recargarEvento }) {
      confirma. Sin esto habría que borrarla y volver a generar los sitios, que
      es imposible en cuanto hay uno vendido. */
   const renombrar = async (esp) => {
-    const nombre = (window.prompt(`¿Cómo se llama ahora «${esp.nombre}»?`, esp.nombre) || '').trim();
+    const nombre = await pedirTexto({
+      title: 'Renombrar',
+      message: `¿Cómo se llama ahora «${esp.nombre}»?`,
+      valor: esp.nombre,
+    });
     if (!nombre || nombre === esp.nombre) return;
     try {
       await espaciosApi.editar(evento.id, esp.id, { nombre });

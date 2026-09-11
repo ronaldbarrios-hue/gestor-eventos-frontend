@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useToast } from '../../../context/ToastContext.jsx';
 import { embedUrl, embedSnippet, embedFrameId, widgetSnippet, EMBED_TEMAS, EMBED_TEMA_PISTA, EMBED_SLUG_AMIGABLE, EMBED_ESPECIALES } from '../../../lib/embed.js';
 import Recomendaciones from '../../../components/Recomendaciones.jsx';
+import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 
 /* Exportar UNA sección de la landing como iframe: la empresa arma su web
    donde quiera y trae de GESTEK solo lo que le sirve (boletas, cómo llegar,
@@ -72,9 +73,14 @@ export default function ExportIframeModal({ evento, bloque, label, onClose }) {
 
   /* Cambiar una opción regenera. Si hay algo escrito a mano, se avisa antes en
      vez de borrarlo por la espalda. */
-  const conOpcion = (fn) => (...args) => {
+  const conOpcion = (fn) => async (...args) => {
     if (tocado !== null && tocado !== snippet
-        && !window.confirm('Editaste el código a mano. Cambiar esta opción lo vuelve a generar y se pierde lo escrito. ¿Sigo?')) {
+        && !(await confirmDialog({
+          title: 'Se pierde lo que escribiste',
+          message: 'Editaste el código a mano. Cambiar esta opción lo vuelve a generar y se pierde lo escrito.',
+          confirmLabel: 'Regenerar',
+          danger: true,
+        }))) {
       return;
     }
     setTocado(null);

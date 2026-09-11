@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { BLOCKS, BLOCK_TYPES_SISTEMA, BLOCK_TYPES_CUSTOM } from './blocks.jsx';
+import { confirmDialog } from '../../../components/ui/Confirm.jsx';
 
 /* La página vista como datos, y sacada de aquí en el trozo que haga falta.
  *
@@ -70,8 +71,13 @@ export default function VistaDesarrollador({
   /* Al cambiar de alcance se reescribe el cuadro, salvo que haya cambios sin
      aplicar: perder lo que alguien acaba de escribir por tocar un desplegable
      es de las cosas que no se perdonan. */
-  const cambiarAlcance = (v) => {
-    if (tocado && !window.confirm('Tienes cambios sin aplicar en el cuadro. ¿Los descartas?')) return;
+  const cambiarAlcance = async (v) => {
+    if (tocado && !(await confirmDialog({
+      title: 'Tienes cambios sin aplicar',
+      message: 'Lo que escribiste en el cuadro no se ha aplicado todavía. Si cambias de alcance, se descarta.',
+      confirmLabel: 'Descartar',
+      danger: true,
+    }))) return;
     setAlcance(v);
     const siguiente = v === ALCANCE_MARCA  ? (branding || {})
       : v === ALCANCE_NAVBAR ? (navbar || {})

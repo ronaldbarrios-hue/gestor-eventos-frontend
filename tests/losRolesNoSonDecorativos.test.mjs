@@ -169,9 +169,17 @@ test('borrar una boleta pide teclear el correo, no un botón', () => {
   /* Enter tiene que respetarlo: si no, la verificación se salta con una tecla
      y no protege de nada. */
   assert.match(confirm, /e\.key === 'Enter' && !falta/);
-  /* Y se limpia al abrir: sin esto el segundo borrado hereda lo tecleado en el
-     primero y el botón sale habilitado de entrada. */
-  assert.match(confirm, /setTecleado\(''\); setState\(s\)/);
+  /* Y el campo se fija al abrir, siempre desde las opciones de ESTA apertura:
+     sin eso el segundo borrado hereda lo tecleado en el primero y el botón
+     sale habilitado de entrada.
+
+     Se comprueba que salga de `s` y no que la línea diga `setTecleado('')`,
+     que es lo que decía antes: al añadir `pedirTexto` —que abre el campo con
+     un valor inicial— el literal dejó de valer aunque la garantía siguiera
+     intacta. Un test que fija la línea en vez de lo que la línea promete falla
+     el día que el código mejora. */
+  assert.match(confirm, /_open = \(s\) => \{ setTecleado\(s\?\.valor \|\| ''\);/,
+    'el campo no se fija desde las opciones de la apertura: hereda lo del diálogo anterior');
   /* Sin host montado se dice que no, en vez de caer a un window.confirm: se
      pidió teclear justamente porque un botón no bastaba. */
   assert.match(confirm, /if \(opts\.escribir\) \{ resolve\(false\); return; \}/);
