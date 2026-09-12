@@ -1280,6 +1280,124 @@ function MapaEditor({ data, onChange, evento }) {
     </div>
   );
 }
+/* Una actividad de la zona, en la ficha del mapa.
+ *
+ * ── Por qué existe como pieza ────────────────────────────────────────────
+ *
+ * La ficha tenía dos listas —«Ahora mismo» y «Después, aquí mismo»— con la
+ * línea escrita dos veces, y sólo una de las dos enseñaba el cupo. Dos copias
+ * de lo mismo que ya se habían separado un poco.
+ *
+ * ── Lo que faltaba, y era lo importante ──────────────────────────────────
+ *
+ * De cada actividad se decía la hora y el título. «Torneo gamer» a secas no
+ * dice si hay que llevar equipo, si se juega por parejas ni a quién va
+ * dirigido — y esa respuesta estaba guardada: 14 de las 18 actividades de
+ * producción tienen descripción escrita. El dato estaba y no llegaba.
+ *
+ * Se recorta a tres líneas con CSS y no con `slice`: cortar por caracteres
+ * parte palabras y miente sobre lo que hay. Quien quiera el resto, entra.
+ *
+ * ── Entrar a la actividad ────────────────────────────────────────────────
+ *
+ * Lleva a `/explorar/:slug/agenda?sesion=<id>`, que YA sabe enseñar una sola
+ * actividad con su descripción entera y su inscripción. No se escribe una
+ * pantalla nueva a propósito: el comentario de `AgendaPublicaPage` cuenta que
+ * ya se intentó una vez y la copia se llevó su propio modal de inscripción,
+ * sin la salida para quien llega sin boleta.
+ *
+ * En el editor no navega: quien está montando la landing no puede acabar en la
+ * página pública por tocar la vista previa. */
+/* Agrupa por día lo que queda por pasar en una zona.
+ *
+ * ── El fallo que arregla ─────────────────────────────────────────────────
+ *
+ * «Después, aquí mismo» sólo escribía la HORA. En un evento de un día eso está
+ * bien; en uno de varios —FESTECH son el 17 y el 18— dos actividades de días
+ * distintos se leen como si fueran seguidas:
+ *
+ *     08:02 a. m. · Torneo de Videojuegos FIFA     (día 17)
+ *     12:00 p. m. · PijaoHub · DemoDay             (día 18)
+ *
+ * Nadie se entera de que hay una noche en medio. No da ningún error: da a
+ * alguien plantado en la zona equivocada.
+ *
+ * Sólo se agrupa cuando de verdad hay más de un día. Con uno solo, poner
+ * «Jueves 17» encima de una lista que ya está bajo «Después, aquí mismo» es
+ * repetir lo que ya se sabe. */
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+function claveDeDia(iso) {
+  const d = new Date(iso);
+  /* Por fecha local y no en UTC: a las 8 p. m. en Colombia, `toISOString()` ya
+     dice mañana, y la actividad saldría bajo el día siguiente. */
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/* «Hoy» y «Mañana» se calculan contra el día de quien mira, no contra el
+   evento: es quien está delante del mapa. */
+function nombreDelDia(iso) {
+  const d = new Date(iso);
+  const hoy = new Date();
+  const aMedianoche = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dias = Math.round((aMedianoche(d) - aMedianoche(hoy)) / DIA_MS);
+  if (dias === 0) return 'Hoy';
+  if (dias === 1) return 'Mañana';
+  return d.toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'short' });
+}
+
+function porDia(items) {
+  const grupos = [];
+  for (const s of items) {
+    if (!s.inicio) { continue; }
+    const clave = claveDeDia(s.inicio);
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.clave === clave) ultimo.items.push(s);
+    else grupos.push({ clave, nombre: nombreDelDia(s.inicio), items: [s] });
+  }
+  /* Las que no tienen hora van al final, juntas: existen —el organizador las
+     creó— y esconderlas sería decir que no hay nada. */
+  const sinHora = items.filter(s => !s.inicio);
+  if (sinHora.length) grupos.push({ clave: 'sin-hora', nombre: 'Sin hora todavía', items: sinHora });
+  return grupos;
+}
+
+function ActividadDeLaZona({ s, evento, isEditor }) {
+  const hora = s.inicio
+    ? new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+    : null;
+  const puedeEntrar = Boolean(evento?.slug && !isEditor);
+
+  const dentro = (
+    <>
+      <p className="text-sm text-text-1">
+        {hora && <span className="font-mono text-text-3">{hora}</span>}
+        {hora && ' · '}{s.titulo}
+        {s.requiere_inscripcion && (
+          <span className={s.libres === 0 ? 'text-danger text-xs' : 'text-text-3 text-xs'}>
+            {s.libres === 0 ? ' · sin cupo' : s.libres != null ? ` · quedan ${s.libres}` : ' · pide inscripción'}
+          </span>
+        )}
+      </p>
+      {s.descripcion && (
+        <p className="text-xs text-text-3 mt-0.5 leading-relaxed line-clamp-3">{s.descripcion}</p>
+      )}
+    </>
+  );
+
+  if (!puedeEntrar) return <li className="py-1">{dentro}</li>;
+
+  return (
+    <li>
+      <a href={`/explorar/${evento.slug}/agenda?sesion=${encodeURIComponent(s.id)}`}
+         className="block -mx-2 px-2 py-1.5 rounded-lg hover:bg-surface-2/70 transition-colors">
+        {dentro}
+        <span className="text-[11px] text-primary-light">Ver la actividad →</span>
+      </a>
+    </li>
+  );
+}
+
 function MapaPreview({ data, evento, isEditor }) {
   const direccion = data.direccion || evento?.location_direccion || evento?.location_nombre;
   if (!direccion) {
@@ -1704,29 +1822,40 @@ function MapaEventoPreview({ data, evento, isEditor }) {
               {(sel.data.ahora || []).length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border">
                   <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Ahora mismo</p>
-                  {sel.data.ahora.map(s => (
-                    <p key={s.id} className="text-sm text-text-1">
-                      {s.titulo}
-                      <span className="text-xs text-text-3"> · {new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </p>
-                  ))}
+                  <ul>
+                    {sel.data.ahora.map(s => (
+                      <ActividadDeLaZona key={s.id} s={s} evento={evento} isEditor={isEditor} />
+                    ))}
+                  </ul>
                 </div>
               )}
               {(sel.data.agenda || []).filter(s => s.estado === 'proximo').length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border">
                   <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Después, aquí mismo</p>
-                  <ul className="space-y-1">
-                    {sel.data.agenda.filter(s => s.estado === 'proximo').slice(0, 6).map(s => (
-                      <li key={s.id} className="text-sm text-text-2">
-                        <span className="font-mono text-text-3">{new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span> · {s.titulo}
-                        {s.requiere_inscripcion && (
-                          <span className={s.libres === 0 ? 'text-danger text-xs' : 'text-text-3 text-xs'}>
-                            {s.libres === 0 ? ' · sin cupo' : s.libres != null ? ` · quedan ${s.libres}` : ' · pide inscripción'}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  {(() => {
+                    const proximas = sel.data.agenda.filter(s => s.estado === 'proximo').slice(0, 6);
+                    const grupos = porDia(proximas);
+                    /* Un solo día: la lista tal cual. El encabezado sobraría. */
+                    if (grupos.length <= 1) {
+                      return (
+                        <ul className="space-y-1">
+                          {proximas.map(s => (
+                            <ActividadDeLaZona key={s.id} s={s} evento={evento} isEditor={isEditor} />
+                          ))}
+                        </ul>
+                      );
+                    }
+                    return grupos.map(g => (
+                      <div key={g.clave} className="mt-2 first:mt-0">
+                        <p className="text-[11px] font-semibold text-text-2 capitalize">{g.nombre}</p>
+                        <ul className="space-y-1">
+                          {g.items.map(s => (
+                            <ActividadDeLaZona key={s.id} s={s} evento={evento} isEditor={isEditor} />
+                          ))}
+                        </ul>
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
               {(() => {
