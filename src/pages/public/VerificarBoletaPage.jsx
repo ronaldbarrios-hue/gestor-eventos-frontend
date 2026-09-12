@@ -65,7 +65,7 @@ export default function VerificarBoletaPage() {
       <div className="max-w-lg mx-auto">
         <header className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary mb-4">
-            <Icono name="entrada" className="w-7 h-7" />
+            <Icono nombre="entrada" className="w-7 h-7" />
           </div>
           <h1 className="text-2xl font-semibold text-text">¿Esta boleta es real?</h1>
           <p className="text-text-2 mt-2">
@@ -130,7 +130,7 @@ function Resultado({ r }) {
   return (
     <section className={`rounded-2xl border p-5 ${tono}`}>
       <div className="flex items-start gap-3">
-        <Icono name={r.ok ? 'hecho' : 'aviso'} className="w-6 h-6 shrink-0 mt-0.5" />
+        <Icono nombre={r.ok ? 'hecho' : 'aviso'} className="w-6 h-6 shrink-0 mt-0.5" />
         <div>
           <h2 className="text-lg font-semibold">{r.titulo}</h2>
           <p className="text-text-2 mt-1">{r.detalle}</p>

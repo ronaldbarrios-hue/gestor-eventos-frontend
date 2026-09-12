@@ -293,7 +293,7 @@ function TorneoView({ evento, torneo, equipos, partidos, soyOwner, onReload }) {
         <GruposView evento={evento} torneo={torneo} partidos={partidos.filter(p => p.fase === 'grupos')} equipos={equipos} soyOwner={soyOwner} onReload={onReload} />
       )}
       {sub === 'jurado' && (
-        <TorneoJurado evento={evento} torneo={torneo} soyOwner={soyOwner} onReload={onReload} />
+        <TorneoJurado evento={evento} torneo={torneo} equipos={equipos} soyOwner={soyOwner} onReload={onReload} />
       )}
     </div>
   );
