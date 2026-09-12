@@ -675,6 +675,43 @@ function JuradosView({ evento, torneo }) {
       {elegibles.length === 0 && jurados.length > 0 && (
         <p className="text-[11px] text-text-3">Todos los miembros activos del equipo del evento ya son jurado de este torneo.</p>
       )}
+
+      {/* ── Cómo traer a un jurado que no es del equipo ────────────────────
+       *
+       * La pregunta que llegó armando FESTECH: «¿pueden ser personas
+       * registradas al evento, o registrarlas a mano?».
+       *
+       * La respuesta es que no directamente —el servidor sólo acepta miembros
+       * activos, y con razón: ser jurado no puede ser la puerta de entrada de
+       * alguien que no tenía por qué estar en el panel— pero SÍ hay camino, y
+       * la pantalla no lo decía por ninguna parte.
+       *
+       * Peor: con el equipo entero ya de jurado o con un equipo vacío, aquí no
+       * se pintaba NADA. Un torneo sin jurados, un recuadro que dice que no
+       * hay jurados, y ninguna casilla ni frase que explique qué hacer.
+       *
+       * El camino funciona hoy sin tocar nada: `assertEsJurado` pide ser
+       * miembro Y estar en esta lista, y no mira el catálogo de permisos. Así
+       * que un rol SIN NINGÚN permiso basta — quien lo tiene entra al evento,
+       * califica aquí, y no puede hacer nada más. Es justo lo que se quiere de
+       * un jurado externo: un inversionista o un profesor no tienen por qué
+       * ver los inscritos ni la facturación. */}
+      <div className="rounded-2xl border border-border bg-surface-2/40 px-4 py-3">
+        <p className="text-xs font-semibold text-text-1">¿Y si el jurado no es del equipo?</p>
+        <p className="text-[11px] text-text-3 leading-relaxed mt-1">
+          Un jurado tiene que estar en el equipo del evento, pero no necesita ningún permiso.
+          Invítalo en <strong className="text-text-2">Equipo y roles</strong> con un rol
+          <strong className="text-text-2"> sin permisos marcados</strong>: entrará al evento,
+          podrá calificar aquí, y no verá ni inscritos ni dinero. Después vuelve y añádelo
+          arriba.
+        </p>
+        {elegibles.length === 0 && jurados.length === 0 && (
+          <p className="text-[11px] text-warning leading-relaxed mt-1.5">
+            Ahora mismo no hay ningún miembro del equipo a quien asignar, así que éste es el
+            único camino.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
