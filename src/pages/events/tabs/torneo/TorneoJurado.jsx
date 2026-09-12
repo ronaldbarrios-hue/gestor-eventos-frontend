@@ -21,11 +21,12 @@ import Spinner from '../../../../components/ui/Spinner.jsx';
    `soyOwner` — así que se sigue la misma convención que ya usa el resto de
    este módulo en vez de inventar una nueva a medias. */
 
-export default function TorneoJurado({ evento, torneo, soyOwner, onReload }) {
+export default function TorneoJurado({ evento, torneo, equipos = [], soyOwner, onReload }) {
   const [sub, setSub] = useState('calificar');
 
   return (
     <div className="space-y-5">
+      {soyOwner && <FaltaParaCalificar evento={evento} torneo={torneo} equipos={equipos} onIr={setSub} />}
       <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-xl p-1 w-fit flex-wrap">
         <button onClick={() => setSub('calificar')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sub === 'calificar' ? 'bg-surface-3 text-text-1' : 'text-text-3 hover:text-text-2'}`}>
@@ -59,6 +60,106 @@ export default function TorneoJurado({ evento, torneo, soyOwner, onReload }) {
       {sub === 'rubrica' && soyOwner && torneo?.estado === 'armando' && (
         <RubricaView evento={evento} torneo={torneo} />
       )}
+    </div>
+  );
+}
+
+/* ─────────── Lo que falta para poder calificar ───────────
+ *
+ * ── De dónde sale ────────────────────────────────────────────────────────
+ *
+ * De mirar FESTECH a seis días de abrir. Sus dos torneos son de puntaje por
+ * jurado, y estaban así:
+ *
+ *   PijaoHub · DemoDay    18 equipos, 0 jurados, 1 criterio
+ *   PijaoTech              0 equipos, 0 jurados, 10 criterios
+ *
+ * Medido además en toda la base: `torneo_jurados` tiene CERO filas. Nadie ha
+ * asignado nunca un jurado en producción.
+ *
+ * Un torneo así no puede puntuar. Y la pantalla no lo decía por ninguna parte:
+ * las pestañas «Calificar» y «Tabla» se abren igual, y lo que sale es una
+ * tabla vacía — que se lee como «todavía no han calificado», no como «no hay
+ * nadie que pueda». La diferencia entre esas dos frases son las startups ya
+ * presentando y nadie con la hoja de notas delante.
+ *
+ * ── Por qué avisa y no bloquea ───────────────────────────────────────────
+ *
+ * Porque montar un torneo lleva días y se hace por partes: tener cero jurados
+ * un martes es normal. Lo que no es normal es llegar al sábado sin saberlo.
+ * Así que se dice lo que falta, se dice qué pasa si no se arregla, y se lleva
+ * a la pestaña donde se arregla.
+ *
+ * Sólo lo ve quien puede arreglarlo. A un jurado, decirle que faltan criterios
+ * es darle un problema que no puede resolver. */
+function FaltaParaCalificar({ evento, torneo, equipos, onIr }) {
+  const [jurados, setJurados] = useState(null);
+  const [criterios, setCriterios] = useState(null);
+
+  useEffect(() => {
+    let vivo = true;
+    /* Si alguna de las dos falla se calla: este aviso es una ayuda, y una
+       ayuda que no puede comprobar nada no puede asustar con lo que no sabe. */
+    torneoJuradoApi.jurados(evento.id, torneo.id)
+      .then(d => { if (vivo) setJurados(d.jurados || []); })
+      .catch(() => { if (vivo) setJurados(undefined); });
+    torneoJuradoApi.criterios(evento.id, torneo.id)
+      .then(d => { if (vivo) setCriterios(d.criterios || []); })
+      .catch(() => { if (vivo) setCriterios(undefined); });
+    return () => { vivo = false; };
+  }, [evento.id, torneo.id]);
+
+  if (jurados === null || criterios === null) return null;
+
+  const faltan = [];
+  if (Array.isArray(jurados) && jurados.length === 0) {
+    faltan.push({
+      que: 'Nadie puede calificar',
+      porque: 'Este torneo puntúa por jurado y no tiene ninguno asignado. Estar en la lista de jurados ES el permiso para calificar.',
+      ir: 'jurados', boton: 'Asignar jurados',
+    });
+  }
+  if (Array.isArray(equipos) && equipos.length === 0) {
+    faltan.push({
+      que: 'No hay a quién calificar',
+      porque: 'El torneo no tiene participantes. Se añaden desde la pestaña de equipos del torneo.',
+      ir: null, boton: null,
+    });
+  }
+  /* Un solo criterio no está roto —es «Puntaje general», y para algunos
+     torneos es justo lo que se quiere—, así que no se llama falta. Se dice,
+     porque con 18 equipos compitiendo por un premio, una nota única deja un
+     empate sin forma de deshacerlo. */
+  const avisoSuave = Array.isArray(criterios) && criterios.length === 1 && (equipos || []).length > 4;
+
+  if (faltan.length === 0 && !avisoSuave) return null;
+
+  return (
+    <div className={`rounded-2xl border p-4 ${faltan.length ? 'border-danger/30 bg-danger/5' : 'border-warning/30 bg-warning/5'}`}>
+      <div className="flex items-start gap-3">
+        <Icono nombre="aviso" className={`w-5 h-5 flex-shrink-0 mt-0.5 ${faltan.length ? 'text-danger' : 'text-warning'}`} />
+        <div className="min-w-0 flex-1 space-y-3">
+          {faltan.map(f => (
+            <div key={f.que}>
+              <p className="text-sm font-semibold text-text-1">{f.que}</p>
+              <p className="text-xs text-text-2 mt-0.5 leading-relaxed">{f.porque}</p>
+              {f.ir && (
+                <button onClick={() => onIr(f.ir)} className="btn-secondary btn-sm mt-2">{f.boton}</button>
+              )}
+            </div>
+          ))}
+          {avisoSuave && (
+            <div>
+              <p className="text-sm font-semibold text-text-1">Un solo criterio para {equipos.length} participantes</p>
+              <p className="text-xs text-text-2 mt-0.5 leading-relaxed">
+                Se puede calificar, pero con una nota única un empate en el primer puesto no
+                se deshace con nada. Si el torneo reparte premio, conviene separar la nota en
+                varios criterios mientras el torneo sigue en «armando».
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -574,6 +675,43 @@ function JuradosView({ evento, torneo }) {
       {elegibles.length === 0 && jurados.length > 0 && (
         <p className="text-[11px] text-text-3">Todos los miembros activos del equipo del evento ya son jurado de este torneo.</p>
       )}
+
+      {/* ── Cómo traer a un jurado que no es del equipo ────────────────────
+       *
+       * La pregunta que llegó armando FESTECH: «¿pueden ser personas
+       * registradas al evento, o registrarlas a mano?».
+       *
+       * La respuesta es que no directamente —el servidor sólo acepta miembros
+       * activos, y con razón: ser jurado no puede ser la puerta de entrada de
+       * alguien que no tenía por qué estar en el panel— pero SÍ hay camino, y
+       * la pantalla no lo decía por ninguna parte.
+       *
+       * Peor: con el equipo entero ya de jurado o con un equipo vacío, aquí no
+       * se pintaba NADA. Un torneo sin jurados, un recuadro que dice que no
+       * hay jurados, y ninguna casilla ni frase que explique qué hacer.
+       *
+       * El camino funciona hoy sin tocar nada: `assertEsJurado` pide ser
+       * miembro Y estar en esta lista, y no mira el catálogo de permisos. Así
+       * que un rol SIN NINGÚN permiso basta — quien lo tiene entra al evento,
+       * califica aquí, y no puede hacer nada más. Es justo lo que se quiere de
+       * un jurado externo: un inversionista o un profesor no tienen por qué
+       * ver los inscritos ni la facturación. */}
+      <div className="rounded-2xl border border-border bg-surface-2/40 px-4 py-3">
+        <p className="text-xs font-semibold text-text-1">¿Y si el jurado no es del equipo?</p>
+        <p className="text-[11px] text-text-3 leading-relaxed mt-1">
+          Un jurado tiene que estar en el equipo del evento, pero no necesita ningún permiso.
+          Invítalo en <strong className="text-text-2">Equipo y roles</strong> con un rol
+          <strong className="text-text-2"> sin permisos marcados</strong>: entrará al evento,
+          podrá calificar aquí, y no verá ni inscritos ni dinero. Después vuelve y añádelo
+          arriba.
+        </p>
+        {elegibles.length === 0 && jurados.length === 0 && (
+          <p className="text-[11px] text-warning leading-relaxed mt-1.5">
+            Ahora mismo no hay ningún miembro del equipo a quien asignar, así que éste es el
+            único camino.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

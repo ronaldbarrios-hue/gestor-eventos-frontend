@@ -23,6 +23,10 @@ export default function EventEditPage() {
   const [saving,  setSaving]  = useState(false);
   const [cats,    setCats]    = useState([]);
   const [form,    setForm]    = useState(null);
+  /* Quién soy en ESTE evento. Hace falta para no ofrecer la portada a quien el
+     servidor no deja cambiarla — ver más abajo. Por defecto, lo de siempre:
+     hasta que responda el servidor no se esconde nada. */
+  const [permisos, setPermisos] = useState(['*']);
 
   useEffect(() => {
     Promise.all([
@@ -48,10 +52,28 @@ export default function EventEditPage() {
         pago_instrucciones: e.pago_instrucciones || '',
       });
       setCats(c.categorias || []);
+      setPermisos(ev.soyOwner === false ? (ev.permisos || []) : ['*']);
     }).catch(e => error(e.message)).finally(() => setLoading(false));
   }, [id]);
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  /* ── Las imágenes se guardan con su propio permiso ──────────────────────
+   *
+   * `cover_url` y `gallery` sólo los abre `gestionar_imagenes`. Y el guardado
+   * del evento no rechaza lo que no puedes tocar: lo DESCARTA en silencio y
+   * responde 200. Así que quien cambiaba la portada junto con el título veía
+   * «Guardado», el título cambiaba, y la portada se quedaba como estaba.
+   *
+   * Medido: 102 roles pueden editar el evento y 34 de ellos no tienen
+   * `gestionar_imagenes`. Son 34 roles que podían pasarse un rato eligiendo
+   * una portada para nada, sin un solo error de por medio. Y si la portada era
+   * lo ÚNICO que cambiaban, lo que salía era «Sin cambios», que es todavía más
+   * desconcertante: acababan de cambiar algo.
+   *
+   * Así que no se ofrece lo que no se va a poder guardar, igual que en
+   * Acreditación. */
+  const puedeImagenes = permisos.includes('*') || permisos.includes('gestionar_imagenes');
 
   const onSave = async () => {
     setSaving(true);
@@ -129,6 +151,7 @@ export default function EventEditPage() {
         </div>
       </Section>
 
+      {puedeImagenes && (
       <Section title="Imágenes">
         <CoverUploader
           value={form.cover_url}
@@ -142,6 +165,7 @@ export default function EventEditPage() {
           label="Galería adicional"
         />
       </Section>
+      )}
 
       <Section title="Fecha y lugar">
         <div className="grid sm:grid-cols-2 gap-3">

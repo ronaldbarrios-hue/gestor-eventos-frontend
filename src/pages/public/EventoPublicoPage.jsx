@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useAvisoAlSalir } from '../../components/ui/cierreSeguro.js';
 import Icono from '../../components/ui/Iconos.jsx';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
@@ -30,6 +30,7 @@ import { useT } from '../../lib/i18n.js';
 import { irAPagar } from '../../lib/embed.js';
 import DescargarEntrada from '../../components/public/DescargarEntrada.jsx';
 import { guardarProgreso, leerProgreso, olvidarProgreso } from '../../lib/registroEnCurso.js';
+import { esKiosco, useVueltaAlInicio, AVISO } from '../../lib/kiosco.js';
 import { datosIniciales } from '../../lib/datosDeQuienEntra.js';
 import ElegirSitio from '../../components/public/ElegirSitio.jsx';
 import Instrucciones from '../../components/public/Instrucciones.jsx';
@@ -94,6 +95,24 @@ export default function EventoPublicoPage() {
   const [waitlistTipo, setWaitlistTipo] = useState(null);
 
   const isStandalone = params.get('standalone') === '1';
+  /* Pantalla táctil del recinto. Ver `lib/kiosco.js`: la MISMA landing, sin
+     salidas fuera del evento, que vuelve sola al inicio y no deja rastro del
+     anterior. */
+  const kiosco = esKiosco(params);
+
+  /* Volver al inicio: se cierra lo que esté abierto y se sube arriba del todo.
+     `key` cambia para que el formulario se monte de cero — reiniciar sus
+     campos uno a uno es la clase de lista que se queda corta el día que se
+     añade uno. */
+  const [vuelta, setVuelta] = useState(0);
+  const alInicio = useCallback(() => {
+    setReservaTipo(null);
+    setReservaOk(null);
+    setWaitlistTipo(null);
+    setVuelta(v => v + 1);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+  const quedan = useVueltaAlInicio({ activo: kiosco, alVolver: alInicio });
 
   /* Lista de espera: `?cupo=<token>` es el enlace del correo `cupo_liberado`.
      Se comprueba nada más entrar —antes de que la persona escriba nada— para
@@ -298,7 +317,27 @@ export default function EventoPublicoPage() {
 
   return (
     <BrandingProvider organizador={organizador}>
-    <section className="px-5 sm:px-8 py-8 sm:py-12 max-w-6xl mx-auto">
+    {/* En kiosco, `pantalla-kiosco` esconde lo que lleva fuera del evento: el
+        pie de GESTEK y las redes del organizador. No es marca blanca, es que
+        una pantalla del recinto no puede acabar en Instagram y quedarse ahí
+        hasta que alguien del equipo lo note. */}
+    <section className={`px-5 sm:px-8 py-8 sm:py-12 max-w-6xl mx-auto${kiosco ? ' pantalla-kiosco' : ''}`}>
+
+    {/* La cuenta atrás, sólo mientras avisa. Tocar cualquier sitio la cancela
+        —lo hace el propio `useVueltaAlInicio`—, así que esto sólo informa; no
+        lleva botón de «seguir» porque el botón sería un sitio más al que
+        apuntar con el dedo para hacer justo lo que hace tocar en cualquier
+        parte. */}
+    {quedan != null && quedan <= AVISO && (
+      <div role="status" aria-live="polite"
+        className="fixed inset-x-0 bottom-0 z-[9995] px-5 py-4 text-center
+                   bg-surface border-t border-border shadow-2xl">
+        <p className="text-sm text-text-1">
+          Volvemos al inicio en <span className="font-bold tabular-nums">{quedan}</span>…
+          <span className="text-text-3"> toca la pantalla para seguir.</span>
+        </p>
+      </div>
+    )}
 
       {/* Evento cancelado.
           Va lo primero y no se puede cerrar: quien llega aquí con una boleta
@@ -570,6 +609,8 @@ export default function EventoPublicoPage() {
       {/* Modales */}
       {reservaTipo && (
         <ReservaModal
+          key={`reserva-${vuelta}`}
+          kiosco={kiosco}
           tipo={reservaTipo}
           slug={slug}
           currency={evento.currency}
@@ -780,7 +821,7 @@ function AvisoCupo({ cupo, onTomar, tipoDisponible = true }) {
   );
 }
 
-export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', origen = '', onClose, onSuccess, embebido = false }) {
+export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', origen = '', onClose, onSuccess, embebido = false, kiosco = false }) {
   /* Lo que ya había escrito, si volvió a abrir esta misma boleta sin haber
      terminado. `useState(() => …)` para que `leerProgreso` (localStorage +
      JSON.parse) se ejecute una sola vez, en el primer render, y no en cada
@@ -791,7 +832,11 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
      silla es la C-14» media hora después sería mentirle a alguien sobre algo
      que ya no tiene. Lo escrito se recupera; la silla se vuelve a elegir. */
   const [sitio, setSitio] = useState(null);
-  const [progresoInicial] = useState(() => leerProgreso(slug, tipo.id));
+  /* En kiosco no se lee lo guardado: el progreso es de OTRA persona, la que
+     usó la pantalla antes. Es el detalle que convierte «vuelve al inicio» en
+     algo que de verdad protege — sin esto, el formulario se reabre con el
+     nombre y el correo del anterior ya puestos. */
+  const [progresoInicial] = useState(() => (kiosco ? null : leerProgreso(slug, tipo.id)));
   /* El borrador guardado manda —es lo que esta persona escribió—; si no hay,
      se arranca con quien entró. El refactor del 7-sep trajo el borrador (bien)
      y de paso quitó el prellenado (mal): las dos cosas caben, y sin ellas un
@@ -929,11 +974,16 @@ export function ReservaModal({ tipo, slug, currency, evento, cupoToken = '', ori
      dejar un registro fantasma) y se borra también al terminar —una vez
      enviado, ya no es "en curso". Ver `submit`, más abajo. */
   useEffect(() => {
+    /* En una pantalla compartida, guardar el progreso es peor que no guardarlo:
+       sobrevive al reinicio y se lo encuentra el siguiente. Se borra además lo
+       que hubiera de antes, por si la pantalla se abrió sin `?kiosco=1` alguna
+       vez. */
+    if (kiosco) { olvidarProgreso(slug, tipo.id); return; }
     const vacio = paso === 0 && !form.nombre && !form.email && !form.telefono
       && Object.keys(respuestas).length === 0 && !promoCodigo;
     if (vacio) { olvidarProgreso(slug, tipo.id); return; }
     guardarProgreso(slug, tipo.id, { form, respuestas, paso, promoCodigo });
-  }, [slug, tipo.id, form, respuestas, paso, promoCodigo]);
+  }, [kiosco, slug, tipo.id, form, respuestas, paso, promoCodigo]);
 
   /* Términos PROPIOS del evento (0059). Si el organizador los publicó, la
      casilla es obligatoria y la aceptación queda registrada con la boleta. */

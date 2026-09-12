@@ -53,16 +53,20 @@ const LO_QUE_PIDE_EL_SERVIDOR = {
      `PreviosSection` decide dentro cuál de las dos vistas enseña — pidiendo
      sólo el primero, quien lleva los clientes no llegaba nunca a la fila
      aunque el servidor ya se la aceptara. */
-  previos    : ['editar_evento', 'gestionar_clientes'],            // PERMS_PADRON + routes/waitlist.js
+  previos    : ['editar_evento', 'gestionar_clientes', 'gestionar_padron'], // PERMS_PADRON + routes/waitlist.js
   emails     : ['editar_pagina_publica', 'editar_evento'],         // PERMS_EDITAR
   accesos    : ['gestionar_accesos'],
   aforo      : ['checkin'],
   clientes   : ['ver_clientes'],
-  vacantes   : ['editar_evento'],                                  // PERMS_VACANTES
-  /* Los dos permisos que dan algo dentro: `checkin` abre la etiquetadora (que
-     no guarda nada) y `editar_evento` los dos disenadores, que guardan en
-     `page_json`. Con `ver_clientes` la pestana se abria en blanco. */
-  acreditacion: ['checkin', 'editar_evento'],
+  vacantes   : ['editar_evento', 'gestionar_vacantes'],             // PERMS_VACANTES
+  /* Los TRES permisos que dan algo dentro: `checkin` abre la etiquetadora (que
+     no guarda nada), y `editar_evento` o `gestionar_acreditacion` los dos
+     disenadores, que guardan en `page_json`. Con `ver_clientes` la pestana se
+     abria en blanco.
+     `gestionar_acreditacion` faltaba: el servidor lo acepta desde la 0124
+     —`LLAVES_ESTRECHAS` le abre wallet, puntos y credenciales— y el menu pedia
+     solo los otros dos, asi que el permiso se concedia y no abria su pantalla. */
+  acreditacion: ['checkin', 'editar_evento', 'gestionar_acreditacion'],
 };
 
 /* Saca el `perm` de una pestaña tal como está escrito en el menú. */
@@ -108,4 +112,81 @@ test('lo que es del dueño se marca como tal, no con un permiso cualquiera', () 
   for (const id of ['integraciones', 'automatizaciones']) {
     assert.deepEqual(permDe(id), ['__solo_owner__']);
   }
+});
+
+/* ── Y quién vigila a la lista de arriba ──────────────────────────────────
+ *
+ * `LO_QUE_PIDE_EL_SERVIDOR` está copiada a mano del backend. O sea que este
+ * test —que existe para cazar listas copiadas a mano— es él mismo una lista
+ * copiada a mano.
+ *
+ * No es teoría: se desfasó. Decía `vacantes: ['editar_evento']` cuando el
+ * servidor acepta `['gestionar_vacantes','editar_evento']` desde la migración
+ * 0124, y `previos` sin `gestionar_padron`. Como la lista y el menú estaban de
+ * acuerdo en el error, los 16 tests pasaban en verde mientras tres permisos
+ * finos —los que la 0124 creó para no tener que entregar el evento entero— se
+ * podían conceder sin que abrieran ninguna pantalla.
+ *
+ * El literal sigue haciendo falta: en CI sólo está clonado este repo. Lo que
+ * se añade es que, cuando el backend SÍ está al lado —cualquier máquina de
+ * desarrollo—, se relea de su fuente y se compare. Así el literal no puede
+ * envejecer en silencio: envejece ruidosamente, en la máquina de quien toca
+ * los permisos.
+ *
+ * Sólo las entradas que salen de UNA constante con nombre. Las compuestas
+ * —`previos` junta el padrón con la lista de espera, `acreditacion` mezcla tres
+ * pantallas— se declaran aquí como tales, con su razón: inventarles una regla
+ * automática sería volver a suponer. */
+const DE_UNA_CONSTANTE = {
+  analytics  : ['routes/analytics.js',   'PERMS_ANALYTICS'],
+  calendario : ['routes/agenda.js',      'PERMS_AGENDA_LEER'],
+  torneos    : ['routes/torneos.js',     'PERMS_TORNEO'],
+  networking : ['routes/networking.js',  'PERMS_EXPOSITORES'],
+  boletas    : ['routes/tickets.js',     'PERMS_TICKETS'],
+  plano      : ['routes/espacios.js',    'PERMS'],
+  emails     : ['routes/emails.js',      'PERMS_EDITAR'],
+  vacantes   : ['routes/vacantes.js',    'PERMS_VACANTES'],
+};
+
+/* Las que no salen de una sola constante, y por qué. Se listan para que el
+   recuento de abajo cuadre: una entrada nueva que no esté ni aquí ni arriba se
+   queda sin vigilar, y eso es justo lo que pasó. */
+const COMPUESTAS = {
+  previos     : 'el padrón (PERMS_PADRON) y la lista de espera (routes/waitlist.js) en una pestaña',
+  accesos     : 'se comprueba dentro de routes/eventos.js, no con una constante propia',
+  aforo       : 'checkin se comprueba a mano en routes/clientes.js',
+  clientes    : 'varias rutas con permisos distintos de lectura y escritura',
+  promociones : 'exige() en línea, sin constante',
+  acreditacion: 'tres pantallas dentro: etiquetadora (checkin) y dos diseñadores (editar_evento o gestionar_acreditacion)',
+};
+
+const RAIZ_BACK = path.resolve(process.cwd(), '..', '..', '..', '..', 'gestor-eventos-backend');
+const hayBackend = fs.existsSync(RAIZ_BACK);
+
+test('ninguna pestaña se queda sin vigilar', () => {
+  /* Si una entrada no está ni en DE_UNA_CONSTANTE ni declarada como compuesta,
+     su literal no lo comprueba nadie y puede envejecer como envejeció el de
+     `vacantes`. */
+  const sinVigilar = Object.keys(LO_QUE_PIDE_EL_SERVIDOR)
+    .filter(id => !(id in DE_UNA_CONSTANTE) && !(id in COMPUESTAS));
+  assert.deepEqual(sinVigilar, [],
+    'estas pestañas tienen un literal que nada comprueba contra el servidor');
+});
+
+test('el literal de arriba sigue diciendo lo que dice el servidor', { skip: hayBackend ? false : 'el backend no está clonado al lado (CI)' }, () => {
+  const desfasadas = [];
+  for (const [id, [archivo, constante]] of Object.entries(DE_UNA_CONSTANTE)) {
+    const ruta = path.join(RAIZ_BACK, archivo);
+    if (!fs.existsSync(ruta)) { desfasadas.push(`${id}: ya no existe ${archivo}`); continue; }
+    const src = fs.readFileSync(ruta, 'utf8');
+    const m = src.match(new RegExp(String.raw`^const ${constante}\s*=\s*\[([^\]]*)\]`, 'm'));
+    if (!m) { desfasadas.push(`${id}: ya no existe ${constante} en ${archivo}`); continue; }
+    const enElServidor = [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]).sort();
+    const enElLiteral = [...LO_QUE_PIDE_EL_SERVIDOR[id]].sort();
+    if (enElServidor.join() !== enElLiteral.join()) {
+      desfasadas.push(`${id}: el servidor pide [${enElServidor}] y aquí dice [${enElLiteral}]`);
+    }
+  }
+  assert.deepEqual(desfasadas, [],
+    'el literal de este test se quedó atrás respecto al backend — actualízalo, y mira si el menú también se quedó atrás');
 });

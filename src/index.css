@@ -305,6 +305,21 @@
     box-shadow: 0 0 0 2px rgb(var(--color-danger) / .35);
   }
 
+  /* ── Pantalla táctil del recinto ───────────────────────────────────
+   *
+   * Lo que se esconde no es decoración: son las salidas. Una pantalla en un
+   * pasillo que acaba en Instagram se queda ahí hasta que alguien del equipo
+   * pasa por delante.
+   *
+   * Se hace con CSS y no quitando los componentes porque son la MISMA página:
+   * un `if (kiosco)` repartido por el pie, la cabecera y las redes es otra
+   * lista que mantener, y la que se olvida es la que deja la salida abierta.
+   *
+   * `[data-fuera]` lo marca quien pinta el enlace; la regla de abajo es el
+   * respaldo para los que aún no lo llevan. */
+  .pantalla-kiosco [data-fuera],
+  .pantalla-kiosco a[target="_blank"] { display: none !important; }
+
   /* Los tramos ya recorridos de la barra de pasos. */
   .paso-marca { background: var(--brand-primary, rgb(var(--color-primary))); }
 

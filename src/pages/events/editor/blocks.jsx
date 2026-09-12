@@ -1280,6 +1280,124 @@ function MapaEditor({ data, onChange, evento }) {
     </div>
   );
 }
+/* Una actividad de la zona, en la ficha del mapa.
+ *
+ * ── Por qué existe como pieza ────────────────────────────────────────────
+ *
+ * La ficha tenía dos listas —«Ahora mismo» y «Después, aquí mismo»— con la
+ * línea escrita dos veces, y sólo una de las dos enseñaba el cupo. Dos copias
+ * de lo mismo que ya se habían separado un poco.
+ *
+ * ── Lo que faltaba, y era lo importante ──────────────────────────────────
+ *
+ * De cada actividad se decía la hora y el título. «Torneo gamer» a secas no
+ * dice si hay que llevar equipo, si se juega por parejas ni a quién va
+ * dirigido — y esa respuesta estaba guardada: 14 de las 18 actividades de
+ * producción tienen descripción escrita. El dato estaba y no llegaba.
+ *
+ * Se recorta a tres líneas con CSS y no con `slice`: cortar por caracteres
+ * parte palabras y miente sobre lo que hay. Quien quiera el resto, entra.
+ *
+ * ── Entrar a la actividad ────────────────────────────────────────────────
+ *
+ * Lleva a `/explorar/:slug/agenda?sesion=<id>`, que YA sabe enseñar una sola
+ * actividad con su descripción entera y su inscripción. No se escribe una
+ * pantalla nueva a propósito: el comentario de `AgendaPublicaPage` cuenta que
+ * ya se intentó una vez y la copia se llevó su propio modal de inscripción,
+ * sin la salida para quien llega sin boleta.
+ *
+ * En el editor no navega: quien está montando la landing no puede acabar en la
+ * página pública por tocar la vista previa. */
+/* Agrupa por día lo que queda por pasar en una zona.
+ *
+ * ── El fallo que arregla ─────────────────────────────────────────────────
+ *
+ * «Después, aquí mismo» sólo escribía la HORA. En un evento de un día eso está
+ * bien; en uno de varios —FESTECH son el 17 y el 18— dos actividades de días
+ * distintos se leen como si fueran seguidas:
+ *
+ *     08:02 a. m. · Torneo de Videojuegos FIFA     (día 17)
+ *     12:00 p. m. · PijaoHub · DemoDay             (día 18)
+ *
+ * Nadie se entera de que hay una noche en medio. No da ningún error: da a
+ * alguien plantado en la zona equivocada.
+ *
+ * Sólo se agrupa cuando de verdad hay más de un día. Con uno solo, poner
+ * «Jueves 17» encima de una lista que ya está bajo «Después, aquí mismo» es
+ * repetir lo que ya se sabe. */
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+function claveDeDia(iso) {
+  const d = new Date(iso);
+  /* Por fecha local y no en UTC: a las 8 p. m. en Colombia, `toISOString()` ya
+     dice mañana, y la actividad saldría bajo el día siguiente. */
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/* «Hoy» y «Mañana» se calculan contra el día de quien mira, no contra el
+   evento: es quien está delante del mapa. */
+function nombreDelDia(iso) {
+  const d = new Date(iso);
+  const hoy = new Date();
+  const aMedianoche = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dias = Math.round((aMedianoche(d) - aMedianoche(hoy)) / DIA_MS);
+  if (dias === 0) return 'Hoy';
+  if (dias === 1) return 'Mañana';
+  return d.toLocaleDateString('es-CO', { weekday: 'long', day: '2-digit', month: 'short' });
+}
+
+function porDia(items) {
+  const grupos = [];
+  for (const s of items) {
+    if (!s.inicio) { continue; }
+    const clave = claveDeDia(s.inicio);
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.clave === clave) ultimo.items.push(s);
+    else grupos.push({ clave, nombre: nombreDelDia(s.inicio), items: [s] });
+  }
+  /* Las que no tienen hora van al final, juntas: existen —el organizador las
+     creó— y esconderlas sería decir que no hay nada. */
+  const sinHora = items.filter(s => !s.inicio);
+  if (sinHora.length) grupos.push({ clave: 'sin-hora', nombre: 'Sin hora todavía', items: sinHora });
+  return grupos;
+}
+
+function ActividadDeLaZona({ s, evento, isEditor }) {
+  const hora = s.inicio
+    ? new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+    : null;
+  const puedeEntrar = Boolean(evento?.slug && !isEditor);
+
+  const dentro = (
+    <>
+      <p className="text-sm text-text-1">
+        {hora && <span className="font-mono text-text-3">{hora}</span>}
+        {hora && ' · '}{s.titulo}
+        {s.requiere_inscripcion && (
+          <span className={s.libres === 0 ? 'text-danger text-xs' : 'text-text-3 text-xs'}>
+            {s.libres === 0 ? ' · sin cupo' : s.libres != null ? ` · quedan ${s.libres}` : ' · pide inscripción'}
+          </span>
+        )}
+      </p>
+      {s.descripcion && (
+        <p className="text-xs text-text-3 mt-0.5 leading-relaxed line-clamp-3">{s.descripcion}</p>
+      )}
+    </>
+  );
+
+  if (!puedeEntrar) return <li className="py-1">{dentro}</li>;
+
+  return (
+    <li>
+      <a href={`/explorar/${evento.slug}/agenda?sesion=${encodeURIComponent(s.id)}`}
+         className="block -mx-2 px-2 py-1.5 rounded-lg hover:bg-surface-2/70 transition-colors">
+        {dentro}
+        <span className="text-[11px] text-primary-light">Ver la actividad →</span>
+      </a>
+    </li>
+  );
+}
+
 function MapaPreview({ data, evento, isEditor }) {
   const direccion = data.direccion || evento?.location_direccion || evento?.location_nombre;
   if (!direccion) {
@@ -1704,29 +1822,40 @@ function MapaEventoPreview({ data, evento, isEditor }) {
               {(sel.data.ahora || []).length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border">
                   <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Ahora mismo</p>
-                  {sel.data.ahora.map(s => (
-                    <p key={s.id} className="text-sm text-text-1">
-                      {s.titulo}
-                      <span className="text-xs text-text-3"> · {new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </p>
-                  ))}
+                  <ul>
+                    {sel.data.ahora.map(s => (
+                      <ActividadDeLaZona key={s.id} s={s} evento={evento} isEditor={isEditor} />
+                    ))}
+                  </ul>
                 </div>
               )}
               {(sel.data.agenda || []).filter(s => s.estado === 'proximo').length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border">
                   <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-1">Después, aquí mismo</p>
-                  <ul className="space-y-1">
-                    {sel.data.agenda.filter(s => s.estado === 'proximo').slice(0, 6).map(s => (
-                      <li key={s.id} className="text-sm text-text-2">
-                        <span className="font-mono text-text-3">{new Date(s.inicio).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span> · {s.titulo}
-                        {s.requiere_inscripcion && (
-                          <span className={s.libres === 0 ? 'text-danger text-xs' : 'text-text-3 text-xs'}>
-                            {s.libres === 0 ? ' · sin cupo' : s.libres != null ? ` · quedan ${s.libres}` : ' · pide inscripción'}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  {(() => {
+                    const proximas = sel.data.agenda.filter(s => s.estado === 'proximo').slice(0, 6);
+                    const grupos = porDia(proximas);
+                    /* Un solo día: la lista tal cual. El encabezado sobraría. */
+                    if (grupos.length <= 1) {
+                      return (
+                        <ul className="space-y-1">
+                          {proximas.map(s => (
+                            <ActividadDeLaZona key={s.id} s={s} evento={evento} isEditor={isEditor} />
+                          ))}
+                        </ul>
+                      );
+                    }
+                    return grupos.map(g => (
+                      <div key={g.clave} className="mt-2 first:mt-0">
+                        <p className="text-[11px] font-semibold text-text-2 capitalize">{g.nombre}</p>
+                        <ul className="space-y-1">
+                          {g.items.map(s => (
+                            <ActividadDeLaZona key={s.id} s={s} evento={evento} isEditor={isEditor} />
+                          ))}
+                        </ul>
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
               {(() => {
@@ -1918,19 +2047,99 @@ function AgendaEditor({ data = {}, onChange }) {
 }
 
 function AgendaPreview({ data = {}, evento, isEditor }) {
-  const items = (evento?.agenda || []).slice(0, data.limite || 6);
+  const limite = data.limite || 6;
+  /* Ordenadas por hora antes de agrupar: `porDia` junta las CONSECUTIVAS del
+     mismo día, así que con la lista desordenada saldría el mismo día dos veces
+     y en medio otro. Llegan ordenadas del servidor; ordenarlas aquí cuesta nada
+     y deja de depender de eso. */
+  const todas = [...(evento?.agenda || [])].sort((a, b) => {
+    if (!a.inicio) return 1;
+    if (!b.inicio) return -1;
+    return new Date(a.inicio) - new Date(b.inicio);
+  });
+  const items = todas.slice(0, limite);
+  const fuera = todas.length - items.length;
   if (items.length === 0 && !isEditor) return null;
 
+  const grupos = porDia(items);
+
+  /* Cuántos días quedan fuera del recorte. Se compara contra los días que SÍ
+     se enseñan, no contra el total: una actividad más del mismo día no es «un
+     día más». */
+  const diasEnseñados = new Set(porDia(items).map(g => g.clave));
+  const diasFuera = porDia(todas.slice(items.length))
+    .map(g => g.clave)
+    .filter(c => !diasEnseñados.has(c)).length;
+  /* Con un solo día no se pone encabezado: repetiría lo que ya dice la fecha
+     del evento justo encima. */
+  const porDias = grupos.length > 1;
+
+  /* Agrupando por día, la fecha entera en cada línea sobra: el día ya está
+     escrito arriba del grupo, y repetirlo convierte la línea en un párrafo.
+     Sin agrupar, se dice entera — si no, no hay forma de saber de qué día es. */
   const cuando = (s) => (s
-    ? new Date(s).toLocaleString('es-CO', conZona(evento,
-        { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))
+    ? new Date(s).toLocaleString('es-CO', conZona(evento, porDias
+        ? { hour: '2-digit', minute: '2-digit' }
+        : { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))
     : null);
   /* La hora de FIN, que llegaba del servidor y no se enseñaba.
      Saber que algo empieza a las 10 sin saber cuándo acaba no deja planear el
-     día: quien mira la agenda está decidiendo si le da tiempo a lo siguiente.
-     Se enseña sólo la hora —el día ya lo dice el inicio— porque repetirlo
-     entero convierte la línea en un párrafo. */
+     día: quien mira la agenda está decidiendo si le da tiempo a lo siguiente. */
   const hasta = (f) => (f ? fmtHora(f, evento) : null);
+
+  const Fila = ({ s }) => {
+    const dentro = (
+      <>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-text-1">{s.titulo}</p>
+          <p className="text-[11px] text-text-3 mt-0.5">
+            {cuando(s.inicio) || 'Sin fecha'}
+            {hasta(s.fin) ? ` – ${hasta(s.fin)}` : ''}
+            {s.ubicacion ? ` · ${s.ubicacion}` : ''}
+            {/* La sala. Con varias en paralelo —y FESTECH las tiene— sin esto
+                no hay forma de saber qué choca con qué. */}
+            {s.track ? ` · ${s.track}` : ''}
+          </p>
+          {/* Qué es. Estaba guardada y no se enseñaba, igual que en el mapa:
+              «Torneo gamer» no dice si hay que llevar equipo ni a quién va
+              dirigido. Recortada con CSS, que no parte palabras. */}
+          {s.descripcion && (
+            <p className="text-xs text-text-2 mt-1 leading-relaxed line-clamp-2">{s.descripcion}</p>
+          )}
+        </div>
+        {/* Sólo se marca lo que cambia lo que la persona tiene que hacer: si hay
+            que apuntarse, el resto es ruido. Y por eso el aforo va AQUÍ y no
+            como un número suelto: «quedan 3» y «completo» son decisiones
+            distintas, y «cupo 40» no es ninguna de las dos. */}
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {s.lleno ? (
+            <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-3 px-2 py-0.5 rounded">
+              Completo
+            </span>
+          ) : s.requiere_inscripcion && (
+            <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded">
+              {s.libres != null && s.libres <= 10 ? `Quedan ${s.libres}` : 'Con inscripción'}
+            </span>
+          )}
+        </div>
+      </>
+    );
+
+    /* Entrar a la actividad, igual que desde el mapa: a la agenda pública
+       enfocando ésta. En el editor no navega. */
+    if (!evento?.slug || isEditor) {
+      return <li className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3">{dentro}</li>;
+    }
+    return (
+      <li>
+        <a href={`/explorar/${evento.slug}/agenda?sesion=${encodeURIComponent(s.id)}`}
+           className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3
+                      hover:border-border-2 hover:bg-surface-2/50 transition-colors">
+          {dentro}
+        </a>
+      </li>
+    );
+  };
 
   return (
     <section>
@@ -1940,41 +2149,36 @@ function AgendaPreview({ data = {}, evento, isEditor }) {
           <p className="text-sm text-text-3">Todavía no hay actividades programadas.</p>
         </div>
       ) : (<>
-        <ul className="space-y-2">
-          {items.map(s => (
-            <li key={s.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-text-1">{s.titulo}</p>
-                <p className="text-[11px] text-text-3 mt-0.5">
-                  {cuando(s.inicio) || 'Sin fecha'}
-                  {hasta(s.fin) ? ` – ${hasta(s.fin)}` : ''}
-                  {s.ubicacion ? ` · ${s.ubicacion}` : ''}
-                  {/* La sala. Con varias en paralelo —y FESTECH las tiene— sin
-                      esto no hay forma de saber qué choca con qué. */}
-                  {s.track ? ` · ${s.track}` : ''}
-                </p>
-              </div>
-              {/* Sólo se marca lo que cambia lo que la persona tiene que hacer:
-                  si hay que apuntarse, el resto es ruido.
-                  Y por eso el aforo va AQUÍ y no como un número suelto: «quedan
-                  3» y «completo» son decisiones distintas, y «cupo 40» no es
-                  ninguna de las dos — no dice si todavía cabes. */}
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                {s.lleno ? (
-                  <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-3 px-2 py-0.5 rounded">
-                    Completo
-                  </span>
-                ) : s.requiere_inscripcion && (
-                  <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded">
-                    {s.libres != null && s.libres <= 10 ? `Quedan ${s.libres}` : 'Con inscripción'}
-                  </span>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        {porDias ? grupos.map(g => (
+          <div key={g.clave} className="mt-4 first:mt-0">
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2 capitalize">{g.nombre}</p>
+            <ul className="space-y-2">
+              {g.items.map(s => <Fila key={s.id} s={s} />)}
+            </ul>
+          </div>
+        )) : (
+          <ul className="space-y-2">
+            {items.map(s => <Fila key={s.id} s={s} />)}
+          </ul>
+        )}
+
+        {/* Cuántas quedan fuera, y sobre todo si falta un DÍA ENTERO.
+            La lista se cortaba en `limite` sin decirlo: con seis de dieciocho,
+            lo que se lee es que el evento tiene seis actividades. Y el enlace a
+            «el programa completo» no lo desmiente — suena a «lo mismo, en otra
+            página».
+            Lo de los días no es un adorno: medido con FESTECH y un tope de
+            cuatro, el bloque enseña el jueves entero y el viernes DESAPARECE.
+            «Hay 1 actividad más» es cierto y no dice lo que hace falta saber,
+            que es que hay otro día de evento. */}
+        {fuera > 0 && (
+          <p className="text-[11px] text-text-3 mt-3">
+            {fuera === 1 ? 'Hay 1 actividad más' : `Hay ${fuera} actividades más`}
+            {diasFuera > 0 && (diasFuera === 1 ? ', de otro día' : `, de otros ${diasFuera} días`)}.
+          </p>
+        )}
         {evento?.slug && (
-          <a href={`/explorar/${evento.slug}/agenda`} className="inline-block mt-3 text-sm text-primary-light hover:underline">
+          <a href={`/explorar/${evento.slug}/agenda`} className="inline-block mt-2 text-sm text-primary-light hover:underline">
             Ver el programa completo
           </a>
         )}

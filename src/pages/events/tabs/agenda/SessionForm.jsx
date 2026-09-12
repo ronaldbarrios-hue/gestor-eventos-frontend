@@ -53,6 +53,25 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
   }, [sessions]);
 
   const zonasEvento = useMemo(() => zonasDelEvento(evento), [evento]);
+
+  /* ¿Esta actividad se engancharía al mapa sólo por el nombre?
+   *
+   * Se repite aquí la comparación que hace `lib/aforoZonas.js` en el servidor
+   * —recortar y comparar sin mayúsculas, con la configuración regional del
+   * español— porque es lo que decide si la actividad sale o no. Si las dos
+   * dejan de coincidir, este aviso mentiría: por eso la comparación se escribe
+   * igual y `tests/elEngancheAlMapaSeDice` compara las dos fuentes. */
+  const enganchePorNombre = useMemo(() => {
+    if (form.zona_id) return null;
+    const igual = (a, b) => String(a || '').trim().toLocaleLowerCase('es')
+                         === String(b || '').trim().toLocaleLowerCase('es');
+    for (const z of zonasEvento) {
+      if (!z?.nombre) continue;
+      if (igual(form.ubicacion, z.nombre)) return { nombre: z.nombre, campo: 'ubicacion' };
+      if (igual(form.track, z.nombre))     return { nombre: z.nombre, campo: 'track' };
+    }
+    return null;
+  }, [form.zona_id, form.ubicacion, form.track, zonasEvento]);
   const tracksUsados = useMemo(() => sitiosDelEvento(evento, sessions, 'track'), [evento, sessions]);
   const ubicaciones  = useMemo(() => sitiosDelEvento(evento, sessions, 'ubicacion'), [evento, sessions]);
 
@@ -284,10 +303,40 @@ export default function SessionForm({ initial, speakers, prefillDate, torneos = 
               producción: 2 de 11 sesiones tenían zona y 4 tenían ubicación
               escrita a mano. Ahora la zona es la respuesta y la ubicación es el
               detalle. */}
-          {!form.zona_id && (
-            <p className="text-[11px] text-warning mt-1">
-              Sin zona, esta actividad no sale en el plano ni en la ficha de ninguna zona.
-            </p>
+          {/* ── Sin zona no siempre quiere decir «no sale» ──────────────────
+           *
+           * Aquí ponía, tal cual: «Sin zona, esta actividad no sale en el plano
+           * ni en la ficha de ninguna zona». Es FALSO, y se vio con datos
+           * reales: el Game JAM de FESTECH no tiene `zona_id`, sale en la ficha
+           * de «Universidad Cooperativa», y sus 16 inscritos con él.
+           *
+           * Sale porque el servidor tiene un respaldo (`lib/aforoZonas.js`): sin
+           * `zona_id`, engancha la actividad a la zona cuyo NOMBRE coincida con
+           * su sala o su track. El respaldo es bueno —hace que el mapa funcione
+           * sin tocar nada— pero es invisible, y el panel estaba negándolo.
+           *
+           * Negarlo tiene un coste concreto: quien lee eso y aun así ve la
+           * actividad en el mapa deja de creerse los avisos de esta pantalla. Y
+           * quien renombra la zona no tiene forma de saber que está
+           * desenganchando una actividad con gente inscrita.
+           *
+           * Así que se dice lo que pasa de verdad, y se ofrece lo que hay que
+           * hacer: fijar la zona, para que deje de depender de que dos textos
+           * sigan escribiéndose igual. */}
+          {!form.zona_id && (enganchePorNombre
+            ? (
+              <p className="text-[11px] text-warning mt-1 leading-relaxed">
+                Sale en la ficha de «{enganchePorNombre.nombre}» porque el nombre coincide con
+                {enganchePorNombre.campo === 'track' ? ' la sala' : ' la ubicación'} que escribiste.
+                Funciona, pero si alguien renombra esa zona, esta actividad desaparece del plano
+                sin avisar. Elígela arriba y deja de depender del texto.
+              </p>
+            )
+            : (
+              <p className="text-[11px] text-warning mt-1">
+                Sin zona, esta actividad no sale en el plano ni en la ficha de ninguna zona.
+              </p>
+            )
           )}
         </div>
       )}

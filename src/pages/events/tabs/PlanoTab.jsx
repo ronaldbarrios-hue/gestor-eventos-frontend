@@ -886,7 +886,7 @@ function Accesibilidad({ datos }) {
   if (datos.ok) {
     return (
       <p className="text-xs text-success flex items-center gap-2">
-        <Icono name="hecho" className="w-4 h-4" />
+        <Icono nombre="hecho" className="w-4 h-4" />
         {datos.accesibles} espacios accesibles, repartidos en {datos.zonas} zonas
         {datos.localidades > 1 ? ` y ${datos.localidades} localidades` : ''}.
       </p>
@@ -896,7 +896,7 @@ function Accesibilidad({ datos }) {
   return (
     <div className="rounded-2xl border border-warning/40 bg-warning/5 p-4 space-y-2">
       <p className="text-sm font-medium text-text-1 flex items-center gap-2">
-        <Icono name="aviso" className="w-4 h-4 text-warning" />
+        <Icono nombre="aviso" className="w-4 h-4 text-warning" />
         Sitios accesibles
       </p>
       <ul className="space-y-1.5">

@@ -72,7 +72,7 @@ function SocialLinks({ b }) {
   return (
     <div className="flex items-center gap-2">
       {items.map((it, i) => (
-        <a key={i} href={it.href} target="_blank" rel="noreferrer" title={it.label}
+        <a key={i} href={it.href} target="_blank" rel="noreferrer" title={it.label} data-fuera
            className="w-8 h-8 rounded-lg flex items-center justify-center border border-border
                       text-text-2 hover:text-text-1 hover:bg-surface-2 transition">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -157,7 +157,9 @@ export function PoweredBy({ organizador }) {
           15 px de alto. Es el pie —no es lo que más se pulsa— pero cuesta un
           `inline-block` y deja de ser imposible de acertar. */}
       Eventos gestionados con{' '}
-      <a href="/" className="inline-block py-2 sm:py-0 text-text-2 hover:text-text-1 underline">GESTEK</a>
+      {/* `data-fuera`: lleva fuera del evento, así que en una pantalla del
+          recinto se esconde. Ver `.pantalla-kiosco` en index.css. */}
+      <a href="/" data-fuera className="inline-block py-2 sm:py-0 text-text-2 hover:text-text-1 underline">GESTEK</a>
     </p>
   );
 }

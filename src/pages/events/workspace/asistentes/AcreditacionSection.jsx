@@ -30,18 +30,28 @@ import EtiquetadoraSection from './EtiquetadoraSection.jsx';
 export default function AcreditacionSection({ evento, soyOwner, permisos = [] }) {
   const puede = (p) => soyOwner || permisos.includes('*') || permisos.includes(p);
   /* «Diseñar» no es mirar: las dos pantallas de diseño guardan en `page_json`
-     con `eventosApi.update`, y eso pide `editar_evento`. Se ofrecían con
-     `ver_clientes` —que tienen Puerta, Atención, VIP host y Finanzas—, así que
-     esa gente entraba, elegía colores, pulsaba «Guardar diseño» y recibía un
-     403 con el trabajo hecho. Lo que se pierde ahí no es un clic: es el rato
-     que alguien pasó ajustando algo que nunca se iba a guardar.
+     con `eventosApi.update`. Se ofrecían con `ver_clientes` —que tienen
+     Puerta, Atención, VIP host y Finanzas—, así que esa gente entraba, elegía
+     colores, pulsaba «Guardar diseño» y recibía un 403 con el trabajo hecho.
+     Lo que se pierde ahí no es un clic: es el rato que alguien pasó ajustando
+     algo que nunca se iba a guardar.
 
-     Imprimir sí es de quien está en la puerta, y por eso sigue con `checkin`:
-     eso no guarda nada. */
+     `gestionar_acreditacion` va con `editar_evento`, y no es un añadido
+     cosmético: la migración 0124 partió la llave maestra JUSTO para esto — que
+     diseñar una escarapela no obligue a entregar el evento entero. El servidor
+     ya lo acepta (`LLAVES_ESTRECHAS` en `lib/quePuedeEditar.js` le abre
+     `wallet`, `puntos` y `credenciales`), y pidiendo aquí sólo `editar_evento`
+     el permiso se podía conceder, se veía marcado en el panel, y las dos
+     pantallas que abre no aparecían. El catálogo lo llama «Diseñar escarapelas
+     y carnés»: quien lo marca viene a hacer exactamente esto.
+
+     Imprimir sigue con `checkin`, que no guarda nada: es de quien está en la
+     puerta. */
+  const disena = puede('editar_evento') || puede('gestionar_acreditacion');
   const vistas = [
-    ...(puede('editar_evento') ? [['escarapela', 'Diseñar escarapela']]      : []),
-    ...(puede('editar_evento') ? [['carne',       'Diseñar carné digital']]   : []),
-    ...(puede('checkin')       ? [['etiquetas',   'Imprimir en etiquetadora']] : []),
+    ...(disena           ? [['escarapela', 'Diseñar escarapela']]      : []),
+    ...(disena           ? [['carne',       'Diseñar carné digital']]   : []),
+    ...(puede('checkin') ? [['etiquetas',   'Imprimir en etiquetadora']] : []),
   ];
   const [vista, setVista] = useState(() => vistas[0]?.[0] || 'escarapela');
 
