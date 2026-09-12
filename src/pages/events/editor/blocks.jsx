@@ -2047,19 +2047,99 @@ function AgendaEditor({ data = {}, onChange }) {
 }
 
 function AgendaPreview({ data = {}, evento, isEditor }) {
-  const items = (evento?.agenda || []).slice(0, data.limite || 6);
+  const limite = data.limite || 6;
+  /* Ordenadas por hora antes de agrupar: `porDia` junta las CONSECUTIVAS del
+     mismo día, así que con la lista desordenada saldría el mismo día dos veces
+     y en medio otro. Llegan ordenadas del servidor; ordenarlas aquí cuesta nada
+     y deja de depender de eso. */
+  const todas = [...(evento?.agenda || [])].sort((a, b) => {
+    if (!a.inicio) return 1;
+    if (!b.inicio) return -1;
+    return new Date(a.inicio) - new Date(b.inicio);
+  });
+  const items = todas.slice(0, limite);
+  const fuera = todas.length - items.length;
   if (items.length === 0 && !isEditor) return null;
 
+  const grupos = porDia(items);
+
+  /* Cuántos días quedan fuera del recorte. Se compara contra los días que SÍ
+     se enseñan, no contra el total: una actividad más del mismo día no es «un
+     día más». */
+  const diasEnseñados = new Set(porDia(items).map(g => g.clave));
+  const diasFuera = porDia(todas.slice(items.length))
+    .map(g => g.clave)
+    .filter(c => !diasEnseñados.has(c)).length;
+  /* Con un solo día no se pone encabezado: repetiría lo que ya dice la fecha
+     del evento justo encima. */
+  const porDias = grupos.length > 1;
+
+  /* Agrupando por día, la fecha entera en cada línea sobra: el día ya está
+     escrito arriba del grupo, y repetirlo convierte la línea en un párrafo.
+     Sin agrupar, se dice entera — si no, no hay forma de saber de qué día es. */
   const cuando = (s) => (s
-    ? new Date(s).toLocaleString('es-CO', conZona(evento,
-        { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))
+    ? new Date(s).toLocaleString('es-CO', conZona(evento, porDias
+        ? { hour: '2-digit', minute: '2-digit' }
+        : { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))
     : null);
   /* La hora de FIN, que llegaba del servidor y no se enseñaba.
      Saber que algo empieza a las 10 sin saber cuándo acaba no deja planear el
-     día: quien mira la agenda está decidiendo si le da tiempo a lo siguiente.
-     Se enseña sólo la hora —el día ya lo dice el inicio— porque repetirlo
-     entero convierte la línea en un párrafo. */
+     día: quien mira la agenda está decidiendo si le da tiempo a lo siguiente. */
   const hasta = (f) => (f ? fmtHora(f, evento) : null);
+
+  const Fila = ({ s }) => {
+    const dentro = (
+      <>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-text-1">{s.titulo}</p>
+          <p className="text-[11px] text-text-3 mt-0.5">
+            {cuando(s.inicio) || 'Sin fecha'}
+            {hasta(s.fin) ? ` – ${hasta(s.fin)}` : ''}
+            {s.ubicacion ? ` · ${s.ubicacion}` : ''}
+            {/* La sala. Con varias en paralelo —y FESTECH las tiene— sin esto
+                no hay forma de saber qué choca con qué. */}
+            {s.track ? ` · ${s.track}` : ''}
+          </p>
+          {/* Qué es. Estaba guardada y no se enseñaba, igual que en el mapa:
+              «Torneo gamer» no dice si hay que llevar equipo ni a quién va
+              dirigido. Recortada con CSS, que no parte palabras. */}
+          {s.descripcion && (
+            <p className="text-xs text-text-2 mt-1 leading-relaxed line-clamp-2">{s.descripcion}</p>
+          )}
+        </div>
+        {/* Sólo se marca lo que cambia lo que la persona tiene que hacer: si hay
+            que apuntarse, el resto es ruido. Y por eso el aforo va AQUÍ y no
+            como un número suelto: «quedan 3» y «completo» son decisiones
+            distintas, y «cupo 40» no es ninguna de las dos. */}
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {s.lleno ? (
+            <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-3 px-2 py-0.5 rounded">
+              Completo
+            </span>
+          ) : s.requiere_inscripcion && (
+            <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded">
+              {s.libres != null && s.libres <= 10 ? `Quedan ${s.libres}` : 'Con inscripción'}
+            </span>
+          )}
+        </div>
+      </>
+    );
+
+    /* Entrar a la actividad, igual que desde el mapa: a la agenda pública
+       enfocando ésta. En el editor no navega. */
+    if (!evento?.slug || isEditor) {
+      return <li className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3">{dentro}</li>;
+    }
+    return (
+      <li>
+        <a href={`/explorar/${evento.slug}/agenda?sesion=${encodeURIComponent(s.id)}`}
+           className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3
+                      hover:border-border-2 hover:bg-surface-2/50 transition-colors">
+          {dentro}
+        </a>
+      </li>
+    );
+  };
 
   return (
     <section>
@@ -2069,41 +2149,36 @@ function AgendaPreview({ data = {}, evento, isEditor }) {
           <p className="text-sm text-text-3">Todavía no hay actividades programadas.</p>
         </div>
       ) : (<>
-        <ul className="space-y-2">
-          {items.map(s => (
-            <li key={s.id} className="rounded-2xl border border-border bg-surface/40 p-4 flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-text-1">{s.titulo}</p>
-                <p className="text-[11px] text-text-3 mt-0.5">
-                  {cuando(s.inicio) || 'Sin fecha'}
-                  {hasta(s.fin) ? ` – ${hasta(s.fin)}` : ''}
-                  {s.ubicacion ? ` · ${s.ubicacion}` : ''}
-                  {/* La sala. Con varias en paralelo —y FESTECH las tiene— sin
-                      esto no hay forma de saber qué choca con qué. */}
-                  {s.track ? ` · ${s.track}` : ''}
-                </p>
-              </div>
-              {/* Sólo se marca lo que cambia lo que la persona tiene que hacer:
-                  si hay que apuntarse, el resto es ruido.
-                  Y por eso el aforo va AQUÍ y no como un número suelto: «quedan
-                  3» y «completo» son decisiones distintas, y «cupo 40» no es
-                  ninguna de las dos — no dice si todavía cabes. */}
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                {s.lleno ? (
-                  <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-3 px-2 py-0.5 rounded">
-                    Completo
-                  </span>
-                ) : s.requiere_inscripcion && (
-                  <span className="text-[10px] uppercase tracking-wide bg-surface-2 text-text-2 px-2 py-0.5 rounded">
-                    {s.libres != null && s.libres <= 10 ? `Quedan ${s.libres}` : 'Con inscripción'}
-                  </span>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        {porDias ? grupos.map(g => (
+          <div key={g.clave} className="mt-4 first:mt-0">
+            <p className="text-[11px] uppercase tracking-widest text-text-3 font-semibold mb-2 capitalize">{g.nombre}</p>
+            <ul className="space-y-2">
+              {g.items.map(s => <Fila key={s.id} s={s} />)}
+            </ul>
+          </div>
+        )) : (
+          <ul className="space-y-2">
+            {items.map(s => <Fila key={s.id} s={s} />)}
+          </ul>
+        )}
+
+        {/* Cuántas quedan fuera, y sobre todo si falta un DÍA ENTERO.
+            La lista se cortaba en `limite` sin decirlo: con seis de dieciocho,
+            lo que se lee es que el evento tiene seis actividades. Y el enlace a
+            «el programa completo» no lo desmiente — suena a «lo mismo, en otra
+            página».
+            Lo de los días no es un adorno: medido con FESTECH y un tope de
+            cuatro, el bloque enseña el jueves entero y el viernes DESAPARECE.
+            «Hay 1 actividad más» es cierto y no dice lo que hace falta saber,
+            que es que hay otro día de evento. */}
+        {fuera > 0 && (
+          <p className="text-[11px] text-text-3 mt-3">
+            {fuera === 1 ? 'Hay 1 actividad más' : `Hay ${fuera} actividades más`}
+            {diasFuera > 0 && (diasFuera === 1 ? ', de otro día' : `, de otros ${diasFuera} días`)}.
+          </p>
+        )}
         {evento?.slug && (
-          <a href={`/explorar/${evento.slug}/agenda`} className="inline-block mt-3 text-sm text-primary-light hover:underline">
+          <a href={`/explorar/${evento.slug}/agenda`} className="inline-block mt-2 text-sm text-primary-light hover:underline">
             Ver el programa completo
           </a>
         )}

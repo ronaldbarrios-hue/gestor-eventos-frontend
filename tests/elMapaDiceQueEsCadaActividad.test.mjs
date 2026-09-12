@@ -81,3 +81,62 @@ test('lo que no tiene hora no desaparece', () => {
      nada. Va al final, junta y dicho. */
   assert.match(sinComentarios, /Sin hora todavía/);
 });
+
+/* ── Y el calendario de la landing, que es el otro sitio donde se listan ──
+ *
+ * El bloque de agenda tenía los tres mismos problemas que la ficha del mapa, y
+ * uno propio:
+ *
+ *   · decía el título y la hora, sin qué es la actividad
+ *   · no se podía entrar a ninguna
+ *   · mezclaba días sin separarlos
+ *   · y se cortaba en `limite` SIN DECIRLO: con seis de dieciocho, lo que se
+ *     lee es que el evento tiene seis actividades
+ *
+ * El enlace a «el programa completo» no desmiente ese corte: suena a «lo
+ * mismo, en otra página», no a «aquí falta la mitad».
+ */
+
+test('el calendario de la landing agrupa por día, y sólo cuando hay varios', () => {
+  assert.match(sinComentarios, /const porDias = grupos\.length > 1;/,
+    'la landing agrupa por día aunque el evento sea de un solo día');
+
+  /* Agrupando, la fecha entera en cada línea sobra: ya está arriba del grupo.
+     Sin agrupar, se dice entera o no hay forma de saber de qué día es. */
+  assert.match(sinComentarios, /porDias\s*\n?\s*\? \{ hour: '2-digit', minute: '2-digit' \}/,
+    'agrupado por día se sigue repitiendo la fecha en cada línea');
+});
+
+test('la landing dice cuántas actividades deja fuera, y si falta un día entero', () => {
+  assert.match(sinComentarios, /const fuera = todas\.length - items\.length;/);
+  assert.match(sinComentarios, /Hay \$\{fuera\} actividades más/,
+    'el bloque vuelve a cortarse en `limite` sin decir que hay más');
+  /* Y que el aviso se PINTE, no sólo que el texto exista en el archivo. Se
+     probó cambiando la condición a `false`: el texto seguía ahí y este test
+     pasaba en verde sobre un aviso que ya no salía nunca. */
+  assert.match(sinComentarios, /\{fuera > 0 && \(/,
+    'el aviso de lo que falta está escrito pero no se pinta');
+
+  /* Lo de los días no es un adorno. Medido con la agenda real de FESTECH y un
+     tope de cuatro: el bloque enseña el jueves entero y el viernes DESAPARECE.
+     «Hay 1 actividad más» es cierto y no dice lo que hace falta saber — que hay
+     otro día de evento. */
+  assert.match(sinComentarios, /diasFuera === 1 \? ', de otro día'/,
+    'se corta un día entero del programa sin decirlo');
+
+  /* Y se cuenta contra los días que SÍ se enseñan: una actividad más del mismo
+     día no es «un día más». */
+  assert.match(sinComentarios, /\.filter\(c => !diasEnseñados\.has\(c\)\)\.length/);
+});
+
+test('las actividades se ordenan antes de agruparlas', () => {
+  /* `porDia` junta las CONSECUTIVAS del mismo día: con la lista desordenada
+     saldría el mismo día dos veces y otro en medio. Llegan ordenadas del
+     servidor, y ordenarlas aquí deja de depender de eso. */
+  assert.match(sinComentarios, /const todas = \[\.\.\.\(evento\?\.agenda \|\| \[\]\)\]\.sort\(/);
+});
+
+test('y desde la landing también se entra a la actividad', () => {
+  const veces = (sinComentarios.match(/\/agenda\?sesion=\$\{encodeURIComponent\(s\.id\)\}/g) || []).length;
+  assert.equal(veces, 2, 'el mapa y la landing tienen que llevar los dos a la misma pantalla');
+});
