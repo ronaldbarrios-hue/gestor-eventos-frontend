@@ -282,8 +282,49 @@ function RolesSection({ eventoId, roles, catalogo, onChange }) {
   const [creating, setCreating] = useState(false);
   const [working, setWorking]   = useState(false);
   const [draft, setDraft]       = useState({ nombre: '', descripcion: '', permissions: [] });
-  const [editing, setEditing]   = useState(null); // id del rol en edición
+  const [partirDe, setPartirDe] = useState('');
+  /* Arriba, antes de `copiarDe`: funcionaba igual declarado abajo —el cierre se
+     ejecuta mucho después— pero leerlo así hace dudar a cualquiera. */
   const { success, error: toastErr } = useToast();
+
+  /* ── Partir de un rol que ya existe ──────────────────────────────────────
+   *
+   * De la capacitación de logística: «tuve que darle permisos muy altos para
+   * que pudieran operar».
+   *
+   * El coste no está en los clics: medido sobre el rol de logística de
+   * TechNova (8 permisos), desde cero son 8 clics y partiendo de «Atención»
+   * son 5. La diferencia de verdad es que desde cero hay que LEER Y DECIDIR
+   * las 31 casillas una por una, sabiendo de antemano cuál abre qué; partiendo
+   * de un rol que ya funciona, se reconoce una forma y se recorta.
+   *
+   * Y por eso la lista dice cuántos permisos trae cada uno: partir de
+   * «Coordinador» para este rol sale PEOR —13 clics, nueve de ellos quitando—
+   * y el número lo dice antes de elegir.
+   *
+   * Copia SÓLO los permisos, no el nombre ni la descripción: son dos roles
+   * distintos y llamarlos igual es de lo poco que no se puede deshacer desde
+   * esta pantalla.
+   *
+   * Si ya había casillas marcadas se pregunta antes. Reemplazar en silencio lo
+   * que alguien acaba de marcar es justo el fallo que llevamos toda la semana
+   * quitando de otros sitios. */
+  const copiarDe = async (id) => {
+    const rol = roles.find(r => String(r.id) === String(id));
+    if (!rol) { setPartirDe(''); setDraft(p => ({ ...p, permissions: [] })); return; }
+
+    const suyos = rol.permissions || [];
+    if (draft.permissions.length && !(await confirmDialog({
+      title: `Partir de «${rol.nombre}»`,
+      message: `Ya llevas ${draft.permissions.length} ${draft.permissions.length === 1 ? 'permiso marcado' : 'permisos marcados'}. Se reemplazan por los ${suyos.length} de «${rol.nombre}».`,
+      confirmLabel: 'Reemplazar',
+    }))) return;
+
+    setPartirDe(String(id));
+    setDraft(p => ({ ...p, permissions: [...suyos] }));
+    success(`Copiados ${suyos.length} permisos de «${rol.nombre}». Quita lo que no haga falta.`);
+  };
+  const [editing, setEditing]   = useState(null); // id del rol en edición
 
   const onCrear = async (e) => {
     e.preventDefault();
@@ -293,6 +334,9 @@ function RolesSection({ eventoId, roles, catalogo, onChange }) {
       await rolesApi.crear(eventoId, draft);
       success('Rol creado.');
       setDraft({ nombre: '', descripcion: '', permissions: [] });
+      /* También el «partir de»: sin esto, el siguiente rol abre diciendo que
+         parte de uno cuyas casillas ya no están marcadas. */
+      setPartirDe('');
       setCreating(false);
       onChange();
     } catch (e) { toastErr(e.message); }
@@ -328,6 +372,27 @@ function RolesSection({ eventoId, roles, catalogo, onChange }) {
         <form onSubmit={onCrear}
           className="rounded-2xl border border-border bg-surface/40 p-5 animate-[fadeUp_0.3s_ease_both] space-y-4"
         >
+          {/* Arriba de todo: es la primera decisión, no un extra. Puesto abajo,
+              se encuentra cuando ya marcaste las casillas a mano. */}
+          {roles.length > 0 && (
+            <div className="field">
+              <label className="label">Partir de un rol que ya existe</label>
+              <select value={partirDe} onChange={e => copiarDe(e.target.value)} className="input-form">
+                <option value="">Desde cero, sin permisos</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.nombre} · {(r.permissions || []).length} permisos
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-text-3 mt-1.5">
+                Copia sus permisos como punto de partida y después quitas lo que sobre.
+                Elige uno parecido al que necesitas: partir de uno muy ancho da más trabajo
+                que empezar de cero.
+              </p>
+            </div>
+          )}
+
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="field">
               <label className="label">Nombre *</label>
@@ -357,7 +422,9 @@ function RolesSection({ eventoId, roles, catalogo, onChange }) {
           />
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setCreating(false)} className="btn-ghost btn-sm">Cancelar</button>
+            <button type="button"
+              onClick={() => { setCreating(false); setPartirDe(''); setDraft({ nombre: '', descripcion: '', permissions: [] }); }}
+              className="btn-ghost btn-sm">Cancelar</button>
             <button type="submit" disabled={working} className="btn-primary btn-sm">
               {working ? <><Spinner size="sm" /> Creando...</> : 'Crear rol'}
             </button>
